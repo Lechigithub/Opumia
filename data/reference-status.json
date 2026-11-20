@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-20T01:28:20.146Z",
+  "referenceRoot": "Reference",
+  "doneFiles": [
+    {
+      "file": "done.txt",
+      "lines": 43,
+      "ids": 43,
+      "channels": {
+        "magnates-media": 39,
+        "logically-answered": 4
+      }
+    },
+    {
+      "file": "done_HowMoneyWorks.txt",
+      "lines": 30,
+      "ids": 30,
+      "channels": {
+        "how-money-works": 30
+      }
+    },
+    {
+      "file": "done_LogicallyAnswered.txt",
+      "lines": 30,
+      "ids": 30,
+      "channels": {
+        "logically-answered": 30
+      }
+    },
+    {
+      "file": "done_ModernMBA.txt",
+      "lines": 27,
+      "ids": 27,
+      "channels": {
+        "modern-mba": 27
+      }
+    },
+    {
+      "file": "done_moon-real.txt",
+      "lines": 30,
+      "ids": 30,
+      "channels": {
+        "moon": 30
+      }
+    }
+  ],
+  "channels": {
+    "magnates-media": {
+      "doneFile": "done.txt",
+      "doneIds": 39,
+      "onDisk": 39,
+      "doneAndOnDisk": 39,
+      "missingOnDisk": [],
+      "notInDoneFile": [],
+      "foreignIds": [
+        {
+          "id": "FNmQjDTRfjM",
+          "channel": "logically-answered"
+        },
+        {
+          "id": "iy2fwqfTEJQ",
+          "channel": "logically-answered"
+        },
+        {
+          "id": "JHDrK2E62SA",
+          "channel": "logically-answered"
+        },
+        {
+          "id": "RfOEW3Cgrek",
+          "channel": "logically-answered"
+        }
+      ],
+      "withVideoFile": 39,
+      "withTranscript": 37,
+      "withShotAnalysis": 37,
+      "withSoundAnalysis": 37,
+      "complete": true
+    },
+    "logically-answered": {
+      "doneFile": "done_LogicallyAnswered.txt",
+      "doneIds": 30,
+      "onDisk": 30,
+      "doneAndOnDisk": 30,
+      "missingOnDisk": [],
+      "notInDoneFile": [],
+      "foreignIds": [],
+      "withVideoFile": 30,
+      "withTranscript": 30,
+      "withShotAnalysis": 30,
+      "withSoundAnalysis": 30,
+      "complete": true
+    },
+    "big-company": {
+      "doneFile": "Big Company/video_index.csv",
+      "doneIds": 20,
+      "onDisk": 20,
+      "doneAndOnDisk": 20,
+      "missingOnDisk": [],
+      "notInDoneFile": [],
+      "foreignIds": [],
+      "withVideoFile": 20,
+      "withTranscript": 20,
+      "withShotAnalysis": 14,
+      "withSoundAnalysis": 20,
+      "complete": true
+    },
+    "modern-mba": {
+      "doneFile": "done_ModernMBA.txt",
+      "doneIds": 27,
+      "onDisk": 27,
+      "doneAndOnDisk": 27,
+      "missingOnDisk": [],
+      "notInDoneFile": [],
+      "foreignIds": [],
+      "withVideoFile": 27,
+      "withTranscript": 27,
+      "withShotAnalysis": 27,
+      "withSoundAnalysis": 27,
+      "complete": true
+    },
+    "how-money-works": {
+      "doneFile": "done_HowMoneyWorks.txt",
+      "doneIds": 30,
+      "onDisk": 30,
+      "doneAndOnDisk": 30,
+      "missingOnDisk": [],
+      "notInDoneFile": [],
+      "foreignIds": [],
+      "withVideoFile": 30,
+      "withTranscript": 30,
+      "withShotAnalysis": 30,
+      "withSoundAnalysis": 30,
+      "complete": true
+    },
+    "moon": {
+      "doneFile": "done_moon-real.txt",
+      "doneIds": 30,
+      "onDisk": 30,
+      "doneAndOnDisk": 30,
+      "missingOnDisk": [],
+      "notInDoneFile": [],
+      "foreignIds": [],
+      "withVideoFile": 30,
+      "withTranscript": 30,
+      "withShotAnalysis": 30,
+      "withSoundAnalysis": 30,
+      "complete": true
+    }
+  }
+}

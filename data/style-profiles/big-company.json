@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "id": "big-company",
+  "displayName": "Big Company",
+  "draft": true,
+  "generatedAt": "2026-11-20T01:28:21.318Z",
+  "corpus": {
+    "doneFile": "Big Company/video_index.csv",
+    "doneIds": 20,
+    "onDisk": 20,
+    "doneAndOnDisk": 20,
+    "missingOnDisk": [],
+    "notInDoneFile": [],
+    "foreignIds": [],
+    "withVideoFile": 20,
+    "withTranscript": 20,
+    "withShotAnalysis": 14,
+    "withSoundAnalysis": 20,
+    "complete": true
+  },
+  "format": {
+    "primaryAspect": "16:9",
+    "durationMin": {
+      "n": 20,
+      "mean": 24.0525,
+      "p25": 19.2333,
+      "p50": 23.1333,
+      "p75": 28.2583,
+      "min": 15.1833,
+      "max": 38
+    },
+    "fps": [
+      24,
+      25,
+      30
+    ],
+    "resolution": [
+      "1920x1080"
+    ]
+  },
+  "pacing": {
+    "cutsPerMin": {
+      "n": 20,
+      "mean": 18.065,
+      "p25": 13.825,
+      "p50": 19.2,
+      "p75": 22.175,
+      "min": 5.3,
+      "max": 29.1
+    },
+    "shotMedianS": {
+      "n": 20,
+      "mean": 2.22,
+      "p25": 1.8,
+      "p50": 2.15,
+      "p75": 2.7,
+      "min": 1,
+      "max": 3.6
+    },
+    "shotCv": null,
+    "cutsFirst60s": {
+      "n": 20,
+      "mean": 25.4,
+      "p25": 14,
+      "p50": 23.5,
+      "p75": 30.25,
+      "min": 8,
+      "max": 59
+    }
+  },
+  "look": {
+    "saturation": {
+      "n": 14,
+      "mean": 0.2899,
+      "p25": 0.2221,
+      "p50": 0.3154,
+      "p75": 0.3558,
+      "min": 0.1638,
+      "max": 0.4006
+    },
+    "greyShare": {
+      "n": 14,
+      "mean": 0.4186,
+      "p25": 0.2953,
+      "p50": 0.368,
+      "p75": 0.518,
+      "min": 0.2376,
+      "max": 0.6819
+    },
+    "luma": {
+      "n": 14,
+      "mean": 0.3065,
+      "p25": 0.2906,
+      "p50": 0.3124,
+      "p75": 0.3227,
+      "min": 0.2549,
+      "max": 0.359
+    },
+    "contrast": {
+      "n": 14,
+      "mean": 0.4158,
+      "p25": 0.3979,
+      "p50": 0.4227,
+      "p75": 0.4281,
+      "min": 0.3847,
+      "max": 0.4487
+    },
+    "faceShare": {
+      "n": 14,
+      "mean": 0.5135,
+      "p25": 0.4585,
+      "p50": 0.4923,
+      "p75": 0.5519,
+      "min": 0.4288,
+      "max": 0.6793
+    },
+    "motion": null
+  },
+  "visualMix": {
+    "stock": null,
+    "real": null,
+    "designed": null,
+    "still": null
+  },
+  "audio": {
+    "integratedLufs": {
+      "n": 20,
+      "mean": -17.63,
+      "p25": -19.5,
+      "p50": -17.05,
+      "p75": -15.9,
+      "min": -22,
+      "max": -13.8
+    },
+    "voiceOverBedDb": null,
+    "duckingDb": null,
+    "speechShare": null,
+    "strongHitsPerMin": null,
+    "musicDropsPer10Min": null,
+    "cueChangesPer10Min": null
+  },
+  "narration": {
+    "wordsPerMin": {
+      "n": 20,
+      "mean": 159.0941,
+      "p25": 154.7947,
+      "p50": 158.6386,
+      "p75": 163.9331,
+      "min": 145.8056,
+      "max": 170.5732
+    },
+    "chaptersPerVideo": {
+      "n": 19,
+      "mean": 7.4211,
+      "p25": 6.5,
+      "p50": 7,
+      "p75": 8,
+      "min": 5,
+      "max": 12
+    }
+  },
+  "techniques": {},
+  "titles": {
+    "examples": [
+      "How A Newspaper Boy Created Disney",
+      "How A Newspaper Boy Created Rolls-Royce",
+      "How A Poor Boy Created Mercedes-Benz",
+      "How A Poor Korean Boy Created Hyundai",
+      "How Warren Buffett Made His Fortune",
+      "How a Poor Japanese Boy Created Honda",
+      "The Blacksmith Boy Who Created Ferrari",
+      "The Disturbing History Of Porsche",
+      "The Disturbing History of Volkswagen",
+      "The Farm Boy Who Invented Hershey's",
+      "The Farmer Boy Who Invented Ford",
+      "The Humble Farm Boy Who Created Lamborghini"
+    ],
+    "chars": {
+      "n": 20,
+      "mean": 35.65,
+      "p25": 32.75,
+      "p50": 35.5,
+      "p75": 38,
+      "min": 27,
+      "max": 51
+    },
+    "questionShare": 0,
+    "numberShare": 0.1
+  },
+  "audience": {
+    "views": {
+      "n": 20,
+      "mean": 2293698.2,
+      "p25": 459607,
+      "p50": 1268931.5,
+      "p75": 3726766.25,
+      "min": 18055,
+      "max": 9841272
+    }
+  },
+  "directives": [
+    "Pacing: target 13.83–22.18 cuts/min (median 19.2).",
+    "Median shot length ≈ 2.15 s; hold designed graphics longer than stock B-roll.",
+    "Cold open: ~24 cuts in the first 60 s.",
+    "Narration pace ≈ 159 wpm (ElevenLabs speed/stability tuned to match).",
+    "Grade: saturation ≈ 0.32, greyscale share ≈ 37%, luma ≈ 0.31.",
+    "Faces on screen in ≈ 49% of shots.",
+    "Master to ≈ -17.05 LUFS integrated.",
+    "Long-form runtime 19.23–28.26 min.",
+    "All picture comes from Library/stock/archival/designed sources — never AI-generated video."
+  ],
+  "sources": [
+    "Big Company/video_index.csv",
+    "Big Company/Videos/*/*.info.json",
+    "Big Company/Analysis Data/editing_stats.csv",
+    "Big Company/Analysis Data/feats/*_feats.json",
+    "Big Company/Analysis Data/words/*_words.json"
+  ]
+}

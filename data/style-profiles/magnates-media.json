@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "id": "magnates-media",
+  "displayName": "MagnatesMedia",
+  "draft": true,
+  "generatedAt": "2026-11-20T01:28:21.196Z",
+  "corpus": {
+    "doneFile": "done.txt",
+    "doneIds": 39,
+    "onDisk": 39,
+    "doneAndOnDisk": 39,
+    "missingOnDisk": [],
+    "notInDoneFile": [],
+    "foreignIds": [
+      {
+        "id": "FNmQjDTRfjM",
+        "channel": "logically-answered"
+      },
+      {
+        "id": "iy2fwqfTEJQ",
+        "channel": "logically-answered"
+      },
+      {
+        "id": "JHDrK2E62SA",
+        "channel": "logically-answered"
+      },
+      {
+        "id": "RfOEW3Cgrek",
+        "channel": "logically-answered"
+      }
+    ],
+    "withVideoFile": 39,
+    "withTranscript": 37,
+    "withShotAnalysis": 37,
+    "withSoundAnalysis": 37,
+    "complete": true
+  },
+  "format": {
+    "primaryAspect": "16:9",
+    "durationMin": {
+      "n": 39,
+      "mean": 27.344,
+      "p25": 18.8917,
+      "p50": 21.55,
+      "p75": 30.8083,
+      "min": 2.9333,
+      "max": 78.7667
+    },
+    "fps": [
+      24,
+      25,
+      30,
+      60
+    ],
+    "resolution": [
+      "1920x1080",
+      "1920x802"
+    ]
+  },
+  "pacing": {
+    "cutsPerMin": {
+      "n": 37,
+      "mean": 18.4386,
+      "p25": 12.9524,
+      "p50": 16.9632,
+      "p75": 21.3536,
+      "min": 5.7558,
+      "max": 65.1253
+    },
+    "shotMedianS": {
+      "n": 37,
+      "mean": 2.0817,
+      "p25": 1.74,
+      "p50": 2.002,
+      "p75": 2.44,
+      "min": 0.167,
+      "max": 4.8165
+    },
+    "shotCv": {
+      "n": 37,
+      "mean": 1.3117,
+      "p25": 1.0935,
+      "p50": 1.2542,
+      "p75": 1.4368,
+      "min": 0.8072,
+      "max": 2.0238
+    },
+    "cutsFirst60s": {
+      "n": 37,
+      "mean": 24.7297,
+      "p25": 14,
+      "p50": 21,
+      "p75": 28,
+      "min": 4,
+      "max": 140
+    }
+  },
+  "look": {
+    "saturation": {
+      "n": 37,
+      "mean": 0.4065,
+      "p25": 0.3607,
+      "p50": 0.402,
+      "p75": 0.4515,
+      "min": 0.2824,
+      "max": 0.5756
+    },
+    "greyShare": {
+      "n": 37,
+      "mean": 0.2785,
+      "p25": 0.2114,
+      "p50": 0.2681,
+      "p75": 0.328,
+      "min": 0.1035,
+      "max": 0.4926
+    },
+    "luma": {
+      "n": 37,
+      "mean": 0.2798,
+      "p25": 0.2487,
+      "p50": 0.2849,
+      "p75": 0.3065,
+      "min": 0.1688,
+      "max": 0.4021
+    },
+    "contrast": {
+      "n": 37,
+      "mean": 0.3821,
+      "p25": 0.3526,
+      "p50": 0.3878,
+      "p75": 0.4039,
+      "min": 0.31,
+      "max": 0.4688
+    },
+    "faceShare": {
+      "n": 37,
+      "mean": 0.5231,
+      "p25": 0.4548,
+      "p50": 0.5246,
+      "p75": 0.5994,
+      "min": 0.3243,
+      "max": 0.7636
+    },
+    "motion": {
+      "n": 37,
+      "mean": 18.2472,
+      "p25": 14.5099,
+      "p50": 16.4746,
+      "p75": 22.3637,
+      "min": 8.0942,
+      "max": 27.4326
+    }
+  },
+  "visualMix": {
+    "stock": {
+      "n": 37,
+      "mean": 0.4917,
+      "p25": 0.3891,
+      "p50": 0.4735,
+      "p75": 0.5888,
+      "min": 0.2538,
+      "max": 0.7343
+    },
+    "real": {
+      "n": 37,
+      "mean": 0.1056,
+      "p25": 0.0654,
+      "p50": 0.0919,
+      "p75": 0.1419,
+      "min": 0.0274,
+      "max": 0.2804
+    },
+    "designed": {
+      "n": 37,
+      "mean": 0.3199,
+      "p25": 0.2504,
+      "p50": 0.2933,
+      "p75": 0.3585,
+      "min": 0.1463,
+      "max": 0.6391
+    },
+    "still": {
+      "n": 37,
+      "mean": 0.0575,
+      "p25": 0.0289,
+      "p50": 0.05,
+      "p75": 0.0691,
+      "min": 0,
+      "max": 0.19
+    }
+  },
+  "audio": {
+    "integratedLufs": {
+      "n": 37,
+      "mean": -12.6216,
+      "p25": -13.2,
+      "p50": -12.5,
+      "p75": -12,
+      "min": -15.6,
+      "max": -10.1
+    },
+    "voiceOverBedDb": {
+      "n": 37,
+      "mean": 18.7349,
+      "p25": 16.46,
+      "p50": 18.1355,
+      "p75": 20.5805,
+      "min": 10.6482,
+      "max": 28.311
+    },
+    "duckingDb": {
+      "n": 37,
+      "mean": 5.588,
+      "p25": 3.5977,
+      "p50": 8.1598,
+      "p75": 11.6411,
+      "min": -36.3687,
+      "max": 18.9028
+    },
+    "speechShare": {
+      "n": 37,
+      "mean": 0.9504,
+      "p25": 0.9375,
+      "p50": 0.9525,
+      "p75": 0.962,
+      "min": 0.8994,
+      "max": 0.9937
+    },
+    "strongHitsPerMin": {
+      "n": 37,
+      "mean": 3.2072,
+      "p25": 2.2252,
+      "p50": 3.0819,
+      "p75": 3.7274,
+      "min": 0.8959,
+      "max": 8.8346
+    },
+    "musicDropsPer10Min": {
+      "n": 37,
+      "mean": 13.1029,
+      "p25": 5.9117,
+      "p50": 9.3594,
+      "p75": 14.9906,
+      "min": 0,
+      "max": 73.2341
+    },
+    "cueChangesPer10Min": {
+      "n": 37,
+      "mean": 10.003,
+      "p25": 9.2211,
+      "p50": 10.0099,
+      "p75": 10.4154,
+      "min": 6.8792,
+      "max": 13.4765
+    }
+  },
+  "narration": {
+    "wordsPerMin": {
+      "n": 37,
+      "mean": 200.9534,
+      "p25": 192.8532,
+      "p50": 201.1838,
+      "p75": 211.9226,
+      "min": 140.9137,
+      "max": 233.1242
+    },
+    "chaptersPerVideo": {
+      "n": 34,
+      "mean": 8.5882,
+      "p25": 7,
+      "p50": 8.5,
+      "p75": 10,
+      "min": 5,
+      "max": 14
+    }
+  },
+  "techniques": {
+    "big_word": 8,
+    "chapter_card": 8,
+    "chart": 8,
+    "cutout_collage": 8,
+    "document": 8,
+    "map": 8,
+    "money_figure": 8,
+    "name_label": 8,
+    "screen": 8,
+    "versus": 8
+  },
+  "titles": {
+    "examples": [
+      "Hershey: The Real Life Willy Wonka",
+      "How A Kid With $0 Created Nike",
+      "How Chicken Tenders Made Him A Millionaire 🍗",
+      "How Facebook Destroyed Google",
+      "How MagnatesMedia Almost Got DELETED",
+      "How WhatsApp Makes Money: The INSANE Story of WhatsApp",
+      "J.P. Morgan: The Man Who Owned America",
+      "KFC Lied To You...",
+      "Nestlé's Darkest Secret: The Disturbing Truth",
+      "Papa John's: Scandals, Betrayal & Dumpster Diving",
+      "Ponzi: The Financial Idiot Who Scammed the World",
+      "The Bankrupt Child That Created Rolls-Royce"
+    ],
+    "chars": {
+      "n": 39,
+      "mean": 39.2821,
+      "p25": 33.5,
+      "p50": 40,
+      "p75": 45.5,
+      "min": 18,
+      "max": 59
+    },
+    "questionShare": 0.03,
+    "numberShare": 0.03
+  },
+  "audience": {
+    "views": {
+      "n": 39,
+      "mean": 2566466.359,
+      "p25": 903180,
+      "p50": 1505739,
+      "p75": 3519414,
+      "min": 126190,
+      "max": 12107873
+    }
+  },
+  "directives": [
+    "Pacing: target 12.95–21.35 cuts/min (median 16.96).",
+    "Median shot length ≈ 2 s; hold designed graphics longer than stock B-roll.",
+    "Cold open: ~21 cuts in the first 60 s.",
+    "Narration pace ≈ 201 wpm (ElevenLabs speed/stability tuned to match).",
+    "Visual mix (screen share, median): stock 47%, real/archival 9%, designed 29%, stills 5%.",
+    "Grade: saturation ≈ 0.4, greyscale share ≈ 27%, luma ≈ 0.28.",
+    "Faces on screen in ≈ 52% of shots.",
+    "Master to ≈ -12.5 LUFS integrated.",
+    "Voice sits ≈ 18.14 dB over the music bed; ducking ≈ 8.16 dB.",
+    "SFX hits ≈ 3.08/min; music cue changes ≈ 10.01 per 10 min; drops ≈ 9.36 per 10 min.",
+    "Long-form runtime 18.89–30.81 min.",
+    "Signature designed moments: big_word, chapter_card, chart, cutout_collage, document.",
+    "All picture comes from Library/stock/archival/designed sources — never AI-generated video."
+  ],
+  "sources": [
+    "MagnatesMedia/*/<id>.info.json",
+    "MagnatesMedia/*/pretrain.json",
+    "MagnatesMedia/*/sound.json",
+    ".analysis/meta/MM-*.json",
+    "Library/moments/MagnatesMedia/index.json"
+  ]
+}

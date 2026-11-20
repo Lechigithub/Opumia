@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 1,
+  "id": "modern-mba",
+  "displayName": "Modern MBA",
+  "draft": true,
+  "generatedAt": "2026-11-20T01:27:34.416Z",
+  "corpus": {
+    "doneFile": "done_ModernMBA.txt",
+    "doneIds": 27,
+    "onDisk": 27,
+    "doneAndOnDisk": 27,
+    "missingOnDisk": [],
+    "notInDoneFile": [],
+    "foreignIds": [],
+    "withVideoFile": 27,
+    "withTranscript": 27,
+    "withShotAnalysis": 27,
+    "withSoundAnalysis": 27,
+    "complete": true
+  },
+  "format": {
+    "primaryAspect": "16:9",
+    "durationMin": {
+      "n": 27,
+      "mean": 29.2833,
+      "p25": 23.8417,
+      "p50": 28.8833,
+      "p75": 32.8,
+      "min": 12.4333,
+      "max": 59.5
+    },
+    "fps": [
+      24,
+      25,
+      30,
+      60
+    ],
+    "resolution": [
+      "1280x720",
+      "1920x1080",
+      "1920x960"
+    ]
+  },
+  "pacing": {
+    "cutsPerMin": {
+      "n": 27,
+      "mean": 28.0353,
+      "p25": 19.7865,
+      "p50": 24.6476,
+      "p75": 30.2316,
+      "min": 11.095,
+      "max": 84.0505
+    },
+    "shotMedianS": {
+      "n": 27,
+      "mean": 1.5706,
+      "p25": 1.168,
+      "p50": 1.418,
+      "p75": 1.7305,
+      "min": 0.25,
+      "max": 4.5255
+    },
+    "shotCv": {
+      "n": 27,
+      "mean": 1.4671,
+      "p25": 1.1255,
+      "p50": 1.4412,
+      "p75": 1.7243,
+      "min": 0.6583,
+      "max": 2.4048
+    },
+    "cutsFirst60s": {
+      "n": 27,
+      "mean": 29.3333,
+      "p25": 19.5,
+      "p50": 22,
+      "p75": 35.5,
+      "min": 7,
+      "max": 124
+    }
+  },
+  "look": {
+    "saturation": {
+      "n": 27,
+      "mean": 0.3119,
+      "p25": 0.2794,
+      "p50": 0.3067,
+      "p75": 0.3327,
+      "min": 0.2167,
+      "max": 0.4275
+    },
+    "greyShare": {
+      "n": 27,
+      "mean": 0.3412,
+      "p25": 0.3004,
+      "p50": 0.3504,
+      "p75": 0.3784,
+      "min": 0.2122,
+      "max": 0.479
+    },
+    "luma": {
+      "n": 27,
+      "mean": 0.4022,
+      "p25": 0.3691,
+      "p50": 0.4018,
+      "p75": 0.4329,
+      "min": 0.3028,
+      "max": 0.5148
+    },
+    "contrast": {
+      "n": 27,
+      "mean": 0.4409,
+      "p25": 0.4223,
+      "p50": 0.4345,
+      "p75": 0.4586,
+      "min": 0.4002,
+      "max": 0.5121
+    },
+    "faceShare": {
+      "n": 27,
+      "mean": 0.5378,
+      "p25": 0.4753,
+      "p50": 0.5317,
+      "p75": 0.579,
+      "min": 0.3522,
+      "max": 0.7296
+    },
+    "motion": {
+      "n": 27,
+      "mean": 22.2577,
+      "p25": 16.7832,
+      "p50": 22.0756,
+      "p75": 29.5507,
+      "min": 0.0659,
+      "max": 36.455
+    }
+  },
+  "visualMix": {
+    "stock": {
+      "n": 27,
+      "mean": 0.6641,
+      "p25": 0.6168,
+      "p50": 0.6526,
+      "p75": 0.7239,
+      "min": 0.4273,
+      "max": 0.8188
+    },
+    "real": {
+      "n": 27,
+      "mean": 0.0722,
+      "p25": 0.0526,
+      "p50": 0.0744,
+      "p75": 0.0844,
+      "min": 0.0414,
+      "max": 0.1285
+    },
+    "designed": {
+      "n": 27,
+      "mean": 0.2317,
+      "p25": 0.174,
+      "p50": 0.2101,
+      "p75": 0.2809,
+      "min": 0.1015,
+      "max": 0.4431
+    },
+    "still": {
+      "n": 27,
+      "mean": 0.1801,
+      "p25": 0.0917,
+      "p50": 0.1587,
+      "p75": 0.2089,
+      "min": 0.013,
+      "max": 0.5477
+    }
+  },
+  "audio": {
+    "integratedLufs": {
+      "n": 27,
+      "mean": -20.0963,
+      "p25": -22.2,
+      "p50": -19.6,
+      "p75": -17.45,
+      "min": -35.1,
+      "max": -15.1
+    },
+    "voiceOverBedDb": {
+      "n": 27,
+      "mean": 39.675,
+      "p25": 38.9057,
+      "p50": 39.398,
+      "p75": 40.4398,
+      "min": 36.3253,
+      "max": 43.8666
+    },
+    "duckingDb": {
+      "n": 27,
+      "mean": -15.4109,
+      "p25": -18.1528,
+      "p50": -16.0032,
+      "p75": -13.6643,
+      "min": -21.6173,
+      "max": 1.4413
+    },
+    "speechShare": {
+      "n": 27,
+      "mean": 0.9451,
+      "p25": 0.9352,
+      "p50": 0.9413,
+      "p75": 0.9484,
+      "min": 0.924,
+      "max": 0.992
+    },
+    "strongHitsPerMin": {
+      "n": 27,
+      "mean": 3.9213,
+      "p25": 2.3163,
+      "p50": 3.5153,
+      "p75": 4.9808,
+      "min": 0.8597,
+      "max": 9.0771
+    },
+    "musicDropsPer10Min": {
+      "n": 27,
+      "mean": 3.8363,
+      "p25": 1.0004,
+      "p50": 2.2898,
+      "p75": 5.755,
+      "min": 0.3027,
+      "max": 14.5391
+    },
+    "cueChangesPer10Min": {
+      "n": 27,
+      "mean": 13.5919,
+      "p25": 13.1359,
+      "p50": 14.193,
+      "p75": 14.9321,
+      "min": 5.8966,
+      "max": 16.9526
+    }
+  },
+  "narration": {
+    "wordsPerMin": {
+      "n": 27,
+      "mean": 184.4365,
+      "p25": 175.915,
+      "p50": 184.5464,
+      "p75": 194.5564,
+      "min": 161.7332,
+      "max": 201.7218
+    },
+    "chaptersPerVideo": {
+      "n": 13,
+      "mean": 10.8462,
+      "p25": 8,
+      "p50": 11,
+      "p75": 13,
+      "min": 6,
+      "max": 18
+    }
+  },
+  "techniques": {
+    "big_word": 8,
+    "chapter_card": 8,
+    "chart": 8,
+    "cutout_collage": 8,
+    "document": 8,
+    "map": 8,
+    "money_figure": 8,
+    "name_label": 8,
+    "screen": 8,
+    "versus": 8
+  },
+  "titles": {
+    "examples": [
+      "A Tale of Greed: How 4 CEOs and $5B Failed Twitter",
+      "Buy Now, Pay Later: Echoes of the 2008 Recession",
+      "DoorDash & The Myth of Profitable Food Delivery",
+      "Facebook's Collapse & The Metaverse Crusade",
+      "Fried Chicken Wars: The Fall of KFC in America",
+      "How Adidas Caught Up to Nike",
+      "How Axon Became Wall Street's Hottest Stock",
+      "How Burger King Lost to Wendy’s",
+      "How Casper Failed & Why DTC Startups Lose Money",
+      "How Cruises Make More Profits Than Airlines",
+      "How Dollar Tree Conquered Low Income America",
+      "How GameStop Fell Apart"
+    ],
+    "chars": {
+      "n": 27,
+      "mean": 40.6667,
+      "p25": 35,
+      "p50": 43,
+      "p75": 46.5,
+      "min": 23,
+      "max": 51
+    },
+    "questionShare": 0,
+    "numberShare": 0.07
+  },
+  "audience": {
+    "views": {
+      "n": 27,
+      "mean": 1071374.1852,
+      "p25": 586113,
+      "p50": 735550,
+      "p75": 1184825,
+      "min": 141899,
+      "max": 3523782
+    }
+  },
+  "directives": [
+    "Pacing: target 19.79–30.23 cuts/min (median 24.65).",
+    "Median shot length ≈ 1.42 s; hold designed graphics longer than stock B-roll.",
+    "Cold open: ~22 cuts in the first 60 s.",
+    "Narration pace ≈ 185 wpm (ElevenLabs speed/stability tuned to match).",
+    "Visual mix (screen share, median): stock 65%, real/archival 7%, designed 21%, stills 16%.",
+    "Grade: saturation ≈ 0.31, greyscale share ≈ 35%, luma ≈ 0.4.",
+    "Faces on screen in ≈ 53% of shots.",
+    "Master to ≈ -19.6 LUFS integrated.",
+    "Voice sits ≈ 39.4 dB over the music bed; ducking ≈ -16 dB.",
+    "SFX hits ≈ 3.52/min; music cue changes ≈ 14.19 per 10 min; drops ≈ 2.29 per 10 min.",
+    "Long-form runtime 23.84–32.8 min.",
+    "Signature designed moments: big_word, chapter_card, chart, cutout_collage, document.",
+    "All picture comes from Library/stock/archival/designed sources — never AI-generated video."
+  ],
+  "sources": [
+    "Modern MBA/*/<id>.info.json",
+    "Modern MBA/*/pretrain.json",
+    "Modern MBA/*/sound.json",
+    ".analysis/meta/MBA-*.json",
+    "Library/moments/Modern MBA/index.json"
+  ]
+}

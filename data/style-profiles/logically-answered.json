@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 1,
+  "id": "logically-answered",
+  "displayName": "Logically Answered",
+  "draft": true,
+  "generatedAt": "2026-11-20T01:28:21.272Z",
+  "corpus": {
+    "doneFile": "done_LogicallyAnswered.txt",
+    "doneIds": 30,
+    "onDisk": 30,
+    "doneAndOnDisk": 30,
+    "missingOnDisk": [],
+    "notInDoneFile": [],
+    "foreignIds": [],
+    "withVideoFile": 30,
+    "withTranscript": 30,
+    "withShotAnalysis": 30,
+    "withSoundAnalysis": 30,
+    "complete": true
+  },
+  "format": {
+    "primaryAspect": "16:9",
+    "durationMin": {
+      "n": 30,
+      "mean": 13.7289,
+      "p25": 13.0292,
+      "p50": 13.65,
+      "p75": 14.0042,
+      "min": 11.4,
+      "max": 18.6833
+    },
+    "fps": [
+      30
+    ],
+    "resolution": [
+      "1920x1080"
+    ]
+  },
+  "pacing": {
+    "cutsPerMin": {
+      "n": 30,
+      "mean": 16.1674,
+      "p25": 13.755,
+      "p50": 15.9559,
+      "p75": 18.3058,
+      "min": 10.2812,
+      "max": 25.5804
+    },
+    "shotMedianS": {
+      "n": 30,
+      "mean": 3.0467,
+      "p25": 2.7526,
+      "p50": 3.0348,
+      "p75": 3.4323,
+      "min": 1.801,
+      "max": 4.204
+    },
+    "shotCv": {
+      "n": 30,
+      "mean": 0.8306,
+      "p25": 0.7181,
+      "p50": 0.8003,
+      "p75": 0.947,
+      "min": 0.5408,
+      "max": 1.1825
+    },
+    "cutsFirst60s": {
+      "n": 30,
+      "mean": 13.7333,
+      "p25": 9.25,
+      "p50": 11.5,
+      "p75": 17,
+      "min": 5,
+      "max": 29
+    }
+  },
+  "look": {
+    "saturation": {
+      "n": 30,
+      "mean": 0.2431,
+      "p25": 0.1971,
+      "p50": 0.2304,
+      "p75": 0.2955,
+      "min": 0.136,
+      "max": 0.3508
+    },
+    "greyShare": {
+      "n": 30,
+      "mean": 0.4217,
+      "p25": 0.3554,
+      "p50": 0.43,
+      "p75": 0.4598,
+      "min": 0.3194,
+      "max": 0.6184
+    },
+    "luma": {
+      "n": 30,
+      "mean": 0.4972,
+      "p25": 0.4413,
+      "p50": 0.4984,
+      "p75": 0.556,
+      "min": 0.3384,
+      "max": 0.6468
+    },
+    "contrast": {
+      "n": 30,
+      "mean": 0.3942,
+      "p25": 0.3503,
+      "p50": 0.3996,
+      "p75": 0.4284,
+      "min": 0.3242,
+      "max": 0.4626
+    },
+    "faceShare": {
+      "n": 30,
+      "mean": 0.4506,
+      "p25": 0.3801,
+      "p50": 0.4524,
+      "p75": 0.5279,
+      "min": 0.2135,
+      "max": 0.6609
+    },
+    "motion": {
+      "n": 30,
+      "mean": 13.3078,
+      "p25": 10.4622,
+      "p50": 11.5199,
+      "p75": 15.2795,
+      "min": 8.2594,
+      "max": 26.0259
+    }
+  },
+  "visualMix": {
+    "stock": {
+      "n": 30,
+      "mean": 0.5368,
+      "p25": 0.4375,
+      "p50": 0.5476,
+      "p75": 0.6489,
+      "min": 0.2555,
+      "max": 0.8183
+    },
+    "real": {
+      "n": 30,
+      "mean": 0.0794,
+      "p25": 0.0434,
+      "p50": 0.0574,
+      "p75": 0.086,
+      "min": 0.0341,
+      "max": 0.2602
+    },
+    "designed": {
+      "n": 30,
+      "mean": 0.3333,
+      "p25": 0.2599,
+      "p50": 0.3261,
+      "p75": 0.3963,
+      "min": 0.1003,
+      "max": 0.6131
+    },
+    "still": {
+      "n": 30,
+      "mean": 0.109,
+      "p25": 0.0833,
+      "p50": 0.1012,
+      "p75": 0.1292,
+      "min": 0.0502,
+      "max": 0.201
+    }
+  },
+  "audio": {
+    "integratedLufs": {
+      "n": 30,
+      "mean": -18.0033,
+      "p25": -19.675,
+      "p50": -17.5,
+      "p75": -16.475,
+      "min": -21.3,
+      "max": -15.3
+    },
+    "voiceOverBedDb": {
+      "n": 30,
+      "mean": 21.88,
+      "p25": 19.2375,
+      "p50": 22.1872,
+      "p75": 25.4013,
+      "min": 10.7964,
+      "max": 29.3377
+    },
+    "duckingDb": {
+      "n": 30,
+      "mean": 2.7856,
+      "p25": 1.6962,
+      "p50": 2.6666,
+      "p75": 3.5212,
+      "min": -0.0926,
+      "max": 6.0798
+    },
+    "speechShare": {
+      "n": 30,
+      "mean": 0.9295,
+      "p25": 0.9197,
+      "p50": 0.9256,
+      "p75": 0.9402,
+      "min": 0.8981,
+      "max": 0.9608
+    },
+    "strongHitsPerMin": {
+      "n": 30,
+      "mean": 1.5543,
+      "p25": 0.514,
+      "p50": 1.0148,
+      "p75": 1.6446,
+      "min": 0.2183,
+      "max": 8.5857
+    },
+    "musicDropsPer10Min": {
+      "n": 30,
+      "mean": 55.0195,
+      "p25": 33.4059,
+      "p50": 56.9059,
+      "p75": 72.18,
+      "min": 2.3388,
+      "max": 136.3615
+    },
+    "cueChangesPer10Min": {
+      "n": 30,
+      "mean": 10.379,
+      "p25": 9.3744,
+      "p50": 10.2786,
+      "p75": 11.5071,
+      "min": 6.3741,
+      "max": 13.5631
+    }
+  },
+  "narration": {
+    "wordsPerMin": {
+      "n": 30,
+      "mean": 179.2099,
+      "p25": 163.5936,
+      "p50": 172.2802,
+      "p75": 187.4303,
+      "min": 154.6591,
+      "max": 235.1009
+    },
+    "chaptersPerVideo": {
+      "n": 30,
+      "mean": 4.9667,
+      "p25": 5,
+      "p50": 5,
+      "p75": 5,
+      "min": 4,
+      "max": 6
+    }
+  },
+  "techniques": {
+    "big_word": 8,
+    "chapter_card": 8,
+    "chart": 8,
+    "cutout_collage": 8,
+    "document": 8,
+    "map": 8,
+    "money_figure": 8,
+    "name_label": 8,
+    "screen": 8,
+    "versus": 8
+  },
+  "titles": {
+    "examples": [
+      "171,849 \"Self Offings\" - Is Eli Lilly Involved? (Allegedly)",
+      "8 Traitors Created Silicon Valley",
+      "Apple’s $573 Billion Bet (& Are They Going Private)",
+      "Are Layoffs Even Worth It?",
+      "Bottled Water Is Literally A Scam",
+      "Cisco's Founders Stole From Stanford. Ended Up Losing Everything.",
+      "Food Delivery - The $432B Industry That Benefits No One",
+      "Goodwill? More Like Ill Will - The Ugly Truth",
+      "How Founders Became Tyrants",
+      "How Generosity Became A Burden - The American Tipping Crisis",
+      "How To Make $300,000,000,000 By Getting The CCP Drunk",
+      "Nvidia - The World's Next Largest Company"
+    ],
+    "chars": {
+      "n": 30,
+      "mean": 48.2333,
+      "p25": 41,
+      "p50": 50,
+      "p75": 58.75,
+      "min": 26,
+      "max": 73
+    },
+    "questionShare": 0.17,
+    "numberShare": 0.27
+  },
+  "audience": {
+    "views": {
+      "n": 30,
+      "mean": 197886.1333,
+      "p25": 79944.25,
+      "p50": 117253,
+      "p75": 143419.75,
+      "min": 26521,
+      "max": 970772
+    }
+  },
+  "directives": [
+    "Pacing: target 13.76–18.31 cuts/min (median 15.96).",
+    "Median shot length ≈ 3.03 s; hold designed graphics longer than stock B-roll.",
+    "Cold open: ~12 cuts in the first 60 s.",
+    "Narration pace ≈ 172 wpm (ElevenLabs speed/stability tuned to match).",
+    "Visual mix (screen share, median): stock 55%, real/archival 6%, designed 33%, stills 10%.",
+    "Grade: saturation ≈ 0.23, greyscale share ≈ 43%, luma ≈ 0.5.",
+    "Faces on screen in ≈ 45% of shots.",
+    "Master to ≈ -17.5 LUFS integrated.",
+    "Voice sits ≈ 22.19 dB over the music bed; ducking ≈ 2.67 dB.",
+    "SFX hits ≈ 1.01/min; music cue changes ≈ 10.28 per 10 min; drops ≈ 56.91 per 10 min.",
+    "Long-form runtime 13.03–14 min.",
+    "Signature designed moments: big_word, chapter_card, chart, cutout_collage, document.",
+    "All picture comes from Library/stock/archival/designed sources — never AI-generated video."
+  ],
+  "sources": [
+    "Logically Answered/*/<id>.info.json",
+    "Logically Answered/*/pretrain.json",
+    "Logically Answered/*/sound.json",
+    ".analysis/meta/LA-*.json",
+    "Logically Answered/*/screen.json",
+    "Library/moments/Logically Answered/index.json"
+  ]
+}

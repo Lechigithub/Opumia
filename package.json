@@ -1,0 +1,16 @@
+{
+  "name": "opumia",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "opumia": "tsx apps/cli/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

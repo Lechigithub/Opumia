@@ -1,0 +1,18 @@
+# Source asset trees (≈120 GB, managed outside git; read-only to code)
+/Library/
+/Reference/
+# Generated caches / secrets / deps
+data/.cache/
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+# Rendered outputs and working media
+out/
+renders/
+*.mp4
+*.mov
+*.wav

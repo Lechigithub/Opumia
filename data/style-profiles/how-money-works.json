@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 1,
+  "id": "how-money-works",
+  "displayName": "How Money Works",
+  "draft": true,
+  "generatedAt": "2026-11-20T01:27:34.486Z",
+  "corpus": {
+    "doneFile": "done_HowMoneyWorks.txt",
+    "doneIds": 30,
+    "onDisk": 30,
+    "doneAndOnDisk": 30,
+    "missingOnDisk": [],
+    "notInDoneFile": [],
+    "foreignIds": [],
+    "withVideoFile": 30,
+    "withTranscript": 30,
+    "withShotAnalysis": 30,
+    "withSoundAnalysis": 30,
+    "complete": true
+  },
+  "format": {
+    "primaryAspect": "16:9",
+    "durationMin": {
+      "n": 30,
+      "mean": 12.5433,
+      "p25": 11.7583,
+      "p50": 12.775,
+      "p75": 13.9,
+      "min": 7.0333,
+      "max": 16.5833
+    },
+    "fps": [
+      25,
+      30
+    ],
+    "resolution": [
+      "1920x1080"
+    ]
+  },
+  "pacing": {
+    "cutsPerMin": {
+      "n": 30,
+      "mean": 17.066,
+      "p25": 15.1472,
+      "p50": 16.6737,
+      "p75": 18.5554,
+      "min": 14.0933,
+      "max": 24.2299
+    },
+    "shotMedianS": {
+      "n": 30,
+      "mean": 2.588,
+      "p25": 2.3749,
+      "p50": 2.558,
+      "p75": 2.845,
+      "min": 1.5835,
+      "max": 3.3
+    },
+    "shotCv": {
+      "n": 30,
+      "mean": 1.049,
+      "p25": 0.9955,
+      "p50": 1.0606,
+      "p75": 1.0861,
+      "min": 0.8346,
+      "max": 1.3892
+    },
+    "cutsFirst60s": {
+      "n": 30,
+      "mean": 17.6333,
+      "p25": 13.25,
+      "p50": 17,
+      "p75": 21.75,
+      "min": 6,
+      "max": 35
+    }
+  },
+  "look": {
+    "saturation": {
+      "n": 30,
+      "mean": 0.314,
+      "p25": 0.2928,
+      "p50": 0.323,
+      "p75": 0.3405,
+      "min": 0.2314,
+      "max": 0.379
+    },
+    "greyShare": {
+      "n": 30,
+      "mean": 0.3238,
+      "p25": 0.2758,
+      "p50": 0.3033,
+      "p75": 0.3589,
+      "min": 0.2205,
+      "max": 0.5015
+    },
+    "luma": {
+      "n": 30,
+      "mean": 0.4015,
+      "p25": 0.3527,
+      "p50": 0.3938,
+      "p75": 0.4421,
+      "min": 0.3022,
+      "max": 0.5384
+    },
+    "contrast": {
+      "n": 30,
+      "mean": 0.438,
+      "p25": 0.4204,
+      "p50": 0.4367,
+      "p75": 0.4588,
+      "min": 0.3882,
+      "max": 0.4828
+    },
+    "faceShare": {
+      "n": 30,
+      "mean": 0.7265,
+      "p25": 0.6896,
+      "p50": 0.7268,
+      "p75": 0.7913,
+      "min": 0.4772,
+      "max": 0.8868
+    },
+    "motion": {
+      "n": 30,
+      "mean": 13.1999,
+      "p25": 10.0537,
+      "p50": 13.4958,
+      "p75": 14.6071,
+      "min": 7.6281,
+      "max": 23.7555
+    }
+  },
+  "visualMix": {
+    "stock": {
+      "n": 30,
+      "mean": 0.7013,
+      "p25": 0.6266,
+      "p50": 0.6946,
+      "p75": 0.7907,
+      "min": 0.5094,
+      "max": 0.8642
+    },
+    "real": {
+      "n": 30,
+      "mean": 0.0514,
+      "p25": 0.0336,
+      "p50": 0.0428,
+      "p75": 0.0636,
+      "min": 0.0239,
+      "max": 0.1455
+    },
+    "designed": {
+      "n": 30,
+      "mean": 0.2312,
+      "p25": 0.1696,
+      "p50": 0.2213,
+      "p75": 0.2901,
+      "min": 0.0944,
+      "max": 0.4032
+    },
+    "still": {
+      "n": 30,
+      "mean": 0.1356,
+      "p25": 0.1159,
+      "p50": 0.1295,
+      "p75": 0.1716,
+      "min": 0.0629,
+      "max": 0.2027
+    }
+  },
+  "audio": {
+    "integratedLufs": {
+      "n": 30,
+      "mean": -19.0233,
+      "p25": -19.675,
+      "p50": -19.05,
+      "p75": -18.6,
+      "min": -20.3,
+      "max": -16.9
+    },
+    "voiceOverBedDb": {
+      "n": 30,
+      "mean": 24.278,
+      "p25": 20.6514,
+      "p50": 24.0728,
+      "p75": 28.0758,
+      "min": 17.1855,
+      "max": 31.4191
+    },
+    "duckingDb": {
+      "n": 30,
+      "mean": 4.1573,
+      "p25": 2.075,
+      "p50": 3.4166,
+      "p75": 6.2154,
+      "min": -6.1338,
+      "max": 15.2651
+    },
+    "speechShare": {
+      "n": 30,
+      "mean": 0.9857,
+      "p25": 0.9829,
+      "p50": 0.9862,
+      "p75": 0.9914,
+      "min": 0.9528,
+      "max": 0.9944
+    },
+    "strongHitsPerMin": {
+      "n": 30,
+      "mean": 5.3082,
+      "p25": 2.8841,
+      "p50": 5.1997,
+      "p75": 6.1834,
+      "min": 1.1417,
+      "max": 18.4896
+    },
+    "musicDropsPer10Min": {
+      "n": 30,
+      "mean": 50.5588,
+      "p25": 33.0648,
+      "p50": 56.2124,
+      "p75": 62.9403,
+      "min": 13.6108,
+      "max": 98.4507
+    },
+    "cueChangesPer10Min": {
+      "n": 30,
+      "mean": 10.182,
+      "p25": 9.2998,
+      "p50": 10.1142,
+      "p75": 11.1209,
+      "min": 6.3678,
+      "max": 12.9178
+    }
+  },
+  "narration": {
+    "wordsPerMin": {
+      "n": 30,
+      "mean": 216.0099,
+      "p25": 209.6076,
+      "p50": 215.1689,
+      "p75": 221.1361,
+      "min": 200.4786,
+      "max": 242.0969
+    },
+    "chaptersPerVideo": {
+      "n": 28,
+      "mean": 7.3929,
+      "p25": 7,
+      "p50": 7,
+      "p75": 8.25,
+      "min": 3,
+      "max": 12
+    }
+  },
+  "techniques": {
+    "big_word": 8,
+    "chapter_card": 8,
+    "chart": 8,
+    "cutout_collage": 8,
+    "document": 8,
+    "map": 8,
+    "money_figure": 8,
+    "name_label": 8,
+    "screen": 8,
+    "versus": 8
+  },
+  "titles": {
+    "examples": [
+      "Another Week... Another Multi-Billion Dollar Fraud (Allegedly)",
+      "Being Single Is Now An Unaffordable Luxury",
+      "BlackStone and BlackRock aRE ThE MOST eViL cOmPaNiEs in tHe WoRLd!!!",
+      "Has LinkedIn Ruined Your Career?",
+      "How America Got Hooked On Useless Corporate Consulting",
+      "How Everything Became A Subscription.",
+      "How HR Came To Rule Corporate America",
+      "How Influencer Businesses Actually (Don't) Work",
+      "How The Adani Fraud Actually Works (Allegedly)",
+      "How The Business Deals in Succession Actually Work",
+      "How To Make $279,000,000 By Being A Little Snitch",
+      "I Don't Care If You Get Rich."
+    ],
+    "chars": {
+      "n": 30,
+      "mean": 49.3667,
+      "p25": 39.5,
+      "p50": 46.5,
+      "p75": 56.75,
+      "min": 29,
+      "max": 85
+    },
+    "questionShare": 0.17,
+    "numberShare": 0.13
+  },
+  "audience": {
+    "views": {
+      "n": 30,
+      "mean": 853629.2333,
+      "p25": 342356.5,
+      "p50": 784260,
+      "p75": 1266897.5,
+      "min": 155032,
+      "max": 1959072
+    }
+  },
+  "directives": [
+    "Pacing: target 15.15–18.56 cuts/min (median 16.67).",
+    "Median shot length ≈ 2.56 s; hold designed graphics longer than stock B-roll.",
+    "Cold open: ~17 cuts in the first 60 s.",
+    "Narration pace ≈ 215 wpm (ElevenLabs speed/stability tuned to match).",
+    "Visual mix (screen share, median): stock 69%, real/archival 4%, designed 22%, stills 13%.",
+    "Grade: saturation ≈ 0.32, greyscale share ≈ 30%, luma ≈ 0.39.",
+    "Faces on screen in ≈ 73% of shots.",
+    "Master to ≈ -19.05 LUFS integrated.",
+    "Voice sits ≈ 24.07 dB over the music bed; ducking ≈ 3.42 dB.",
+    "SFX hits ≈ 5.2/min; music cue changes ≈ 10.11 per 10 min; drops ≈ 56.21 per 10 min.",
+    "Long-form runtime 11.76–13.9 min.",
+    "Signature designed moments: big_word, chapter_card, chart, cutout_collage, document.",
+    "All picture comes from Library/stock/archival/designed sources — never AI-generated video."
+  ],
+  "sources": [
+    "How Money Works/*/<id>.info.json",
+    "How Money Works/*/pretrain.json",
+    "How Money Works/*/sound.json",
+    ".analysis/meta/HMW-*.json",
+    "Library/moments/How Money Works/index.json"
+  ]
+}
