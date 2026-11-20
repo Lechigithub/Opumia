@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "channelId": "how-money-works",
+  "rules": [
+    "Use one big, instantly readable workplace or career scene as the full-bleed background, such as a hospital corridor, trading floor, commuter staircase, empty cubicle farm or office party",
+    "Keep the setting realistic and stock-photo-like, with desaturated, slightly cool or neutral tones so the text and one accent colour dominate",
+    "Headline is stacked in 2-3 centred lines of heavy white sans-serif caps with a thick black outline and drop shadow",
+    "Highlight exactly one key word or number per headline in neon yellow, such as a dollar figure, 'YEAR', 'IN PERSON' or 'FUN'",
+    "Frame the headline as a punchy concept phrase, such as 'THE INTELLECTUAL CEILING' or 'THE END OF THE 40 YEAR CAREER', rather than repeating the video title",
+    "Show people small or from behind in the environment, so the scale of the system is the story; use a single lonely figure for isolation or a crowd for conformity",
+    "Use depth cues such as blurred foreground or background, leading lines, rows of monitors and repeating cubicles to guide the eye toward the text block",
+    "Keep the emotional cue ironic and critical: isolation, grind, forced cheer or corporate absurdity",
+    "Darken or blur areas behind the text for contrast, and leave the central 60% of the frame free for the headline",
+    "Optional accent: a red brush-stroke swipe behind a word, or a faint grid background, for explainer-style emphasis, but never more than one graphic accent"
+  ],
+  "palette": [
+    "#FFFFFF",
+    "#F5F500",
+    "#000000",
+    "#6F9BC9",
+    "#3E4A4F",
+    "#C8A97E",
+    "#D62828"
+  ],
+  "textRules": {
+    "maxWords": 6,
+    "casing": "UPPERCASE",
+    "placement": "middle",
+    "font": "Ultra-bold geometric sans-serif (Montserrat Black / Impact-style) with thick black stroke and drop shadow; white with one neon yellow highlight word"
+  },
+  "composition": "Full-bleed 16:9 photographic scene with a centred, stacked text zone across the middle third. The environment is shot with strong perspective lines (corridor, staircase, rows of desks or monitors) converging toward the centre. Subjects sit off-centre, left or right, or are small within the scene, with the centre kept visually calm and slightly darkened or blurred for text overlay.",
+  "subject": "Anonymous workers or silhouettes in a corporate, medical or office environment (scrubs, shirt and tie, commuters, cubicles, trading screens), shown from behind, at a distance or with faces turned away, expressing isolation, grind or forced enthusiasm",
+  "promptTemplate": "Photorealistic wide 16:9 stock-style photograph about {topic}. Scene: {subject}, in a realistic workplace or urban environment, shot with strong converging perspective lines and shallow depth of field. Anonymous figures seen from behind, in silhouette or at a distance, with no identifiable faces. Muted, slightly desaturated palette of cool blues, greys and warm beige, with moody overhead lighting. Leave the central horizontal band of the image relatively clean, darker and softly blurred to allow a large headline overlay. High contrast, sharp subject, cinematic documentary look. Absolutely no text, no letters, no numbers, no logos, no brand names, no watermarks, no real or recognizable people.",
+  "references": [
+    "How Money Works/20230326 - Why Dumb People Earn More Than Smart People/thumbnail.jpg",
+    "How Money Works/20230426 - WTF Do Investment Bankers Actually Do？/thumbnail.jpg",
+    "How Money Works/20230202 - The 40 Year Career Is Dead... And That's a Good Thing/thumbnail.jpg",
+    "How Money Works/20230608 - Why Companies NEED People Back In The Office/thumbnail.jpg",
+    "How Money Works/20230502 - Why Corporate America Is Obsessed With ＂Company Culture＂/thumbnail.jpg",
+    "How Money Works/20230419 - How Influencer Businesses Actually (Don't) Work/thumbnail.jpg"
+  ],
+  "generatedAt": "2026-11-20T20:32:03.650Z"
+}

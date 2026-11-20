@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { FactSheet, type FactClaim } from "@opumia/contracts";
+import { FactSheet, StoryLayer, type FactClaim } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { MODELS, plain, structured, webResearch } from "./llm.js";
 import { fetchPageText } from "./web.js";
@@ -17,6 +17,13 @@ const ExtractSchema = z.object({
   ),
 });
 
+const StorySchema = z.object({
+  characters: z.array(z.object({ name: z.string(), role: z.string(), want: z.string(), flaw: z.string(), cost: z.string(), claimIds: z.array(z.string()) })),
+  scenes: z.array(z.object({ kind: z.enum(["confrontation", "humiliation", "memo", "gamble", "decision", "launch", "collapse", "deal", "other"]), when: z.string(), where: z.string(), who: z.array(z.string()), what: z.string(), stakes: z.string(), claimIds: z.array(z.string()) })),
+  contrasts: z.array(z.object({ text: z.string(), us: z.string(), them: z.string(), claimIds: z.array(z.string()) })),
+  quotes: z.array(z.object({ text: z.string(), speaker: z.string(), context: z.string(), claimId: z.string() })),
+});
+
 const VerifySchema = z.object({
   checks: z.array(
     z.object({
@@ -27,7 +34,7 @@ const VerifySchema = z.object({
   ),
 });
 
-const RESEARCH_SYSTEM = `You are the research desk for a business-documentary channel. You find specific, checkable facts — numbers, dates, named events, short quotes — from reputable sources (company filings, major newspapers, encyclopedias, official sites, books' publisher pages). You never invent facts. Prefer primary sources. Every fact you report must carry the URL of the page that states it.`;
+const RESEARCH_SYSTEM = `You are the research desk for a business-documentary channel that tells stories through people, scenes and contrasts. You find specific, checkable facts — who wanted what and what it cost them, concrete scenes (meetings, memos, launches, humiliations, gambles, deals) with when/where/who, scale comparisons against famous rivals, verbatim quotes, numbers and dates — from reputable sources (company filings, major newspapers, encyclopedias, official sites, books' publisher pages). You never invent facts. Prefer primary sources. Every fact you report must carry the URL of the page that states it.`;
 
 const norm = (s: string) => s.toLowerCase().replace(/[‘’“”"'`]/g, "").replace(/[^a-z0-9$%.,\s]/g, " ").replace(/\s+/g, " ").trim();
 
@@ -47,7 +54,13 @@ export async function researchTopic(o: ResearchOptions): Promise<FactSheet> {
   const research = await webResearch({
     stage: "research.search",
     system: [plain(RESEARCH_SYSTEM)],
-    user: `Topic: ${o.topic}\nFormat: ${o.format}\n\nResearch this topic and report ${want + 4}-${want + 8} distinct facts that a documentary narrator could state on screen: the founding/origin, the turning point, the most dramatic numbers, the downfall or twist, and the present-day outcome. For each fact write one line: FACT: <fact> | SOURCE: <exact URL> . Use several different sources. Finish with a 2-sentence story angle (whose want, what obstacle, what turn).`,
+    user: `Topic: ${o.topic}\nFormat: ${o.format}\n\nResearch this topic as a STORY, not a stats list, and report ${want + 4}-${want + 8} distinct facts:
+- CHARACTERS: the 2–5 people who drove it — what each wanted, their flaw or blind spot, and what it cost them (each as its own fact).
+- SCENES: 4–8 specific dramatic moments with date, place and people — confrontations, humiliations, secret memos, gambles, launches, deals, collapses — and what was at stake.
+- CONTRASTS: 3–6 scale comparisons against famous rivals or peers at the same moment (e.g. revenue vs a rival's, market share vs a rival's, value then vs value later).
+- QUOTES: 2–5 short verbatim quotes by named people (exact words, with who said them and when).
+- NUMBERS & DATES: the origin, the peak, the turning point, the downfall and the present day.
+For each fact write one line: FACT: <fact> | SOURCE: <exact URL> . Use several different sources. Finish with a 2-sentence story angle (whose want, what obstacle, what turn).`,
   });
   const urlList = [...research.urls.entries()].map(([u, t]) => `- ${u}${t ? ` (${t})` : ""}`).join("\n");
 
@@ -116,7 +129,35 @@ export async function researchTopic(o: ResearchOptions): Promise<FactSheet> {
   log(`  verify: ${supported} supported, ${claims.filter((c) => c.verdict === "partially_supported").length} partial, ${claims.filter((c) => ["unsupported", "unreachable"].includes(c.verdict)).length} rejected`);
   if (supported < Math.min(5, want)) throw new Error(`research: only ${supported} supported claims — not enough to write a factual script`);
 
+  // Story layer: structure the verified claims into characters, scenes, contrast anchors and quotes.
+  const usable = claims.filter((c) => c.verdict === "supported" || c.verdict === "partially_supported");
+  let story: StoryLayer | undefined;
+  try {
+    log(`  research: structuring the story dossier (${MODELS.sonnet})…`);
+    const { data } = await structured({
+      stage: "research.story",
+      model: MODELS.sonnet,
+      system: [plain("You are a documentary story producer. Organise VERIFIED CLAIMS into a story dossier: characters (want, flaw, cost), dramatic scenes (kind, when, where, who, what happens, stakes), contrast anchors (one comparative sentence: us vs them) and verbatim quotes. Use ONLY information stated in the claims; cite the claim ids each item rests on. Do not invent motives, places or numbers: if a claim does not state a want or a flaw, describe it as what the claims show (e.g. 'bet the company on Symbian'), never as speculation. Quotes must be claims of kind quote, verbatim.")],
+      user: `TOPIC: ${o.topic}\n\nVERIFIED CLAIMS:\n${usable.map((c) => `[${c.id}] (${c.kind}) ${c.text}`).join("\n")}`,
+      schema: StorySchema,
+      effort: "medium",
+      maxTokens: 12000,
+    });
+    const ok = new Set(usable.map((c) => c.id));
+    const bound = (ids: string[]) => ids.filter((x) => ok.has(x));
+    story = StoryLayer.parse({
+      characters: data.characters.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
+      scenes: data.scenes.map((c, i) => ({ ...c, id: `sc${String(i + 1).padStart(2, "0")}`, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
+      contrasts: data.contrasts.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
+      quotes: data.quotes.filter((q) => ok.has(q.claimId) && usable.find((c) => c.id === q.claimId)?.kind === "quote"),
+    });
+    log(`  research: dossier — ${story.characters.length} characters, ${story.scenes.length} scenes, ${story.contrasts.length} contrasts, ${story.quotes.length} quotes`);
+  } catch (e) {
+    log(`  ! story dossier failed (${(e as Error).message.slice(0, 120)}); continuing with claims only`);
+  }
+
   return FactSheet.parse({
+    ...(story ? { story } : {}),
     schemaVersion: 1,
     id: `fs_${createHash("sha1").update(o.topic).digest("hex").slice(0, 10)}`,
     topic: o.topic,

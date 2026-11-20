@@ -31,6 +31,7 @@ export const DesignedKind = z.enum([
   "cutout_collage",
   "timeline",
   "quote_card",
+  "hero_face",
 ]);
 
 /**
@@ -70,6 +71,12 @@ export const StoryboardShot = z
     onScreenText: z.string().optional(),
     sfx: z.array(z.object({ assetId: z.string(), atS: Seconds, gainDb: z.number().default(0) })).default([]),
     transitionIn: z.enum(["cut", "fade", "whip", "dip_black", "light_leak", "match"]).default("cut"),
+    /** Named real-world entities on screen in this shot (archive-first sourcing). */
+    entities: z.array(z.object({ name: z.string(), type: z.enum(["person", "company", "place", "landmark", "event", "product"]), year: z.number().int().optional() })).optional(),
+    /** Numeric facts (FactSheet-derived ids) a designed graphic displays. */
+    factIds: z.array(z.string()).optional(),
+    /** Chapter title this shot belongs to (long-form). */
+    chapter: z.string().optional(),
     /** Safe zone for 9:16 reframing, normalized center. */
     focus: z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]).optional(),
   })

@@ -16,3 +16,6 @@ renders/
 *.mp4
 *.mov
 *.wav
+
+# Cloudflare local state / build output
+**/.wrangler/

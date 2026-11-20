@@ -42,7 +42,7 @@ const Source: React.FC<{ src: string; kind: string; focus: [number, number]; fit
 export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const { width, height } = useVideoConfig();
   const f = useCurrentFrame();
-  const p = (layer.props ?? {}) as { kind?: string; mode?: string; focus?: [number, number]; transitionIn?: string; dim?: number; period?: boolean };
+  const p = (layer.props ?? {}) as { kind?: string; mode?: string; focus?: [number, number]; transitionIn?: string; dim?: number; dimUntil?: number; period?: boolean; citation?: string };
   const cam = useKeyframes(layer);
   const tr = useTransitionIn(p.transitionIn);
   const focus = p.focus ?? [0.5, 0.5];
@@ -69,14 +69,19 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
               width: cardW,
               height: cardH,
               transform: `translateX(${(cam.x + tr.dx) * width}px) translateY(${cam.y * height - (portrait ? height * 0.07 : 0)}px) rotateY(${rot}deg) rotateX(${2 - 3 * t}deg) scale(${cardScale * cam.scale})`,
-              boxShadow: "0 40px 90px rgba(0,0,0,0.65)",
+              boxShadow: "0 50px 110px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,0,0,0.3), 0 0 60px rgba(220,38,38,0.18)",
               border: "14px solid #f2ede2",
               borderBottomWidth: 46,
               backgroundColor: "#f2ede2",
               filter: p.period ? "sepia(0.25) contrast(1.05)" : undefined,
             }}
           >
-            <Source src={src} kind={kind} focus={focus} />
+            <Source src={src} kind={kind} focus={focus} fit={p.citation ? "contain" : "cover"} style={p.citation ? { backgroundColor: "#1b1a17" } : undefined} />
+            {p.citation ? (
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: -40, height: 40, display: "flex", alignItems: "center", padding: "0 10px", fontFamily: "Helvetica Neue, Arial, sans-serif", fontSize: portrait ? 17 : 15, color: "#3b362c", letterSpacing: 0.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {"\u{1F4F7}\u{FE0E} "}{p.citation}
+              </div>
+            ) : null}
           </div>
         </AbsoluteFill>
         {tr.flash > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle at 30% 40%, #ffd28a, #ff7a1a 45%, transparent 75%)", mixBlendMode: "screen", opacity: tr.flash }} /> : null}
@@ -84,13 +89,15 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
     );
   }
 
+  const dimK = p.dim ? (p.dimUntil !== undefined ? interpolate(f, [p.dimUntil, p.dimUntil + 8], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1) : 0;
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", opacity: tr.opacity * cam.opacity, overflow: "hidden" }}>
       <AbsoluteFill
         style={{
           transform: `translate(${(cam.x + tr.dx) * width}px, ${cam.y * height}px) scale(${cam.scale})`,
-          // Behind a designed graphic the plate is blurred + darkened so it reads as texture, never as a subject.
-          filter: [tr.blur ? `blur(${tr.blur}px)` : p.dim ? "blur(16px)" : "", p.dim ? `brightness(${1 - p.dim})` : ""].filter(Boolean).join(" ") || undefined,
+          // dimUntil: the plate clears (blur + darkening ease out over 8 frames) once a capped kinetic card ends.
+          // Behind a designed element the plate stays SHARP and is only graded darker (reference luma ≈ 0.28).
+          filter: [tr.blur ? `blur(${tr.blur}px)` : "", dimK > 0.01 ? `brightness(${(1 - (p.dim ?? 0) * 0.5 * dimK).toFixed(3)}) contrast(1.06)` : ""].filter(Boolean).join(" ") || undefined,
         }}
       >
         <Source src={src} kind={kind} focus={focus} />

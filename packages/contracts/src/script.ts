@@ -6,7 +6,7 @@ export const TimedWord = z
   .object({ word: z.string().min(1), startS: Seconds, endS: Seconds })
   .refine((w) => w.endS >= w.startS, "word ends before it starts");
 
-export const BeatRole = z.enum(["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "sponsor", "chapter"]);
+export const BeatRole = z.enum(["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "sponsor", "chapter", "rehook"]);
 
 export const ScriptSegment = z
   .object({

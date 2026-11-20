@@ -73,20 +73,34 @@ export interface StructuredOpts<S extends z4.ZodType> {
 /** One structured-output call, validated by the SDK's zod parser. */
 export async function structured<S extends z4.ZodType>(o: StructuredOpts<S>): Promise<{ data: z4.infer<S>; usage: UsageRecord }> {
   const fb = fallbackFor(o.model);
-  const msg = await client().beta.messages.parse({
+  const maxTokens = o.maxTokens ?? 16000;
+  const params = {
     model: o.model,
-    max_tokens: o.maxTokens ?? 16000,
+    max_tokens: maxTokens,
     system: o.system,
-    messages: [{ role: "user", content: o.user }],
+    messages: [{ role: "user" as const, content: o.user }],
     output_config: { effort: o.effort ?? "medium", format: betaZodOutputFormat(o.schema) },
     ...(fb.betas.length ? { betas: fb.betas } : {}),
     ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
-  });
+  };
+  if (maxTokens <= 16000) {
+    const msg = await client().beta.messages.parse(params);
+    const usage = record(o.stage, o.model, msg);
+    if (msg.stop_reason === "refusal") throw new RefusalError(o.stage, msg.stop_details?.category ?? null);
+    if (msg.stop_reason === "max_tokens") throw new Error(`${o.stage}: output truncated at max_tokens`);
+    if (!msg.parsed_output) throw new Error(`${o.stage}: response did not match schema`);
+    return { data: msg.parsed_output as z4.infer<S>, usage };
+  }
+  // Large outputs (long-form scripts, chunked shot lists) must stream; the format still constrains the
+  // JSON server-side, and we validate the final text with the same Zod schema.
+  const msg = await client().beta.messages.stream(params).finalMessage();
   const usage = record(o.stage, o.model, msg);
   if (msg.stop_reason === "refusal") throw new RefusalError(o.stage, msg.stop_details?.category ?? null);
   if (msg.stop_reason === "max_tokens") throw new Error(`${o.stage}: output truncated at max_tokens`);
-  if (!msg.parsed_output) throw new Error(`${o.stage}: response did not match schema`);
-  return { data: msg.parsed_output as z4.infer<S>, usage };
+  const text = msg.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
+  const parsed = o.schema.safeParse(JSON.parse(text));
+  if (!parsed.success) throw new Error(`${o.stage}: response did not match schema`);
+  return { data: parsed.data as z4.infer<S>, usage };
 }
 
 /** Research turn with the web search + fetch server tools; returns the final text and every URL the model saw. */

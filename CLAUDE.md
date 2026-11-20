@@ -32,21 +32,33 @@ Music beds in `Library/music` may carry generation prompts (`*.json` sidecars). 
 | Thumbnails | Higgsfield API |
 | Contracts | TypeScript (strict) + Zod at every stage boundary |
 
-### Environment variables
+### Environment variables and secrets
 
-Never commit them. Load from `.env`, documented in `.env.example`.
+`.env.example` lists every variable by **name only**. Names with an empty value are API keys
+(the Claude key is `OPUMIA_ANTHROPIC_KEY`, deliberately not `ANTHROPIC_API_KEY`). Path variables:
 
 ```
-ANTHROPIC_API_KEY
-ELEVENLABS_API_KEY
-PEXELS_API_KEY  PIXABAY_API_KEY  COVERR_API_KEY
-VECTEEZY_API_KEY  VECTEEZY_ACCOUNT_ID
-VIMEO_ACCESS_TOKEN  EUROPEANA_API_KEY  NARA_API_KEY  WIKIMEDIA_ACCESS_TOKEN
-HIGGSFIELD_API_KEY
 OPUMIA_LIBRARY_DIR     (default ./Library)
 OPUMIA_REFERENCE_DIR   (default ./Reference)
 OPUMIA_DATA_DIR        (default ./data)
 ```
+
+## Secrets (non-negotiable, applies to every agent session)
+
+- **Where keys live:** macOS Keychain, generic password, service `opumia`, account = the variable name
+  (e.g. `opumia / ELEVENLABS_API_KEY`). Production uses Cloudflare Workers secrets; CI uses GitHub Actions secrets.
+- **How code gets them:** `pnpm opumia …` loads them into its own process at startup (`apps/cli/src/keys.ts`):
+  environment first, then Keychain, then the legacy file `~/.opumia_keys` while it still exists.
+  Just run the commands. Agents never need to see a key.
+- **Check availability:** `pnpm opumia keys` prints names and sources only, never values.
+- **Agents must never:** read, print, log, copy or echo a key value; open `~/.opumia_keys` or any `.env`;
+  run `security` (Keychain) commands; dump the environment (`env`, `printenv`, `set`); write a key into
+  any file, URL, commit, artifact or chat message; ask the user to paste a key into the chat.
+  User-level deny rules in `~/.claude/settings.json` enforce most of this.
+- **Adding or changing a key:** add the name to `.env.example` (and to code that reads it), then tell the
+  user to run this in macOS Terminal, outside the Claude app, and paste the key at the hidden prompt:
+  `security add-generic-password -U -s opumia -a NAME -w`
+- **If a key may have leaked** (printed, committed, pasted), tell the user immediately to rotate it at the provider.
 
 ## Pipeline
 
@@ -82,6 +94,9 @@ packages/
   motion-engine/  Remotion compositions (src/remotion), manifest builder, FFmpeg mastering, captions/SRT, Higgsfield, QA
 apps/
   cli/            `opumia` CLI: index-library, analyze-styles, inspect-reference, produce (src/dev/smoke.ts = offline render test)
+  container/      Renderer container HTTP server (one stage per request, R2 sync) for Cloudflare Containers
+packages/cloudflare/  R2BlobStore, D1CatalogDb, Worker, ProductionWorkflow, RendererContainer, wrangler.toml, D1 migrations
+containers/renderer/  Dockerfile (Node 22 + FFmpeg + Chromium deps)
 out/<job>/        Per-film working dir (git-ignored): every stage's validated JSON, media, final mp4, srt, thumbnail, QA
 data/             GENERATED outputs only. Safe to delete and rebuild.
   library-index.json
@@ -155,17 +170,35 @@ Rules:
 - Times are seconds (float) in scripts and storyboards and integer frames in `RenderManifest`.
 - Run `parse` at every I/O boundary. Pure functions do not use `any` or re-validate.
 
-## Cloudflare migration path
+## Cloudflare deployment (`packages/cloudflare`, `apps/container`, `containers/renderer`)
 
 Code talks to persistence only through the adapter interfaces in `@opumia/contracts/adapters`:
+- **`BlobStore` (StorageAdapter):** `LocalBlobStore` (ingest) / `R2BlobStore` (R2; keys `library/…`, `reference/…`, `data/…`, `jobs/<id>/…`).
+- **`CatalogDb` (DatabaseAdapter):** `D1CatalogDb` (one `catalog` table, Zod-validated on write and read, SQL-side `where(json_path)`), plus the `JobsTable` ledger. The schema lives in `migrations/0001_init.sql`.
 
-- `BlobStore` (get/put/head/list by key) — local: `data/` + read-only `Library/` roots; cloud: **R2**.
-- `CatalogDb` (upsert/get/query assets, profiles, jobs) — local: JSON files; cloud: **D1** (SQLite). The Zod schemas map to tables, with JSON columns for nested data.
-- `JobQueue` / stage runner — local: CLI sequential; cloud: **Workflows** (one step per pipeline stage, retries and idempotency keys = stage + input hash).
-- Stateless stages (Claude calls, ElevenLabs, stock search, QA judging) → **Workers**.
-- FFmpeg/Remotion rendering → **Containers** (Remotion's renderer needs Chromium + FFmpeg).
+Runtime topology (`wrangler.toml`):
+```
+POST /jobs ──▶ Worker (job API, D1 ledger) ──▶ Workflow ProductionWorkflow (1 durable step per stage, retries)
+                    ▲  /internal/r2* proxy                │ getContainer(RENDERER, jobId)
+                    └──────────────────────────────── RendererContainer (Node 22 + FFmpeg + Chromium)
+                                                       runs `produce --until <stage>` (same code as the CLI)
+```
+- The container has no bindings. It reads and writes R2 through the Worker's authenticated `/internal/r2/*` proxy, and may write only `jobs/…` and `data/…`.
+- In cloud mode (`OPUMIA_REMOTE_URL` set), `ensureLocal` hydrates only the Library files a job uses. Style packs come from `data/style-packs/` (written by every local build), so the 60 GB Reference tree is never needed in the cloud.
+- Stages are idempotent (cached job folder), so Workflow retries are safe.
 
-Rule: no stage imports `node:fs` directly except the local adapters and the ingest probes, which run where the files live.
+Deploy:
+```bash
+cd packages/cloudflare
+npx wrangler r2 bucket create opumia-media
+npx wrangler d1 create opumia            # put the id in wrangler.toml
+pnpm db:migrate                          # applies migrations/0001_init.sql remotely
+# Upload data/ (and the Library subset you want available) to R2, e.g. rclone sync data r2:opumia-media/data
+for s in API_TOKEN INTERNAL_TOKEN ANTHROPIC_API_KEY ELEVENLABS_API_KEY PEXELS_API_KEY PIXABAY_API_KEY COVERR_API_KEY VECTEEZY_API_KEY VECTEEZY_ACCOUNT_ID VIMEO_ACCESS_TOKEN EUROPEANA_API_KEY NARA_API_KEY WIKIMEDIA_ACCESS_TOKEN HF_API_KEY_ID HF_API_KEY_SECRET; do npx wrangler secret put $s; done
+pnpm deploy                              # builds containers/renderer/Dockerfile (needs Docker)
+curl -X POST $URL/jobs -H "authorization: Bearer $API_TOKEN" -d '{"topic":"…","channel":"moon","aspect":"16:9","durationS":600}'
+```
+Local verification without an account: `pnpm cf:dry-run` (add `--containers-rollout=none` without Docker), `npx wrangler d1 migrations apply opumia --local`, `npx tsx packages/cloudflare/scripts/adapter-test.ts`.
 
 ## Commands
 
@@ -190,29 +223,52 @@ npx tsx apps/cli/src/dev/smoke.ts                 # offline render test of every
 
 | Stage | Model / tool | Output in `out/<job>/` |
 | --- | --- | --- |
-| A1 research | Sonnet 5.5 + web search/fetch → Haiku 5.5 extracts claims → each source page fetched, Haiku checks each claim; evidence must appear verbatim | `facts.json` (`FactSheet`) |
+| A1 research | Sonnet 5.5 + web search/fetch → Haiku 5.5 extracts claims → each source page fetched, Haiku checks each claim; evidence must appear verbatim | `facts.json` (`FactSheet` + `story` layer = `StoryDossier`: characters, scenes, contrast anchors, quotes — every item bound to verified claim ids) |
 | A2 script | Sonnet 5.5, channel **style pack** in a cached system block (profile + technique cards + story labels + real cold opens) | `script.draft.json` |
-| A3 narration | ElevenLabs `/with-timestamps`, char→word alignment, fit window (short: duration−8 … −1 s), ≤6 % `atempo` fit, else one re-write; voice pace learned in `data/voice-calibration.json` | `narration.mp3`, `timed-script.json` |
-| B1 director | Sonnet 5.5, shots start on word indices, SFX on words, designed kinds + props | `storyboard.json` |
+| A3 narration | ElevenLabs `/with-timestamps`; channel voice resolved by name via `/v1/voices` and cached with its tuned settings in `data/voice-calibration.json` (`_voices`; MagnatesMedia = "Christopher", tuned by `apps/cli/src/dev/voice-audition.ts`); dramatic `<break>` beats (`narration/beats.ts`, skipped by the aligner); char→word alignment, fit window (short: duration−8 … −1 s), ≤6 % `atempo` fit, else one re-write; pace learned per voice+settings | `narration.mp3`, `timed-script.json` |
+| B1 director | Sonnet 5.5, shots start on word indices, designed kinds + props; then `agents/sound-design.ts`: one music bed per chapter on a mood arc, drop-outs on cliffhangers, riser+boom on chapter pivots, SFX on ~50 % of reveals at the channel's hit density (from `sound.json` → StyleProfile.audio) | `storyboard.json` |
 | B2 resolver | BM25 over library (20,946 captioned shots, cinematic, era, objects) → Haiku rerank (era- and person-aware) → stock/archival fallback → black-frame screen | `resolution.json`, `public/media/` |
 | C1–C2 render | manifest → Remotion (muted) → FFmpeg mix (voice chain, sidechain-ducked bed, SFX at frame delays) → two-pass loudnorm −14 LUFS / −1.5 dBTP → mux | `manifest.json`, final `*_9x16.mp4`, `captions.srt` |
 | C3 thumbnail | Sonnet vision extracts channel thumbnail rules (`data/thumbnail-styles/`) → Haiku brief → Higgsfield plate (no text, no real people) → Remotion still with headline | `thumbnail.jpg` |
-| C4 QA | ffprobe/ebur128/blackdetect/freezedetect + provenance + caption sync + facts + pacing + Sonnet vision judge; ≤2 autonomous B-roll repair rounds | `qa.json`, `LICENSES.md`, `usage.json` |
+| C4 QA | ffprobe/ebur128/blackdetect/freezedetect + provenance + caption sync + facts + number parity + card length + lower-third backdrop + pacing + Sonnet vision judge; ≤2 autonomous B-roll repair rounds | `qa.json`, `LICENSES.md`, `usage.json` |
+| benchmark (dev) | `npx tsx apps/cli/src/dev/benchmark.ts out/<job>`: our frames + metrics vs the channel's technique clips (`Library/moments/<channel>/`), reference b-roll and profile; strict Sonnet vision gap list | `benchmark.md`, `benchmark.json`, `benchmark/` |
+
+Platform layer (topic- and channel-agnostic; no topic is hardcoded anywhere):
+- **Art direction** (`agents/art-director.ts`, stage A1b → `design.json`): a `FilmDesignSystem` per film — palette tokens (primary, accent, surfaces, paper, marker, text; contrast-guarded), display/body type pairing, grain/vignette/halftone, one grade per act, scene-grammar favour/avoid list. The motion engine reads it through live bindings (`remotion/types.ts:applyDesign` → `PALETTE`, `FONT*`, `TEXTURE`); act grades switch at chapter openers.
+- **Blueprints** (`agents/script.ts`): cold-open archetype (irony, reversal, mystery, stakes, flash_forward, claim, question) + story-family spine + ending archetype (callback, lesson, open_question, where_now, warning), chosen per dossier from the style pack's catalog (section 7) and never repeating the channel's recent films (ProductionMemory). Stored on `ScriptDraft.blueprint`.
+- **Asset-aware composer** (`motion-engine/compose.ts`, inside `buildManifest`): layouts are checked against what really resolved (no portrait → name slam, no subject → title slam; never a placeholder) and the scene grammar stops any layout repeating within 45 s. Captions are hidden under layouts with their own lower-frame text (`CAPTION_HIDE`).
+- **ProductionMemory** (`agents/memory.ts` → `data/production-memory.json`; D1 table `production_memory`, `migrations/0002`): blocked asset refs (gate + judge rejections; the resolver never offers them again), failed query phrasings (shown to the director as "avoid"), blueprints used per channel, benchmark outcomes with visual mix.
+- **Pre-render frame gate** (`motion-engine/gate.ts` + `agents/judge.ts:gateReview`, Haiku vision): ~10 key stills before the full render; off-era/mismatched/misleading footage is re-picked (and blocked in memory), broken or overlapping graphics are dropped to footage, then the manifest is rebuilt. Output `gate/`, `gate.json`.
 
 Editorial rules enforced in code (keep them):
+- **Story engine (script):** the writer works from the StoryDossier (characters, scenes, contrasts, quotes) and the channel's measured prose (median sentence 19 words, ~16 % of sentences with a digit, turn every ~31 s). `agents/narrative.ts` rejects: an origin/date in the cold open (before the thesis), no turn in the first 30 s, stretches > 50 s without a turn, choppy prose (median < 15 words or > 15 % of sentences ≤ 6 words), number dumps (> 30 % of sentences with a digit), stock filler re-hooks, and runs of date-led sentences; up to two targeted revisions. Long-form chapters run 90–150 s (`chapterCount`). Figures are digits with symbols (`normalizeFigures`).
+- **Number parity:** `motion-engine/parity.ts` parses the spoken figures; a counter shows exactly the spoken string ("$7.2 billion" → "$7.2B") or is dropped; chart/versus values that are spoken use the spoken form. QA `number_parity`.
+- **Sharp-plate compositing:** designed elements sit over SHARP footage graded darker (never blurred); the procedural `atmosphere` only when a film has no footage at all. Signature primitives (`remotion/scenes/Signature.tsx`): HeroFaceSplit (`hero_face`), SharpOverlayCounter (`money_figure`), CutoutCollage (`cutout_collage`), TitleRollChapter (`chapter_card`, auto at each long-form chapter start), ScreenMock (`screen`); plus DocumentHighlightCard, TrajectoryChart, VersusSplitCard, tactical MapFlyover. Director caps: ≤ 3 counters per 150 s (unique facts, ≥ 20 s apart), unique text slams, ≤ 30 % designed shots.
+- **Reenactment first:** staged stock reenactment with anonymous actors is allowed and preferred for power/secrecy/engineers/boardroom/consumer beats; only recognisable celebrities/politicians shown as someone else are rejected. `resolver:mismatch` rejects title slates/credits, devices that post-date the beat (touchscreens before 2007 etc.) and a rival brand the line doesn't name.
+- **Text slams ≤ 3.2 s** (`big_word`, `quote_card`; `CARD_MAX_S`, reference median 3.12 s) laid over sharp footage; chapter rolls 2.4 s; burned-in captions (dark translucent pill) hidden under them. QA `card_length`; lower thirds must sit over a detailed picture (QA `lower_third_backdrop`).
+- **Voice:** Christopher at stability 0.4 / similarity 0.8 / style 0.35 / speed 1.1 (~196 wpm, audition in `voice-calibration.json`); `<break>` only before chapter changes and after rehook/twist lines; broadcast voice chain in `audio.ts` (warmth, presence, de-ess, two-stage compression). Master −12.5 LUFS, music ducked ~8 dB.
+- **Sound:** music bed evolves every ~45 s within a mood span; breathing drop-outs (1.2–1.6 s) about once a minute, a sub drop only after rehook/twist; hits ≈ 3/min, mostly low thuds/booms (no whooshes); riser + boom on chapter pivots.
+- **Thumbnail fallback:** without a Higgsfield plate, `ThumbnailLocal` composites the top-10 pattern from Library assets (one focal cutout, crimson/gold/emerald field, flames/cash motif, 0–3 words) → `thumbnail.local.json`.
 - Only the reranker's accepted pick is ever used. A rejected shot falls back to an approved picture from the same segment, or to kinetic type of the spoken words. Lines that name a person always use kinetic type: never a stand-in face.
 - Footage more than 15 years older than the story's era is out (5 years in repairs). Assets with `bugSpots` are excluded.
 - The licence gate (`agents/library-menu.ts:isUsable`): licence required; `moments/`, `bank/` and `thumb_cache/` are never used in output; generated assets are allowed only for audio.
 - Remotion's `bundle()` snapshots `public/`, so every render re-bundles.
+- **No duplicate text:** `big_word` is only a date, a stat or a 1–2 word stamp. Burned-in captions are suppressed under full-screen text cards (`FULLSCREEN_TEXT`), while the SRT keeps every word. Enforced by the `duplicate_text` QA check.
+- **Safe zones** (`remotion/types.ts:SAFE`): lower thirds sit at `bottom: 24%` (9:16) and `16%` (16:9), with captions in the band below them.
+- **Fact binding:** charts, counters and versus cards reference numeric fact IDs (`agents/numeric-facts.ts`) and their values are filled from the `FactSheet`. Unbound graphics are demoted to footage. Enforced by the `fact_binding` QA check (blocker).
+- **Archive first:** shots with `entities` query Commons/NARA/Europeana by name + year first. A candidate's own metadata must name the entity. Archival photos render as 2.5D cards with a citation badge.
+- **Period props:** typewriters, dip pens, rotary phones, vinyl and similar props are rejected for post-1985 stories (`resolver:anachronistic`). Frames over 85% white or uniform fail `blank_frames`.
+- **Long-form:** chaptered scripts with `rehook` beats every 25–35 s, chapter-chunked narration stitched with FFmpeg, per-chunk director plans, music cue changes with crossfades, parallel chunk rendering (`render.ts:chunkRanges`), `youtube-description.txt` with chapter timestamps, and a `chapters` QA check.
+- **`data/license-overrides.json`:** licence whitelists by glob (applied by the indexer only where a licence is missing) and per-channel `maxWpm` caps.
 
-Credentials: `ANTHROPIC_API_KEY` (or `OPUMIA_ANTHROPIC_KEY`), `ELEVENLABS_API_KEY`, the stock keys, and Higgsfield `HF_API_KEY_ID` + `HF_API_KEY_SECRET` (or `HIGGSFIELD_API_KEY="id:secret"`). Without Higgsfield keys the thumbnail stage writes `thumbnail.brief.json`; put a plate at `public/thumb_bg.png` and re-run.
+Credentials are loaded by `pnpm opumia …` (see **Secrets** above; check with `pnpm opumia keys`): `OPUMIA_ANTHROPIC_KEY`, `ELEVENLABS_API_KEY`, the stock keys, and Higgsfield `HIGGSFIELD_API_KEY` in `id:secret` form (or `HF_API_KEY_ID` + `HF_API_KEY_SECRET`). Without usable Higgsfield credentials the thumbnail stage writes `thumbnail.brief.json`; put a plate at `public/thumb_bg.png` and re-run. In Cloudflare the same names are Workers secrets (the container receives the Claude key as `ANTHROPIC_API_KEY`).
 
 ## Sprint plan
 
 1. ✅ **Foundation + local indexers**: monorepo, contracts, Library index, Reference status, draft StyleProfiles.
 2. ✅ **Narration-first production**: research/fact-check, script, ElevenLabs `TimedScript`, director, resolver + 8 stock/archival adapters, Remotion scenes (parallax card, chart, map flyover, document highlighter, kinetic type, B-roll drift + overlays, word captions), FFmpeg mastering, Higgsfield thumbnail, QA + auto-repair. First film: `out/enron-short-9x16/` (60 s 9:16 MagnatesMedia).
-3. Long-form 16:9 (chapters, re-hooks, music cue changes), SigLIP embedding search over `footage/index`, Commons/NARA archival-first for named people and places.
-4. Cloudflare adapters (R2/D1/Workflows/Containers).
+3. ✅ **Cinema polish, archive-first, long-form, cloud**: duplicate-text, safe-zone, fact-binding, prop and blank-frame fixes; archive-first entity sourcing with citation badges; chaptered 16:9 long-form with parallel chunk rendering; license overrides; R2/D1 adapters, Worker, Workflow and Container. Verification film: `out/nokia-longform-16x9/`.
+4. SigLIP embedding search over `footage/index` (text→image), per-chapter mastering stems, a remote Workflow run on a real Cloudflare account, and R2 upload tooling for the Library subset.
 
 ## Conventions
 

@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { ResolutionReport, type AssetRecord, type LibraryIndex, type ResolvedMedia, type Storyboard, type StoryboardShot } from "@opumia/contracts";
 import { isUsable, MODELS, plain, structured } from "@opumia/agents";
+import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { downloadCandidate, providersFor, searchStock, type StockCandidate } from "./stock.js";
@@ -38,8 +39,11 @@ export interface StoryEra {
 
 /** Story era from the years spoken in the narration (e.g. 1985–2001), or null for timeless topics. */
 export function storyEraOf(text: string): StoryEra | null {
-  const years = [...text.matchAll(/\b(1[89]\d\d|20[0-4]\d)\b/g)].map((m) => Number(m[1]));
-  return years.length ? { min: Math.min(...years), max: Math.max(...years) } : null;
+  const years = [...text.matchAll(/\b(1[89]\d\d|20[0-4]\d)\b/g)].map((m) => Number(m[1])).sort((a, b) => a - b);
+  if (!years.length) return null;
+  // Robust to a lone founding-year mention (e.g. "founded in 1865" in a 2007–2013 story): use the 25th percentile.
+  const p25 = years[Math.floor((years.length - 1) * 0.25)]!;
+  return { min: p25, max: years[years.length - 1]! };
 }
 
 function needOf(shot: StoryboardShot, storyEra: StoryEra | null): Need | null {
@@ -53,16 +57,16 @@ function needOf(shot: StoryboardShot, storyEra: StoryEra | null): Need | null {
   return { shot, query: bg.query, kind, decade, period: decade !== null && decade < 2000, durationS: shot.endS - shot.startS, line: "" };
 }
 
-async function pick(stage: string, needs: Need[], cands: Map<string, Cand[]>, aspect: string, era: StoryEra | null, model: (typeof MODELS)[keyof typeof MODELS] = MODELS.haiku, notes: Map<string, string> = new Map()): Promise<Map<string, number>> {
+async function pick(stage: string, needs: Need[], cands: Map<string, Cand[]>, aspect: string, era: StoryEra | null, model: (typeof MODELS)[keyof typeof MODELS] = MODELS.haiku, notes: Map<string, string> = new Map(), entityMode = false): Promise<Map<string, number>> {
   const rows = needs.filter((n) => (cands.get(n.shot.id) ?? []).length);
   if (!rows.length) return new Map();
   const text = rows
-    .map((n) => `SHOT ${n.shot.id} (${n.durationS.toFixed(1)} s) narration: "${n.line}" | intent: ${n.shot.intent} | query: ${n.query}${n.decade ? ` | era ${n.decade}s` : ""}${notes.get(n.shot.id) ? ` | QA REJECTED THE PREVIOUS PICK: ${notes.get(n.shot.id)}` : ""}\n${(cands.get(n.shot.id) ?? []).map((c, i) => `  [${i}] ${describe(c)}`).join("\n")}`)
+    .map((n) => `SHOT ${n.shot.id} (${n.durationS.toFixed(1)} s) narration: "${n.line}"${n.shot.entities?.length ? ` | MUST DEPICT: ${n.shot.entities.map((e) => `${e.name} (${e.type}${e.year ? `, ${e.year}` : ""})`).join("; ")}` : ""} | intent: ${n.shot.intent} | query: ${n.query}${n.decade ? ` | era ${n.decade}s` : ""}${notes.get(n.shot.id) ? ` | QA REJECTED THE PREVIOUS PICK: ${notes.get(n.shot.id)}` : ""}\n${(cands.get(n.shot.id) ?? []).map((c, i) => `  [${i}] ${describe(c)}`).join("\n")}`)
     .join("\n");
   const { data } = await structured({
     stage,
     model,
-    system: [plain(`You are a documentary picture editor choosing B-roll. For each shot pick the candidate that best shows the intent (right subject, right era, believable). Prefer library candidates when they fit about as well as stock. Reject (-1) anything off-topic, anachronistic, text-heavy, or a recognisable actor presented as a real person. ${era ? `The story takes place ${era.min}–${era.max}: reject footage that visibly belongs to another era (e.g. 1920s–1950s clothing, vintage cars, black-and-white newsreel for a 1990s story) unless the shot's era says otherwise.` : ""} A mood shot is fine only if it clearly matches the intent's subject (an office, a trading floor, money, documents) — reject loosely related atmospherics. REAL PEOPLE: if the narration over a shot names or refers to a real person, reject any candidate showing an identifiable person's face (viewers would take them for that person) — prefer buildings, documents, hands, screens, objects. Always reject footage of identifiable public figures, politicians or specific real-world events (ceremonies, speeches) that the narration does not name. Output is ${aspect}.`)],
+    system: [plain(`You are a documentary picture editor choosing B-roll. For each shot pick the candidate that best shows the intent (right subject, right era, believable). Prefer library candidates when they fit about as well as stock. Reject (-1) anything off-topic, anachronistic, text-heavy, or a recognisable actor presented as a real person. ${era ? `The story takes place ${era.min}–${era.max}: reject footage that visibly belongs to another era (e.g. 1920s–1950s clothing, vintage cars, black-and-white newsreel for a 1990s story) unless the shot's era says otherwise.` : ""} A mood shot is fine only if it clearly matches the intent's subject (an office, a trading floor, money, documents) — reject loosely related atmospherics. REENACTMENT: staged stock footage with anonymous actors (executives in a dark boardroom, engineers working late, a hand signing a contract, a worried consumer with a phone) is this channel's main picture type and is WELCOME, including over lines that name a person — it reads as a dramatised scene. Never use a close-up headshot or portrait of a single identifiable stranger over a line that names a real person (it reads as that person) — wide or medium staged scenes, silhouettes, backs, hands and over-the-shoulder shots are fine. Reject a recognisable real celebrity or politician who is not the person the line is about, or footage of a specific real-world event (ceremony, speech, keynote) the narration does not name. Reject title cards, slates, credits, intertitles, watermarks and ad overlays. Reject devices that do not exist yet at the beat's date (touchscreen phones/tablets before 2007, modern iPhones/iPads in a 2000s beat) and a rival brand's product or logo when the line is about a different company. ${era && era.min >= 1985 ? `PERIOD PROPS: this is a ${era.min}–${era.max} story — reject typewriters, dip/fountain pens, quills, rotary or candlestick phones, vinyl records, gramophones, telegraphs, film reels and other props that date the scene before ${era.min - 5}.` : ""} Reject candidates that are mostly blank, white, out of focus or abstract, and footage whose legible text (newspapers, signs, screens) is unrelated to the story or in an unrelated language. ${entityMode ? "ENTITY SHOTS: a candidate is acceptable only if its title/description shows it really depicts the named entity (that person, that company's building or logo, that place) — never a look-alike or generic stand-in." : ""} Output is ${aspect}.`)],
     user: text,
     schema: PickSchema,
     effort: "medium",
@@ -75,6 +79,46 @@ async function ffmpeg(args: string[]) {
 }
 
 const exists = async (p: string) => (await stat(p).catch(() => null))?.size ?? 0;
+
+/** Props that date a scene before ~1985; rejected outright for post-1985 stories. */
+const PERIOD_PROPS = /\b(typewriter|typewriting|typist|dip pen|quill|fountain pen|inkwell|rotary (?:tele)?phone|candlestick phone|switchboard|vinyl|phonograph|record player|gramophone|turntable|telegraph|telegram|film reel|projector|cassette|floppy|abacus)\b/i;
+export const anachronistic = (text: string, era: { min: number } | null) => Boolean(era && era.min >= 1985 && PERIOD_PROPS.test(text));
+
+/** Title slates, credits, intertitles and branded openers are never B-roll. */
+const SLATE = /\b(title card|title slate|intertitle|opening titles?|end credits|credits roll|presents a selection|film preservation|foundation presents|logo (animation|reveal|intro)|countdown leader|test pattern|watermark)\b/i;
+const BRANDS = ["apple", "iphone", "ipad", "ipod", "samsung", "galaxy", "google", "pixel", "android", "microsoft", "windows", "blackberry", "motorola", "sony", "huawei", "xiaomi", "facebook", "amazon", "tesla", "nokia", "lumia"];
+/** Year the beat is set in: the latest year spoken in the line, else the shot's decade. */
+const beatYear = (line: string, decade: number | null) => {
+  const ys = [...line.matchAll(/\b(19[5-9]\d|20[0-4]\d)\b/g)].map((m) => Number(m[1]));
+  return ys.length ? Math.max(...ys) : decade;
+};
+/**
+ * Visual-mismatch filter: slates/credits; touchscreen devices over a pre-2007 beat (iPads before 2010, numbered
+ * iPhone models before 2012); and a competitor's brand when the line does not name that brand.
+ */
+export function mismatch(text: string, line: string, decade: number | null): string | null {
+  const t = text.toLowerCase();
+  if (SLATE.test(text)) return "slate";
+  const y = beatYear(line, decade);
+  if (y !== null) {
+    if (y < 2007 && /\b(iphone|ipad|touchscreen|smartphone|android phone|tablet)\b/.test(t)) return "device-era";
+    if (y < 2010 && /\bipad\b/.test(t)) return "device-era";
+    if (y < 2012 && /\b(iphone ?(5|6|7|8|x|1\d)|ipad pro|airpods|apple watch)\b/.test(t)) return "device-era";
+  }
+  const l = line.toLowerCase();
+  const named = BRANDS.filter((b) => new RegExp(`\\b${b}\\b`).test(l));
+  const shown = BRANDS.filter((b) => new RegExp(`\\b${b}\\b`).test(t));
+  if (shown.length && named.length && !shown.some((b) => named.includes(b))) return "competitor-brand";
+  return null;
+}
+
+/** Does a candidate's own metadata name the entity? (person → surname; others → first distinctive word) */
+export function namesEntity(text: string, e: { name: string; type: string }): boolean {
+  const toks = e.name.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((t) => t.length > 2 && !["the", "inc", "corp", "corporation", "company", "group", "and"].includes(t));
+  if (!toks.length) return false;
+  const key = e.type === "person" ? toks[toks.length - 1]! : toks[0]!;
+  return new RegExp(`\\b${key}`, "i").test(text);
+}
 
 /** True when a trimmed clip contains ≥ 0.3 s of (near) black — e.g. a fade-out or lights-off shot. */
 async function hasBlack(file: string): Promise<boolean> {
@@ -101,8 +145,12 @@ export interface ResolveOptions {
   narration?: string;
   /** Timed narration words, so the rerank sees exactly what is said over each shot. */
   words?: Array<{ word: string; startS: number; endS: number }>;
+  /** ProductionMemory: asset refs earlier films rejected (library key or provider:externalId) — never offered again. */
+  blocked?: Set<string>;
   log?: (s: string) => void;
 }
+
+const isBlocked = (blocked: Set<string> | undefined, ref: string) => !!blocked && (blocked.has(ref) || blocked.has(ref.split("#")[0]!));
 
 export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport> {
   const log = o.log ?? (() => {});
@@ -124,12 +172,56 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const usedStock = new Set<string>();
   const chosen = new Map<string, Cand>();
 
-  // Phase 1 — local library first.
+  // Phase 0 — archive first for named entities: Commons, NARA, Europeana with name + year.
+  const entityNeeds = needs.filter((n) => n.shot.entities?.length);
+  if (entityNeeds.length) {
+    const ent = new Map<string, Cand[]>();
+    for (const n of entityNeeds) {
+      const list: Cand[] = [];
+      const seen = new Set<string>();
+      for (const e of n.shot.entities!.slice(0, 2)) {
+        // Name + year first, then the bare name (archive search engines rarely index years).
+        for (const q of [...new Set([`${e.name}${e.year ? ` ${e.year}` : ""}`, e.name])])
+        for (const kind of ["image", "video"] as const) {
+          const found = await searchStock(q, { kind, orientation, perPage: 6, providers: kind === "image" ? ["commons", "nara", "europeana"] : ["commons", "nara"] });
+          for (const c of found) {
+            const k = `${c.provider}:${c.externalId}`;
+            if (seen.has(k) || usedStock.has(k)) continue;
+            if (!namesEntity(`${c.title} ${c.tags.join(" ")} ${c.attributionText ?? ""}`, e)) continue; // must literally be that entity
+            if (anachronistic(`${c.title} ${c.tags.join(" ")}`, era) || mismatch(`${c.title} ${c.tags.join(" ")}`, n.line, n.decade) || isBlocked(o.blocked, k)) continue;
+            seen.add(k);
+            list.push({ src: "stock", c, score: 2 });
+          }
+        }
+        // A library asset can also carry the entity's name (e.g. a captioned film shot).
+        for (const r of bm.search(e.name, { kind: "any", decade: n.decade, limit: 10 }).filter((r) => namesEntity(r.doc.text, e) && !r.doc.asset.bugSpots?.length)) {
+          if (!seen.has(r.doc.key)) list.push({ src: "local", doc: r.doc, score: r.score }), seen.add(r.doc.key);
+        }
+      }
+      ent.set(n.shot.id, list.slice(0, 10));
+    }
+    const withCands = entityNeeds.filter((n) => (ent.get(n.shot.id) ?? []).length);
+    log(`  resolver: archive-first for ${entityNeeds.length} entity shot(s); ${withCands.length} have named archival candidates`);
+    if (withCands.length) {
+      const pe = await pick("resolve.entity", withCands, ent, o.storyboard.aspect, era, MODELS.sonnet, new Map(), true);
+      for (const n of withCands) {
+        const c = ent.get(n.shot.id)?.[pe.get(n.shot.id) ?? -1];
+        if (!c) continue;
+        chosen.set(n.shot.id, c);
+        if (c.src === "local") usedLocal.add(c.doc.key);
+        else usedStock.add(`${c.c.provider}:${c.c.externalId}`);
+      }
+      log(`  resolver: ${withCands.filter((n) => chosen.has(n.shot.id)).length} entity shot(s) placed from archives`);
+    }
+  }
+
+  // Phase 1 — local library first (for everything not already placed from archives).
+  const pending = needs.filter((n) => !chosen.has(n.shot.id));
   const local = new Map<string, Cand[]>();
-  for (const n of needs) local.set(n.shot.id, bm.search(n.query, { kind: n.kind, decade: n.decade, limit: 24 }).filter((r) => !tooOld(r.doc, n) && !r.doc.asset.bugSpots?.length).slice(0, 6).map((r) => ({ src: "local" as const, doc: r.doc, score: r.score })));
-  log(`  resolver: local candidates for ${[...local.values()].filter((c) => c.length).length}/${needs.length} shots; reranking (${MODELS.haiku})…`);
-  const p1 = await pick("resolve.local", needs, local, o.storyboard.aspect, era);
-  for (const n of needs) {
+  for (const n of pending) local.set(n.shot.id, bm.search(n.query, { kind: n.kind, decade: n.decade, limit: 24 }).filter((r) => !tooOld(r.doc, n) && !r.doc.asset.bugSpots?.length && !anachronistic(r.doc.text, era) && !mismatch(r.doc.text, n.line, n.decade) && !isBlocked(o.blocked, r.doc.key)).slice(0, 6).map((r) => ({ src: "local" as const, doc: r.doc, score: r.score })));
+  log(`  resolver: local candidates for ${[...local.values()].filter((c) => c.length).length}/${pending.length} shots; reranking (${MODELS.haiku})…`);
+  const p1 = await pick("resolve.local", pending, local, o.storyboard.aspect, era);
+  for (const n of pending) {
     const i = p1.get(n.shot.id) ?? -1;
     const c = local.get(n.shot.id)?.[i];
     if (c && c.src === "local" && !usedLocal.has(c.doc.key)) {
@@ -146,7 +238,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     for (const n of rest) {
       const kind = n.kind === "image" ? "image" : "video";
       const found = await searchStock(n.query, { kind, orientation, perPage: 4, providers: providersFor({ kind, period: n.period }) });
-      stock.set(n.shot.id, found.filter((c) => !usedStock.has(`${c.provider}:${c.externalId}`)).slice(0, 8).map((c) => ({ src: "stock" as const, c, score: 1 })));
+      stock.set(n.shot.id, found.filter((c) => !usedStock.has(`${c.provider}:${c.externalId}`) && !anachronistic(`${c.title} ${c.tags.join(" ")}`, era) && !mismatch(`${c.title} ${c.tags.join(" ")}`, n.line, n.decade) && !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)).slice(0, 8).map((c) => ({ src: "stock" as const, c, score: 1 })));
     }
     const p2 = await pick("resolve.stock", rest, stock, o.storyboard.aspect, era);
     for (const n of rest) {
@@ -203,7 +295,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       const ext = c.doc.kind === "video" ? "mp4" : alpha ? "png" : "jpg";
       const file = `${n.shot.id}_${createHash("sha1").update(c.doc.key).digest("hex").slice(0, 8)}.${ext}`;
       const inS = c.doc.inS + (c.doc.outS && c.doc.outS - c.doc.inS > n.durationS + 1 ? 0.4 : 0);
-      await materialize(path.join(o.libraryRoot, a.relPath), c.doc.kind, path.join(mediaDir, file), inS, n.durationS, alpha);
+      await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), c.doc.kind, path.join(mediaDir, file), inS, n.durationS, alpha);
       return { shotId: n.shot.id, role: "primary", origin: "library", ref: c.doc.key, provider: "library", kind: c.doc.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, ...(a.probe?.width ? { width: a.probe.width, height: a.probe.height } : {}), license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: Math.round(c.score * 100) / 100, query: n.query };
     }
     const dl = await downloadCandidate(c.c, dlDir);
@@ -220,8 +312,8 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const out = path.join(isAudio ? path.join(o.jobDir, "audio") : mediaDir, file);
     if (isAudio) {
       await mkdir(path.dirname(out), { recursive: true });
-      if (!(await exists(out))) await ffmpeg(["-i", path.join(o.libraryRoot, a.relPath), "-c:a", "libmp3lame", "-q:a", "2", out]);
-    } else await materialize(path.join(o.libraryRoot, a.relPath), a.kind === "video" ? "video" : "image", out, 0, durationS ?? 5, a.ext === "png");
+      if (!(await exists(out))) await ffmpeg(["-i", await ensureLocal(o.libraryRoot, a.relPath, "library"), "-c:a", "libmp3lame", "-q:a", "2", out]);
+    } else await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), a.kind === "video" ? "video" : "image", out, 0, durationS ?? 5, a.ext === "png");
     media.push({ shotId, role, origin: "library", ref: a.id, provider: "library", kind: isAudio ? "audio" : a.kind === "video" ? "video" : "image", localPath: out, publicPath: isAudio ? `../audio/${file}` : `media/${file}`, ...(a.probe?.durationS ? { durationS: a.probe.durationS } : {}), license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: 1, query: role });
   };
   const papers = o.index.assets.filter((a) => isUsable(a) && a.category === "overlays" && a.kind === "image" && /old_paper|parchment|paper_white|paper_kraft|paper_manila|card_grey/.test(a.relPath) && !/newsprint/.test(a.relPath)).sort((a, b) => a.id.localeCompare(b.id));
@@ -286,7 +378,7 @@ export async function repairShots(o: RepairOptions): Promise<ResolutionReport> {
   const { data: rw } = await structured({
     stage: "resolve.repair.queries",
     model: MODELS.sonnet,
-    system: [plain(`You are a documentary researcher. For each rejected shot write two stock-footage search queries (3-6 words, concrete and filmable, ${era ? `set ${era.min}–${era.max}` : "period-appropriate"}) that would illustrate the narration without showing an identifiable person's face when a real person is named. Prefer places, objects, documents, screens, buildings, hands, crowds seen from afar.`)],
+    system: [plain(`You are a documentary researcher. For each rejected shot write two stock-footage search queries (3-6 words, concrete and filmable, ${era ? `set ${era.min}–${era.max}` : "period-appropriate"}) that would illustrate the narration: prefer cinematic staged reenactment (anonymous actors: executives in a dark boardroom, engineers at monitors at night, a hand signing a contract, a worried consumer) or real places, objects and documents of the right era. Never a recognisable celebrity or politician.`)],
     user: needs.map((n) => `${n.shot.id}: narration "${n.line}" | intent ${n.shot.intent} | rejected because: ${o.repairs.get(n.shot.id)}`).join("\n"),
     schema: RewriteSchema,
     effort: "medium",
@@ -328,7 +420,7 @@ export async function repairShots(o: RepairOptions): Promise<ResolutionReport> {
           const a = c.doc.asset;
           const alpha = a.ext === "png";
           const file = `${n.shot.id}_${createHash("sha1").update(c.doc.key).digest("hex").slice(0, 8)}.${c.doc.kind === "video" ? "mp4" : alpha ? "png" : "jpg"}`;
-          await materialize(path.join(o.libraryRoot, a.relPath), c.doc.kind, path.join(mediaDir, file), c.doc.inS, n.durationS, alpha);
+          await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), c.doc.kind, path.join(mediaDir, file), c.doc.inS, n.durationS, alpha);
           m = { shotId: n.shot.id, role: "primary", origin: "library", ref: c.doc.key, provider: "library", kind: c.doc.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: Math.round(c.score * 100) / 100, query: n.query };
         } else {
           const dl = await downloadCandidate(c.c, dlDir);

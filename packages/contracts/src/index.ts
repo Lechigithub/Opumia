@@ -8,3 +8,5 @@ export * from "./qa.js";
 export type * from "./adapters.js";
 export * from "./research.js";
 export * from "./storyboard-plan.js";
+export * from "./overrides.js";
+export * from "./design.js";

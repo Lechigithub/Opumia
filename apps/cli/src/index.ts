@@ -2,12 +2,11 @@
 import { availableParallelism } from "node:os";
 import path from "node:path";
 import { analyzeStyles, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
-import { loadKeys } from "./keys.js";
+import { KEYCHAIN_SERVICE, loadKeys } from "./keys.js";
 import { produce, STAGES } from "./produce.js";
 
-loadKeys();
-
 const ROOT = path.resolve(process.env.OPUMIA_ROOT ?? process.cwd());
+const KEY_SOURCES = loadKeys(ROOT);
 const env = (k: string, d: string) => path.resolve(ROOT, process.env[k] ?? d);
 const LIBRARY = env("OPUMIA_LIBRARY_DIR", "Library");
 const REFERENCE = env("OPUMIA_REFERENCE_DIR", "Reference");
@@ -31,7 +30,8 @@ const HELP = `opumia <command>
   inspect-reference    Check done*.txt vs disk per channel → data/reference-status.json
   analyze-styles       Draft StyleProfiles → data/style-profiles/<channel>.json
   all                  index-library + inspect-reference + analyze-styles
-  produce              Topic → researched, narrated, rendered, QA'd film (stage outputs cached in out/<job>/)
+  keys                 Show which API keys are available and from where (names only, never values)
+  produce             Topic → researched, narrated, rendered, QA'd film (stage outputs cached in out/<job>/)
       --topic "…"        required
       --channel ID       magnates-media | logically-answered | big-company | modern-mba | how-money-works | moon
       --aspect 9:16|16:9 (default 9:16)
@@ -107,6 +107,14 @@ async function main() {
         log,
       });
       if (report && report.verdict === "fail") process.exitCode = 2;
+      return;
+    }
+    case "keys": {
+      const entries = Object.entries(KEY_SOURCES);
+      for (const [name, src] of entries) log(`  ${src === "missing" ? "✗" : "✓"} ${name.padEnd(24)} ${src}`);
+      const n = (s: string) => entries.filter(([, v]) => v === s).length;
+      log(`${entries.length} keys: keychain=${n("keychain")} file=${n("file")} env=${n("env")} missing=${n("missing")}`);
+      if (n("missing")) log(`Add one in macOS Terminal: security add-generic-password -U -s ${KEYCHAIN_SERVICE} -a NAME -w`);
       return;
     }
     case "all":

@@ -13,6 +13,13 @@ export const QACheckId = z.enum([
   "watermark", // no asset with bugSpots shown un-cropped
   "safe_zone_9x16",
   "fact_claims", // every claim has a source
+  "blank_frames", // no frame > 85 % white / uniform
+  "number_parity", // on-screen figures equal the spoken figures (same precision)
+  "card_length", // full-screen kinetic text cards ≤ 2.0 s
+  "lower_third_backdrop", // lower thirds sit over a detailed picture, never a flat/blank plate
+  "duplicate_text", // burned-in captions never repeat a full-screen card's words
+  "fact_binding", // every chart/counter value equals a verified FactSheet number
+  "chapters", // long-form: ≥ 3 chapters, first at 0:00, each ≥ 10 s
   "judge", // Claude (Sonnet) holistic review
 ]);
 

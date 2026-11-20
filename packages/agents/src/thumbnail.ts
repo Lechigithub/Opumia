@@ -59,9 +59,12 @@ export async function thumbnailStyle(channelId: ChannelId, roots: { reference: s
 
 const BriefSchema = z.object({
   imagePrompt: z.string(),
-  headline: z.string(),
+  headline: z.string().describe("0–3 bold words (empty string allowed)"),
   accentWord: z.string(),
   subject: z.string(),
+  focalObject: z.string().describe("the single iconic focal object (a product, logo-free device, cash, a symbol) in 1–3 plain words"),
+  motif: z.enum(["fire", "cash", "crisis", "none"]),
+  tone: z.enum(["crimson", "gold", "emerald"]),
 });
 export type ThumbnailBrief = z.infer<typeof BriefSchema>;
 
@@ -70,7 +73,7 @@ export async function thumbnailBrief(style: ThumbnailStyle, draft: ScriptDraft, 
   const { data } = await structured({
     stage: "thumbnail.brief",
     model: MODELS.haiku,
-    system: [plain(`Write a thumbnail brief following these channel rules:\n${JSON.stringify(style)}\nThe image model draws only the plate: no text, no logos, no watermarks, no identifiable real people. The headline (max ${style.textRules.maxWords} words, ${style.textRules.casing}) is composited later; accentWord is one word of the headline to colour.`)],
+    system: [plain(`Write a thumbnail brief following these channel rules:\n${JSON.stringify(style)}\nThe channel's top-10 thumbnails (5.4M–12.1M views) share one pattern: ONE iconic focal object dominating the frame (a logo-shaped product, a device, a sign, cash), a saturated crimson, gold or emerald field, a fire / cash / crisis motif (flames, piles of banknotes, alarm), and 0–3 bold words (a third have no text). The image model draws only the plate: no text, no logos, no watermarks, no identifiable real people. The headline (0–3 words, ${style.textRules.casing}) is composited later; accentWord is one word of the headline to colour.`)],
     user: `Video title: ${draft.title}\nHook: ${draft.segments[0]?.text}\nAspect: ${aspect}`,
     schema: BriefSchema,
     effort: "low",

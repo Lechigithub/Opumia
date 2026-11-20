@@ -5,20 +5,14 @@ import { ffprobe } from "@opumia/ingest";
 import { alignWords, tokensFromAlignment } from "./align.js";
 import { remainingCharacters, ttsWithTimestamps } from "./elevenlabs.js";
 import { applyPronunciations, loadLexicon } from "./pronunciation.js";
+import type { ChannelVoice } from "./voice.js";
+import { withBeats } from "./beats.js";
 
 export * from "./elevenlabs.js";
 export * from "./align.js";
 export * from "./pronunciation.js";
-
-/** Per-channel narrator defaults (premade/professional voices on the account). Override with OPUMIA_VOICE_ID. */
-export const CHANNEL_VOICES: Record<ChannelId, { voiceId: string; name: string; speed: number; stability: number; style: number }> = {
-  "magnates-media": { voiceId: "VMCgCMbBs53ElBxVD4VB", name: "Steven - Deep Documentary Narrator", speed: 1.12, stability: 0.4, style: 0.35 },
-  "logically-answered": { voiceId: "nPczCjzI2devNBz1zQrb", name: "Brian", speed: 1.05, stability: 0.45, style: 0.25 },
-  "big-company": { voiceId: "JBFqnCBsd6RMkjVDRZzb", name: "George", speed: 1.0, stability: 0.5, style: 0.2 },
-  "modern-mba": { voiceId: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", speed: 1.05, stability: 0.5, style: 0.2 },
-  "how-money-works": { voiceId: "cjVigY5qzO86Huf0OWal", name: "Eric", speed: 1.08, stability: 0.45, style: 0.25 },
-  moon: { voiceId: "3YzGaTGef0x5PLEK9yGq", name: "Atlas", speed: 1.05, stability: 0.45, style: 0.3 },
-};
+export * from "./voice.js";
+export * from "./beats.js";
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean);
 
@@ -28,7 +22,8 @@ export interface NarrateOptions {
   outDir: string;
   libraryRoot: string;
   modelId?: string;
-  voiceId?: string;
+  /** Resolved narrator (see resolveChannelVoice). */
+  voice: ChannelVoice;
   speed?: number;
   log?: (s: string) => void;
 }
@@ -36,8 +31,8 @@ export interface NarrateOptions {
 /** Synthesize the whole script in one request (best prosody), then split timings back onto segments. */
 export async function narrate(o: NarrateOptions): Promise<{ script: TimedScript; audioPath: string; alignmentPath: string; characters: number }> {
   const log = o.log ?? (() => {});
-  const voice = CHANNEL_VOICES[o.draft.styleProfileId];
-  const voiceId = o.voiceId ?? process.env.OPUMIA_VOICE_ID ?? voice.voiceId;
+  const voice = o.voice;
+  const voiceId = voice.voiceId;
   const modelId = o.modelId ?? process.env.OPUMIA_TTS_MODEL ?? "eleven_multilingual_v2";
   const lexicon = await loadLexicon(o.libraryRoot);
 
@@ -47,23 +42,61 @@ export async function narrate(o: NarrateOptions): Promise<{ script: TimedScript;
 
   const remaining = await remainingCharacters();
   if (remaining !== null && remaining < pron.text.length * 1.1) throw new Error(`ElevenLabs quota too low: ${remaining} chars left, need ${pron.text.length}`);
-  log(`  narration: ${pron.text.length} chars → ElevenLabs ${modelId} voice ${voiceId} (quota left ${remaining ?? "?"})`);
+  log(`  narration: ${pron.text.length} chars → ElevenLabs ${modelId} voice ${voice.name} (${voiceId}) stability ${voice.settings.stability} style ${voice.settings.style} speed ${voice.settings.speed} (quota left ${remaining ?? "?"})`);
 
-  const tts = await ttsWithTimestamps({ voiceId, modelId, text: pron.text, speed: o.speed ?? voice.speed, stability: voice.stability, style: voice.style, seed: 1234 });
   await mkdir(o.outDir, { recursive: true });
   const audioPath = path.join(o.outDir, "narration.mp3");
   const alignmentPath = path.join(o.outDir, "narration.alignment.json");
-  await writeFile(audioPath, tts.audio);
-  await writeFile(alignmentPath, JSON.stringify({ alignment: tts.alignment, normalized: tts.normalized ?? null }) + "\n");
 
-  const tokens = tokensFromAlignment(tts.alignment);
+  // Chunk at chapter/segment boundaries (≤ CHUNK_CHARS) so long-form stays within request limits and
+  // each take keeps stable prosody; neighbours are passed as previous_text/next_text for continuity.
+  const CHUNK_CHARS = 4500;
+  const chunks: Array<{ segs: typeof o.draft.segments }> = [];
+  for (const seg of o.draft.segments) {
+    const cur = chunks[chunks.length - 1];
+    const curLen = cur ? cur.segs.reduce((n, x) => n + x.text.length + 1, 0) : Infinity;
+    const chapterBreak = cur && seg.chapter && cur.segs[cur.segs.length - 1]!.chapter !== seg.chapter && curLen > CHUNK_CHARS * 0.5;
+    if (!cur || curLen + seg.text.length > CHUNK_CHARS || chapterBreak) chunks.push({ segs: [seg] });
+    else cur.segs.push(seg);
+  }
+  const GAP_S = 0.6; // takes break at chapter boundaries: a held beat before the new chapter
   const allWords = o.draft.segments.flatMap((s) => words(s.text));
-  const aligned = alignWords(allWords, tokens);
+  const aligned: ReturnType<typeof alignWords> = [];
+  const alignDump: unknown[] = [];
+  const parts: string[] = [];
+  let offset = 0;
+  let characters = 0;
+  for (const [k, ch] of chunks.entries()) {
+    // Pronunciations per segment, then dramatic <break> beats (skipped by the aligner, so captions stay exact).
+    const text = withBeats(ch.segs.map((x) => ({ role: x.role, ...(x.chapter ? { chapter: x.chapter } : {}), text: applyPronunciations(x.text, lexicon, modelId).text })));
+    const prev = k > 0 ? chunks[k - 1]!.segs.map((x) => x.text).join(" ").slice(-300) : undefined;
+    const next = k < chunks.length - 1 ? chunks[k + 1]!.segs.map((x) => x.text).join(" ").slice(0, 300) : undefined;
+    if (chunks.length > 1) log(`    chunk ${k + 1}/${chunks.length}: ${text.length} chars`);
+    const tts = await ttsWithTimestamps({ voiceId, modelId, text, speed: o.speed ?? voice.settings.speed, stability: voice.settings.stability, similarityBoost: voice.settings.similarityBoost, style: voice.settings.style, seed: 1234, ...(prev ? { previousText: prev } : {}), ...(next ? { nextText: next } : {}) });
+    characters += tts.characters;
+    const part = path.join(o.outDir, chunks.length > 1 ? `narration.part${String(k + 1).padStart(2, "0")}.mp3` : "narration.mp3");
+    await writeFile(part, tts.audio);
+    parts.push(part);
+    const chWords = ch.segs.flatMap((x) => words(x.text));
+    for (const w of alignWords(chWords, tokensFromAlignment(tts.alignment))) aligned.push({ ...w, startS: w.startS + offset, endS: w.endS + offset });
+    alignDump.push({ offsetS: offset, alignment: tts.alignment });
+    offset += ((await ffprobe(part, "audio")).durationS ?? 0) + GAP_S;
+  }
+  if (parts.length > 1) {
+    // Stitch: decode each take, add a short silence between, re-encode once (no MP3 frame gaps).
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const inputs = parts.flatMap((p) => ["-i", p]);
+    const filt = parts.map((_, i) => `[${i}:a]aresample=44100,aformat=channel_layouts=mono,apad=pad_dur=${i < parts.length - 1 ? GAP_S : 0}[a${i}]`).join(";") + `;${parts.map((_, i) => `[a${i}]`).join("")}concat=n=${parts.length}:v=0:a=1[out]`;
+    await promisify(execFile)("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...inputs, "-filter_complex", filt, "-map", "[out]", "-c:a", "libmp3lame", "-b:a", "192k", audioPath], { timeout: 300_000 });
+    log(`  narration: stitched ${parts.length} takes`);
+  }
+  await writeFile(alignmentPath, JSON.stringify({ chunks: alignDump }) + "\n");
   const matched = aligned.filter((w) => w.matched).length;
   log(`  narration: aligned ${matched}/${aligned.length} words directly (rest interpolated)`);
 
   const probe = await ffprobe(audioPath, "audio");
-  const durationS = probe.durationS ?? (tokens.length ? tokens[tokens.length - 1]!.endS : 0);
+  const durationS = probe.durationS ?? (aligned.length ? aligned[aligned.length - 1]!.endS : 0);
 
   const claimsById = new Map(o.facts.claims.map((c) => [c.id, c]));
   let cursor = 0;
@@ -75,6 +108,7 @@ export async function narrate(o: NarrateOptions): Promise<{ script: TimedScript;
     return {
       id: s.id,
       role: s.role,
+      ...(s.chapter ? { chapter: s.chapter } : {}),
       text: s.text,
       startS: ws[0]?.startS ?? 0,
       endS: ws[ws.length - 1]?.endS ?? 0,
@@ -100,7 +134,7 @@ export async function narrate(o: NarrateOptions): Promise<{ script: TimedScript;
   });
   const wpm = (allWords.length / Math.max(1, durationS)) * 60;
   log(`  narration: ${durationS.toFixed(2)} s, ${Math.round(wpm)} wpm`);
-  return { script, audioPath, alignmentPath, characters: tts.characters };
+  return { script, audioPath, alignmentPath, characters };
 }
 
 /**

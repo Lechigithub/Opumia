@@ -1,0 +1,10 @@
+Library
+Reference
+out
+node_modules
+**/node_modules
+data/.cache
+.env
+.env.*
+.git
+**/.wrangler

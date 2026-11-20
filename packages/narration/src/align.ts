@@ -17,8 +17,17 @@ export const normWord = (w: string) =>
 export function tokensFromAlignment(a: CharAlignment): Token[] {
   const out: Token[] = [];
   let cur: Token | null = null;
+  // SSML break tags (<break time="0.6s" />) are echoed in the alignment with zero duration: skip them.
+  let inTag = false;
   for (let i = 0; i < a.characters.length; i++) {
     const ch = a.characters[i]!;
+    if (ch === "<" && a.characters.slice(i + 1, i + 6).join("") === "break") inTag = true;
+    if (inTag) {
+      if (ch === ">") inTag = false;
+      if (cur) out.push(cur);
+      cur = null;
+      continue;
+    }
     const s = a.character_start_times_seconds[i]!;
     const e = a.character_end_times_seconds[i]!;
     if (/\s/.test(ch)) {

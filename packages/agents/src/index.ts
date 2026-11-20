@@ -1,5 +1,10 @@
 export * from "./llm.js";
 export * from "./style-pack.js";
+export * from "./narrative.js";
+export * from "./sound-design.js";
+export * from "./benchmark.js";
+export * from "./art-director.js";
+export * from "./memory.js";
 export * from "./research.js";
 export * from "./script.js";
 export * from "./web.js";
@@ -7,3 +12,4 @@ export * from "./library-menu.js";
 export * from "./director.js";
 export * from "./thumbnail.js";
 export * from "./judge.js";
+export * from "./numeric-facts.js";

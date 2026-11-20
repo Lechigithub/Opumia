@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { ensureLocal } from "@opumia/ingest";
 import { geoBounds, geoContains, geoNaturalEarth1, geoPath, type GeoPermissibleObjects } from "d3-geo";
 
 interface Feature {
@@ -12,7 +13,7 @@ let cache: Feature[] | null = null;
 async function countries(libraryRoot: string): Promise<Feature[]> {
   if (cache) return cache;
   // Natural Earth 1:50m admin-0 countries (public domain), read-only from the Library.
-  const j = JSON.parse(await readFile(path.join(libraryRoot, "maps", "ne_50m_admin_0_countries.geojson"), "utf8")) as { features: Feature[] };
+  const j = JSON.parse(await readFile(await ensureLocal(libraryRoot, path.join("maps", "ne_50m_admin_0_countries.geojson"), "library"), "utf8")) as { features: Feature[] };
   cache = j.features;
   return cache;
 }

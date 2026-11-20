@@ -1,6 +1,7 @@
 import React from "react";
 import { Composition, registerRoot } from "remotion";
 import { Documentary, Thumbnail } from "./Documentary";
+import { ThumbnailLocal } from "./scenes/Signature";
 import type { DocProps } from "./types";
 
 const emptyManifest = {
@@ -41,6 +42,16 @@ const Root: React.FC = () => (
       fps={30}
       durationInFrames={1}
       defaultProps={{ bg: "thumb_bg.png", headline: "", accent: "#f5c518", placement: "bottom" as const, w: 1080, h: 1920 }}
+      calculateMetadata={({ props }) => ({ width: props.w, height: props.h })}
+    />
+    <Composition
+      id="ThumbnailLocal"
+      component={ThumbnailLocal}
+      width={1280}
+      height={720}
+      fps={30}
+      durationInFrames={1}
+      defaultProps={{ focal: "thumb_focal.png", headline: "", w: 1280, h: 720 }}
       calculateMetadata={({ props }) => ({ width: props.w, height: props.h })}
     />
   </>

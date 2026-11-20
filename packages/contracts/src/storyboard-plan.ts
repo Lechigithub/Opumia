@@ -3,7 +3,15 @@ import { Aspect, IsoDateTime, Seconds, StockProvider } from "./common.js";
 import { StoryboardShot } from "./storyboard.js";
 import { ChannelId } from "./style.js";
 
-export const MusicCue = z.object({ assetId: z.string(), startS: Seconds, endS: Seconds, gainDb: z.number().default(-18) });
+/** A music bed for a span (one per chapter in long-form). `drops` are short drop-outs before a reveal (seconds, absolute). */
+export const MusicCue = z.object({
+  assetId: z.string(),
+  startS: Seconds,
+  endS: Seconds,
+  gainDb: z.number().default(-18),
+  mood: z.enum(["intrigue", "rise", "tension", "collapse", "resolve"]).optional(),
+  drops: z.array(z.object({ startS: Seconds, endS: Seconds })).default([]),
+});
 
 export const Storyboard = z
   .object({

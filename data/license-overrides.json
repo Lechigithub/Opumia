@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "glob": "icons/*.png",
+      "license": "ISC (Lucide Icons)",
+      "attributionRequired": false,
+      "note": "Tinted renders of Lucide icons (icons/_src/lucide, ISC licence)."
+    }
+  ],
+  "channels": {
+    "moon": { "maxWpm": 185 }
+  }
+}

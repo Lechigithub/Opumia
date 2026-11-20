@@ -1,9 +1,9 @@
 import path from "node:path";
-import { readJsonSafe } from "@opumia/ingest";
+import { ensureLocal, readJsonSafe } from "@opumia/ingest";
 
 /** IPA lexicon from Library/wiki_ipa_cache.json (read-only). Entries with null IPA are skipped. */
 export async function loadLexicon(libraryRoot: string): Promise<Record<string, string>> {
-  const j = await readJsonSafe<Record<string, string | null>>(path.join(libraryRoot, "wiki_ipa_cache.json"), 0);
+  const j = await readJsonSafe<Record<string, string | null>>(await ensureLocal(libraryRoot, "wiki_ipa_cache.json", "library").catch(() => path.join(libraryRoot, "wiki_ipa_cache.json")), 0);
   if (!j.ok) return {};
   return Object.fromEntries(Object.entries(j.value).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].length > 0));
 }

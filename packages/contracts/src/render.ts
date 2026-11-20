@@ -38,6 +38,8 @@ export const AudioLayer = z.object({
   duckUnderNarrationDb: z.number().max(0).optional(),
   fadeInFrames: Frames.default(0),
   fadeOutFrames: Frames.default(0),
+  /** Music drop-outs (absolute frames): the bed falls to `gainDb` ≈ silence, then slams back on the reveal. */
+  dips: z.array(z.object({ fromFrame: Frames, toFrame: Frames, gainDb: z.number().default(-36) })).default([]),
 });
 
 export const Credit = z.object({ ref: z.string(), text: z.string(), license: z.string(), url: z.string().optional() });

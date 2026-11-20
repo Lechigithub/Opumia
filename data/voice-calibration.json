@@ -1,6 +1,111 @@
 {
-  "VMCgCMbBs53ElBxVD4VB|eleven_multilingual_v2|1.12": {
-    "wpm": 143.9,
+  "_voices": {
+    "magnates-media": {
+      "query": "Christopher",
+      "voiceId": "RolvCZ4e0AkAR2dzyTx0",
+      "name": "Audition Christopher - optimistic storyteller",
+      "settings": {
+        "stability": 0.4,
+        "similarityBoost": 0.8,
+        "style": 0.35,
+        "speed": 1.1
+      },
+      "resolvedAt": "2026-11-20",
+      "audition": {
+        "model": "eleven_multilingual_v2",
+        "passageWords": 116,
+        "picked": "B_s40_1.10",
+        "takes": [
+          {
+            "id": "A_s38_1.08",
+            "settings": {
+              "stability": 0.38,
+              "similarityBoost": 0.8,
+              "style": 0.35,
+              "speed": 1.08
+            },
+            "wpm": 196.9,
+            "sentenceEndPauseS": 0.36,
+            "midGapS": 0.061,
+            "dynDb": 4.91,
+            "medianHz": 132,
+            "semitoneSd": 4.12,
+            "voicedFrames": 1106,
+            "score": 0.919
+          },
+          {
+            "id": "B_s40_1.10",
+            "settings": {
+              "stability": 0.4,
+              "similarityBoost": 0.8,
+              "style": 0.35,
+              "speed": 1.1
+            },
+            "wpm": 195.7,
+            "sentenceEndPauseS": 0.607,
+            "midGapS": 0.061,
+            "dynDb": 5.36,
+            "medianHz": 128,
+            "semitoneSd": 4.14,
+            "voicedFrames": 1057,
+            "score": 0.934
+          },
+          {
+            "id": "C_s42_1.12",
+            "settings": {
+              "stability": 0.42,
+              "similarityBoost": 0.8,
+              "style": 0.35,
+              "speed": 1.12
+            },
+            "wpm": 209.3,
+            "sentenceEndPauseS": 0.329,
+            "midGapS": 0.059,
+            "dynDb": 4.35,
+            "medianHz": 129,
+            "semitoneSd": 4.65,
+            "voicedFrames": 1020,
+            "score": 0.752
+          },
+          {
+            "id": "D_s40_1.12",
+            "settings": {
+              "stability": 0.4,
+              "similarityBoost": 0.8,
+              "style": 0.35,
+              "speed": 1.12
+            },
+            "wpm": 212.3,
+            "sentenceEndPauseS": 0.306,
+            "midGapS": 0.057,
+            "dynDb": 4.97,
+            "medianHz": 129,
+            "semitoneSd": 4.38,
+            "voicedFrames": 1012,
+            "score": 0.74
+          }
+        ]
+      }
+    }
+  },
+  "RolvCZ4e0AkAR2dzyTx0|eleven_multilingual_v2|1.06|s0.4|st0.45": {
+    "wpm": 166.5,
+    "samples": 1
+  },
+  "RolvCZ4e0AkAR2dzyTx0|eleven_multilingual_v2|1.1|s0.4|st0.35": {
+    "wpm": 175.4,
+    "samples": 4
+  },
+  "RolvCZ4e0AkAR2dzyTx0|eleven_multilingual_v2|1|s0.5|st0.3": {
+    "wpm": 143.3,
     "samples": 3
+  },
+  "VMCgCMbBs53ElBxVD4VB|eleven_multilingual_v2|1.12": {
+    "wpm": 148,
+    "samples": 5
+  },
+  "cjVigY5qzO86Huf0OWal|eleven_multilingual_v2|1.08|s0.45|st0.25": {
+    "wpm": 151.8,
+    "samples": 2
   }
 }

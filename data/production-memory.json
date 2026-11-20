@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "blocked": {
+    "015005b572e609b1": {
+      "reason": "The aerial of Manhattan at dusk shows New York, not Houston, while the narration is about Enron's collapse. A visible \"Essex House\" sign adds a distracting real-world brand. Use Houston or Enron-speci",
+      "query": "glass skyscraper looking up dusk city corporate tower",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "27d5d692009f1488": {
+      "reason": "Person peeking through doors with a red Adidas cap and sunglasses doesn't match 'King of Crypto' or the closing sentence, and reads as a fugitive. It could be misread as depicting Bankman-Fried.",
+      "query": "prison corridor bars closing slowly",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "61a9c09c6365923e": {
+      "reason": "Judge's hands and gavel are shown while the narration says \"the meeting and\" (the all-employee meeting). The courtroom imagery does not match; it suits the later trial section better.",
+      "query": "witness on stand in courtroom testifying, tense faces",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "6c1197187236c24c": {
+      "reason": "mismatch: Woman filming with a phone shows nothing about a tweet landing mid-run; footage is loosely related at best and not clearly on the line.",
+      "query": "smartphone screen tweet notification night",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "7e38eda56bfa6c72": {
+      "reason": "The sterile corridor with a masked staff member is a clean-room or lab setting, and only loosely connects to \"heart attack\" for Ken Lay's death. Use more neutral imagery.",
+      "query": "empty hospital corridor at dawn, quiet",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "8fcb3680c0755133": {
+      "reason": "Frame is almost entirely black with a tiny dollar bill at the edge. It is visually empty during the '$10B from FTX' line and lacks impact.",
+      "query": "stacks of cash dollar bills counting dark",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "919fafc3bae1f38a": {
+      "reason": "Very dark, low-resolution clip of a person holding their head at a window is hard to read. It is loosely tied to the line about Sherron Watkins' warning and could be taken as depicting her. Swap for a",
+      "query": "businesswoman typing memo late night office computer glow",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "a8a2a1c2d2fbb25b": {
+      "reason": "Blurry numbers (72.113, 143.680, ...) don't match anything in the narration ('send lenders balance sheets'), and the bottom figure is cut off and illegible. They look like unverified random figures.",
+      "query": "spreadsheet balance sheet on laptop screen dark office",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "b75812510a43d2ca": {
+      "reason": "misleading_person: Big-word title names Sam Bankman-Fried over a close-up of an identifiable stranger in a suit, presented as him.",
+      "query": "Sam Bankman-Fried 2022 portrait",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "be9160727c61dbe6": {
+      "reason": "Newspaper b-roll shows real, unrelated headlines (wildfires, Gaza, football) over 'which FTX had...'. Content is irrelevant to FTX and could read as misleading news context. Use footage with generic o",
+      "query": "hand hiding documents in drawer secretive office",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "commons:File:Sam Bankman-Fried with 'G-Lock' at MDC Brooklyn (cropped).jpg": {
+      "reason": "Photo card has large black pillarbox areas on both sides, so the media looks broken or poorly cropped. The source caption text is partly covered by the burned-in caption. Shows a real identifiable per",
+      "query": "Sam Bankman-Fried courtroom sketch sentencing 2024",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "nara:638266645": {
+      "reason": "mismatch: Archival letter is a 1971 letter from a third party with an unrelated title-card style; it does not show a Fortune innovation award and the era is off for the claim.",
+      "query": "Fortune magazine Enron innovation award cover",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "pexels:10475472": {
+      "reason": "mismatch: Identifiable-looking man behind bars with a close-up on his face, used for a line about financial outcomes on paper; this is a generic stock prison shot unrelated to the financial claim and ",
+      "query": "man alone in prison cell looking out through bars",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "pexels:10901571": {
+      "reason": "Houston skyline fits Enron's home city, but the sunset skyline under the \"$68B peak market value\" card is generic. A shot that clearly shows the Enron building or a rising-stock motif would tie better",
+      "query": "Enron headquarters tower Houston logo sign",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "pexels:38496189": {
+      "reason": "broken: Screen is mostly dark with cut-off, garbled text (Leaked sheet sho, Omits more than) that looks like a corrupted or unfinished graphic.",
+      "query": "person typing on laptop social media night",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "pexels:6940943": {
+      "reason": "Playing cards on a coffee table for 'token' is a weak, off-topic metaphor. A crypto token or FTT visual would fit better.",
+      "query": "house of cards falling close up",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "pexels:7567655": {
+      "reason": "Stock man with phone and card over 'creditors about 119%' implies a specific creditor. It is generic, and the caption has a typo: 'CREDITORS' is spelled 'CREDITORS' as 'CREDITORS' missing letter ('CRE",
+      "query": "people checking bank account on phone relieved",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "pexels:7830155": {
+      "reason": "Cracked wall for 'what was really broken' is a loose metaphor but acceptable. Consider a more finance-specific visual.",
+      "query": "cracked foundation building close up",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "pexels:8425713": {
+      "reason": "misleading_person: Close-up of an identifiable man presented under a PROPPED UP title as the finance chief; the person is not verified as the named real person.",
+      "query": "Andy Fastow photograph Enron finance chief",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "pexels:855464": {
+      "reason": "Low-quality, soft-looking, interlaced footage of beige apartment blocks by the sea has no clear link to \"hundreds of millions of dollars\" or Enron. It reads as a generic or foreign location and looks ",
+      "query": "building implosion demolition collapse dust cloud",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "pexels:9169177": {
+      "reason": "Binance logo with Bitcoin coin is shown while the narration is about CZ selling FTT. Bitcoin is the wrong asset, and the shot is slightly misleading.",
+      "query": "Changpeng Zhao CZ Binance 2022",
+      "job": "ftx-hmw",
+      "count": 1
+    },
+    "pixabay:1172463": {
+      "reason": "German newspaper stand (Neue Ruhr Zeitung, Junge Welt) is shown under \"the same month\" for a story about US events; the foreign mastheads are irrelevant and distracting.",
+      "query": "newspaper front page December 2001 Enron bankruptcy headlines",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "pixabay:202135": {
+      "reason": "Stock actors in an office, a man gesturing over a seated woman, illustrate Skilling verbally attacking an analyst. The staged scene could read as depicting real people, and the water-cooler text is in",
+      "query": "Jeff Skilling 2001 Enron conference call speaking angry",
+      "job": "enron-mm",
+      "count": 1
+    },
+    "pixabay:32835": {
+      "reason": "Extreme blurry close-up of a book edge (a Bible?) for 'what would she say under oath'. It is out of focus and only loosely relevant.",
+      "query": "witness raising right hand swearing oath courtroom",
+      "job": "ftx-hmw",
+      "count": 1
+    }
+  },
+  "badQueries": {
+    "andy fastow photograph enron finance chief": 1,
+    "building implosion demolition collapse dust cloud": 1,
+    "businesswoman typing memo late night office computer glow": 1,
+    "changpeng zhao cz binance 2022": 1,
+    "cracked foundation building close up": 1,
+    "empty hospital corridor at dawn quiet": 1,
+    "enron headquarters tower houston logo sign": 1,
+    "fortune magazine enron innovation award cover": 1,
+    "glass skyscraper looking up dusk city corporate tower": 1,
+    "hand hiding documents in drawer secretive office": 1,
+    "house of cards falling close up": 1,
+    "jeff skilling 2001 enron conference call speaking angry": 1,
+    "man alone in prison cell looking out through bars": 1,
+    "newspaper front page december 2001 enron bankruptcy headlines": 1,
+    "people checking bank account on phone relieved": 1,
+    "person typing on laptop social media night": 1,
+    "prison corridor bars closing slowly": 1,
+    "sam bankman fried 2022 portrait": 1,
+    "sam bankman fried courtroom sketch sentencing 2024": 1,
+    "smartphone screen tweet notification night": 1,
+    "spreadsheet balance sheet on laptop screen dark office": 1,
+    "stacks of cash dollar bills counting dark": 1,
+    "witness on stand in courtroom testifying tense faces": 1,
+    "witness raising right hand swearing oath courtroom": 1
+  },
+  "blueprints": {
+    "how-money-works": [
+      {
+        "job": "ftx-hmw",
+        "hook": "reversal",
+        "ending": "where_now",
+        "spine": "Dark side exposed"
+      }
+    ],
+    "magnates-media": [
+      {
+        "job": "enron-mm",
+        "hook": "irony",
+        "ending": "callback",
+        "spine": "Dark side exposed"
+      }
+    ]
+  },
+  "outcomes": {
+    "how-money-works": [
+      {
+        "job": "ftx-hmw",
+        "overall": 3.5,
+        "designedShare": 0.18,
+        "medianShotS": 3.007000000000005,
+        "kinds": {
+          "hero_face": 5,
+          "document": 2,
+          "screen": 1
+        }
+      }
+    ],
+    "magnates-media": [
+      {
+        "job": "enron-mm",
+        "overall": 3.5,
+        "designedShare": 0.22,
+        "medianShotS": 2.971999999999994,
+        "kinds": {
+          "money_figure": 1,
+          "big_word": 2,
+          "hero_face": 4,
+          "document": 2,
+          "screen": 1,
+          "cutout_collage": 1
+        }
+      }
+    ]
+  }
+}

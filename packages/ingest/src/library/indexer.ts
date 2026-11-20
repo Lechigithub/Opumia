@@ -1,6 +1,8 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
+  globToRegExp,
+  LicenseOverrides,
   AssetRecord,
   LibraryCategory,
   LibraryIndex,
@@ -388,6 +390,27 @@ export async function indexLibrary(opts: IndexOptions): Promise<{ index: Library
       d.tags.add(subj);
     }
     d.title ??= base.replace(/[_-]+/g, " ").trim();
+  }
+
+  // ---------- 2b. Human licence overrides (data/license-overrides.json): fill only missing licences ----------
+  {
+    const ov = await readJsonSafe<unknown>(path.join(dataDir, "license-overrides.json"), 0);
+    const parsed = ov.ok ? LicenseOverrides.safeParse(ov.value) : null;
+    if (parsed?.success) {
+      for (const rule of parsed.data.assets) {
+        const re = globToRegExp(rule.glob);
+        let hit = 0;
+        for (const d of drafts.values()) {
+          if (!re.test(d.relPath) || d.provenance.license) continue;
+          d.provenance.license = rule.license;
+          d.provenance.attributionRequired = rule.attributionRequired;
+          if (rule.attributionText) d.provenance.attributionText = rule.attributionText;
+          d.provenance.from.push("data/license-overrides.json");
+          hit++;
+        }
+        log(`  license-overrides: ${rule.glob} → ${rule.license} (${hit} assets)`);
+      }
+    } else if (ov.ok) log("  license-overrides.json failed validation; ignored");
   }
 
   // ---------- 3. Existing caches (read-only) ----------

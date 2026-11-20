@@ -1,0 +1,16 @@
+{
+  "name": "@opumia/container",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx src/server.ts" },
+  "dependencies": {
+    "@opumia/agents": "workspace:*",
+    "@opumia/contracts": "workspace:*",
+    "@opumia/ingest": "workspace:*",
+    "@opumia/motion-engine": "workspace:*",
+    "@opumia/narration": "workspace:*",
+    "@opumia/resolver": "workspace:*",
+    "zod": "^3.24.1"
+  }
+}

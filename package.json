@@ -7,8 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json && tsc -p packages/motion-engine/src/remotion/tsconfig.json",
-    "opumia": "tsx apps/cli/src/index.ts"
+    "typecheck": "tsc -p tsconfig.json && tsc -p packages/motion-engine/src/remotion/tsconfig.json && tsc -p packages/cloudflare/tsconfig.json",
+    "opumia": "tsx apps/cli/src/index.ts",
+    "cf:dry-run": "pnpm --filter @opumia/cloudflare dry-run"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

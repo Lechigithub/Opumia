@@ -86,3 +86,35 @@ export async function remainingCharacters(apiKey = process.env.ELEVENLABS_API_KE
     return null;
   }
 }
+
+export interface VoiceInfo {
+  voiceId: string;
+  name: string;
+  category?: string;
+  labels?: Record<string, string>;
+  /** "account" = already in the user's voice list; "library" = shared library voice (must be added before use). */
+  source: "account" | "library";
+  publicOwnerId?: string;
+}
+
+/**
+ * Find a voice by display name: the account's voices first (GET /v1/voices), then the shared voice library.
+ * Exact (case-insensitive) name match wins; otherwise the first name that starts with the query.
+ */
+export async function findVoiceByName(query: string, apiKey = process.env.ELEVENLABS_API_KEY): Promise<VoiceInfo | null> {
+  if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
+  const q = query.trim().toLowerCase();
+  const rank = (n: string) => (n.toLowerCase() === q ? 0 : n.toLowerCase().split(/[\s-]/)[0] === q ? 1 : n.toLowerCase().startsWith(q) ? 2 : n.toLowerCase().includes(q) ? 3 : 9);
+  const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new ElevenLabsError(res.status, await res.text());
+  const j = (await res.json()) as { voices: Array<{ voice_id: string; name: string; category?: string; labels?: Record<string, string> }> };
+  const own = j.voices.map((v) => ({ v, r: rank(v.name) })).filter((x) => x.r < 9).sort((a, b) => a.r - b.r || a.v.name.localeCompare(b.v.name))[0];
+  if (own) return { voiceId: own.v.voice_id, name: own.v.name, ...(own.v.category ? { category: own.v.category } : {}), ...(own.v.labels ? { labels: own.v.labels } : {}), source: "account" };
+  const lib = await fetch(`https://api.elevenlabs.io/v1/shared-voices?page_size=30&search=${encodeURIComponent(query)}`, { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(20_000) });
+  if (!lib.ok) return null;
+  const lj = (await lib.json()) as { voices?: Array<{ voice_id: string; name: string; category?: string; public_owner_id?: string; accent?: string; gender?: string; age?: string; use_case?: string; descriptive?: string }> };
+  const best = (lj.voices ?? []).map((v) => ({ v, r: rank(v.name) })).filter((x) => x.r < 9).sort((a, b) => a.r - b.r || a.v.name.localeCompare(b.v.name))[0];
+  if (!best) return null;
+  const labels = Object.fromEntries(Object.entries({ accent: best.v.accent, gender: best.v.gender, age: best.v.age, use_case: best.v.use_case, descriptive: best.v.descriptive }).filter(([, x]) => typeof x === "string")) as Record<string, string>;
+  return { voiceId: best.v.voice_id, name: best.v.name, ...(best.v.category ? { category: best.v.category } : {}), labels, source: "library", ...(best.v.public_owner_id ? { publicOwnerId: best.v.public_owner_id } : {}) };
+}

@@ -23,20 +23,25 @@ const paper = usable.find((a) => a.category === "overlays" && /paper\//.test(a.r
 const music = usable.find((a) => a.category === "music" && !a.provenance.generated && (a.probe?.durationS ?? 0) > 60)!;
 const sfx = usable.find((a) => a.category === "sfx" && a.facets.class)!;
 
-const words = "In nineteen twenty eight a small company made a bet that would change the world forever and nobody saw it coming until it was far too late for every rival".split(" ");
-const dur = 18;
+const ASPECT = (process.env.SMOKE_ASPECT ?? "9:16") as "9:16" | "16:9";
+// "$19 billion" is spoken during the money_figure shot so number parity binds the counter to the spoken figure.
+const words = "In 1928 a small company made a bet that would change the world forever and then paid $19 billion for a rival nobody saw coming until far too late".split(" ");
+const dur = 24;
 const tw = words.map((w, i) => ({ word: w, startS: +(i * (dur - 1) / words.length).toFixed(3), endS: +((i + 0.8) * (dur - 1) / words.length).toFixed(3) }));
 ff(["-f", "lavfi", "-i", `sine=frequency=220:duration=${dur}`, "-af", "volume=0.3", path.join(job, "narration.mp3")]);
-const script = TimedScript.parse({ schemaVersion: 1, id: "ts_smoke", title: "Smoke test", styleProfileId: "magnates-media", aspect: "9:16", voice: { provider: "elevenlabs", voiceId: "x", modelId: "x", audioPath: path.join(job, "narration.mp3") }, segments: [{ id: "s01", role: "hook", text: words.join(" "), startS: 0, endS: dur - 1, words: tw }], durationS: dur, generatedAt: new Date().toISOString() });
+const script = TimedScript.parse({ schemaVersion: 1, id: "ts_smoke", title: "Smoke test", styleProfileId: "magnates-media", aspect: ASPECT, voice: { provider: "elevenlabs", voiceId: "x", modelId: "x", audioPath: path.join(job, "narration.mp3") }, segments: [{ id: "s01", role: "hook", text: words.join(" "), startS: 0, endS: dur - 1, words: tw }], durationS: dur, generatedAt: new Date().toISOString() });
 
 const kinds: Array<[string, Record<string, unknown>]> = [
-  ["broll", {}], ["parallax", {}], ["chart", { type: "bar", title: "Revenue", unit: "$", labels: ["1990", "2000", "2010", "2020"], values: [2e9, 8e9, 3.1e10, 9.4e10], highlight: 3 }],
+  ["broll", {}], ["parallax", {}], ["chart", { type: "line", title: "Market value", unit: "$", labels: ["1990", "2000", "2007", "2013"], values: [2e9, 3.1e10, 9.4e10, 7.2e9] }],
   ["map", { title: "Expansion", points: [{ name: "Detroit", lon: -83.05, lat: 42.33 }, { name: "London", lon: -0.12, lat: 51.5 }, { name: "Tokyo", lon: 139.7, lat: 35.7 }], route: true }],
-  ["document", { style: "newspaper", masthead: "The Daily Ledger", date: "October 29, 1929", headline: "Stocks Collapse in Record Sell-Off", body: "Panic swept the exchange as billions in value vanished within hours, leaving brokers stunned.", highlight: "billions in value vanished" }],
+  ["document", { style: "web", tone: "red", masthead: "The Daily Ledger", date: "October 29, 1929", headline: "Stocks Collapse in Record Sell-Off", body: "Panic swept the exchange as billions in value vanished within hours, leaving brokers stunned.", highlight: "billions in value vanished" }],
   ["big_word", { text: "Total Collapse", sub: "in 48 hours" }], ["money_figure", { value: 19000000000, prefix: "$", suffix: "", label: "acquisition price" }],
   ["name_label", { name: "The Founder", title: "Chief Executive, 1928" }], ["versus", { title: "Market share", left: { label: "Rival", value: "12%" }, right: { label: "Them", value: "61%" } }],
   ["timeline", { items: [{ year: "1928", label: "Founded" }, { year: "1955", label: "Goes public" }, { year: "2001", label: "Collapse" }] }],
   ["quote_card", { quote: "We never thought anyone would catch us.", by: "Former executive" }],
+  ["hero_face", { name: "Stephen Elop", title: "CEO, 2010–2014" }],
+  ["cutout_collage", { title: "The Bet", tone: "crimson" }],
+  ["screen", { title: "Market share, Q4 2010", lines: ["Symbian 32%", "Android 30%", "iOS 16%"], device: "monitor" }],
 ];
 const shotLen = dur / kinds.length;
 const shots: StoryboardShot[] = kinds.map(([k, props], i) => ({
@@ -46,7 +51,7 @@ const shots: StoryboardShot[] = kinds.map(([k, props], i) => ({
   overlays: i === 0 ? [{ assetId: leak.id, blend: "screen", opacity: 0.5 }] : [], sfx: i % 3 === 0 ? [{ assetId: sfx.id, atS: i * shotLen + 0.05, gainDb: -4 }] : [],
   transitionIn: (["cut", "whip", "fade", "light_leak", "dip_black"] as const)[i % 5]!, focus: [0.5, 0.5],
 }));
-const board = Storyboard.parse({ schemaVersion: 1, id: "sb_smoke", scriptId: script.id, styleProfileId: "magnates-media", aspect: "9:16", durationS: dur, shots, music: [{ assetId: music.id, startS: 0, endS: dur, gainDb: -16 }], generatedAt: new Date().toISOString() });
+const board = Storyboard.parse({ schemaVersion: 1, id: "sb_smoke", scriptId: script.id, styleProfileId: "magnates-media", aspect: ASPECT, durationS: dur, shots, music: [{ assetId: music.id, startS: 0, endS: dur, gainDb: -16 }], generatedAt: new Date().toISOString() });
 
 const media: ResolutionReport["media"] = [];
 const mat = (shotId: string, role: "primary" | "overlay" | "sfx" | "music", a: typeof film, kind: "video" | "image" | "audio", inS = 0) => {
@@ -58,20 +63,20 @@ const mat = (shotId: string, role: "primary" | "overlay" | "sfx" | "music", a: t
   else ff(["-i", path.join(LIB, a.relPath), "-c:a", "libmp3lame", "-q:a", "3", out]);
   media.push({ shotId, role, origin: "library", ref: a.id, provider: "library", kind, localPath: out, publicPath: kind === "audio" ? `../audio/${file}` : `media/${file}`, durationS: kind === "audio" ? a.probe?.durationS : shotLen, license: a.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: role });
 };
-shots.forEach((s, i) => mat(s.id, "primary", i === 1 ? photo : i % 2 ? cine : film, i === 1 ? "image" : "video", i % 2 ? 0 : (film.segments![5]?.inS ?? 0)));
+shots.forEach((s, i) => mat(s.id, "primary", i === 1 || i === 12 ? photo : i % 2 ? cine : film, i === 1 || i === 12 ? "image" : "video", i % 2 ? 0 : (film.segments![5]?.inS ?? 0)));
 mat("sh001", "overlay", leak, "video");
 mat("sh005", "overlay", paper, "image");
 shots.filter((s) => s.sfx.length).forEach((s) => mat(s.id, "sfx", sfx, "audio"));
 mat("music", "music", music, "audio");
 const resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 11, stock: 0, archival: 0, designed: 9 }, generatedAt: new Date().toISOString() });
 
-const final = path.join(job, "smoke_9x16.mp4");
+const final = path.join(job, `smoke_${ASPECT.replace(":", "x")}.mp4`);
 const manifest = await buildManifest({ storyboard: board, script, resolution, libraryRoot: LIB, outputPath: final, narrationPath: script.voice.audioPath });
 writeFileSync(path.join(job, "manifest.json"), JSON.stringify(manifest, null, 2));
 writeFileSync(path.join(job, "captions.srt"), toSrt(captionGroups(script)));
 const profile = JSON.parse(readFileSync("data/style-profiles/magnates-media.json", "utf8"));
 const t0 = Date.now();
-await renderVideo({ manifest, look: lookFromProfile(profile.look), publicDir: pub, out: path.join(job, "video_silent.mp4"), log: console.log });
+await renderVideo({ manifest, look: lookFromProfile(profile.look), ...(process.env.SMOKE_DESIGN ? { design: JSON.parse(readFileSync(process.env.SMOKE_DESIGN, "utf8")) } : {}), publicDir: pub, out: path.join(job, "video_silent.mp4"), maxChunks: Number(process.env.SMOKE_CHUNKS ?? 1), minChunkS: 5, log: console.log });
 console.log("render s", ((Date.now() - t0) / 1000).toFixed(1));
 const loud = await masterAudio(manifest, path.join(job, "master.wav"));
 console.log("master", loud);

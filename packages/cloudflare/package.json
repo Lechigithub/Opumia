@@ -1,0 +1,24 @@
+{
+  "name": "@opumia/cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "dry-run": "wrangler deploy --dry-run --outdir .wrangler/dist",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply opumia --remote"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7",
+    "@opumia/contracts": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261104.1",
+    "wrangler": "4.157.0"
+  }
+}

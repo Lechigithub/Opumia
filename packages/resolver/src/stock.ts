@@ -136,9 +136,20 @@ async function nara(q: string, o: SearchOpts): Promise<StockCandidate[]> {
 }
 
 /* ---------------- Wikimedia Commons ---------------- */
+let commonsTokenRejected = false;
 async function commons(q: string, o: SearchOpts): Promise<StockCandidate[]> {
   const ft = o.kind === "video" ? "filetype:video" : "filetype:bitmap";
-  const h: Record<string, string> = env("WIKIMEDIA_ACCESS_TOKEN") ? { Authorization: `Bearer ${env("WIKIMEDIA_ACCESS_TOKEN")}` } : {};
+  const h: Record<string, string> = env("WIKIMEDIA_ACCESS_TOKEN") && !commonsTokenRejected ? { Authorization: `Bearer ${env("WIKIMEDIA_ACCESS_TOKEN")}` } : {};
+  const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=${o.perPage}&gsrsearch=${encodeURIComponent(`${q} ${ft}`)}&prop=imageinfo&iiprop=url|extmetadata|size|mime`;
+  // The read API is public: if the token is rejected (expired/revoked), continue anonymously.
+  if (h.Authorization) {
+    const probe = await fetch(url, { headers: { "user-agent": UA, ...h }, signal: AbortSignal.timeout(20_000) }).catch(() => null);
+    if (probe && (probe.status === 401 || probe.status === 403)) {
+      commonsTokenRejected = true;
+      console.warn("  ! WIKIMEDIA_ACCESS_TOKEN rejected (HTTP " + probe.status + "); using anonymous Commons access — renew the token");
+      delete h.Authorization;
+    }
+  }
   const j = await get<{ query?: { pages?: Record<string, { title: string; imageinfo?: Array<{ url: string; descriptionurl: string; width: number; height: number; mime: string; duration?: number; extmetadata?: Record<string, { value: string }> }> }> } }>(
     `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=${o.perPage}&gsrsearch=${encodeURIComponent(`${q} ${ft}`)}&prop=imageinfo&iiprop=url|extmetadata|size|mime`,
     h,
