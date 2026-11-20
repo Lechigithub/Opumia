@@ -76,9 +76,13 @@ package.json / pnpm-workspace.yaml / tsconfig.base.json
 packages/
   contracts/      Zod schemas + inferred types + storage/DB adapter interfaces
   ingest/         Library indexer, Reference style analyzer, ffprobe + fs helpers
-  motion-engine/  Aspect presets, camera-move math (Remotion compositions in Sprint 3)
+  agents/         Claude agents: research/fact-check, script, director, thumbnail style, QA judge; style pack; licence gate
+  narration/      ElevenLabs /with-timestamps adapter, IPA pronunciation rules, word alignment, tempo-fit
+  resolver/       Library-first asset resolver (BM25 + Claude rerank), 8 stock/archival adapters, QA repair
+  motion-engine/  Remotion compositions (src/remotion), manifest builder, FFmpeg mastering, captions/SRT, Higgsfield, QA
 apps/
-  cli/            `opumia` CLI: index-library, analyze-styles, inspect-reference
+  cli/            `opumia` CLI: index-library, analyze-styles, inspect-reference, produce (src/dev/smoke.ts = offline render test)
+out/<job>/        Per-film working dir (git-ignored): every stage's validated JSON, media, final mp4, srt, thumbnail, QA
 data/             GENERATED outputs only. Safe to delete and rebuild.
   library-index.json
   style-profiles/<channel-id>.json
@@ -174,13 +178,41 @@ pnpm opumia inspect-reference        # done*.txt status per channel → data/ref
 pnpm opumia analyze-styles           # → data/style-profiles/*.json (draft)
 ```
 
+## Production pipeline (`opumia produce`)
+
+```bash
+pnpm opumia produce --topic "The rise and fall of Enron" --channel magnates-media --aspect 9:16 --duration 60
+pnpm opumia produce ... --until script            # stop after a stage (research|script|narration|storyboard|resolve|manifest|render|thumbnail|qa)
+pnpm opumia produce ... --redo resolve,render     # re-run stages; everything else comes from out/<job>/ cache
+pnpm opumia produce ... --repair 'sh001=why'      # editor override: re-pick a shot's picture, re-render, re-QA
+npx tsx apps/cli/src/dev/smoke.ts                 # offline render test of every scene primitive (no paid APIs)
+```
+
+| Stage | Model / tool | Output in `out/<job>/` |
+| --- | --- | --- |
+| A1 research | Sonnet 5.5 + web search/fetch → Haiku 5.5 extracts claims → each source page fetched, Haiku checks each claim; evidence must appear verbatim | `facts.json` (`FactSheet`) |
+| A2 script | Sonnet 5.5, channel **style pack** in a cached system block (profile + technique cards + story labels + real cold opens) | `script.draft.json` |
+| A3 narration | ElevenLabs `/with-timestamps`, char→word alignment, fit window (short: duration−8 … −1 s), ≤6 % `atempo` fit, else one re-write; voice pace learned in `data/voice-calibration.json` | `narration.mp3`, `timed-script.json` |
+| B1 director | Sonnet 5.5, shots start on word indices, SFX on words, designed kinds + props | `storyboard.json` |
+| B2 resolver | BM25 over library (20,946 captioned shots, cinematic, era, objects) → Haiku rerank (era- and person-aware) → stock/archival fallback → black-frame screen | `resolution.json`, `public/media/` |
+| C1–C2 render | manifest → Remotion (muted) → FFmpeg mix (voice chain, sidechain-ducked bed, SFX at frame delays) → two-pass loudnorm −14 LUFS / −1.5 dBTP → mux | `manifest.json`, final `*_9x16.mp4`, `captions.srt` |
+| C3 thumbnail | Sonnet vision extracts channel thumbnail rules (`data/thumbnail-styles/`) → Haiku brief → Higgsfield plate (no text, no real people) → Remotion still with headline | `thumbnail.jpg` |
+| C4 QA | ffprobe/ebur128/blackdetect/freezedetect + provenance + caption sync + facts + pacing + Sonnet vision judge; ≤2 autonomous B-roll repair rounds | `qa.json`, `LICENSES.md`, `usage.json` |
+
+Editorial rules enforced in code (keep them):
+- Only the reranker's accepted pick is ever used. A rejected shot falls back to an approved picture from the same segment, or to kinetic type of the spoken words. Lines that name a person always use kinetic type: never a stand-in face.
+- Footage more than 15 years older than the story's era is out (5 years in repairs). Assets with `bugSpots` are excluded.
+- The licence gate (`agents/library-menu.ts:isUsable`): licence required; `moments/`, `bank/` and `thumb_cache/` are never used in output; generated assets are allowed only for audio.
+- Remotion's `bundle()` snapshots `public/`, so every render re-bundles.
+
+Credentials: `ANTHROPIC_API_KEY` (or `OPUMIA_ANTHROPIC_KEY`), `ELEVENLABS_API_KEY`, the stock keys, and Higgsfield `HF_API_KEY_ID` + `HF_API_KEY_SECRET` (or `HIGGSFIELD_API_KEY="id:secret"`). Without Higgsfield keys the thumbnail stage writes `thumbnail.brief.json`; put a plate at `public/thumb_bg.png` and re-run.
+
 ## Sprint plan
 
-1. **Foundation + local indexers** (this sprint): monorepo, contracts, Library index, Reference status, draft StyleProfiles.
-2. Research + script + ElevenLabs narration → `TimedScript`. Stock/archival API adapters with licence capture.
-3. Direction + asset matching (SigLIP/text index + Haiku rerank) → `StoryboardShot[]`. Remotion compositions.
-4. Render manifest → Remotion/FFmpeg render for 16:9 + 9:16. QA stage. Higgsfield thumbnails.
-5. Cloudflare adapters (R2/D1/Workflows/Containers).
+1. ✅ **Foundation + local indexers**: monorepo, contracts, Library index, Reference status, draft StyleProfiles.
+2. ✅ **Narration-first production**: research/fact-check, script, ElevenLabs `TimedScript`, director, resolver + 8 stock/archival adapters, Remotion scenes (parallax card, chart, map flyover, document highlighter, kinetic type, B-roll drift + overlays, word captions), FFmpeg mastering, Higgsfield thumbnail, QA + auto-repair. First film: `out/enron-short-9x16/` (60 s 9:16 MagnatesMedia).
+3. Long-form 16:9 (chapters, re-hooks, music cue changes), SigLIP embedding search over `footage/index`, Commons/NARA archival-first for named people and places.
+4. Cloudflare adapters (R2/D1/Workflows/Containers).
 
 ## Conventions
 

@@ -2,6 +2,10 @@
 import { availableParallelism } from "node:os";
 import path from "node:path";
 import { analyzeStyles, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
+import { loadKeys } from "./keys.js";
+import { produce, STAGES } from "./produce.js";
+
+loadKeys();
 
 const ROOT = path.resolve(process.env.OPUMIA_ROOT ?? process.cwd());
 const env = (k: string, d: string) => path.resolve(ROOT, process.env[k] ?? d);
@@ -27,6 +31,16 @@ const HELP = `opumia <command>
   inspect-reference    Check done*.txt vs disk per channel → data/reference-status.json
   analyze-styles       Draft StyleProfiles → data/style-profiles/<channel>.json
   all                  index-library + inspect-reference + analyze-styles
+  produce              Topic → researched, narrated, rendered, QA'd film (stage outputs cached in out/<job>/)
+      --topic "…"        required
+      --channel ID       magnates-media | logically-answered | big-company | modern-mba | how-money-works | moon
+      --aspect 9:16|16:9 (default 9:16)
+      --duration S       target seconds (default 60)
+      --job NAME         job folder name under out/
+      --redo a,b         re-run stages: ${STAGES.join(",")}
+      --until STAGE      stop after a stage
+      --no-judge         skip the Sonnet visual QA judge
+      --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
 
 Library/ and Reference/ are never written to.`;
 
@@ -76,6 +90,25 @@ async function main() {
       return cmdInspect();
     case "analyze-styles":
       return cmdAnalyze();
+    case "produce": {
+      const topic = opt("topic");
+      if (!topic) throw new Error("--topic is required");
+      const until = opt("until");
+      const { report } = await produce({
+        root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic,
+        channel: opt("channel") ?? "magnates-media",
+        aspect: (opt("aspect") ?? "9:16") as "9:16" | "16:9",
+        durationS: Number(opt("duration") ?? 60),
+        ...(opt("job") ? { job: opt("job")! } : {}),
+        redo: (opt("redo") ?? "").split(",").filter((x): x is (typeof STAGES)[number] => (STAGES as readonly string[]).includes(x)),
+        ...(until && (STAGES as readonly string[]).includes(until) ? { until: until as (typeof STAGES)[number] } : {}),
+        judge: !flag("no-judge"),
+        ...(opt("repair") ? { repair: new Map(opt("repair")!.split(";").map((kv) => kv.split("=")).filter((kv) => kv[0]).map(([k, ...v]) => [k!.trim(), v.join("=").trim() || "editor rejected this picture"] as [string, string])) } : {}),
+        log,
+      });
+      if (report && report.verdict === "fail") process.exitCode = 2;
+      return;
+    }
     case "all":
       await cmdIndex();
       await cmdInspect();

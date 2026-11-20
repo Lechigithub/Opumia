@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "channelId": "magnates-media",
+  "rules": [
+    "Make one giant central subject (a brand-style mascot, object or symbol) fill 50-70% of the frame, dead centre or hard left/right, with a clear silhouette readable at small size",
+    "Use a saturated, hot palette dominated by red and orange/yellow, with one jarring accent colour (neon green, magenta, cyan) for the focal glow",
+    "Surround the subject with a symmetrical or layered thematic background: flames, repeating pattern, binary code, brick wall, swooshing bands",
+    "Add menace or drama through effects: fire and embers, glowing eyes, laser beams, spotlight beams, cracked or distressed textures",
+    "Use heavy contrast: dark or black vignette edges against bright glowing centre, with a thick outline or rim glow separating subject from background",
+    "Convey an emotional cue of danger, corporate scandal, betrayal or decay, such as an angry expression, burning, a lock or a helicopter chase",
+    "Keep flat vector or illustrated collage styling blended with gritty photographic textures and slightly over-sharpened HDR grading",
+    "Reserve clear space at the top or bottom third for a headline banner added later",
+    "Add supporting small elements (stars, bottles, trucks, camels, numbers) as secondary repetition to suggest scale and ubiquity",
+    "Keep a maximum of 3 dominant hues per thumbnail"
+  ],
+  "palette": [
+    "#E10600",
+    "#FF8A00",
+    "#FFD400",
+    "#00E83C",
+    "#FF2BB5",
+    "#00C8E0",
+    "#0B0B0B",
+    "#FFFFFF"
+  ],
+  "textRules": {
+    "maxWords": 4,
+    "casing": "Title Case or ALL CAPS for the key brand or hook word",
+    "placement": "bottom",
+    "font": "Heavy bold sans-serif or high-contrast serif, white or yellow on a solid black, red or green banner, with a drop shadow"
+  },
+  "composition": "Centred hero subject, symmetrical or two-sided layout, filling most of the frame, framed by a busy thematic background that fades to dark vignette edges. Leave a clean band at the top or bottom for a headline bar. Strong rim light or glow behind the subject, with diagonal light beams or flames leading the eye in.",
+  "subject": "A single oversized iconic object, mascot, symbol or anonymous silhouette that represents the company or topic, given an aggressive or ominous twist such as glowing eyes, flames, a lock or a spotlight. No real identifiable people.",
+  "promptTemplate": "Ultra-saturated YouTube thumbnail background plate about {topic}. Giant centred hero subject: {subject}, rendered as a bold illustrated icon with thick rim glow and an ominous, dramatic expression or effect. Background: symmetrical thematic pattern with roaring flames, embers, glowing laser beams or spotlight rays, plus small repeated supporting symbols. Palette of hot red, orange and yellow with one neon accent in green, magenta or cyan, black vignette edges, extreme contrast, HDR over-sharpened look, gritty texture overlay. Leave a clean empty area along the top or bottom third for a headline. No text, no letters, no logos, no watermarks, no real or identifiable people, 16:9.",
+  "references": [
+    "MagnatesMedia/20230224 - The Secret Chinese Company That Owns Everything/thumbnail.jpg",
+    "MagnatesMedia/20220119 - The Disturbing History of Coca-Cola/thumbnail.jpg",
+    "MagnatesMedia/20220731 - Why Netflix is Collapsing： The Truth About Netflix's Empire/thumbnail.jpg",
+    "MagnatesMedia/20220826 - The Most Illegal Business In The World： Silk Road/thumbnail.jpg",
+    "MagnatesMedia/20221027 - The Homeless Teen Who Created Louis Vuitton/thumbnail.jpg",
+    "MagnatesMedia/20210812 - How WhatsApp Makes Money： The INSANE Story of WhatsApp/thumbnail.jpg"
+  ],
+  "generatedAt": "2026-11-20T02:51:43.431Z"
+}
