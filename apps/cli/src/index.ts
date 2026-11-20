@@ -3,6 +3,7 @@ import { availableParallelism } from "node:os";
 import path from "node:path";
 import { analyzeStyles, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
 import { KEYCHAIN_SERVICE, loadKeys } from "./keys.js";
+import { cmdEval } from "./eval.js";
 import { produce, STAGES } from "./produce.js";
 
 const ROOT = path.resolve(process.env.OPUMIA_ROOT ?? process.cwd());
@@ -41,6 +42,11 @@ const HELP = `opumia <command>
       --until STAGE      stop after a stage
       --no-judge         skip the Sonnet visual QA judge
       --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
+  eval                 Blind reference test of the platform → data/eval/
+      calibrate --channel ID   check the judge on degraded reference windows (cached per judge version)
+      score out/<job> …        score finished films against the real channel
+      run --set core           produce every film in eval/sets/<set>.json, then score and report
+          --only a,b  --concurrency N  --no-produce
 
 Library/ and Reference/ are never written to.`;
 
@@ -117,6 +123,8 @@ async function main() {
       if (n("missing")) log(`Add one in macOS Terminal: security add-generic-password -U -s ${KEYCHAIN_SERVICE} -a NAME -w`);
       return;
     }
+    case "eval":
+      return cmdEval({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, log }, rest);
     case "all":
       await cmdIndex();
       await cmdInspect();

@@ -37,8 +37,14 @@ export type Storyboard = z.infer<typeof Storyboard>;
 /** A media file the resolver made available locally for one shot (library asset or downloaded stock). */
 export const ResolvedMedia = z.object({
   shotId: z.string(),
-  role: z.enum(["primary", "overlay", "sfx", "music"]),
-  origin: z.enum(["library", "stock", "archival"]),
+  role: z.enum(["primary", "overlay", "sfx", "music", "layer"]),
+  origin: z.enum(["library", "stock", "archival", "press"]),
+  /** For role "layer": which picture slot of a composed scene this fills (0-based). */
+  slot: z.number().int().min(0).optional(),
+  /** What the layer depicts (entity name + kind), so the scene designer can place it. */
+  depicts: z.string().optional(),
+  /** Fair-use record for press material: where it came from and how much was used. */
+  fairUse: z.object({ sourceTitle: z.string(), channel: z.string().optional(), atS: z.number().optional(), usedS: z.number(), reason: z.string() }).optional(),
   ref: z.string(),
   provider: z.union([StockProvider, z.literal("library")]),
   kind: z.enum(["video", "image", "audio"]),

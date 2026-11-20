@@ -3,11 +3,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
-import { ChannelId, FilmDesignSystem, LicenseOverrides, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { artDirect, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
+import { artDirect, designScenes, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { calibrationKey, narrate, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets } from "@opumia/resolver";
-import { youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
+import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -85,7 +85,7 @@ async function produceStages(o: ProduceOptions) {
 
   // ---- Stage A: research → script → narration
   log("\n[A1] research & fact-check");
-  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second vertical short` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), log }), log);
+  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), log }), log);
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
   log("\n[A1b] art direction");
   const design = await cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), log }), log);
@@ -163,11 +163,18 @@ async function produceStages(o: ProduceOptions) {
   let resolution = await cachedJson(path.join(jobDir, "resolution.json"), ResolutionReport, redo("resolve"), () => resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked: blockedRefs(memory), log }), log);
   if (stop("resolve")) return { jobDir };
 
+  // Composed scenes: designed per shot after the resolver, so only pictures that really exist are placed.
+  log("\n[B3] scene designer (composed scenes)");
+  const scenePlan = await cachedJson(path.join(jobDir, "scenes.json"), ScenePlan, redo("resolve") || redo("storyboard") || redo("manifest"), () => designScenes({ storyboard: board, script: timed, resolution, design, pack, log }), log);
+  const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;
+  log(`  captions: ${burnCaptions ? "burned in" : `not burned in (the channel shows captions on ${Math.round(pack.captions.bottomTextShare * 100)} % of long-form shots); SRT keeps every word`}`);
+
   // ---- Stage C: manifest → render → master → mux
   log("\n[C1] render manifest");
   const finalName = `${slug(draft.title) || jobId}_${o.aspect.replace(":", "x")}.mp4`;
   const finalPath = path.join(jobDir, finalName);
-  let manifest = await cachedJson(path.join(jobDir, "manifest.json"), RenderManifest, redo("manifest") || redo("resolve") || redo("storyboard"), () => buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, minRepeatGapS: design.sceneGrammar.minRepeatGapS }), log);
+  const mopts = (): Omit<BuildManifestOptions, "storyboard" | "script" | "resolution"> => ({ ...mopts(), burnCaptions, scenes: new Map<string, unknown>(scenePlan.scenes.map((x) => [x.shotId, x])) });
+  let manifest = await cachedJson(path.join(jobDir, "manifest.json"), RenderManifest, redo("manifest") || redo("resolve") || redo("storyboard"), () => buildManifest({ storyboard: board, script: timed, resolution, ...mopts() }), log);
   const srtPath = path.join(jobDir, "captions.srt");
   await writeFile(srtPath, toSrt(captionGroups(timed)));
   if (!short) await writeFile(path.join(jobDir, "youtube-description.txt"), youtubeDescription(timed, facts));
@@ -211,7 +218,7 @@ async function produceStages(o: ProduceOptions) {
         resolution = await repairShots({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: allW, resolution, repairs, log });
         await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
       }
-      manifest = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, minRepeatGapS: design.sceneGrammar.minRepeatGapS });
+      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
       await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     }
     await renderVideo({ manifest, look, design, publicDir: pub, out: silent, log });
@@ -286,7 +293,7 @@ async function produceStages(o: ProduceOptions) {
     log(`\n[C3.5] editor repair: ${[...o.repair.keys()].join(", ")}`);
     const repaired = await repairShots({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), resolution: JSON.parse(await readFile(path.join(jobDir, "resolution.json"), "utf8")), repairs: o.repair, log });
     await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(repaired, null, 2) + "\n");
-    const m2 = await buildManifest({ storyboard: board, script: timed, resolution: repaired, libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, minRepeatGapS: design.sceneGrammar.minRepeatGapS });
+    const m2 = await buildManifest({ storyboard: board, script: timed, resolution: repaired, ...mopts() });
     await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(m2, null, 2) + "\n");
     await renderVideo({ manifest: m2, look, design, publicDir: pub, out: silent, log });
     const loud = await masterAudio(m2, master);
@@ -315,7 +322,7 @@ async function produceStages(o: ProduceOptions) {
     log(`\n[C4.${round}] auto-repair: ${[...repairs.keys()].join(", ")}`);
     const repaired = await repairShots({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), resolution: current.resolution, repairs, log });
     await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(repaired, null, 2) + "\n");
-    const m2 = await buildManifest({ storyboard: board, script: timed, resolution: repaired, libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, minRepeatGapS: design.sceneGrammar.minRepeatGapS });
+    const m2 = await buildManifest({ storyboard: board, script: timed, resolution: repaired, ...mopts() });
     await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(m2, null, 2) + "\n");
     await renderVideo({ manifest: m2, look, design, publicDir: pub, out: silent, log });
     const loud = await masterAudio(m2, master);

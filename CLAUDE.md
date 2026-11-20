@@ -13,7 +13,8 @@ No frame of picture may come from a generative video or image model. Every visua
 
 1. **A local asset** from `Library/`, a licensed and provenance-tracked catalog (see below).
 2. **Licensed stock or archival media** fetched through an API: Pexels, Pixabay, Coverr, Vecteezy, Vimeo, Europeana, NARA and Wikimedia Commons.
-3. **Designed motion graphics** rendered deterministically by Remotion: charts, maps, text cards, cutout collages and versus cards, built from data and licensed stills.
+3. **Designed motion graphics** rendered deterministically by Remotion: charts, maps, text cards, cutout collages, versus cards and **composed scenes** (layered layouts written per shot by the scene designer), built from data and licensed or press stills.
+4. **Fair-use press material** (`origin: "press"`, decided 2026-11-20): real news/interview/keynote footage from YouTube and Wikipedia portraits and logos of the people and companies the narration names. Used defensibly: excerpts ≤ 6.5 s, source audio never used, reframed/graded/composited under commentary, one clip per source video per film, never lifted from documentary channels (reference channels included), every use logged with source, channel, in-point and seconds in `ResolvedMedia.fairUse` and listed in `LICENSES.md`. QA `fair_use` (major): clips ≤ 7.5 s, ≤ 45 % of runtime, one clip per source, all logged.
 
 The one exception is **thumbnails**, which are generated through the Higgsfield API. Thumbnails never enter the film timeline.
 
@@ -200,6 +201,17 @@ curl -X POST $URL/jobs -H "authorization: Bearer $API_TOKEN" -d '{"topic":"…",
 ```
 Local verification without an account: `pnpm cf:dry-run` (add `--containers-rollout=none` without Docker), `npx wrangler d1 migrations apply opumia --local`, `npx tsx packages/cloudflare/scripts/adapter-test.ts`.
 
+## Platform evaluation (blind reference test)
+
+`opumia eval` measures the platform, not one film. Every film is cut into 20 s picture windows (frames + narration + same-method cut counts) and 45 s narration passages, each paired with a real reference window of the same position and shown blind (A/B) to a Sonnet judge. The judge is only trusted after calibration on degraded reference windows (wrong picture, generic stock, bland rewrite, real-vs-real). Report: caught count + indistinguishability, judge tells grouped by area, trend in `data/eval/<set>/history.json`.
+
+```bash
+pnpm opumia eval calibrate --channel magnates-media
+pnpm opumia eval score out/<job> [out/<job> …] --set adhoc
+pnpm opumia eval run --set quick            # produce eval/sets/quick.json untouched, then score
+```
+Rule: platform changes are kept only if the set's caught count drops. Never tune a single film by hand; films are produced from a committed, frozen platform.
+
 ## Commands
 
 ```bash
@@ -227,7 +239,8 @@ npx tsx apps/cli/src/dev/smoke.ts                 # offline render test of every
 | A2 script | Sonnet 5.5, channel **style pack** in a cached system block (profile + technique cards + story labels + real cold opens) | `script.draft.json` |
 | A3 narration | ElevenLabs `/with-timestamps`; channel voice resolved by name via `/v1/voices` and cached with its tuned settings in `data/voice-calibration.json` (`_voices`; MagnatesMedia = "Christopher", tuned by `apps/cli/src/dev/voice-audition.ts`); dramatic `<break>` beats (`narration/beats.ts`, skipped by the aligner); char→word alignment, fit window (short: duration−8 … −1 s), ≤6 % `atempo` fit, else one re-write; pace learned per voice+settings | `narration.mp3`, `timed-script.json` |
 | B1 director | Sonnet 5.5, shots start on word indices, designed kinds + props; then `agents/sound-design.ts`: one music bed per chapter on a mood arc, drop-outs on cliffhangers, riser+boom on chapter pivots, SFX on ~50 % of reveals at the channel's hit density (from `sound.json` → StyleProfile.audio) | `storyboard.json` |
-| B2 resolver | BM25 over library (20,946 captioned shots, cinematic, era, objects) → Haiku rerank (era- and person-aware) → stock/archival fallback → black-frame screen | `resolution.json`, `public/media/` |
+| B2 resolver | **press first** for entity shots (Wikipedia lead photo/logo + YouTube news excerpts via yt-dlp section downloads, Haiku vision check that the frame really shows the subject; `resolver/press.ts`) → archives → (20,946 captioned shots, cinematic, era, objects) → Haiku rerank (era- and person-aware) → stock/archival fallback → black-frame screen | `resolution.json`, `public/media/` |
+| B3 scene designer | Sonnet 5.5, one call per film (`agents/scene-designer.ts`): a `SceneSpec` per `scene` shot — backdrop, layered photo/cutout/text/shape/texture elements with entrances, depth and camera — from the film's design tokens, the resolved picture slots (layer role) and the channel's labelled designed shots; sanitised in code (slots must exist, figures only if spoken). Rendered by `remotion/scenes/Composed.tsx` | `scenes.json` |
 | C1–C2 render | manifest → Remotion (muted) → FFmpeg mix (voice chain, sidechain-ducked bed, SFX at frame delays) → two-pass loudnorm −14 LUFS / −1.5 dBTP → mux | `manifest.json`, final `*_9x16.mp4`, `captions.srt` |
 | C3 thumbnail | Sonnet vision extracts channel thumbnail rules (`data/thumbnail-styles/`) → Haiku brief → Higgsfield plate (no text, no real people) → Remotion still with headline | `thumbnail.jpg` |
 | C4 QA | ffprobe/ebur128/blackdetect/freezedetect + provenance + caption sync + facts + number parity + card length + lower-third backdrop + pacing + Sonnet vision judge; ≤2 autonomous B-roll repair rounds | `qa.json`, `LICENSES.md`, `usage.json` |
@@ -253,6 +266,8 @@ Editorial rules enforced in code (keep them):
 - Footage more than 15 years older than the story's era is out (5 years in repairs). Assets with `bugSpots` are excluded.
 - The licence gate (`agents/library-menu.ts:isUsable`): licence required; `moments/`, `bank/` and `thumb_cache/` are never used in output; generated assets are allowed only for audio.
 - Remotion's `bundle()` snapshots `public/`, so every render re-bundles.
+- **Captions follow the channel** (`StylePack.captions`, learned from reference OCR with the watermark removed): MagnatesMedia long-form shows burned captions on ~2 % of shots, so 16:9 films in that style burn none (the SRT keeps every word); vertical shorts always burn captions.
+- **Style data learned from the reference** (`agents/reference-grammar.ts`, in the style pack): section 8 visual grammar (276 hand-labelled MagnatesMedia shots joined with the words spoken over them) drives the director and scene designer; section 9 beat library (real passages per story role) drives the writer and the **story editor pass** (`script.editor`), which rewrites AI/news-wire lines into the channel's voice before the structural critic.
 - **No duplicate text:** `big_word` is only a date, a stat or a 1–2 word stamp. Burned-in captions are suppressed under full-screen text cards (`FULLSCREEN_TEXT`), while the SRT keeps every word. Enforced by the `duplicate_text` QA check.
 - **Safe zones** (`remotion/types.ts:SAFE`): lower thirds sit at `bottom: 24%` (9:16) and `16%` (16:9), with captions in the band below them.
 - **Fact binding:** charts, counters and versus cards reference numeric fact IDs (`agents/numeric-facts.ts`) and their values are filled from the `FactSheet`. Unbound graphics are demoted to footage. Enforced by the `fact_binding` QA check (blocker).

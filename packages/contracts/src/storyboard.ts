@@ -32,6 +32,7 @@ export const DesignedKind = z.enum([
   "timeline",
   "quote_card",
   "hero_face",
+  "scene",
 ]);
 
 /**

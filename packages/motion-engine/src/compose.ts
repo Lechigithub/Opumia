@@ -52,6 +52,8 @@ export function composeScenes(o: { shots: StoryboardShot[]; byShot: Map<string, 
     if (s.source.kind !== "designed") continue;
     const kind = s.source.designed;
     const p = s.source.props;
+    // Composed scenes are unique by construction (designed per line); the grammar gap does not apply.
+    if (kind === "scene") continue;
     if (kind === "big_word") {
       const t = String(p.text ?? "").toLowerCase().trim();
       if (slamTexts.has(t)) {

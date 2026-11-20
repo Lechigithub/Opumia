@@ -73,12 +73,18 @@ export const chapterCount = (durationS: number) => (durationS <= 90 ? 0 : Math.m
 /** Filler re-hook phrases that read as templated; the critic rejects them. */
 export const FILLER = /(untouchable\?|not for long|but (that|this) was (just|only) the beginning|little did (they|he|she) know|and that'?s when everything changed|what happened next (would|will)|buckle up|but there was (just )?one problem)/i;
 
-const WRITER_TASK = (o: { short: boolean; words: number; durationS: number; bp: Blueprint }) => `BLUEPRINT FOR THIS FILM (chosen for this story — follow it exactly):
+const WRITER_TASK = (o: { short: boolean; words: number; durationS: number; bp: Blueprint; aspect: Aspect }) => `BLUEPRINT FOR THIS FILM (chosen for this story — follow it exactly):
 - Cold open: ${o.bp.hook} — ${HOOK_ARCHETYPES[o.bp.hook as HookKey]}
 - Act spine: ${o.bp.spine}
 - Ending: ${o.bp.ending} — ${ENDING_ARCHETYPES[o.bp.ending as EndKey]}
 
-You are the head writer for the channel described in the style pack above. Write narration only — the words the narrator says. Section 6 of the pack holds the channel's MEASURED narrative devices and real excerpts: write with those devices, in your own words.
+You are the head writer for the channel described in the style pack above. Write narration only — the words the narrator says. Section 6 holds the channel's measured narrative devices; section 9 (BEAT LIBRARY) holds REAL narration for each story role. Before writing each part, reread the real passages for that role and match their voice, rhythm and attitude in your own words.
+
+VOICE (this decides whether viewers stay):
+- A storyteller talking to ONE viewer, in plain spoken English — the way a smart friend retells a wild story, not the way a journalist files a report. Contractions, everyday words, the odd aside ("which, to be fair, sounds insane"), a dry sense of irony.
+- Explain why each fact matters right after it ("which basically meant…", "in other words…", "and that's a problem, because…"). Never recite facts back to back.
+- Concrete human detail over abstraction: what someone saw, said, feared or bet — from the dossier.
+- No literary flourishes, aphorisms or clever epigrams ("read less like a plan than a warning"), no "X wasn't just Y — it was Z", no rule-of-three lists, no rhetorical "So what was really going on?" hooks. These read as AI.
 
 THE CHANNEL'S MEASURED PROSE (31 films): median sentence 19 words (p25 13, p75 27); 31% of sentences run 25+ words; only 6% are 6 words or shorter; 16% contain a digit; 13% open on a pivot ("But", "However", "And yet"); a tension turn about every 31 s (p75 56 s); the thesis lands around 36 s; 7 decision beats per film; 4 open loops per film, paid off minutes later.
 
@@ -87,17 +93,29 @@ STORY ENGINE:
 2. ACT 1 OPENS ON A PERSON. After the thesis, start the story on a character's desire or situation (what someone wanted, what they were up against) — from the CHARACTERS and SCENES in the dossier — not on a date.
 3. CONSEQUENCE CHAINS, NOT LISTS. Write flowing, connected narrative prose where every sentence is caused by the one before: "on track → and then → crash → drastic action → tiny vs giant → metaphor". Use connectives ("So", "As a result", "Which meant", "Because", "And then"). Never stack date-led sentences ("In 2008… By 2010… In 2011…").
 4. SCENES. Dramatise the dossier SCENES: who was in the room, what was decided, what it cost. Show decision beats (a person chooses and pays for it).
-5. NUMBERS HELD BACK. Only about one sentence in five or six carries a figure. Bundle numbers into a single high-impact CONTRAST sentence (use the dossier CONTRAST ANCHORS: us vs a famous rival at the same moment), then cash it out with a short human metaphor ("This was David versus Goliath."). Write the figures you do use exactly as a graphic would show them, digits with units ("$7.2 billion", "49.4%", "€31 billion").
+5. NUMBERS HELD BACK. At most one sentence in six carries a figure, and never two figures in one sentence unless it is a contrast. Bundle numbers into a single high-impact CONTRAST sentence (use the dossier CONTRAST ANCHORS: us vs a famous rival at the same moment), then cash it out with a short human metaphor ("This was David versus Goliath."). Write the figures you do use exactly as a graphic would show them, digits with units ("$7.2 billion", "49.4%", "€31 billion").
 6. OPEN LOOPS. Open 2–4 loops (a question or an ominous line about what is coming) and pay them off later. A re-hook must be a real revelation, consequence or question rooted in the facts — never stock filler such as "Untouchable? Not for long.", "Little did they know", "But that was just the beginning" or "Buckle up".
 7. QUOTES. Use the dossier's verbatim QUOTES as insider voice where they fit (attributed, never altered).
 
 FORMAT:
-- ${o.short ? `This is a ${o.durationS}-second vertical short with a tight 3-beat arc: (1) in-media-res hook + thesis by ~8 s, (2) one escalating scene with a decision and its cost, (3) the turn and a resolution that loops back to the hook. No chapter titles, no "subscribe" CTA, no sponsor.` : `This is a ${Math.round(o.durationS / 60)}-minute 16:9 long-form documentary in ${chapterCount(o.durationS)} chapters of roughly ${Math.round(o.durationS / chapterCount(o.durationS))} s each, following the channel's story families (setup → rise → obstacle/turn → fall/climax → aftermath), with a twist around the middle and the BLUEPRINT's ending archetype. Every segment's "chapter" field names its chapter (YouTube chapter titles, 2–5 words; the first chapter starts at the cold open). Segments are paragraphs of 2–5 connected sentences. Use role "rehook" only for a genuine loop-opening line. No sponsor read, no "subscribe" CTA.`}
+- ${o.short ? `This is a ${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary in the channel's long-form voice and pacing"} with a tight 3-beat arc: (1) in-media-res hook + thesis by ~${o.aspect === "9:16" ? 8 : 15} s, (2) one escalating scene with a decision and its cost, (3) the turn and a resolution that loops back to the hook. No chapter titles, no "subscribe" CTA, no sponsor.` : `This is a ${Math.round(o.durationS / 60)}-minute 16:9 long-form documentary in ${chapterCount(o.durationS)} chapters of roughly ${Math.round(o.durationS / chapterCount(o.durationS))} s each, following the channel's story families (setup → rise → obstacle/turn → fall/climax → aftermath), with a twist around the middle and the BLUEPRINT's ending archetype. Every segment's "chapter" field names its chapter (YouTube chapter titles, 2–5 words; the first chapter starts at the cold open). Segments are paragraphs of 2–5 connected sentences. Use role "rehook" only for a genuine loop-opening line. No sponsor read, no "subscribe" CTA.`}
 - Length: ${o.words} words total (±5%). Hard limit: the narration must fit ${o.durationS} s.
 - Facts: state ONLY facts from the FACT SHEET / dossier and list the claim ids each segment relies on. Hedge anything marked partially_supported ("around", "reportedly"). Never add a number, date, motive or quote that is not in the sheet.
 - Write for the ear: varied sentence length around a 17–21 word median; short sentences only where they land a turn. No stage directions, no emojis, no markdown.
 - visualIdea: one line describing what should be on screen (archival footage, a staged reenactment of the scene, a chart of X, a map of Y, a headline) — real footage, licensed reenactment stock and designed graphics only, never AI imagery.
 - Never copy sentences from the reference excerpts.`;
+
+const EDITOR_TASK = (words: number) => `You are the story editor of the channel in the style pack. You did not write this draft; your job is to make it indistinguishable from the channel's own narration in section 9 (BEAT LIBRARY) and section 6.
+
+Read the draft as a viewer who will click away the moment it sounds like AI or a news bulletin. Rewrite every sentence that:
+- stacks statistics or dates (more than one figure per sentence unless it is a contrast; more than one sentence in six with a figure overall — cut the weakest numbers);
+- recites facts like a wire report, a Wikipedia summary or an earnings note;
+- uses literary flourishes, aphorisms, "X wasn't just Y — it was Z", rule-of-three lists, or a formulaic question hook;
+- is uniformly long and polished with no breathing room, or sounds clever instead of clear;
+- tells instead of shows when the dossier has a concrete scene, a quote or a human detail.
+Replace them in the channel's voice: plain spoken storytelling to one viewer, explain why each fact matters, concrete human detail, dry irony, tension that opens a question and pays it off later. Keep the cold open in media res and the thesis line.
+
+Hard rules: keep every fact true to the FACT SHEET and keep claim ids; never add a fact, number, date or quote; keep segment roles and chapters; keep the total within ±3% of ${words} words. Return the full script.`;
 
 /** The dossier as prompt text: characters, scenes, contrasts and quotes with their claim ids. */
 function dossierText(f: FactSheet): string {
@@ -144,7 +162,7 @@ export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
     }
   }
   log(`  script: blueprint — open ${bp.hook}, spine "${bp.spine}", end ${bp.ending}`);
-  const system = [cached(o.pack.text), plain(WRITER_TASK({ short, words: targetWords, durationS: o.durationS, bp }))];
+  const system = [cached(o.pack.text), plain(WRITER_TASK({ short, words: targetWords, durationS: o.durationS, bp, aspect: o.aspect }))];
   const user = `TOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n${dossierText(o.facts)}\n\nFACT SHEET:\n${factText}`;
 
   log(`  script: drafting ${targetWords} words (${MODELS.sonnet}, style pack cached)…`);
@@ -164,6 +182,22 @@ export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
     });
     data = rev.data;
     log(`    cache read ${rev.usage.cacheRead} tokens`);
+  }
+
+  // Story editor: reads the draft against the channel's REAL passages (beat library) and rewrites every line
+  // that reads like AI or a news report, keeping facts, claim ids, roles and length.
+  {
+    const ed = await structured({
+      stage: "script.editor",
+      model: MODELS.sonnet,
+      system: [cached(o.pack.text), plain(EDITOR_TASK(targetWords))],
+      user: `${user}\n\nDRAFT TO EDIT:\n${JSON.stringify(data)}`,
+      schema: DraftSchema,
+      effort: "high",
+      maxTokens: 32000,
+    });
+    log(`  script: story editor pass (voice vs the beat library) — ${ed.data.segments.reduce((n, x) => n + countWords(x.text), 0)} words`);
+    data = ed.data;
   }
 
   // Structural critic: in-media-res open, a turn every ≤ 30 s, contrast framing. Up to two targeted revisions.

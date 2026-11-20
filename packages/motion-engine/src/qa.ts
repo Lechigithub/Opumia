@@ -59,6 +59,20 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
   const attrMissing = q.resolution.media.filter((m) => m.attributionRequired && !m.attributionText);
   add({ id: "license_coverage", severity: "blocker", passed: unlicensedLib.length === 0 && attrMissing.length === 0, message: `${q.resolution.media.length} media items; ${q.resolution.media.filter((m) => m.attributionRequired).length} require attribution (all credited in license report)${unlicensedLib.length ? `; ${unlicensedLib.length} library assets lack a licence` : ""}`, measured: unlicensedLib.length + attrMissing.length, expected: "0" });
 
+  // --- Fair use: press excerpts are short, muted, logged with their source, and a minority of the runtime.
+  {
+    const press = q.resolution.media.filter((m) => m.origin === "press");
+    const clips = press.filter((m) => m.kind === "video");
+    const long = clips.filter((m) => (m.fairUse?.usedS ?? m.durationS ?? 0) > 7.5);
+    const unlogged = press.filter((m) => !m.fairUse || !m.sourceUrl);
+    const pressS = clips.reduce((t, m) => t + (m.fairUse?.usedS ?? 0), 0);
+    const share = pressS / Math.max(1, q.manifest.durationFrames / fps);
+    const perSource = new Map<string, number>();
+    for (const m of clips) perSource.set(m.ref.split("@")[0]!, (perSource.get(m.ref.split("@")[0]!) ?? 0) + 1);
+    const reused = [...perSource.values()].filter((n) => n > 1).length;
+    add({ id: "fair_use", severity: "major", passed: long.length === 0 && unlogged.length === 0 && share <= 0.45 && reused === 0, message: `${clips.length} press clip(s) (${pressS.toFixed(1)} s, ${Math.round(share * 100)} % of runtime, audio muted), ${press.length - clips.length} press still(s)${long.length ? `; ${long.length} clip(s) over 7.5 s` : ""}${unlogged.length ? `; ${unlogged.length} without a source record` : ""}${reused ? `; ${reused} source video(s) used more than once` : ""}`, measured: Math.round(share * 100), expected: "clips ≤ 7.5 s, ≤ 45 % of runtime, one clip per source, all logged" });
+  }
+
   const bugged = libRefs.filter((a) => a?.bugSpots?.length);
   add({ id: "watermark", severity: "minor", passed: bugged.length === 0, message: bugged.length ? `${bugged.length} library clips have known broadcaster bugs: ${bugged.map((a) => a!.relPath).join(", ")}` : "no assets with known watermark/bug corners" });
 
@@ -313,7 +327,7 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
     `# License & provenance report — ${q.script.title}`,
     "",
     `- Render: \`${path.basename(q.finalPath)}\` (${q.manifest.aspect}, ${durS.toFixed(2)} s)`,
-    `- AI-generated picture in the film: **none** (${pictureLayers.length} footage/photo layers, all licensed; ${q.manifest.video.length - pictureLayers.length} designed Remotion layers)`,
+    `- AI-generated picture in the film: **none** (${pictureLayers.length} footage/photo layers, all licensed or fair-use press; ${q.manifest.video.length - pictureLayers.length} designed Remotion layers)`,
     `- Narration: ElevenLabs \`${q.script.voice.modelId}\`, voice \`${q.script.voice.voiceId}\``,
     `- Thumbnail: ${q.thumbnailPath ? `\`${path.basename(q.thumbnailPath)}\` — generated image plate (Higgsfield) with composited headline; not used in the film` : "not produced"}`,
     "",
@@ -323,6 +337,18 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
     "|---|---|---|---|---|---|",
     ...rows,
     "",
+    ...(q.resolution.media.some((m) => m.origin === "press")
+      ? [
+          "## Fair-use press material",
+          "",
+          "Used as commentary and criticism: short excerpts (≤ 6.5 s), source audio never used, reframed, graded and composited under original narration; each source used at most once.",
+          "",
+          "| shot | source | channel / site | in-point | seconds used | why | url |",
+          "|---|---|---|---|---|---|---|",
+          ...q.resolution.media.filter((m) => m.origin === "press").map((m) => `| ${m.shotId} | ${(m.fairUse?.sourceTitle ?? m.ref).replace(/\|/g, "/").slice(0, 90)} | ${(m.fairUse?.channel ?? m.provider).replace(/\|/g, "/")} | ${m.fairUse?.atS ?? "–"} | ${m.kind === "video" ? (m.fairUse?.usedS ?? "–") : "still"} | ${(m.fairUse?.reason ?? "").replace(/\|/g, "/")} | ${m.sourceUrl ?? ""} |`),
+          "",
+        ]
+      : []),
     "## Fact sources",
     "",
     ...q.facts.claims.filter((c) => usedUrls.has(c.sourceUrl)).map((c) => `- [${c.verdict}] ${c.text} — ${c.sourceUrl}`),

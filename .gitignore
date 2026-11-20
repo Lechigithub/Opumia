@@ -19,3 +19,6 @@ renders/
 
 # Cloudflare local state / build output
 **/.wrangler/
+
+# Eval outputs (frame caches, verdicts, reports) — generated
+data/eval/

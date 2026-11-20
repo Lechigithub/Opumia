@@ -43,6 +43,7 @@ export const SourceKind = z.enum([
   "library", // Opumia/Library asset (AssetRecord)
   "stock", // licensed stock API (pexels, pixabay, coverr, vecteezy, vimeo)
   "archival", // archival API (europeana, nara, wikimedia commons, loc, archive.org)
+  "press", // fair-use press material: news/interview clips (YouTube), Wikipedia lead photos and logos — short, muted, transformed, logged
   "designed", // deterministic Remotion motion graphic (chart, map, text card…)
   "narration", // ElevenLabs voice track
 ]);
@@ -64,5 +65,7 @@ export const StockProvider = z.enum([
   "openverse",
   "cleveland",
   "wikidata",
+  "wikipedia",
+  "youtube",
 ]);
 export type StockProvider = z.infer<typeof StockProvider>;

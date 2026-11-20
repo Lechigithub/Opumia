@@ -13,3 +13,6 @@ export * from "./director.js";
 export * from "./thumbnail.js";
 export * from "./judge.js";
 export * from "./numeric-facts.js";
+export * from "./eval-judge.js";
+export * from "./reference-grammar.js";
+export * from "./scene-designer.js";

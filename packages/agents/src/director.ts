@@ -7,7 +7,7 @@ import { bindFactProps, formatFactTable, numericFacts } from "./numeric-facts.js
 import type { StylePack } from "./style-pack.js";
 import { chapterMoods, designSound, pickMusicByMood, sfxCap } from "./sound-design.js";
 
-const DESIGNED = ["chart", "map", "document", "big_word", "money_figure", "name_label", "hero_face", "timeline", "versus", "quote_card", "cutout_collage", "screen"] as const;
+const DESIGNED = ["scene", "chart", "map", "document", "big_word", "money_figure", "name_label", "hero_face", "timeline", "versus", "quote_card", "cutout_collage", "screen"] as const;
 const CAMERAS = ["static", "push_in", "pull_out", "pan_left", "pan_right", "parallax", "drift", "shake"] as const;
 
 const PlanSchema = z.object({
@@ -44,7 +44,8 @@ const PROPS_SPEC = `designedProps JSON per kind. NUMBERS COME ONLY FROM THE NUME
 - cutout_collage: {"title":str (1–3 words),"tone":"crimson"|"gold"|"teal"} — subject cut out over a duotone textured backdrop with torn-paper edges (query = the subject photo/footage)
 - screen: {"title":str,"lines":[str,...] (2–5 short UI lines, facts only),"device":"monitor"|"phone"} — tilted dark monitor/UI mock for tech/app beats
 - timeline: {"items":[{"year":str,"label":str}]} (years must appear in the facts)
-- quote_card: {"quote":str (verbatim from facts),"by":str}`;
+- quote_card: {"quote":str (verbatim from facts),"by":str}
+- scene: {"brief":str (one sentence: the exact composition — what is shown, how it is laid out, what moves; e.g. "the real company logo stamps onto the frame over its headquarters footage, the word FRAUD slides in under it in the accent colour"),"layers":[{"name":str,"type":"person"|"company"|"product"|"place"}] (0–3 real entities whose photo or logo appears in the scene),"words":[str] (0–3 short on-screen words the narrator says during this shot — no numbers unless spoken exactly)} — a CUSTOM composed scene designed for this one line (logo reveal, photo-print collage, cutout over footage, kinetic words over footage, a person's photo with a label, callout arrows, a step flow). This is the channel's main designed shot: most designed shots should be scenes, each different.`;
 
 const cameraMove = (c: (typeof CAMERAS)[number], i: number): CameraMove => {
   switch (c) {
@@ -93,7 +94,8 @@ export async function directStoryboard(o: DirectOptions): Promise<Storyboard> {
   const short = o.script.durationS <= 90;
   const p = o.pack.profile.pacing;
   // Shorts cut faster than the channel's long-form; long-form follows the channel's median cut rate.
-  const medShot = short ? Math.min(2.6, Math.max(1.6, p.shotMedianS?.p50 ?? 2)) : Math.min(4.5, Math.max(2.2, 60 / (p.cutsPerMin?.p50 ?? 17)));
+  // 16:9 mini-documentaries keep the channel's long-form cutting; only vertical shorts cut faster.
+  const medShot = short && o.script.aspect === "9:16" ? Math.min(2.6, Math.max(1.6, p.shotMedianS?.p50 ?? 2)) : Math.min(4.5, Math.max(2.2, 60 / (p.cutsPerMin?.p50 ?? 17)));
 
   // Chunk long scripts at segment boundaries (~90 s each) so each plan fits one response.
   const chunks: Array<{ from: number; to: number; chapter?: string }> = [];
@@ -115,7 +117,8 @@ Constraints:
 - Aspect ${o.script.aspect}${o.script.aspect === "9:16" ? " (vertical: keep subjects centred, text in the upper two-thirds; captions own the band above the bottom 24%)" : " (landscape: lower thirds sit at 16% from the bottom, captions below them)"}.
 - Median shot ≈ ${medShot.toFixed(1)} s (never under 0.8 s, never over ${short ? 5 : 7} s). Each shot starts on a word index (startWord); startWord strictly increasing; the first shot of this chunk starts at its first word index. Cut on emphasis words and sentence starts.
 - VISUAL MIX (measured on the channel): ~70% sharp footage (reenactment, archival, b-roll) and 25–30% DESIGNED shots — roughly one designed shot in every 3–4. Hit that share. Designed elements sit over sharp, dark-graded footage, so every designed shot still needs a strong footage query. Reach for: hero_face the first time each key person appears; versus or chart for every contrast anchor (us vs a rival); document for memos, filings and quotes; map for places and expansions; screen for software/app beats; cutout_collage for a key product or person at a turning point; big_word text slams (1–2 words) on chapter turns, dates and verdicts; money_figure only for a decisive spoken figure.
-- ARCHIVE FIRST: when the narration names a specific person, company, building or landmark, set entities (name, type, year) and query for the real thing (e.g. "Enron Complex Houston 2001", "Kenneth Lay 2001 photograph"). Real archival photos of the actual entity beat generic stock.
+- SHOW THE REAL THING (style pack section 8): when the line names a specific person, company, product, building or event, set entities (name, type, year) — the resolver then fetches real press footage (news, interviews, keynotes) and real photos/logos of it. Real material of the actual entity always beats generic stock. Generic stock and reenactment are for mood and process lines only.
+- FOLLOW THE VISUAL GRAMMAR (section 8): number lines are designed (counter, chart, scene with the spoken figure); comparison lines are versus/chart; process lines are step-flow scenes; literal lines that name a brand or person get the real footage/photo or a composed scene with their logo/photo; mood lines get footage.
 - NO AI-generated imagery ever. Visuals are real footage, real photos or designed graphics.
 - REENACTMENT FIRST: the channel's #1 picture type is staged stock reenactment with anonymous actors (about a third of all cuts). When the line describes power, secrecy, engineers, founders, boardroom tension, deals, panic or consumers, use visual "reenactment" with a cinematic, filmable query: "suited executives dark boardroom tension", "engineer working late computer monitors dark office", "hand signing contract fountain pen close up", "person looking worried at smartphone at night", "ceo staring out office window city night". Pair with archival queries for the named entities. Never request a recognisable celebrity or politician as someone else, and never put a name_label over an actor.
 - Period props must match the story era (no typewriters, dip pens or rotary phones after 1990; no smartphones before 2007).
@@ -156,6 +159,7 @@ ${formatFactTable(nf) || "(none — do not use money_figure, chart or versus)"}`
     const inRange = data.shots.filter((s) => s.startWord >= ch.from && s.startWord < ch.to).sort((a, b) => a.startWord - b.startWord);
     if (inRange.length) inRange[0]!.startWord = ch.from;
     else inRange.push({ startWord: ch.from, intent: "continue", lineLink: "mood", visual: "broll", query: o.facts.topic, era: "", entities: [], designedKind: "none", designedProps: "{}", camera: "drift", overlay: "", transitionIn: "cut", sfx: [], focusX: 0.5 });
+    log(`    ${inRange.filter((x) => x.visual === "designed" && x.designedKind === "scene").length} composed scene(s), ${inRange.filter((x) => x.entities.length).length} entity shot(s) in this chunk`);
     planned.push(...inRange);
     musicCues.push({ id: data.musicId, fromWord: ch.from });
   }
@@ -243,7 +247,7 @@ ${formatFactTable(nf) || "(none — do not use money_figure, chart or versus)"}`
   }
 
   // Variety caps (reference: ~29 % designed; counters are rare; text slams never repeat).
-  const KEEP_ORDER = ["chart", "map", "document", "versus", "hero_face", "cutout_collage", "screen", "timeline", "name_label", "money_figure", "big_word", "quote_card"];
+  const KEEP_ORDER = ["scene", "chart", "map", "document", "versus", "hero_face", "cutout_collage", "screen", "timeline", "name_label", "money_figure", "big_word", "quote_card"];
   const toFootage = (sh: StoryboardShot) => {
     const bg = (sh.source.kind === "designed" ? (sh.source.props.background as { query?: string; era?: string } | undefined) : undefined) ?? {};
     sh.source = { kind: "query", query: bg.query && bg.query.length >= 3 ? bg.query : `${sh.intent} cinematic reenactment`, mustBe: "video", ...(bg.era ? { era: bg.era } : {}) };

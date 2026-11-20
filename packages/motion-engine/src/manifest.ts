@@ -29,6 +29,10 @@ export interface BuildManifestOptions {
   log?: (s: string) => void;
   /** Scene grammar: minimum seconds before a designed layout may repeat (FilmDesignSystem.sceneGrammar). */
   minRepeatGapS?: number;
+  /** Burn word captions into the picture (style pack caption policy; shorts always). The SRT keeps every word either way. */
+  burnCaptions?: boolean;
+  /** Composed scene specs from the scene designer (designed kind "scene"). */
+  scenes?: Map<string, unknown>;
 }
 
 /** Storyboard + TimedScript + resolved media → frame-exact RenderManifest (validated). */
@@ -70,7 +74,10 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     const len = end - start;
     const media = byShot.get(s.id) ?? [];
     const primary = media.find((m) => m.role === "primary");
-    const designed = s.source.kind === "designed" ? s.source : null;
+    let designed = s.source.kind === "designed" ? s.source : null;
+    const sceneSpec = designed?.designed === "scene" ? (o.scenes?.get(s.id) as { dim?: number } | undefined) : undefined;
+    // A scene the designer could not compose (nothing focal resolved) plays as its footage.
+    if (designed?.designed === "scene" && !sceneSpec) designed = null;
     const paper = designed?.designed === "document" ? media.find((m) => m.role === "overlay" && m.kind === "image") : undefined;
 
     if (primary) {
@@ -94,7 +101,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         zIndex: 0,
         blend: "normal",
         keyframes: kfs,
-        props: { kind: primary.kind, mode: citation && !designed ? "parallax_card" : mode, focus: s.focus ?? [0.5, 0.5], transitionIn: s.transitionIn, period: primary.origin === "archival", ...(citation ? { citation } : {}), ...(designed && designed.designed !== "name_label" ? { dim: 0.55 } : {}) },
+        props: { kind: primary.kind, mode: citation && !designed ? "parallax_card" : mode, focus: s.focus ?? [0.5, 0.5], transitionIn: s.transitionIn, period: primary.origin === "archival", ...(citation ? { citation } : {}), ...(designed && designed.designed !== "name_label" ? { dim: sceneSpec?.dim ?? 0.55 } : {}) },
       };
       video.push(layer);
     } else if (designed && designed.designed !== "map" && designed.designed !== "versus") {
@@ -151,6 +158,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
       // Signature primitives take the shot's own picture: portrait for HeroFaceSplit, subject for CutoutCollage.
       if (designed.designed === "hero_face" && primary?.kind === "image") props.portraitSrc = primary.publicPath;
       if (designed.designed === "cutout_collage" && primary) props.subjectSrc = primary.publicPath;
+      if (designed.designed === "scene") props = { spec: sceneSpec, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
       if (s.factIds?.length) props.factIds = s.factIds;
       const win: [number, number] = [s.startS - 1.5, s.endS + 1.0];
       let keep = true;
@@ -238,7 +246,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     if (holdFrom !== undefined && holdFrom >= F(g.endS) - 2) continue;
     groups.push(holdFrom !== undefined && holdFrom > F(g.startS) ? { ...g, holdFrom } : g);
   }
-  video.push({
+  if (o.burnCaptions !== false) video.push({
     id: "captions",
     shotId: "all",
     sourceKind: "designed",

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "quick",
+  "description": "Fast platform check: 2 MagnatesMedia-style 16:9 films of 90 s on unseen topics, produced untouched from a frozen commit and scored by the blind reference test.",
+  "items": [
+    { "id": "theranos", "topic": "How Theranos fooled Silicon Valley", "channel": "magnates-media", "aspect": "16:9", "durationS": 90 },
+    { "id": "kodak", "topic": "How Kodak invented the digital camera and still died", "channel": "magnates-media", "aspect": "16:9", "durationS": 90 }
+  ]
+}

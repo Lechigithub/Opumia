@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
+# yt-dlp (pinned) for fair-use press excerpts (resolver/press.ts): section downloads only, audio never used.
+ADD https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp_linux /usr/local/bin/yt-dlp
+RUN chmod +x /usr/local/bin/yt-dlp
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./

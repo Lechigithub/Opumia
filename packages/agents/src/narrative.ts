@@ -50,7 +50,7 @@ export function critiqueNarrative(segs: Array<{ role: string; text: string }>, w
   if (sents.length >= 8 && (median < 15 || tiny > 0.15))
     issues.push({ kind: "choppy_prose", where: "whole script", detail: `median sentence ${median} words, ${Math.round(tiny * 100)}% of sentences ≤ 6 words (reference: 19 words, 6%). Merge fragments into connected consequence chains.` });
   const digitShare = sents.filter((x) => /\d/.test(x.text)).length / Math.max(1, sents.length);
-  if (sents.length >= 8 && digitShare > 0.3)
+  if (sents.length >= 8 && digitShare > 0.22)
     issues.push({ kind: "number_dump", where: "whole script", detail: `${Math.round(digitShare * 100)}% of sentences carry a figure (reference: 16%). Keep the decisive numbers, bundle them into contrast sentences, cut the rest.` });
   const fill = sents.filter((x) => FILLER_RE.test(x.text));
   if (fill.length) issues.push({ kind: "filler", where: fill.map((f) => `segment ${f.seg}`).join(", "), detail: `stock filler re-hooks: ${fill.map((f) => `"${f.text.slice(0, 50)}"`).join("; ")}. Replace with a real consequence or question from the facts.` });

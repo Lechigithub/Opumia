@@ -5,6 +5,7 @@ import { AnimatedChart } from "./scenes/Chart";
 import { DocumentScene } from "./scenes/Document";
 import { BigWord, NameLabel, QuoteCard, Timeline } from "./scenes/Kinetic";
 import { Versus } from "./scenes/Versus";
+import { ComposedScene, type ComposedProps } from "./scenes/Composed";
 import { CutoutCollage, HeroFaceSplit, ScreenMock, SharpOverlayCounter, TitleRollChapter } from "./scenes/Signature";
 import { AccentLight, Atmosphere, CameraPush, FilmGrain, Vignette } from "./scenes/Cinema";
 import { applyDesign, PALETTE, TEXTURE, type DesignTokens } from "./types";
@@ -43,6 +44,8 @@ const Designed: React.FC<{ layer: Layer; accent: string }> = ({ layer, accent })
       return <QuoteCard {...(p as object)} accent={accent} />;
     case "name_label":
       return <NameLabel {...(p as object)} accent={accent} />;
+    case "scene":
+      return <ComposedScene {...(p as unknown as ComposedProps)} accent={accent} />;
     case "captions":
       return <Captions groups={(p.groups ?? []) as CaptionGroup[]} accent={accent} />;
     default:
@@ -66,7 +69,7 @@ const Grade: React.FC<{ act?: DesignTokens["acts"][number] }> = ({ act }) => (
   </>
 );
 
-const FULL_FRAME = new Set(["captions", "name_label", "map", "versus", "atmosphere", "hero_face", "cutout_collage", "chapter_card", "screen", "money_figure"]);
+const FULL_FRAME = new Set(["scene", "captions", "name_label", "map", "versus", "atmosphere", "hero_face", "cutout_collage", "chapter_card", "screen", "money_figure"]);
 
 export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   applyDesign(design);
@@ -86,7 +89,7 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   const above = layers.filter((l) => l.zIndex >= 50);
   // Designed scenes get a continuous camera push (never a static slide); lower thirds/captions stay locked.
   const designed = (l: Layer) =>
-    l.ref === "captions" || l.ref === "name_label" || l.ref === "money_figure" || l.ref === "chapter_card" ? (
+    l.ref === "captions" || l.ref === "name_label" || l.ref === "money_figure" || l.ref === "chapter_card" || l.ref === "scene" ? (
       <Designed layer={l} accent={look.accent} />
     ) : (
       <CameraPush to={l.ref === "map" ? 1.0 : 1.05}>

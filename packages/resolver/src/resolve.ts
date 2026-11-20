@@ -9,15 +9,18 @@ import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { downloadCandidate, providersFor, searchStock, type StockCandidate } from "./stock.js";
+import { visionCheck, wikipediaImages, youtubePress, type PressCandidate } from "./press.js";
 
 const run = promisify(execFile);
 
-type Cand = { src: "local"; doc: LocalDoc; score: number } | { src: "stock"; c: StockCandidate; score: number };
+type Cand = { src: "local"; doc: LocalDoc; score: number } | { src: "stock"; c: StockCandidate; score: number } | { src: "press"; p: PressCandidate; score: number };
 
 const PickSchema = z.object({ picks: z.array(z.object({ shot: z.string(), choice: z.number().describe("candidate index, or -1 if none fits") })) });
 
 const describe = (c: Cand) =>
-  c.src === "local"
+  c.src === "press"
+    ? `${c.p.kind} | press/${c.p.provider} | ${c.p.title.slice(0, 120)}`
+    : c.src === "local"
     ? `${c.doc.kind} | library/${c.doc.asset.category} | ${c.doc.decade ?? "?"}s | ${c.doc.text.slice(0, 160)}`
     : `${c.c.kind} | ${c.c.provider} | ${c.c.title.slice(0, 100)} | ${c.c.tags.slice(0, 6).join(", ")}${c.c.durationS ? ` | ${Math.round(c.c.durationS)}s` : ""}`;
 
@@ -147,6 +150,8 @@ export interface ResolveOptions {
   words?: Array<{ word: string; startS: number; endS: number }>;
   /** ProductionMemory: asset refs earlier films rejected (library key or provider:externalId) — never offered again. */
   blocked?: Set<string>;
+  /** Fair-use press sourcing (YouTube news/interview excerpts, Wikipedia photos and logos). Default on. */
+  press?: boolean;
   log?: (s: string) => void;
 }
 
@@ -172,8 +177,55 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const usedStock = new Set<string>();
   const chosen = new Map<string, Cand>();
 
+  const pressDir = path.join(o.jobDir, "downloads", "press");
+  const usedVideos = new Set<string>();
+  const usedWiki = new Set<string>();
+  const wantsImage = (n: Need) => n.kind === "image" || (n.shot.source.kind === "designed" && ["hero_face", "cutout_collage"].includes(n.shot.source.designed));
+  // Phase P — fair-use press first for named entities: the real person/company/product/event, checked by eye.
+  if (o.press !== false) {
+    const pressNeeds = needs.filter((n) => n.shot.entities?.length && !(n.shot.source.kind === "designed" && n.shot.source.designed === "scene"));
+    if (pressNeeds.length) log(`  resolver: press sourcing for ${pressNeeds.length} entity shot(s) (Wikipedia + YouTube excerpts, vision-checked)…`);
+    const pool = new Map<string, PressCandidate[]>();
+    const wikiCache = new Map<string, Promise<PressCandidate[]>>();
+    const wiki = (e: { name: string; type: string }) => {
+      const k = e.name.toLowerCase();
+      if (!wikiCache.has(k)) wikiCache.set(k, wikipediaImages(e, pressDir, 4).catch(() => []));
+      return wikiCache.get(k)!;
+    };
+    const lim = 4;
+    for (let i = 0; i < pressNeeds.length; i += lim) {
+      await Promise.all(
+        pressNeeds.slice(i, i + lim).map(async (n) => {
+          const e = n.shot.entities![0]!;
+          const list: PressCandidate[] = [];
+          if (e.type !== "event") list.push(...(await wiki(e)));
+          if (!wantsImage(n) && ["person", "company", "event", "product"].includes(e.type)) list.push(...(await youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: n.durationS }).catch(() => [])));
+          pool.set(n.shot.id, list.filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)));
+        }),
+      );
+    }
+    // Vision check in batches of 12 frames (Haiku).
+    const flat = pressNeeds.flatMap((n) => (pool.get(n.shot.id) ?? []).map((c) => ({ n, c })));
+    const verdicts: Array<{ shows: boolean; quality: number; note: string }> = [];
+    for (let i = 0; i < flat.length; i += 12) verdicts.push(...(await visionCheck(flat.slice(i, i + 12).map(({ n, c }) => ({ frameFile: c.frameFile, depicts: c.depicts, line: n.line }))).catch(() => flat.slice(i, i + 12).map(() => ({ shows: false, quality: 0, note: "check failed" })))));
+    let placed = 0;
+    for (const n of pressNeeds) {
+      const ok = flat.map((x, k) => ({ ...x, v: verdicts[k]! })).filter((x) => x.n === n && x.v.shows && x.v.quality >= 5);
+      const pref = wantsImage(n) ? "image" : "video";
+      const pickP = ok
+        .filter((x) => !(x.c.provider === "youtube" ? usedVideos.has(x.c.externalId.split("@")[0]!) : usedWiki.has(x.c.externalId)))
+        .sort((a, b) => Number(b.c.kind === pref) - Number(a.c.kind === pref) || b.v.quality - a.v.quality)[0];
+      if (!pickP) continue;
+      if (pickP.c.provider === "youtube") usedVideos.add(pickP.c.externalId.split("@")[0]!);
+      else usedWiki.add(pickP.c.externalId);
+      chosen.set(n.shot.id, { src: "press", p: pickP.c, score: pickP.v.quality / 10 });
+      placed++;
+    }
+    if (pressNeeds.length) log(`  resolver: ${placed}/${pressNeeds.length} entity shot(s) placed from press (${flat.length} candidates checked)`);
+  }
+
   // Phase 0 — archive first for named entities: Commons, NARA, Europeana with name + year.
-  const entityNeeds = needs.filter((n) => n.shot.entities?.length);
+  const entityNeeds = needs.filter((n) => n.shot.entities?.length && !chosen.has(n.shot.id));
   if (entityNeeds.length) {
     const ent = new Map<string, Cand[]>();
     for (const n of entityNeeds) {
@@ -209,7 +261,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         if (!c) continue;
         chosen.set(n.shot.id, c);
         if (c.src === "local") usedLocal.add(c.doc.key);
-        else usedStock.add(`${c.c.provider}:${c.c.externalId}`);
+        else if (c.src === "stock") usedStock.add(`${c.c.provider}:${c.c.externalId}`);
       }
       log(`  resolver: ${withCands.filter((n) => chosen.has(n.shot.id)).length} entity shot(s) placed from archives`);
     }
@@ -254,7 +306,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   // Materialize, screening each clip for black frames and falling back to the next candidate.
   const media: ResolvedMedia[] = [];
   const unresolved: ResolutionReport["unresolved"] = [];
-  const keyOf = (c: Cand) => (c.src === "local" ? c.doc.key : `${c.c.provider}:${c.c.externalId}`);
+  const keyOf = (c: Cand) => (c.src === "local" ? c.doc.key : c.src === "press" ? `${c.p.provider}:${c.p.externalId}` : `${c.c.provider}:${c.c.externalId}`);
   const taken = new Set([...chosen.values()].map(keyOf));
   let fallbacks = 0;
   for (const n of needs) {
@@ -289,6 +341,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   if (fallbacks) log(`  resolver: ${fallbacks} candidate(s) rejected for black frames; fell back`);
 
   async function materializeCand(c: Cand, n: Need): Promise<ResolvedMedia> {
+    if (c.src === "press") {
+      const p = c.p;
+      const alpha = /\.png$/i.test(p.localFile);
+      const ext = p.kind === "video" ? "mp4" : alpha ? "png" : "jpg";
+      const file = `${n.shot.id}_${createHash("sha1").update(`${p.provider}:${p.externalId}`).digest("hex").slice(0, 8)}.${ext}`;
+      await materialize(p.localFile, p.kind, path.join(mediaDir, file), 0, Math.min(n.durationS, p.durationS ?? n.durationS), alpha);
+      return { shotId: n.shot.id, role: "primary", origin: "press", ref: `${p.provider}:${p.externalId}`, provider: p.provider, kind: p.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, ...(p.width ? { width: p.width, height: p.height } : {}), license: p.license, attributionRequired: p.attributionRequired, ...(p.attributionText ? { attributionText: p.attributionText } : {}), sourceUrl: p.pageUrl, aiGenerated: false, score: c.score, query: n.query, depicts: p.depicts, fairUse: { ...p.fairUse, usedS: p.kind === "video" ? Math.round(Math.min(n.durationS + 0.8, p.durationS ?? n.durationS) * 10) / 10 : 0 } };
+    }
     if (c.src === "local") {
       const a = c.doc.asset;
       const alpha = a.ext === "png";
@@ -303,6 +363,44 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const file = `${n.shot.id}_${createHash("sha1").update(`${c.c.provider}:${c.c.externalId}`).digest("hex").slice(0, 8)}.${ext}`;
     await materialize(dl, c.c.kind, path.join(mediaDir, file), 0, n.durationS, false);
     return { shotId: n.shot.id, role: "primary", origin: c.c.archival ? "archival" : "stock", ref: `${c.c.provider}:${c.c.externalId}`, provider: c.c.provider, kind: c.c.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, ...(c.c.width ? { width: c.c.width, height: c.c.height } : {}), license: c.c.license, attributionRequired: c.c.attributionRequired, ...(c.c.attributionText ? { attributionText: c.c.attributionText } : {}), sourceUrl: c.c.pageUrl, aiGenerated: false, score: 1, query: n.query };
+  }
+
+  // Composed scenes: one picture per named layer (portrait for a person, logo/product/building otherwise),
+  // from Wikipedia then Commons, vision-checked. The scene designer only places slots that resolved.
+  const sceneShots = o.storyboard.shots.filter((sh) => sh.source.kind === "designed" && sh.source.designed === "scene");
+  if (sceneShots.length) {
+    const items: Array<{ sh: StoryboardShot; slot: number; name: string; type: string; c: PressCandidate }> = [];
+    for (const sh of sceneShots) {
+      const layers = (((sh.source as { props: Record<string, unknown> }).props.layers ?? []) as Array<{ name?: string; type?: string }>).filter((l) => l.name && l.name.trim().length > 1).slice(0, 4);
+      await Promise.all(
+        layers.map(async (l, slot) => {
+          const e = { name: l.name!.trim(), type: l.type ?? "company" };
+          const cands = (await wikipediaImages(e, pressDir, 3).catch(() => [] as PressCandidate[])).filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`));
+          for (const c of cands) items.push({ sh, slot, name: e.name, type: e.type, c });
+        }),
+      );
+    }
+    const line = (sh: StoryboardShot) => (o.words ?? []).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
+    const verdicts: Array<{ shows: boolean; quality: number }> = [];
+    for (let i = 0; i < items.length; i += 12) verdicts.push(...(await visionCheck(items.slice(i, i + 12).map((x) => ({ frameFile: x.c.frameFile, depicts: x.c.depicts, line: line(x.sh) }))).catch(() => items.slice(i, i + 12).map(() => ({ shows: false, quality: 0 })))));
+    let n = 0;
+    for (const sh of sceneShots) {
+      const slots = [...new Set(items.filter((x) => x.sh === sh).map((x) => x.slot))].sort((a, b) => a - b);
+      for (const slot of slots) {
+        const best = items.map((x, k) => ({ ...x, v: verdicts[k]! })).filter((x) => x.sh === sh && x.slot === slot && x.v.shows && x.v.quality >= 4).sort((a, b) => Number(/logo/i.test(b.c.title) && b.type !== "person") - Number(/logo/i.test(a.c.title) && a.type !== "person") || b.v.quality - a.v.quality)[0];
+        if (!best) continue;
+        const alpha = /\.png$/i.test(best.c.localFile);
+        const file = `layer_${sh.id}_${slot}_${createHash("sha1").update(best.c.externalId).digest("hex").slice(0, 8)}.${alpha ? "png" : "jpg"}`;
+        try {
+          await materialize(best.c.localFile, "image", path.join(mediaDir, file), 0, 1, alpha);
+          media.push({ shotId: sh.id, role: "layer", slot, origin: "press", ref: `${best.c.provider}:${best.c.externalId}`, provider: best.c.provider, kind: "image", localPath: path.join(mediaDir, file), publicPath: `media/${file}`, ...(best.c.width ? { width: best.c.width, height: best.c.height } : {}), license: best.c.license, attributionRequired: best.c.attributionRequired, ...(best.c.attributionText ? { attributionText: best.c.attributionText } : {}), sourceUrl: best.c.pageUrl, aiGenerated: false, score: best.v.quality / 10, query: best.name, depicts: `${best.name} — ${alpha ? "transparent logo/cutout" : best.type === "person" ? "photo of the person" : "photo"}`, fairUse: best.c.fairUse });
+          n++;
+        } catch {
+          /* unreadable image: slot stays empty */
+        }
+      }
+    }
+    log(`  resolver: composed scenes — ${n} layer picture(s) placed across ${sceneShots.length} scene(s)`);
   }
 
   // Overlays, paper for documents, SFX and music — all from the licensed library.
@@ -422,12 +520,12 @@ export async function repairShots(o: RepairOptions): Promise<ResolutionReport> {
           const file = `${n.shot.id}_${createHash("sha1").update(c.doc.key).digest("hex").slice(0, 8)}.${c.doc.kind === "video" ? "mp4" : alpha ? "png" : "jpg"}`;
           await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), c.doc.kind, path.join(mediaDir, file), c.doc.inS, n.durationS, alpha);
           m = { shotId: n.shot.id, role: "primary", origin: "library", ref: c.doc.key, provider: "library", kind: c.doc.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: Math.round(c.score * 100) / 100, query: n.query };
-        } else {
+        } else if (c.src === "stock") {
           const dl = await downloadCandidate(c.c, dlDir);
           const file = `${n.shot.id}_${createHash("sha1").update(`${c.c.provider}:${c.c.externalId}`).digest("hex").slice(0, 8)}.${c.c.kind === "video" ? "mp4" : "jpg"}`;
           await materialize(dl, c.c.kind, path.join(mediaDir, file), 0, n.durationS, false);
           m = { shotId: n.shot.id, role: "primary", origin: c.c.archival ? "archival" : "stock", ref: `${c.c.provider}:${c.c.externalId}`, provider: c.c.provider, kind: c.c.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, ...(c.c.width ? { width: c.c.width, height: c.c.height } : {}), license: c.c.license, attributionRequired: c.c.attributionRequired, ...(c.c.attributionText ? { attributionText: c.c.attributionText } : {}), sourceUrl: c.c.pageUrl, aiGenerated: false, score: 1, query: n.query };
-        }
+        } else continue;
         if (m.kind === "video" && (await hasBlack(m.localPath))) continue;
         media = media.filter((x) => !(x.shotId === n.shot.id && x.role === "primary"));
         media.push(m);

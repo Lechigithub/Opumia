@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "core",
+  "description": "Fixed platform regression set: 8 MagnatesMedia-style 16:9 films of 2 minutes on topics the platform has never produced and the reference channel has not covered. Re-run after every platform change; keep changes that raise indistinguishability.",
+  "items": [
+    { "id": "theranos", "topic": "How Theranos fooled Silicon Valley", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "wework", "topic": "The rise and fall of WeWork", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "kodak", "topic": "How Kodak invented the digital camera and still died", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "lamborghini", "topic": "How an insult from Enzo Ferrari created Lamborghini", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "juul", "topic": "How Juul hooked a generation and lost everything", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "toys-r-us", "topic": "Why Toys R Us went bankrupt", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "ikea", "topic": "The secretive man who built IKEA", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 },
+    { "id": "blackberry", "topic": "How BlackBerry went from owning smartphones to nothing", "channel": "magnates-media", "aspect": "16:9", "durationS": 120 }
+  ]
+}

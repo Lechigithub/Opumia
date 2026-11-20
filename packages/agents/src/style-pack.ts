@@ -2,6 +2,7 @@ import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { StyleProfile, type ChannelId } from "@opumia/contracts";
 import { CHANNELS, discoverVideos, readJsonSafe } from "@opumia/ingest";
+import { beatLibrary, beatText, captionPolicy, grammarText, visualGrammar, type BeatPassage, type CaptionPolicy, type GrammarRow } from "./reference-grammar.js";
 
 /**
  * A deterministic, cacheable text bundle describing how a reference channel writes.
@@ -12,6 +13,12 @@ export interface StylePack {
   profile: StyleProfile;
   text: string;
   sources: string[];
+  /** Learned from the reference: whether long-form burns word captions (most documentary channels don't). */
+  captions: CaptionPolicy;
+  /** Hand-labelled reference shots joined with their narration (what the editor showed over each line). */
+  grammar: GrammarRow[];
+  /** Real narration passages per story role. */
+  beats: BeatPassage[];
 }
 
 interface StoryLabel {
@@ -36,15 +43,15 @@ export async function buildStylePack(channelId: ChannelId, roots: { reference: s
   const cacheFile = path.join(roots.data, "style-packs", `${channelId}.json`);
   const haveReference = await stat(path.join(roots.reference, ".analysis")).then(() => true, () => false);
   if (!haveReference) {
-    const c = await readJsonSafe<{ channelId: ChannelId; text: string; sources: string[] }>(cacheFile, 0);
+    const c = await readJsonSafe<{ channelId: ChannelId; text: string; sources: string[]; captions?: CaptionPolicy; grammar?: GrammarRow[]; beats?: BeatPassage[] }>(cacheFile, 0);
     if (!c.ok) throw new Error(`Reference/ not available and no cached style pack at ${cacheFile}`);
     const prof = await readJsonSafe(path.join(roots.data, "style-profiles", `${channelId}.json`), 0);
     if (!prof.ok) throw new Error(`style profile missing for ${channelId}`);
-    return { channelId, profile: StyleProfile.parse(prof.value), text: c.value.text, sources: c.value.sources };
+    return { channelId, profile: StyleProfile.parse(prof.value), text: c.value.text, sources: c.value.sources, captions: c.value.captions ?? { burnLongForm: false, bottomTextShare: 0, films: 0 }, grammar: c.value.grammar ?? [], beats: c.value.beats ?? [] };
   }
   const pack = await buildFromReference(channelId, roots);
   await mkdir(path.dirname(cacheFile), { recursive: true });
-  await writeFile(cacheFile, JSON.stringify({ channelId, text: pack.text, sources: pack.sources }) + "\n");
+  await writeFile(cacheFile, JSON.stringify({ channelId, text: pack.text, sources: pack.sources, captions: pack.captions, grammar: pack.grammar, beats: pack.beats }) + "\n");
   return pack;
 }
 
@@ -116,6 +123,11 @@ async function buildFromReference(channelId: ChannelId, roots: { reference: stri
 
   const devices = await narrativeDevices(analysis, storyFiles);
   if (devices) sources.push(`Reference/.analysis/story_in/${prefix || "NN"}-*.txt (sentence transcripts)`);
+  const captions = await captionPolicy(roots.reference, channelId);
+  sources.push(`${ch.dir}/**/pretrain.json shot OCR (caption policy: burn=${captions.burnLongForm}, lower-band caption share ${captions.bottomTextShare})`);
+  const grammar = await visualGrammar(roots.reference, channelId, ch.metaPrefix);
+  if (grammar.length) sources.push(`Reference/.analysis/designed/answer_*.json (${grammar.length} labelled shots) × pretrain words`);
+  const beats = await beatLibrary(roots.reference, storyFiles);
 
   const text = [
     `# CHANNEL STYLE PACK: ${ch.displayName} (${channelId})`,
@@ -126,10 +138,12 @@ async function buildFromReference(channelId: ChannelId, roots: { reference: stri
     labels.length ? `\n# 4. STORY LABELS OF ${labels.length} REFERENCE FILMS\n${labels.join("\n\n")}` : "",
     opens.length ? `\n# 5. REAL COLD OPENS (first 25 s, transcribed) — study rhythm and sentence length only\n${opens.join("\n")}` : "",
     devices ?? "",
+    grammarText(grammar),
+    beatText(beats),
   ]
     .filter(Boolean)
     .join("\n");
-  return { channelId, profile, text, sources };
+  return { channelId, profile, text, sources, captions, grammar, beats };
 }
 
 /** Sentence-level transcript: "[i] 12.3s text" lines → index → {t, text}. */

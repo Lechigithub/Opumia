@@ -16,6 +16,7 @@ export const QACheckId = z.enum([
   "blank_frames", // no frame > 85 % white / uniform
   "number_parity", // on-screen figures equal the spoken figures (same precision)
   "card_length", // full-screen kinetic text cards ≤ 2.0 s
+  "fair_use", // press excerpts: short, muted, logged, a minority of the runtime
   "lower_third_backdrop", // lower thirds sit over a detailed picture, never a flat/blank plate
   "duplicate_text", // burned-in captions never repeat a full-screen card's words
   "fact_binding", // every chart/counter value equals a verified FactSheet number

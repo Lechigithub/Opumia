@@ -42,6 +42,8 @@ const kinds: Array<[string, Record<string, unknown>]> = [
   ["hero_face", { name: "Stephen Elop", title: "CEO, 2010–2014" }],
   ["cutout_collage", { title: "The Bet", tone: "crimson" }],
   ["screen", { title: "Market share, Q4 2010", lines: ["Symbian 32%", "Android 30%", "iOS 16%"], device: "monitor" }],
+  ["scene", { brief: "cutout over footage with kinetic words and an arrow", layers: [{ name: "Object", type: "product" }] }],
+  ["scene", { brief: "torn photo on paper with a stamp", layers: [{ name: "Object", type: "product" }] }],
 ];
 const shotLen = dur / kinds.length;
 const shots: StoryboardShot[] = kinds.map(([k, props], i) => ({
@@ -68,10 +70,31 @@ mat("sh001", "overlay", leak, "video");
 mat("sh005", "overlay", paper, "image");
 shots.filter((s) => s.sfx.length).forEach((s) => mat(s.id, "sfx", sfx, "audio"));
 mat("music", "music", music, "audio");
+// Composed-scene picture slots (layer role).
+for (const id of ["sh015", "sh016"]) {
+  const out = path.join(pub, "media", `layer_${id}_0.png`);
+  ff(["-i", path.join(LIB, photo.relPath), "-vf", "scale='min(1200,iw)':-2", "-frames:v", "1", out]);
+  media.push({ shotId: id, role: "layer", slot: 0, origin: "library", ref: `${photo.id}#layer${id}`, provider: "library", kind: "image", localPath: out, publicPath: `media/layer_${id}_0.png`, license: photo.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: "layer", depicts: "object cutout" });
+}
+const scenes = new Map<string, unknown>([
+  ["sh015", { shotId: "sh015", idea: "smoke A", backdrop: "footage", dim: 0.45, camera: { fromScale: 1.02, toScale: 1.14, fromX: 0.45, toX: 0.55, fromY: 0.5, toY: 0.48 }, elements: [
+    { type: "texture", texture: "halftone", opacity: 0.25, at: 0 },
+    { type: "cutout", slot: 0, x: 0.56, y: 0.18, w: 0.32, rot: -4, z: 0.8, at: 0.1, enter: "pop", shadow: true },
+    { type: "text", text: "the bet", role: "kicker", x: 0.08, y: 0.3, w: 0.45, size: 0.04, align: "left", color: "accent", at: 0.2, enter: "slide_left" },
+    { type: "text", text: "Nobody saw it coming", role: "display", x: 0.08, y: 0.38, w: 0.48, size: 0.11, align: "left", color: "text", highlightWord: "nobody", at: 0.35, enter: "wipe" },
+    { type: "shape", shape: "arrow", x: 0.4, y: 0.72, w: 0.1, h: 0.01, x2: 0.58, y2: 0.55, color: "accent", at: 0.6, enter: "draw" },
+  ] }],
+  ["sh016", { shotId: "sh016", idea: "smoke B", backdrop: "paper", dim: 0.4, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
+    { type: "texture", texture: "paper", opacity: 0.5, at: 0 },
+    { type: "photo", slot: 0, x: 0.12, y: 0.14, w: 0.36, rot: 3, z: 0.6, at: 0, enter: "zoom", frame: "torn", grade: "mono" },
+    { type: "text", text: "Confidential", role: "stamp", x: 0.55, y: 0.36, w: 0.4, size: 0.09, align: "left", color: "accent", rot: -8, at: 0.3, enter: "stamp" },
+    { type: "shape", shape: "circle", x: 0.53, y: 0.3, w: 0.42, h: 0.25, color: "accentDeep", at: 0.6, enter: "draw" },
+  ] }],
+]);
 const resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 11, stock: 0, archival: 0, designed: 9 }, generatedAt: new Date().toISOString() });
 
 const final = path.join(job, `smoke_${ASPECT.replace(":", "x")}.mp4`);
-const manifest = await buildManifest({ storyboard: board, script, resolution, libraryRoot: LIB, outputPath: final, narrationPath: script.voice.audioPath });
+const manifest = await buildManifest({ storyboard: board, script, resolution, libraryRoot: LIB, outputPath: final, narrationPath: script.voice.audioPath, scenes, burnCaptions: ASPECT === "9:16" });
 writeFileSync(path.join(job, "manifest.json"), JSON.stringify(manifest, null, 2));
 writeFileSync(path.join(job, "captions.srt"), toSrt(captionGroups(script)));
 const profile = JSON.parse(readFileSync("data/style-profiles/magnates-media.json", "utf8"));

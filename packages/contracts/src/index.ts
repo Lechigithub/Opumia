@@ -10,3 +10,5 @@ export * from "./research.js";
 export * from "./storyboard-plan.js";
 export * from "./overrides.js";
 export * from "./design.js";
+export * from "./eval.js";
+export * from "./scene.js";
