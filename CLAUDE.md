@@ -220,6 +220,19 @@ The test films of 2026-11-20 were judged slop by the owner (templated, slideshow
 - **Press material:** stills (portraits, logos) are picture slots, never full-frame backdrops; clips with broadcaster graphics are cropped; real **article screenshots** of cited sources (`screenshotPage`, Remotion's Chromium; overlays hidden, nothing accepted) become picture slot 6 for up to 4 scenes.
 - **Cooldown:** `data/asset-usage.json` — pictures used by the last 12 films are off limits (Wikipedia portraits/logos exempt). Story era comes from the fact sheet, not from years spoken in the narration.
 
+## Sourcing: planned, pooled, judged by eye (2026-11-21)
+
+Sourcing is planned per film, not searched blind (`resolver/widen.ts`, `resolver/resolve.ts`, `resolver/press.ts`):
+
+- **Sourcing plan** (`planSourcing`, Haiku, one call per 40 shots): per shot — what must be seen, the kind of picture (`real` named subject / `period` / `staged` / `object` / `none` = designed, no picture), two short stock searches, one archive search, one YouTube search (real subjects only) — plus the film's **kit** (the real things it must have pictures of).
+- **Every source for every shot, pooled:** library (BM25), Pexels, Pixabay, Coverr, Vecteezy, Commons (anonymous), NARA, Europeana, Openverse and the Internet Archive (both keyless), archive hits that name the entity, and YouTube by description. Vimeo is not asked (its API never exposes CC downloads). Storyblocks is not connected (owner decision).
+- **Judged by eye before download:** each candidate's preview picture (`thumbOf`, `StockCandidate.thumbUrl`) is rated against the line, one shot's candidates side by side (`reviewPictures`). A pick needs fit ≥ 6, no later-period giveaway, no burned-in captions/graphics, and no face under a line naming a person unless the footage's own title names that person. The best-rated picture wins whatever its source; rated runners-up stand by. Nothing unrated is ever placed.
+- **YouTube by description** (`youtubeFootage`): a video is considered only if its title names one of the film's subjects and it is not an essay/documentary/drama (`NO_LIFT*`, `DRAMA*`). The moment is found by looking at the video's own thumbnail strip (`ytMoments`) and its captions; only a preview frame is fetched, and the ≤ 6.5 s muted clip is downloaded once chosen. **One clip per source video per film** (owner decision, reaffirmed). A person's press must also name another subject of the film (namesake guard).
+- **Web pictures** (`webPictures`): real photographs from the cited source pages and from pages found with the model's built-in web search (Haiku; no search-engine key). Pictures credited to photo agencies (Getty, AP, Reuters, Alamy…) are never taken. Each is checked by eye and becomes picture slot 7 of one scene, logged as fair use.
+- **Coverage report** `out/<job>/sourcing.json`: per shot — need, searches, every candidate looked at with its rating, what was placed, what is missing. Read it before design or render.
+- Measured on the Kodak plan (2026-11-21): fitting footage for 10–13 of 28 shots plus 3–4 real stills (run-to-run spread comes from the rater); previously 8 of 29 with unrelated pictures among them. Pexels and YouTube supply almost everything usable; Pixabay, NARA and the library almost nothing for this topic. Stage time ≈ 4–6 min (not yet optimised).
+- **Not built yet:** the director rewriting a shot around what was actually found; a cross-film cache of researched subjects.
+
 ## Voice: directed narration and listen-back (rebuild stage 6)
 
 `narration/directed.ts:narrateDirected` is the default (`OPUMIA_NARRATION=legacy` restores the single-pass path).

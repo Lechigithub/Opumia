@@ -104,27 +104,28 @@ export async function structured<S extends z4.ZodType>(o: StructuredOpts<S>): Pr
 }
 
 /** Research turn with the web search + fetch server tools; returns the final text and every URL the model saw. */
-export async function webResearch(o: { stage: string; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; maxSearches?: number }) {
-  const fb = fallbackFor(MODELS.sonnet);
+export async function webResearch(o: { stage: string; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; maxSearches?: number; model?: (typeof MODELS)[keyof typeof MODELS]; maxFetches?: number }) {
+  const model = o.model ?? MODELS.sonnet;
+  const fb = fallbackFor(model);
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: o.user }];
   const urls = new Map<string, string | undefined>();
   let text = "";
   for (let turn = 0; turn < 6; turn++) {
     const stream = client().beta.messages.stream({
-      model: MODELS.sonnet,
-      max_tokens: 32000,
+      model,
+      max_tokens: model === MODELS.sonnet ? 32000 : 6000,
       system: o.system,
       messages,
       tools: [
         { type: "web_search_20260209", name: "web_search", max_uses: o.maxSearches ?? 8 },
-        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 6 },
+        ...((o.maxFetches ?? 6) > 0 ? [{ type: "web_fetch_20260209" as const, name: "web_fetch" as const, max_uses: o.maxFetches ?? 6 }] : []),
       ],
       output_config: { effort: "medium" },
       betas: fb.betas,
-      fallbacks: "default",
+      ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
     });
     const msg = await stream.finalMessage();
-    record(o.stage, MODELS.sonnet, msg);
+    record(o.stage, model, msg);
     for (const b of msg.content) {
       if (b.type === "text") {
         text += b.text;

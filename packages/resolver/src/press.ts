@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, unlink } from "node:fs/promises";
+import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { MODELS, plain, structured } from "@opumia/agents";
@@ -30,7 +30,7 @@ const NO_LIFT = /\b(magnates ?media|how money works|logically answered|modern mb
 /** Scripted dramas, films and trailers: actors playing real people are never documentary footage. */
 const DRAMA_CHANNEL = /\b(hulu|netflix|hbo|max|prime video|amazon prime|apple tv|disney|paramount|peacock|showtime|starz|movieclips|rotten tomatoes|ign|fandango|lionsgate|universal pictures|warner bros|sony pictures|a24|searchlight|still watching)\b/i;
 const DRAMA_TITLE = /\b(the dropout|scene|trailer|teaser|episode|season \d|s\d+e\d+|official clip|movie clip|film clip|full movie|series|miniseries|starring|cast|behind the scenes|bloopers|recap|ending explained|biopic|portrayed by|played by)\b/i;
-const NO_LIFT_TITLE = /\b(documentary|full movie|explained|the rise and fall|the untold story|compilation|reaction|tiktok|shorts?|#shorts|top \d+|ranking|podcast)\b/i;
+const NO_LIFT_TITLE = /\b(documentary|full movie|explained|the rise and fall|rise and fall|downfall|the untold story|untold|compilation|reaction|tiktok|shorts?|#shorts|top \d+|ranking|podcast|video essay|case study|(still )?went bankrupt|what went wrong|what happened to|why .{2,40} (failed|died|collapsed|lost)|how .{2,40} (failed|died|collapsed|lost|killed|destroyed|invented)|the (story|history|fall|death|collapse|tragedy) of)\b/i;
 
 export interface PressCandidate extends StockCandidate {
   /** Local file (already materialised) used for the vision check and the edit. */
@@ -41,6 +41,8 @@ export interface PressCandidate extends StockCandidate {
   /** Broadcaster graphics visible (set by the vision check): the clip is cropped before use. */
   banner?: boolean;
   fairUse: { sourceTitle: string; channel?: string; atS?: number; usedS: number; reason: string };
+  /** Set when only a preview frame exists yet: downloads the clip itself (called once the candidate is chosen). */
+  fetch?: () => Promise<boolean>;
 }
 
 const getJson = async <T>(url: string): Promise<T | null> => {
@@ -151,9 +153,11 @@ const namesAll = (title: string, name: string) => {
  * Up to `perVideo` short sections from each of the top `videos` press videos naming the entity.
  * Sections sit away from the intro/outro (where anchors and logos live).
  */
-export async function youtubePress(o: { entity: { name: string; type: string; year?: number }; context?: string; dlDir: string; usedVideos: Set<string>; videos?: number; perVideo?: number; clipS: number }): Promise<PressCandidate[]> {
+export async function youtubePress(o: { entity: { name: string; type: string; year?: number }; context?: string; dlDir: string; usedVideos: Set<string>; videos?: number; perVideo?: number; clipS: number; world?: string[] }): Promise<PressCandidate[]> {
+  const world = (o.world ?? []).filter((w) => w.toLowerCase() !== o.entity.name.toLowerCase());
   const year = o.entity.year ? ` ${o.entity.year}` : "";
-  const queries = [`${o.entity.name}${year} news`, `${o.entity.name} ${o.context ?? "interview"}`.trim()];
+  const anchor = o.entity.type === "person" && world[0] ? ` ${world[0]}` : "";
+  const queries = [`${o.entity.name}${anchor}${year} news`, `${o.entity.name}${anchor} ${o.context ?? "interview"}`.trim()];
   const seen = new Set<string>();
   const hits: YtEntry[] = [];
   for (const q of queries) {
@@ -166,6 +170,8 @@ export async function youtubePress(o: { entity: { name: string; type: string; ye
       if (DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title) || /[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) continue;
       if (!e.duration || e.duration < 25 || e.duration > 2400) continue;
       if (!namesAll(e.title, o.entity.name)) continue;
+      // A namesake is not the person: the title or channel must also name another subject of the film.
+      if (o.entity.type === "person" && world.length && !world.some((w) => namesAll(`${e.title} ${ch}`, w))) continue;
       hits.push(e);
     }
     if (hits.length >= (o.videos ?? 2)) break;
@@ -207,6 +213,164 @@ export async function youtubePress(o: { entity: { name: string; type: string; ye
     }),
   );
   return res.filter((x): x is PressCandidate => x !== null);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// YouTube by what a line describes: real footage of the film's named subjects, found by description. Only a
+// preview frame is fetched per moment; the ≤ 6.5 s clip is downloaded once the candidate has been chosen.
+
+interface YtInfo { id: string; title: string; channel: string; duration: number; stream: string | null; captions: Array<{ t: number; text: string }>; sheets: Array<{ url: string; startS: number; durS: number; cells: number; cols: number; rows: number }> }
+const ytInfoCache = new Map<string, Promise<YtInfo | null>>();
+
+function ytInfo(id: string): Promise<YtInfo | null> {
+  if (!ytInfoCache.has(id))
+    ytInfoCache.set(
+      id,
+      (async () => {
+        try {
+          const { stdout } = await run("yt-dlp", ["--no-warnings", "--no-playlist", "-J", "-f", "bv*[height<=480][protocol=https]/bv*[height<=480]/b[height<=480]", `https://www.youtube.com/watch?v=${id}`], { timeout: 60_000, maxBuffer: 64 << 20 });
+          const j = JSON.parse(stdout) as { title?: string; channel?: string; uploader?: string; duration?: number; url?: string; requested_formats?: Array<{ url?: string }>; formats?: Array<{ format_id?: string; width?: number; rows?: number; columns?: number; fragments?: Array<{ url?: string; duration?: number }> }>; automatic_captions?: Record<string, Array<{ ext: string; url: string }>>; subtitles?: Record<string, Array<{ ext: string; url: string }>> };
+          const capUrl = [j.subtitles?.en, j.subtitles?.["en-US"], j.automatic_captions?.en, j.automatic_captions?.["en-orig"]].flatMap((x) => x ?? []).find((x) => x.ext === "json3")?.url;
+          let captions: YtInfo["captions"] = [];
+          if (capUrl) {
+            const c = await getJson<{ events?: Array<{ tStartMs?: number; segs?: Array<{ utf8?: string }> }> }>(capUrl);
+            captions = (c?.events ?? []).map((e) => ({ t: (e.tStartMs ?? 0) / 1000, text: (e.segs ?? []).map((x) => x.utf8 ?? "").join("").trim() })).filter((e) => e.text);
+          }
+          // The video's own thumbnail strip (storyboard): the whole film at a glance, a few small sheets.
+          const sb = (j.formats ?? []).filter((f) => /^sb\d/.test(f.format_id ?? "") && f.fragments?.length && f.rows && f.columns).sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
+          const sheets: YtInfo["sheets"] = [];
+          let t0 = 0;
+          for (const fr of sb?.fragments ?? []) {
+            if (fr.url) sheets.push({ url: fr.url, startS: t0, durS: fr.duration ?? 0, cells: sb!.rows! * sb!.columns!, cols: sb!.columns!, rows: sb!.rows! });
+            t0 += fr.duration ?? 0;
+          }
+          return { id, title: j.title ?? "", channel: j.channel ?? j.uploader ?? "YouTube", duration: j.duration ?? 0, stream: j.url ?? j.requested_formats?.[0]?.url ?? null, captions, sheets };
+        } catch {
+          return null;
+        }
+      })(),
+    );
+  return ytInfoCache.get(id)!;
+}
+
+const keyTokens = (t: string) => [...new Set(t.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 4 && !/^(their|there|which|would|could|about|after|before|because|every|other|these|those|being|where|while|first|still|never)$/.test(w)))];
+
+/** The moment the video's own narration talks about the same thing (its b-roll there is the likeliest match). */
+function captionMoment(info: YtInfo, words: string[]): number | null {
+  if (!info.captions.length || !words.length) return null;
+  let best = { t: -1, hits: 1 };
+  for (let i = 0; i < info.captions.length; i++) {
+    const t0 = info.captions[i]!.t;
+    let text = "";
+    for (let k = i; k < info.captions.length && info.captions[k]!.t < t0 + 9; k++) text += ` ${info.captions[k]!.text.toLowerCase()}`;
+    const hits = words.filter((w) => text.includes(w)).length;
+    if (hits > best.hits) best = { t: t0, hits };
+  }
+  return best.t >= 0 ? best.t + 1 : null;
+}
+
+const Moments = z.object({ picks: z.array(z.object({ sheet: z.number(), cell: z.number(), what: z.string() })) });
+
+/** Where in the video the wanted picture is: the model looks at the video's thumbnail strip and names the cells. */
+async function ytMoments(info: YtInfo, must: string, dlDir: string): Promise<number[]> {
+  if (!info.sheets.length) return [];
+  const n = info.sheets.length;
+  const idx = n <= 4 ? info.sheets.map((_, i) => i) : [0, 1, 2, 3].map((k) => Math.round((k * (n - 1)) / 3));
+  const got = (
+    await Promise.all(
+      [...new Set(idx)].map(async (i) => {
+        const sh = info.sheets[i]!;
+        const file = path.join(dlDir, `ytsb_${info.id}_${i}.jpg`);
+        try {
+          if (!(await exists(file))) {
+            const r = await fetch(sh.url, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(15_000) });
+            if (!r.ok) return null;
+            const tmp = `${file}.raw`;
+            await writeFile(tmp, Buffer.from(await r.arrayBuffer()));
+            await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", tmp, "-frames:v", "1", "-update", "1", "-q:v", "4", file], { timeout: 30_000 }).finally(() => unlink(tmp).catch(() => {}));
+          }
+          return { sh, data: (await readFile(file)).toString("base64") };
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((x): x is NonNullable<typeof x> => x !== null);
+  if (!got.length) return [];
+  const res = await structured({
+    stage: "resolve.moments",
+    model: MODELS.haiku,
+    system: [plain("Each image is a grid of small frames from one video, in time order, numbered from 0 left-to-right then top-to-bottom. Pick up to 3 cells that clearly show the wanted picture. Never a talking head, an interview, a presenter, a title card, text or graphics. If no cell shows it, return no picks.")],
+    user: [{ type: "text" as const, text: `Wanted picture: ${must}` }, ...got.flatMap((g, k) => [{ type: "text" as const, text: `[sheet ${k}] ${g.sh.cols} columns × ${g.sh.rows} rows` }, { type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: g.data } }])],
+    schema: Moments,
+    effort: "low",
+    maxTokens: 600,
+  }).catch(() => null);
+  return (res?.data.picks ?? []).flatMap((p) => {
+    const g = got[p.sheet];
+    return g && p.cell >= 0 && p.cell < g.sh.cells ? [g.sh.startS + ((p.cell + 0.5) * g.sh.durS) / g.sh.cells] : [];
+  }).slice(0, 3);
+}
+
+/**
+ * Real footage found by description. `subjects` are the film's named people/companies/products: a video is
+ * only considered when its title names one of them, so every excerpt is coverage of what the film discusses.
+ */
+export async function youtubeFootage(o: { query: string; about: string; must?: string; subjects: string[]; dlDir: string; clipS: number; videos?: number }): Promise<PressCandidate[]> {
+  const hits = (await ytSearch(o.query, 8))
+    .filter((e) => {
+      const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
+      if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title) || DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title)) return false;
+      if (/[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) return false;
+      if (!e.duration || e.duration < 25 || e.duration > 3600) return false;
+      return o.subjects.some((sub) => namesAll(e.title, sub));
+    })
+    .slice(0, o.videos ?? 2);
+  const len = Math.min(PRESS_MAX_CLIP_S, Math.max(2.5, o.clipS + 0.6));
+  const words = keyTokens(o.about);
+  await mkdir(o.dlDir, { recursive: true });
+  const out: PressCandidate[] = [];
+  await Promise.all(
+    hits.map(async (e) => {
+      const info = await ytInfo(e.id);
+      if (!info?.stream) return;
+      const d = info.duration || e.duration!;
+      const cm = captionMoment(info, words);
+      const seenAt = o.must ? await ytMoments(info, o.must, o.dlDir).catch(() => []) : [];
+      // Moments seen in the thumbnail strip first (the clip starts a little before them), then where the video's
+      // own narration talks about it, then two spread moments.
+      const spots = [...new Set([...seenAt.map((t) => t - Math.min(1, len / 3)), ...(cm !== null ? [cm] : []), ...(seenAt.length >= 2 ? [] : [d * 0.3, d * 0.62])].map((t) => Math.round(Math.max(2, Math.min(d - len - 2, t)))))].slice(0, 4);
+      await Promise.all(
+        spots.map(async (at) => {
+          const frame = path.join(o.dlDir, `ytf_${e.id}_${at}.jpg`);
+          if (!(await exists(frame))) await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", (at + Math.min(1.5, len / 2)).toFixed(1), "-i", info.stream!, "-frames:v", "1", "-update", "1", "-vf", "scale=512:-2", "-q:v", "4", frame], { timeout: 40_000 }).catch(() => {});
+          if (!(await exists(frame))) return;
+          const file = path.join(o.dlDir, `yt_${e.id}_${at}.mp4`);
+          out.push({
+            provider: "youtube",
+            externalId: `${e.id}@${at}`,
+            kind: "video",
+            title: `${info.title} — ${info.channel}`,
+            tags: ["press", "footage"],
+            pageUrl: `https://www.youtube.com/watch?v=${e.id}&t=${at}s`,
+            fileUrl: null,
+            durationS: len,
+            license: "Fair use (press footage, muted excerpt)",
+            attributionRequired: true,
+            attributionText: `${info.channel} — "${info.title.slice(0, 80)}"`,
+            aiGenerated: false,
+            archival: true,
+            localFile: file,
+            frameFile: frame,
+            depicts: "",
+            fairUse: { sourceTitle: info.title, channel: info.channel, atS: at, usedS: len, reason: "short muted excerpt of coverage of the subject, reframed and graded under commentary" },
+            fetch: () => ytSection(e.id, at, len, file),
+          });
+        }),
+      );
+    }),
+  );
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -271,7 +435,7 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
     const res = await structured({
       stage: "resolve.review",
       model: MODELS.haiku,
-      system: [plain("You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible. A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject.")],
+      system: [plain("You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible. A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
       user: blocks,
       schema: Review,
       effort: "low",

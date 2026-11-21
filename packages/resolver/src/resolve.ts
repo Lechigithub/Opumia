@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, stat, unlink } from "node:fs/promises";
+import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { ResolutionReport, type AssetRecord, type LibraryIndex, type ResolvedMedia, type Storyboard, type StoryboardShot } from "@opumia/contracts";
@@ -8,8 +8,9 @@ import { isUsable, MODELS, plain, structured } from "@opumia/agents";
 import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
-import { downloadCandidate, providersFor, searchStock, type StockCandidate } from "./stock.js";
-import { closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubePress, type PressCandidate } from "./press.js";
+import { allProviders, downloadCandidate, providersFor, searchStock, type StockCandidate } from "./stock.js";
+import { closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
+import { planSourcing, pooled, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
 const run = promisify(execFile);
 
@@ -184,6 +185,12 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const usedStock = new Set<string>();
   const chosen = new Map<string, Cand>();
 
+  // The film's named subjects, most-mentioned first (the first is the film's main subject).
+  const subjects = (() => {
+    const count = new Map<string, number>();
+    for (const sh of o.storyboard.shots) for (const nm of [...(sh.entities ?? []).map((e) => e.name), ...(sh.source.kind === "designed" ? ((sh.source.props.layers ?? []) as Array<{ name?: string }>).map((l) => l.name ?? "") : [])].map((x) => x.trim()).filter((x) => x.length > 1)) count.set(nm, (count.get(nm) ?? 0) + 1);
+    return [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k);
+  })();
   const pressDir = path.join(o.jobDir, "downloads", "press");
   const usedVideos = new Set<string>();
   const pressStills: Array<{ shotId: string; c: PressCandidate; q: number }> = [];
@@ -215,7 +222,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           const e = n.shot.entities![0]!;
           const list: PressCandidate[] = [];
           if (e.type !== "event") list.push(...(await wiki(e)));
-          if (!wantsImage(n) && ["person", "company", "event", "product"].includes(e.type)) list.push(...(await youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: n.durationS }).catch(() => [])));
+          if (!wantsImage(n) && ["person", "company", "event", "product"].includes(e.type)) list.push(...(await youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: n.durationS, world: subjects.filter((x) => !o.storyboard.shots.some((sh) => sh.entities?.some((en) => en.name === x && en.type === "person"))) }).catch(() => [])));
           if (e.type === "person") for (const c of list) if (!c.depicts.includes("referred to as")) c.depicts = `${c.depicts}${refersTo(e.name)}`;
           pool.set(n.shot.id, list.filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)));
         }),
@@ -246,8 +253,8 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
 
   // Phase 0 — archive first for named entities: Commons, NARA, Europeana with name + year.
   const entityNeeds = needs.filter((n) => n.shot.entities?.length && !chosen.has(n.shot.id));
+  const ent = new Map<string, Cand[]>();
   if (entityNeeds.length) {
-    const ent = new Map<string, Cand[]>();
     for (const n of entityNeeds) {
       const list: Cand[] = [];
       const seen = new Set<string>();
@@ -272,69 +279,149 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       }
       ent.set(n.shot.id, list.slice(0, 10));
     }
-    const withCands = entityNeeds.filter((n) => (ent.get(n.shot.id) ?? []).length);
-    log(`  resolver: archive-first for ${entityNeeds.length} entity shot(s); ${withCands.length} have named archival candidates`);
-    if (withCands.length) {
-      const pe = await pick("resolve.entity", withCands, ent, o.storyboard.aspect, era, MODELS.sonnet, new Map(), true);
-      for (const n of withCands) {
-        const c = ent.get(n.shot.id)?.[pe.get(n.shot.id) ?? -1];
-        if (!c) continue;
-        chosen.set(n.shot.id, c);
-        if (c.src === "local") usedLocal.add(c.doc.key);
-        else if (c.src === "stock") usedStock.add(`${c.c.provider}:${c.c.externalId}`);
-      }
-      log(`  resolver: ${withCands.filter((n) => chosen.has(n.shot.id)).length} entity shot(s) placed from archives`);
-    }
+    log(`  resolver: archives searched by name for ${entityNeeds.length} entity shot(s); ${entityNeeds.filter((n) => (ent.get(n.shot.id) ?? []).length).length} have candidates that name the subject (rated by eye with the rest)`);
   }
 
-  // Phase 1 — local library first (for everything not already placed from archives).
-  const pending = needs.filter((n) => !chosen.has(n.shot.id));
+  // The sourcing plan: for every shot, what must be seen, what kind of picture that is, and the right search for
+  // each kind of source — plus the film's kit (the real things it must have pictures of).
+  const eraLabel = era ? `${era.min}–${era.max}` : "unspecified";
+  const plan = await planSourcing({ shots: needs.map((n) => ({ id: n.shot.id, line: n.line, intent: n.shot.intent, query: n.query, entities: (n.shot.entities ?? []).map((e) => e.name) })), subjects, era: eraLabel });
+  const briefOf = (n: Need): ShotBrief => plan.briefs.get(n.shot.id)!;
+  {
+    const c = (k: string) => needs.filter((n) => briefOf(n).need === k).length;
+    log(`  resolver: sourcing plan — ${c("real")} real, ${c("period")} period, ${c("staged")} staged, ${c("object")} object, ${c("none")} designed without a picture; kit: ${plan.kit.slice(0, 4).join("; ")}${plan.kit.length > 4 ? "…" : ""}`);
+  }
+
+  // Phase 1 — every source for every shot, judged by eye before anything is downloaded. Library, all stock and
+  // archive sources and (for real subjects) YouTube are asked together; each candidate's preview picture is
+  // rated against the line; the best-fitting picture wins, whatever source it came from.
+  const refOf = (c: Cand) => (c.src === "local" ? c.doc.key : c.src === "press" ? `${c.p.provider}:${c.p.externalId}` : `${c.c.provider}:${c.c.externalId}`);
+  const namedPerson = (n: Need) => n.shot.entities?.find((e) => e.type === "person")?.name ?? (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(n.line) && n.shot.lineLink === "literal" ? "a named person" : null);
+  const titledAs = (c: Cand, n: Need) => {
+    const who = n.shot.entities?.find((e) => e.type === "person");
+    return Boolean(who && c.src === "press" && namesEntity(c.p.title, who));
+  };
+  const pending = needs.filter((n) => !chosen.has(n.shot.id) && briefOf(n).need !== "none");
   const local = new Map<string, Cand[]>();
-  for (const n of pending) local.set(n.shot.id, bm.search(n.query, { kind: n.kind, decade: n.decade, limit: 24 }).filter((r) => !tooOld(r.doc, n) && !r.doc.asset.bugSpots?.length && !anachronistic(r.doc.text, era) && !mismatch(r.doc.text, n.line, n.decade) && !isBlocked(o.blocked, r.doc.key)).slice(0, 6).map((r) => ({ src: "local" as const, doc: r.doc, score: r.score })));
-  log(`  resolver: local candidates for ${[...local.values()].filter((c) => c.length).length}/${pending.length} shots; reranking (${MODELS.haiku})…`);
-  const p1 = await pick("resolve.local", pending, local, o.storyboard.aspect, era);
-  for (const n of pending) {
-    const i = p1.get(n.shot.id) ?? -1;
-    const c = local.get(n.shot.id)?.[i];
-    if (c && c.src === "local" && !usedLocal.has(c.doc.key)) {
-      chosen.set(n.shot.id, c);
-      usedLocal.add(c.doc.key);
-    }
-  }
-
-  // Phase 2 — stock/archival fallback for the rest.
-  const rest = needs.filter((n) => !chosen.has(n.shot.id));
   const stock = new Map<string, Cand[]>();
-  if (rest.length) {
-    log(`  resolver: ${rest.length} shots → stock/archival search…`);
-    for (const n of rest) {
+  const offered = new Map<string, { n: number; best: number }>();
+  const ratedSeen = new Map<string, { fit: number; face: boolean; banner: boolean; note: string }>();
+  const looked = new Map<string, Array<{ source: string; ref: string; fit: number; wrongEra: boolean; banner: boolean; face: boolean; shows: string }>>();
+  if (pending.length) {
+    const thumbDir = path.join(dlDir, "thumbs");
+    const memo = new Map<string, Promise<StockCandidate[]>>();
+    // Measured on real plans: Pexels supplies most of the usable stock, so it is asked for more per search.
+    const search = (q: string, kind: "video" | "image", providers: string[]): Promise<StockCandidate[]> => {
+      const k = `${kind}|${providers.join(",")}|${q.toLowerCase()}`;
+      if (!memo.has(k)) memo.set(k, Promise.all([providers.includes("pexels") ? searchStock(q, { kind, orientation, perPage: 6, providers: ["pexels"] }).catch(() => []) : [], searchStock(q, { kind, orientation, perPage: 3, providers: providers.filter((x) => x !== "pexels") }).catch(() => [])]).then((r) => r.flat()));
+      return memo.get(k)!;
+    };
+    type Offer = { n: Need; c: Cand; key: string; thumb: string };
+    const offers: Offer[] = [];
+    await pooled(pending, 5, async (n) => {
+      const b = briefOf(n);
       const kind = n.kind === "image" ? "image" : "video";
-      const found = await searchStock(n.query, { kind, orientation, perPage: 4, providers: providersFor({ kind, period: n.period }) });
-      stock.set(n.shot.id, found.filter((c) => !usedStock.has(`${c.provider}:${c.externalId}`) && !anachronistic(`${c.title} ${c.tags.join(" ")}`, era) && !mismatch(`${c.title} ${c.tags.join(" ")}`, n.line, n.decade) && !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)).slice(0, 8).map((c) => ({ src: "stock" as const, c, score: 1 })));
-    }
-    const p2 = await pick("resolve.stock", rest, stock, o.storyboard.aspect, era);
-    for (const n of rest) {
-      const c = stock.get(n.shot.id)?.[p2.get(n.shot.id) ?? -1];
-      if (c && c.src === "stock") {
-        chosen.set(n.shot.id, c);
-        usedStock.add(`${c.c.provider}:${c.c.externalId}`);
+      const period = n.period || b.need === "period";
+      const list: Cand[] = [];
+      const seen = new Set<string>();
+      const push = (c: Cand) => {
+        const k = refOf(c);
+        if (seen.has(k) || isBlocked(o.blocked, k)) return;
+        seen.add(k);
+        list.push(c);
+      };
+      for (const c of ent.get(n.shot.id) ?? []) push(c);
+      for (const q of [n.query, ...b.stock])
+        for (const r of bm.search(q, { kind: n.kind, decade: n.decade, limit: 12 }).filter((r) => !usedLocal.has(r.doc.key) && !tooOld(r.doc, n) && !r.doc.asset.bugSpots?.length && !anachronistic(r.doc.text, era) && !mismatch(r.doc.text, n.line, n.decade)).slice(0, 3)) push({ src: "local", doc: r.doc, score: r.score });
+      const found = (
+        await Promise.all([
+          ...b.stock.map((q) => search(q, kind, allProviders({ kind, period }))),
+          ...(b.archive ? [search(b.archive, "image", allProviders({ kind: "image", period: true })), ...(kind === "video" ? [search(b.archive, "video", ["commons", "nara", "archive"])] : [])] : []),
+        ])
+      ).flat();
+      for (const c of found) {
+        const text = `${c.title} ${c.tags.join(" ")}`;
+        if (usedStock.has(`${c.provider}:${c.externalId}`) || anachronistic(text, era) || mismatch(text, n.line, n.decade)) continue;
+        push({ src: "stock", c, score: 1 });
       }
-      // Rejected by both reranks: leave unresolved so the previous picture holds (never force a bad match).
+      if (o.press !== false && b.need === "real" && b.youtube) for (const yp of await youtubeFootage({ query: b.youtube, about: `${b.must} ${n.line}`, must: b.must, subjects, dlDir: pressDir, clipS: n.durationS, videos: 3 }).catch(() => [])) push({ src: "press", p: yp, score: 1 });
+      // At most 16 per shot, taken in turns from each source so no single library crowds the others out.
+      const bySource = new Map<string, Cand[]>();
+      for (const c of list) {
+        const k = c.src === "local" ? "library" : c.src === "press" ? "youtube" : c.c.provider;
+        bySource.set(k, [...(bySource.get(k) ?? []), c]);
+      }
+      const turn: Cand[] = [];
+      for (let r = 0; turn.length < 22 && [...bySource.values()].some((v) => v.length > r); r++) for (const [k, v] of bySource) if (v[r] && turn.length < 22 && (r < 3 || k === "pexels" || k === "youtube")) turn.push(v[r]!);
+      await Promise.all(
+        turn.map(async (c) => {
+          const key = refOf(c);
+          let thumb = path.join(thumbDir, `${createHash("sha1").update(key).digest("hex").slice(0, 14)}.jpg`);
+          let ok = false;
+          if (c.src === "press") (thumb = c.p.frameFile), (ok = true);
+          else if (c.src === "local") ok = await thumbOf({ file: await ensureLocal(o.libraryRoot, c.doc.asset.relPath, "library"), video: c.doc.kind === "video", atS: c.doc.inS + 1 }, thumb);
+          else if (c.c.thumbUrl) ok = await thumbOf({ url: c.c.thumbUrl }, thumb);
+          else if (c.c.fileUrl) ok = await thumbOf(c.c.kind === "image" ? { url: c.c.fileUrl } : { url: c.c.fileUrl, video: true, atS: 1 }, thumb);
+          if (ok) offers.push({ n, c, key, thumb });
+        }),
+      );
+    });
+    log(`  resolver: ${offers.length} candidate picture(s) gathered for ${pending.length} shot(s) from ${new Set(offers.map((x) => (x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider))).size} source(s); rating each by eye (${MODELS.haiku})…`);
+    // One shot's candidates are rated side by side (steadier scores than a mixed batch), at most 11 per call.
+    const chunks: Offer[][] = [];
+    for (const n of pending) {
+      const mine = offers.filter((x) => x.n === n).sort((a, b) => a.key.localeCompare(b.key));
+      for (let k = 0; k < mine.length; k += 11) chunks.push(mine.slice(k, k + 11));
     }
+    const rated = (await pooled(chunks, 8, async (part) => (await reviewPictures(part.map((x) => ({ frameFile: x.thumb, intent: `${briefOf(x.n).must} — ${x.n.shot.intent}`, line: x.n.line, era: eraLabel }))).catch(() => part.map(() => null))).map((r, k) => ({ ...part[k]!, r })))).flat();
+    const good = rated
+      .filter((x): x is typeof x & { r: NonNullable<typeof x.r> } => Boolean(x.r) && x.r!.shows !== "not reviewed")
+      .map((x) => {
+        const cur = offered.get(x.n.shot.id) ?? { n: 0, best: 0 };
+        offered.set(x.n.shot.id, { n: cur.n + 1, best: Math.max(cur.best, x.r.fit) });
+        looked.set(x.n.shot.id, [...(looked.get(x.n.shot.id) ?? []), { source: x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider, ref: x.key, fit: x.r.fit, wrongEra: x.r.wrongEra, banner: x.r.banner, face: x.r.face, shows: x.r.shows }]);
+        return x;
+      })
+      // Burned-in captions or graphics mark someone else's edit: never taken. A face under a line naming a person is
+      // accepted only from footage whose own title names that person.
+      .filter((x) => x.r.fit >= 6 && !x.r.wrongEra && !x.r.banner && !(namedPerson(x.n) && x.r.face && !titledAs(x.c, x.n)))
+      .map((x) => ({ ...x, score: x.r.fit + (x.c.src === "press" ? 0.6 : x.c.src === "local" ? 0.3 : x.c.c.archival && briefOf(x.n).need !== "staged" ? 0.3 : 0) }))
+      .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
+    for (const x of good) ratedSeen.set(`${x.n.shot.id}|${x.key}`, { fit: x.r.fit, face: x.r.face, banner: x.r.banner, note: x.r.shows });
+    const takenKeys = new Set<string>();
+    for (const x of good) {
+      if (chosen.has(x.n.shot.id) || takenKeys.has(x.key)) continue;
+      if (x.c.src === "press") {
+        // One clip per source video per film.
+        const vid = x.c.p.externalId.split("@")[0]!;
+        if (usedVideos.has(vid)) continue;
+        usedVideos.add(vid);
+        const who = x.n.shot.entities?.find((e) => e.type === "person");
+        x.c.p.depicts = who && x.r.face && titledAs(x.c, x.n) ? `${who.name} (person) — ${x.r.shows}` : x.r.shows;
+        x.c.p.banner = x.r.banner;
+      } else if (x.c.src === "local") usedLocal.add(x.key);
+      else usedStock.add(x.key);
+      chosen.set(x.n.shot.id, { ...x.c, score: x.r.fit / 10 });
+      takenKeys.add(x.key);
+    }
+    // Rated runners-up (licensed sources only) stand by in case the chosen clip fails on the full frame.
+    for (const n of pending) stock.set(n.shot.id, good.filter((x) => x.n === n && x.c.src !== "press" && !takenKeys.has(x.key)).map((x) => x.c));
+    const src = (k: Cand["src"]) => pending.filter((n) => chosen.get(n.shot.id)?.src === k).length;
+    log(`  resolver: ${pending.filter((n) => chosen.has(n.shot.id)).length}/${pending.length} shot(s) placed by eye — ${src("local")} library, ${src("stock")} stock/archive, ${src("press")} real footage`);
   }
 
   // Materialize, screening each clip for black frames and falling back to the next candidate.
   const media: ResolvedMedia[] = [];
   const unresolved: ResolutionReport["unresolved"] = [];
-  const keyOf = (c: Cand) => (c.src === "local" ? c.doc.key : c.src === "press" ? `${c.p.provider}:${c.p.externalId}` : `${c.c.provider}:${c.c.externalId}`);
+  const keyOf = refOf;
   const taken = new Set([...chosen.values()].map(keyOf));
   let fallbacks = 0;
   for (const n of needs) {
     const first = chosen.get(n.shot.id);
     // Only the reranker's accepted pick is ever used; anything it rejected is never forced in.
-    const queue = first ? [first] : [];
+    const queue = first ? [first, ...(stock.get(n.shot.id) ?? []).filter((c) => !taken.has(keyOf(c)))] : [];
     if (!queue.length) {
-      unresolved.push({ shotId: n.shot.id, query: n.query, reason: "no candidate passed review; holding previous shot" });
+      if (briefOf(n).need !== "none") unresolved.push({ shotId: n.shot.id, query: n.query, reason: (offered.get(n.shot.id)?.n ?? 0) ? `no candidate fitted (best ${offered.get(n.shot.id)!.best}/10 of ${offered.get(n.shot.id)!.n} seen)` : "no source returned a candidate" });
       continue;
     }
     let placed = false;
@@ -348,6 +435,8 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           fallbacks++;
           continue;
         }
+        const rs = ratedSeen.get(`${n.shot.id}|${keyOf(c)}`);
+        if (rs) (m.seen = rs), (m.depicts ??= rs.note);
         media.push(m);
         taken.add(keyOf(c));
         placed = true;
@@ -379,7 +468,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         if (n && (await reviewFrame(m.localPath, frame, m.kind === "video" ? Math.min(1.2, n.durationS / 2) : 0))) items.push({ m, n, frame });
         else m.seen = { fit: 5, face: false, banner: false, note: "not reviewed" };
       }
-      const reviews = await reviewPictures(items.map((x) => ({ frameFile: x.frame, intent: x.n.shot.intent, line: x.n.line, era: eraText })));
+      const reviews = await reviewPictures(items.map((x) => ({ frameFile: x.frame, intent: `${briefOf(x.n).must} — ${x.n.shot.intent}`, line: x.n.line, era: eraText })));
       for (const [k, x] of items.entries()) {
         const r = reviews[k]!;
         x.m.seen = { fit: r.fit, face: r.face, banner: r.banner, note: r.shows };
@@ -388,7 +477,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         if (!why) continue;
         rejected++;
         media.splice(media.indexOf(x.m), 1);
-        if (round === 0 && !(stock.get(x.n.shot.id) ?? []).length) {
+        if (false as boolean) {
           // Widen the search: stock/archival for the query, and for the concrete nouns of the line itself.
           const kind = x.n.kind === "image" ? "image" : "video";
           const nouns = x.n.line.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 4 && !/^(their|there|which|would|could|about|after|before|because|every|other|these|those|being|where|while)$/i.test(w)).slice(0, 4).join(" ");
@@ -402,6 +491,8 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
             try {
               const m2 = await materializeCand(alt, x.n);
               if (m2.kind === "video" && (await hasBlack(m2.localPath))) continue;
+              const rs = ratedSeen.get(`${x.n.shot.id}|${keyOf(alt)}`);
+              if (rs) (m2.seen = rs), (m2.depicts ??= rs.note);
               media.push(m2);
               taken.add(keyOf(alt));
               replaced++;
@@ -421,6 +512,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   async function materializeCand(c: Cand, n: Need): Promise<ResolvedMedia> {
     if (c.src === "press") {
       const p = c.p;
+      if (p.fetch && !(await exists(p.localFile)) && !(await p.fetch())) throw new Error(`press clip ${p.externalId} could not be downloaded`);
       const alpha = /\.png$/i.test(p.localFile);
       const ext = p.kind === "video" ? "mp4" : alpha ? "png" : "jpg";
       const file = `${n.shot.id}_${createHash("sha1").update(`${p.provider}:${p.externalId}`).digest("hex").slice(0, 8)}.${ext}`;
@@ -532,6 +624,58 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     } catch {
       /* unreadable still: no slot */
     }
+  }
+
+  // Web pictures: real photographs of the film's kit, from the cited sources and from pages found by web search.
+  // Each is checked by eye against the lines it could sit under and becomes picture slot 7 of one scene.
+  if (o.press !== false && sceneShots.length) {
+    const pages = [...new Set([...(o.sources?.values() ?? [])].flat().map((c) => c.sourceUrl).filter((u) => /^https?:\/\//.test(u)))];
+    const pics = await webPictures({ kit: plan.kit, subjects, pages, dlDir: path.join(pressDir, "web"), log }).catch(() => []);
+    const toks = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3));
+    const lineOf = (sh: StoryboardShot) => (o.words ?? []).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
+    const shotText = sceneShots.map((sh) => ({ sh, line: lineOf(sh), must: plan.briefs.get(sh.id)?.must ?? sh.intent, t: toks(`${lineOf(sh)} ${sh.intent} ${plan.briefs.get(sh.id)?.must ?? ""}`) }));
+    const pairs = pics.flatMap((pic) => {
+      const pt = toks(`${pic.alt} ${pic.pageTitle}`);
+      return shotText.map((x) => ({ pic, x, overlap: [...pt].filter((w) => x.t.has(w)).length })).filter((y) => y.overlap > 0).sort((a, b) => b.overlap - a.overlap).slice(0, 2);
+    });
+    const chunks: (typeof pairs)[] = [];
+    for (let k = 0; k < pairs.length; k += 12) chunks.push(pairs.slice(k, k + 12));
+    const rated = (await pooled(chunks, 6, async (part) => (await reviewPictures(part.map((y) => ({ frameFile: y.pic.thumb, intent: y.x.must, line: y.x.line, era: eraLabel }))).catch(() => part.map(() => null))).map((r, k) => ({ ...part[k]!, r })))).flat();
+    const hasPrimary = new Set(media.filter((m) => m.role === "primary").map((m) => m.shotId));
+    const usedPic = new Set<string>();
+    const usedShot = new Set<string>();
+    let n = 0;
+    for (const y of rated.filter((z) => z.r && z.r.shows !== "not reviewed" && z.r.fit >= 6 && !z.r.banner && !z.r.wrongEra).sort((a, b) => b.r!.fit + (hasPrimary.has(b.x.sh.id) ? 0 : 1) - (a.r!.fit + (hasPrimary.has(a.x.sh.id) ? 0 : 1)))) {
+      if (n >= 10 || usedPic.has(y.pic.url) || usedShot.has(y.x.sh.id) || isBlocked(o.blocked, `web:${y.pic.url}`)) continue;
+      const file = `layer_${y.x.sh.id}_7_${path.basename(y.pic.file)}`;
+      try {
+        await materialize(y.pic.file, "image", path.join(mediaDir, file), 0, 1, false);
+        media.push({ shotId: y.x.sh.id, role: "layer", slot: 7, origin: "press", ref: `web:${y.pic.url}`, provider: "web", kind: "image", localPath: path.join(mediaDir, file), publicPath: `media/${file}`, width: y.pic.width, height: y.pic.height, license: "Fair use (photograph shown under commentary)", attributionRequired: true, attributionText: y.pic.host, sourceUrl: y.pic.pageUrl, aiGenerated: false, score: y.r!.fit / 10, query: y.x.must, depicts: `${y.r!.shows} — photo (${(y.pic.width / y.pic.height).toFixed(2)}:1)`, fairUse: { sourceTitle: y.pic.pageTitle || y.pic.host, channel: y.pic.host, usedS: 0, reason: "photograph of the subject discussed, shown inside a designed scene under commentary; not from a photo agency" } });
+        usedPic.add(y.pic.url);
+        usedShot.add(y.x.sh.id);
+        n++;
+      } catch {
+        /* unreadable picture */
+      }
+    }
+    if (pics.length) log(`  resolver: web pictures — ${n} placed as scene pictures (${pairs.length} picture/line pairs checked by eye)`);
+  }
+
+  // Coverage report: what every shot needed, what was looked at, what it got — written before any design or render.
+  {
+    const rows = needs.map((n) => {
+      const b = briefOf(n);
+      const pm = media.find((m) => m.shotId === n.shot.id && m.role === "primary");
+      const layers = media.filter((m) => m.shotId === n.shot.id && m.role === "layer").length;
+      return { shotId: n.shot.id, line: n.line, need: b.need, must: b.must, searches: { stock: b.stock, archive: b.archive, youtube: b.youtube }, candidatesSeen: offered.get(n.shot.id)?.n ?? 0, bestFit: offered.get(n.shot.id)?.best ?? null, footage: pm ? { ref: pm.ref, origin: pm.origin, provider: pm.provider, fit: pm.seen?.fit ?? Math.round(pm.score * 10), shows: pm.depicts ?? "" } : null, scenePictures: layers, missing: b.need !== "none" && !pm && !layers, candidates: (looked.get(n.shot.id) ?? []).sort((a, b) => b.fit - a.fit) };
+    });
+    const wanted = rows.filter((r) => r.need !== "none");
+    const real = rows.filter((r) => r.need === "real");
+    const report = { kit: plan.kit, shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
+    const file = path.join(o.jobDir, "sourcing.json");
+    await writeFile(`${file}.tmp`, JSON.stringify(report, null, 2));
+    await rename(`${file}.tmp`, file);
+    log(`  resolver: coverage — ${report.withFootage}/${report.needPicture} shots that need a picture have footage, ${report.withScenePictureOnly} more have a real still; real-subject needs met ${report.realMet}/${report.realNeeded}; ${report.missing.length} missing${report.missing.length ? ` (${report.missing.slice(0, 8).join(", ")})` : ""} → sourcing.json`);
   }
 
   // Overlays, paper for documents, SFX and music — all from the licensed library.
