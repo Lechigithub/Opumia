@@ -12,6 +12,7 @@
     "@opumia/contracts": "workspace:*",
     "@opumia/ingest": "workspace:*",
     "zod": "^3.24.1",
-    "@opumia/senses": "workspace:*"
+    "@opumia/senses": "workspace:*",
+    "@opumia/agents": "workspace:*"
   }
 }

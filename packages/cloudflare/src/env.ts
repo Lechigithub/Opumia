@@ -14,6 +14,9 @@ export interface Env {
   // Provider secrets forwarded to the container (wrangler secret put …).
   ANTHROPIC_API_KEY: string;
   ELEVENLABS_API_KEY: string;
+  /** Workers AI (Whisper listen-back) — account id and a token with "Workers AI: Read". */
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_AI_TOKEN?: string;
   PEXELS_API_KEY: string;
   PIXABAY_API_KEY: string;
   COVERR_API_KEY: string;

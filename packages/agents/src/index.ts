@@ -16,3 +16,4 @@ export * from "./numeric-facts.js";
 export * from "./eval-judge.js";
 export * from "./reference-grammar.js";
 export * from "./scene-designer.js";
+export * from "./voice-director.js";

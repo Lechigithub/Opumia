@@ -22,6 +22,10 @@ export class RendererContainer extends Container<Env> {
       OPUMIA_DATA_DIR: "/work/data",
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
       ELEVENLABS_API_KEY: env.ELEVENLABS_API_KEY,
+      // Listen-back in the cloud: Workers AI Whisper over REST (the container has no bindings).
+      OPUMIA_ASR: "cloudflare",
+      CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID ?? "",
+      CLOUDFLARE_AI_TOKEN: env.CLOUDFLARE_AI_TOKEN ?? "",
       PEXELS_API_KEY: env.PEXELS_API_KEY,
       PIXABAY_API_KEY: env.PIXABAY_API_KEY,
       COVERR_API_KEY: env.COVERR_API_KEY,

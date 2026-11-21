@@ -220,6 +220,21 @@ The test films of 2026-11-20 were judged slop by the owner (templated, slideshow
 - **Press material:** stills (portraits, logos) are picture slots, never full-frame backdrops; clips with broadcaster graphics are cropped; real **article screenshots** of cited sources (`screenshotPage`, Remotion's Chromium; overlays hidden, nothing accepted) become picture slot 6 for up to 4 scenes.
 - **Cooldown:** `data/asset-usage.json` — pictures used by the last 12 films are off limits (Wikipedia portraits/logos exempt). Story era comes from the fact sheet, not from years spoken in the narration.
 
+## Voice: directed narration and listen-back (rebuild stage 6)
+
+`narration/directed.ts:narrateDirected` is the default (`OPUMIA_NARRATION=legacy` restores the single-pass path).
+
+1. **Voice director** (`agents/voice-director.ts`, one Sonnet call): per line — pace, the pause after it, the word to lean on — and every risky word (names, places, brands, foreign words, acronyms, abbreviations, figures, rare terms) with IPA, a respelling and, where needed, a written-out spoken form. Solved words persist in `data/pronunciation-lexicon.json`.
+2. **Line takes:** one ElevenLabs take per sentence with neighbours as context, cached in `out/<job>/takes/`.
+3. **Pauses set in code from the audio:** lead-in/tail trimmed, silences inside a line capped (0.19 s → 0.11 s), gaps between lines from the director (0.03 / 0.10 / 0.36 s; a held beat at most one line in six). Reference narrator: ≈ 2.8 pauses ≥ 0.25 s per minute.
+4. **Listen-back** (`@opumia/senses`): `transcribe` (Whisper, no name hints) + `diffSpeech` against the script; the **sound check** recognises the phonemes of each whole line once (`spokenPhonemes`: wav2vec2-espeak ONNX on onnxruntime-node, model in `data/models/phoneme/`) and looks for each risky word's target around its place in the line (`phonemeMatch`). A word passes on its **consonant skeleton** (≥ 0.8); the recogniser cannot judge vowel or stress errors — that limit is real.
+5. **Retakes:** only failing lines; first a fresh take, then a respelled one; the best take per line is always kept. Unresolved lines are written to `narration.report.json` and fail the release gate (`voice_unresolved`, `voice_wer`).
+6. **Voice settings live in code** (`narration/voice.ts`): MagnatesMedia Christopher stability 0.28 / style 0.55 / speed 1.08 → ≈ 206 wpm, pitch travel 12 st, measured against the reference narrator.
+
+Speech recognition backends (`senses/asr.ts`, `OPUMIA_ASR=local|cloudflare`): **local** whisper.cpp (`brew install whisper-cpp`, model `data/models/ggml-large-v3-turbo-q5_0.bin`) and **Cloudflare Workers AI** `@cf/openai/whisper-large-v3-turbo` over REST (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`; the renderer container gets both and uses this backend). The Cloudflare backend is written but has not been run against a real account yet. `espeak-ng` (target sounds for respellings) is in the renderer image.
+
+Test without rendering a film: `npx tsx apps/cli/src/dev/narrate-test.ts out/<job-with-script>`.
+
 ## Platform evaluation (blind reference test)
 
 `opumia eval` measures the platform, not one film. Every film is cut into 20 s picture windows (frames + narration + same-method cut counts) and 45 s narration passages, each paired with a real reference window of the same position and shown blind (A/B) to a Sonnet judge. The judge is only trusted after calibration on degraded reference windows (wrong picture, generic stock, bland rewrite, real-vs-real). Report: caught count + indistinguishability, judge tells grouped by area, trend in `data/eval/<set>/history.json`.

@@ -161,3 +161,4 @@ export async function tempoFit(script: TimedScript, targetS: number, log: (s: st
     durationS: probe.durationS ?? r(script.durationS),
   });
 }
+export * from "./directed.js";

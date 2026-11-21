@@ -5,8 +5,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { RenderManifest, ResolutionReport, Storyboard, TimedScript, type SlopMetric } from "@opumia/contracts";
-import { measureLook, measurePace, measureProsody, measureSound, pcm, r3 } from "@opumia/senses";
-import { pausesFromLevels, type ExemplarIndex } from "./exemplars.js";
+import { measureLook, measurePace, measureProsody, measureSound, r3 } from "@opumia/senses";
+import type { ExemplarIndex } from "./exemplars.js";
 
 const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").then((t) => JSON.parse(t) as T, () => null);
 
@@ -85,17 +85,19 @@ export async function filmMetrics(jobDir: string, video: string, ex: ExemplarInd
       add("voice_melody", "Phrase melody (semitones)", p.melodySt, `≥ ${n.prosody.melodySt.p25}`, p.melodySt >= n.prosody.melodySt.p25 * 0.95);
       add("voice_dynamics", "Voice dynamics (dB)", p.energyStdDb, `≥ ${n.prosody.energyStdDb.p25}`, p.energyStdDb >= n.prosody.energyStdDb.p25 * 0.9);
     }
-    // Pauses on the same 100 ms level method as the reference voice stems.
-    const x = await pcm(narr, { sr: 8000 }).catch(() => null);
-    if (x) {
-      const db: number[] = [];
-      for (let i = 0; i + 800 <= x.length; i += 800) {
-        let e = 0;
-        for (let k = 0; k < 800; k++) e += x[i + k]! * x[i + k]!;
-        db.push(10 * Math.log10(e / 800 + 1e-12));
-      }
-      const ps = pausesFromLevels(db);
-      add("voice_pauses", "Pauses per minute", ps.perMin, `${n.pausesPerMin.p25}–${n.pausesPerMin.p75}`, ps.perMin >= n.pausesPerMin.p25 * 0.8 && ps.perMin <= n.pausesPerMin.p75 * 1.25);
+    // Pauses of ≥ 0.25 s between words (same definition as the reference narrator's word timings).
+    if (n.wordGapPausesPerMin) {
+      const w = ts.segments.flatMap((sg) => sg.words);
+      let g = 0;
+      for (let k = 0; k + 1 < w.length; k++) if (w[k + 1]!.startS - w[k]!.endS >= 0.25) g++;
+      const perMin = (g / Math.max(1, ts.durationS)) * 60;
+      add("voice_pauses", "Pauses per minute (≥ 0.25 s)", perMin, `≤ ${r3(Math.max(4, n.wordGapPausesPerMin.p75 * 1.3))} (narrator ${n.wordGapPausesPerMin.p25}–${n.wordGapPausesPerMin.p75})`, perMin <= Math.max(4, n.wordGapPausesPerMin.p75 * 1.3));
+    }
+    // Listen-back result, when the narration was verified.
+    const rep = await readJson<{ wer: number | null; unresolved: string[]; pronunciation: Array<{ ok: boolean }> }>(path.join(jobDir, "narration.report.json"));
+    if (rep) {
+      add("voice_unresolved", "Narration lines with an unresolved word or pronunciation problem", rep.unresolved.length, "0", rep.unresolved.length === 0);
+      if (rep.wer !== null) add("voice_wer", "Word error against the script", rep.wer, "≤ 0.01", rep.wer <= 0.01);
     }
   }
 

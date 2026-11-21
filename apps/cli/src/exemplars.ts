@@ -26,7 +26,7 @@ export interface ExemplarIndex {
   shots: Array<{ id: string; film: string; kind: string; designed: boolean; link: string; layout: string; motion: string; elements: string[]; shows: string; line: string; frames: string[] }>;
   thumbs: Array<{ film: string; title: string; views: number | null; file: string; look: Pick<Look, "luma" | "colourfulness" | "saturation" | "palette" | "hueSpread"> }>;
   looks: { films: Array<{ film: string } & Look>; band: Record<"luma" | "colourfulness" | "saturation" | "hueSpread" | "motion" | "stillShare" | "darkShare" | "cutsPerMin", { p25: number; p50: number; p75: number }> };
-  narrator: { films: number; prosody: Record<keyof Omit<Prosody, "seconds">, { p25: number; p50: number; p75: number }>; pausesPerMin: { p25: number; p50: number; p75: number }; pauseMedianS: number; longPauseShare: number; wpm: { p25: number; p50: number; p75: number }; sentenceWpmStd: number };
+  narrator: { /** Pauses of ≥ 0.25 s between words, per minute (Whisper word timings). */ wordGapPausesPerMin?: { p25: number; p50: number; p75: number }; films: number; prosody: Record<keyof Omit<Prosody, "seconds">, { p25: number; p50: number; p75: number }>; pausesPerMin: { p25: number; p50: number; p75: number }; pauseMedianS: number; longPauseShare: number; wpm: { p25: number; p50: number; p75: number }; sentenceWpmStd: number };
   techniques: Array<{ kind: string; film: string; clip: string; strip: string }>;
   generatedAt: string;
 }
@@ -83,6 +83,7 @@ export async function buildExemplars(ctx: Ctx, channel: string, maxFilms = 99): 
   const pauseLong: number[] = [];
   const wpm: number[] = [];
   const wstd: number[] = [];
+  const gapPM: number[] = [];
   for (const v of vids.filter((x) => x.soundFile && x.transcriptFile).slice(0, 12)) {
     const snd = JSON.parse(await readFile(v.soundFile!, "utf8")) as { voice_db_100ms?: number[]; bed_db_100ms?: number[] };
     const vo = snd.voice_db_100ms ?? [];
@@ -100,6 +101,12 @@ export async function buildExemplars(ctx: Ctx, channel: string, maxFilms = 99): 
     const words = (JSON.parse(await readFile(v.transcriptFile!, "utf8")) as { words?: Array<{ word: string; start: number; end: number }> }).words ?? [];
     const pc = measurePace(words.filter((w) => w.start > 60 && w.start < 460));
     if (pc.sentences > 10) (wpm.push(pc.wpm), wstd.push(pc.sentenceWpmStd));
+    {
+      const w = words.filter((x) => x.start > 60 && x.start < 460);
+      let g = 0;
+      for (let i = 0; i + 1 < w.length; i++) if (w[i + 1]!.start - w[i]!.end >= 0.25 && w[i + 1]!.start - w[i]!.end < 4) g++;
+      if (w.length > 200) gapPM.push((g / (w.at(-1)!.end - w[0]!.start)) * 60);
+    }
   }
   const pk = (k: keyof Omit<Prosody, "seconds">) => band(pros.map((p) => p[k]));
 
@@ -146,7 +153,7 @@ export async function buildExemplars(ctx: Ctx, channel: string, maxFilms = 99): 
     shots,
     thumbs,
     looks: { films: looks, band: { luma: lb("luma"), colourfulness: lb("colourfulness"), saturation: lb("saturation"), hueSpread: lb("hueSpread"), motion: lb("motion"), stillShare: lb("stillShare"), darkShare: lb("darkShare"), cutsPerMin: lb("cutsPerMin") } },
-    narrator: { films: pros.length, prosody: { voicedShare: pk("voicedShare"), f0Hz: pk("f0Hz"), f0RangeSt: pk("f0RangeSt"), melodySt: pk("melodySt"), energyStdDb: pk("energyStdDb"), pausesPerMin: pk("pausesPerMin"), pauseMedianS: pk("pauseMedianS"), longPauseShare: pk("longPauseShare") }, pausesPerMin: band(pausePM), pauseMedianS: r3(median(pauseMed)), longPauseShare: r3(median(pauseLong)), wpm: band(wpm), sentenceWpmStd: r3(median(wstd)) },
+    narrator: { wordGapPausesPerMin: band(gapPM), films: pros.length, prosody: { voicedShare: pk("voicedShare"), f0Hz: pk("f0Hz"), f0RangeSt: pk("f0RangeSt"), melodySt: pk("melodySt"), energyStdDb: pk("energyStdDb"), pausesPerMin: pk("pausesPerMin"), pauseMedianS: pk("pauseMedianS"), longPauseShare: pk("longPauseShare") }, pausesPerMin: band(pausePM), pauseMedianS: r3(median(pauseMed)), longPauseShare: r3(median(pauseLong)), wpm: band(wpm), sentenceWpmStd: r3(median(wstd)) },
     techniques,
     generatedAt: new Date().toISOString(),
   };

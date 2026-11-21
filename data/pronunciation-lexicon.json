@@ -1,0 +1,213 @@
+{
+ "$100 million": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "one hundred million dollars"
+ },
+ "$100,000": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "one hundred thousand dollars"
+ },
+ "Aug 16, 2032": {
+  "kind": "abbreviation",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "August sixteenth, twenty thirty-two"
+ },
+ "Forbes": {
+  "kind": "brand",
+  "ipa": "fɔrbz",
+  "respelling": "FORBZ",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "George Shultz": {
+  "kind": "name",
+  "ipa": "dʒɔrdʒ ʃʊlts",
+  "respelling": "jorj SHULTS",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Henry Kissinger": {
+  "kind": "name",
+  "ipa": "ˈhɛnri ˈkɪsɪndʒər",
+  "respelling": "HEN-ree KISS-in-jer",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Ian Gibbons": {
+  "kind": "name",
+  "ipa": "ˈiːən ˈɡɪbənz",
+  "respelling": "EE-un GIB-unz",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Jim Cramer": {
+  "kind": "name",
+  "ipa": "dʒɪm ˈkreɪmər",
+  "respelling": "jim KRAY-mer",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Jim Mattis": {
+  "kind": "name",
+  "ipa": "dʒɪm ˈmætɪs",
+  "respelling": "jim MAT-iss",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Mad Money": {
+  "kind": "brand",
+  "ipa": "mæd ˈmʌni",
+  "respelling": "mad MUN-ee",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Phyllis Gardner": {
+  "kind": "name",
+  "ipa": "ˈfɪlɪs ˈɡɑːrdnər",
+  "respelling": "FIL-iss GARD-ner",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Safeway": {
+  "kind": "brand",
+  "ipa": "ˈseɪfˌweɪ",
+  "respelling": "SAYF-way",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Silicon Valley": {
+  "kind": "place",
+  "ipa": "ˈsɪlɪkən ˈvæli",
+  "respelling": "SIL-ih-kun VAL-ee",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Stanford": {
+  "kind": "name",
+  "ipa": "ˈstænfɚd",
+  "respelling": "STAN-ferd",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Texas": {
+  "kind": "place",
+  "ipa": "ˈtɛksəs",
+  "respelling": "TEK-sus",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Theranos": {
+  "kind": "brand",
+  "ipa": "ˈθɛrənoʊs",
+  "respelling": "THAIR-uh-nohs",
+  "spoken": "",
+  "checks": {
+   "ok": 4,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Tyler Shultz": {
+  "kind": "name",
+  "ipa": "ˈtaɪlər ʃʊlts",
+  "respelling": "TY-ler SHULTS",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "US": {
+  "kind": "acronym",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "U.S."
+ },
+ "Walgreens": {
+  "kind": "brand",
+  "ipa": "ˈwɔlɡrinz",
+  "respelling": "WALL-greenz",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Wall Street Journal": {
+  "kind": "brand",
+  "ipa": "wɔl strit ˈdʒɝnəl",
+  "respelling": "WALL street JUR-nul",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "warfarin": {
+  "kind": "rare",
+  "ipa": "ˈwɔrfərɪn",
+  "respelling": "WOR-fuh-rin",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ }
+}

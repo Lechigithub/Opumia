@@ -25,3 +25,6 @@ data/eval/
 
 # Reference exemplar library (frames extracted from Reference/) — generated
 data/exemplars/
+
+# Local speech models (Whisper, phoneme model) — downloaded, never committed
+data/models/

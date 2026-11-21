@@ -5,7 +5,7 @@ import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { artDirect, critiqueScenes, designScenes, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
-import { calibrationKey, narrate, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
+import { calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets } from "@opumia/resolver";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
@@ -117,7 +117,12 @@ async function produceStages(o: ProduceOptions) {
   let fresh = false;
   const doNarrate = async () => {
     fresh = true;
-    return (await narrate({ draft, facts, outDir: jobDir, libraryRoot: o.library, voice, modelId: ttsModel, log })).script;
+    if (process.env.OPUMIA_NARRATION === "legacy") return (await narrate({ draft, facts, outDir: jobDir, libraryRoot: o.library, voice, modelId: ttsModel, log })).script;
+    // Directed narration: voice director → line takes → listen-back (Whisper + sound check) → retakes.
+    const nar = await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { narrator?: { wpm: { p25: number; p50: number } } }).narrator, () => undefined);
+    const res = await narrateDirected({ draft, facts, outDir: jobDir, dataDir: o.data, channel, voice, modelId: ttsModel, ...(nar ? { narrator: { wpm: nar.wpm.p50, wpmLow: nar.wpm.p25 } } : {}), log });
+    if (res.report.unresolved.length) log(`  ! narration has ${res.report.unresolved.length} unresolved line(s): ${res.report.unresolved.slice(0, 3).join("; ")}`);
+    return res.script;
   };
   let timed = await cachedJson(timedPath, TimedScript, redo("narration") || redo("script"), doNarrate, log);
   const recordCalibration = async (t: TimedScript) => {

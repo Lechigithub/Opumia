@@ -19,7 +19,7 @@ export interface ChannelVoice {
 /** Per-channel narrator defaults. A `voiceName` is resolved via /v1/voices once and cached in data/voice-calibration.json. */
 export const CHANNEL_VOICES: Record<ChannelId, { voiceId?: string; voiceName?: string; name: string; settings: VoiceSettings }> = {
   // MagnatesMedia: the account's "Christopher" voice, tuned in `opumia voice-audition` (settings below are the fallback).
-  "magnates-media": { voiceName: "Christopher", name: "Christopher", settings: { stability: 0.4, similarityBoost: 0.8, style: 0.35, speed: 1.1 } },
+  "magnates-media": { voiceName: "Christopher", name: "Christopher", settings: { stability: 0.28, similarityBoost: 0.8, style: 0.55, speed: 1.08 } },
   "logically-answered": { voiceId: "nPczCjzI2devNBz1zQrb", name: "Brian", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.05 } },
   "big-company": { voiceId: "JBFqnCBsd6RMkjVDRZzb", name: "George", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.0 } },
   "modern-mba": { voiceId: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.05 } },
@@ -60,7 +60,7 @@ export async function resolveChannelVoice(channel: ChannelId, dataDir: string, l
   if (process.env.OPUMIA_VOICE_ID) return { voiceId: process.env.OPUMIA_VOICE_ID, name: "override", settings: def.settings };
   const cal = await readCalibration(dataDir);
   const hit = cal._voices?.[channel];
-  if (hit && (!def.voiceName || hit.query === def.voiceName)) return { voiceId: hit.voiceId, name: hit.name, settings: hit.settings };
+  if (hit && (!def.voiceName || hit.query === def.voiceName)) return { voiceId: hit.voiceId, name: hit.name, settings: def.settings }; // settings live in code; the cache only remembers which voice the name resolved to
   if (def.voiceName) {
     const v = await findVoiceByName(def.voiceName);
     if (!v) throw new Error(`ElevenLabs voice "${def.voiceName}" not found in the account or the voice library`);
