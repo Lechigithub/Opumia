@@ -38,5 +38,30 @@
         "beats": 6
       }
     ]
+  },
+  {
+    "at": "2026-11-21T21:29:10.770Z",
+    "commit": "9fc8244",
+    "skillChars": 3987,
+    "passed": 1,
+    "of": 1,
+    "usd": 0.28,
+    "results": [
+      {
+        "job": "how-kodak-invented-the-digital-camera-and-still-di",
+        "topic": "How Kodak invented the digital camera and still died",
+        "pass": true,
+        "measurements": 5,
+        "seconds": 59,
+        "usd": 0.28,
+        "remaining": [],
+        "explain": 0.143,
+        "viewer": 0.143,
+        "quote": 0.071,
+        "fact": 0.143,
+        "opening": "1975: a Kodak engineer builds a filmless camera inside the company that sells 90% of US film; why did Kodak end up bankrupt?",
+        "beats": 6
+      }
+    ]
   }
 ]

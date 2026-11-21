@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { FactSheet, StoryLayer, type FactClaim } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { MODELS, plain, structured, webResearch } from "./llm.js";
-import { fetchPageText } from "./web.js";
+import { readPage } from "./web.js";
+import { researchAgent } from "./research-agent.js";
 
 const ExtractSchema = z.object({
   summary: z.string(),
@@ -43,12 +44,55 @@ export interface ResearchOptions {
   /** e.g. "60-second vertical short" — shapes how many facts we need. */
   format: string;
   minClaims?: number;
+  /** Where the research agent keeps its memory (data/agents/research). */
+  memoryDir?: string;
   log?: (s: string) => void;
 }
 
+/** Story layer: the verified claims organised into characters, scenes, contrast anchors and quotes. */
+async function storyLayer(topic: string, claims: FactClaim[], log: (s: string) => void): Promise<StoryLayer | undefined> {
+  const usable = claims.filter((c) => c.verdict === "supported" || c.verdict === "partially_supported");
+  let story: StoryLayer | undefined;
+  try {
+    log(`  research: structuring the story dossier (${MODELS.sonnet})…`);
+    const { data } = await structured({
+      stage: "research.story",
+      model: MODELS.sonnet,
+      system: [plain("You are a documentary story producer. Organise VERIFIED CLAIMS into a story dossier: characters (want, flaw, cost), dramatic scenes (kind, when, where, who, what happens, stakes), contrast anchors (one comparative sentence: us vs them) and verbatim quotes. Use ONLY information stated in the claims; cite the claim ids each item rests on. Do not invent motives, places or numbers: if a claim does not state a want or a flaw, describe it as what the claims show (e.g. 'bet the company on Symbian'), never as speculation. Quotes must be claims of kind quote, verbatim.")],
+      user: `TOPIC: ${topic}\n\nVERIFIED CLAIMS:\n${usable.map((c) => `[${c.id}] (${c.kind}) ${c.text}`).join("\n")}`,
+      schema: StorySchema,
+      effort: "medium",
+      maxTokens: 12000,
+    });
+    const ok = new Set(usable.map((c) => c.id));
+    const bound = (ids: string[]) => ids.filter((x) => ok.has(x));
+    story = StoryLayer.parse({
+      characters: data.characters.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
+      scenes: data.scenes.map((c, i) => ({ ...c, id: `sc${String(i + 1).padStart(2, "0")}`, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
+      contrasts: data.contrasts.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
+      quotes: data.quotes.filter((q) => ok.has(q.claimId) && usable.find((c) => c.id === q.claimId)?.kind === "quote"),
+    });
+    log(`  research: dossier — ${story.characters.length} characters, ${story.scenes.length} scenes, ${story.contrasts.length} contrasts, ${story.quotes.length} quotes`);
+  } catch (e) {
+    log(`  ! story dossier failed (${(e as Error).message.slice(0, 120)}); continuing with claims only`);
+  }
+
+  return story;
+}
+
+/**
+ * Research and fact-check. By default the research agent does it (research-agent.ts): it searches, reads pages
+ * itself, records each claim only once its evidence has been found on a readable page, and retries a fact on
+ * another source when one cannot be read. OPUMIA_RESEARCH=legacy runs the older single pass below.
+ */
 export async function researchTopic(o: ResearchOptions): Promise<FactSheet> {
   const log = o.log ?? (() => {});
   const want = Math.max(o.minClaims ?? 8, 8);
+  if (process.env.OPUMIA_RESEARCH !== "legacy") {
+    const res = await researchAgent({ topic: o.topic, format: o.format, want, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), log });
+    const story = await storyLayer(o.topic, res.claims, log);
+    return FactSheet.parse({ ...(story ? { story } : {}), schemaVersion: 1, id: `fs_${createHash("sha1").update(o.topic).digest("hex").slice(0, 10)}`, topic: o.topic, summary: res.summary, angle: res.angle, claims: res.claims, sources: res.sources, ...(res.gaps.length ? { gaps: res.gaps } : {}), models: { research: MODELS.sonnet, verify: MODELS.haiku }, generatedAt: new Date().toISOString() });
+  }
 
   log(`  research: web search (${MODELS.sonnet})…`);
   const research = await webResearch({
@@ -84,7 +128,7 @@ For each fact write one line: FACT: <fact> | SOURCE: <exact URL> . Use several d
   const sources: FactSheet["sources"] = [];
   log(`  verify: ${ex.claims.length} claims across ${bySource.size} sources (${MODELS.haiku})…`);
   for (const [url, idxs] of bySource) {
-    const page = await fetchPageText(url);
+    const page = (await readPage(url))?.text ?? null;
     sources.push({ url, title: ex.claims[idxs[0]!]?.sourceTitle, reachable: Boolean(page) });
     if (!page) {
       for (const i of idxs) verdicts.set(i, { verdict: "unreachable" });
@@ -129,32 +173,7 @@ For each fact write one line: FACT: <fact> | SOURCE: <exact URL> . Use several d
   log(`  verify: ${supported} supported, ${claims.filter((c) => c.verdict === "partially_supported").length} partial, ${claims.filter((c) => ["unsupported", "unreachable"].includes(c.verdict)).length} rejected`);
   if (supported < Math.min(5, want)) throw new Error(`research: only ${supported} supported claims — not enough to write a factual script`);
 
-  // Story layer: structure the verified claims into characters, scenes, contrast anchors and quotes.
-  const usable = claims.filter((c) => c.verdict === "supported" || c.verdict === "partially_supported");
-  let story: StoryLayer | undefined;
-  try {
-    log(`  research: structuring the story dossier (${MODELS.sonnet})…`);
-    const { data } = await structured({
-      stage: "research.story",
-      model: MODELS.sonnet,
-      system: [plain("You are a documentary story producer. Organise VERIFIED CLAIMS into a story dossier: characters (want, flaw, cost), dramatic scenes (kind, when, where, who, what happens, stakes), contrast anchors (one comparative sentence: us vs them) and verbatim quotes. Use ONLY information stated in the claims; cite the claim ids each item rests on. Do not invent motives, places or numbers: if a claim does not state a want or a flaw, describe it as what the claims show (e.g. 'bet the company on Symbian'), never as speculation. Quotes must be claims of kind quote, verbatim.")],
-      user: `TOPIC: ${o.topic}\n\nVERIFIED CLAIMS:\n${usable.map((c) => `[${c.id}] (${c.kind}) ${c.text}`).join("\n")}`,
-      schema: StorySchema,
-      effort: "medium",
-      maxTokens: 12000,
-    });
-    const ok = new Set(usable.map((c) => c.id));
-    const bound = (ids: string[]) => ids.filter((x) => ok.has(x));
-    story = StoryLayer.parse({
-      characters: data.characters.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
-      scenes: data.scenes.map((c, i) => ({ ...c, id: `sc${String(i + 1).padStart(2, "0")}`, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
-      contrasts: data.contrasts.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
-      quotes: data.quotes.filter((q) => ok.has(q.claimId) && usable.find((c) => c.id === q.claimId)?.kind === "quote"),
-    });
-    log(`  research: dossier — ${story.characters.length} characters, ${story.scenes.length} scenes, ${story.contrasts.length} contrasts, ${story.quotes.length} quotes`);
-  } catch (e) {
-    log(`  ! story dossier failed (${(e as Error).message.slice(0, 120)}); continuing with claims only`);
-  }
+  const story = await storyLayer(o.topic, claims, log);
 
   return FactSheet.parse({
     ...(story ? { story } : {}),

@@ -130,7 +130,7 @@ export interface AgentTool {
  * turn to turn (the stable system blocks plus everything already said), thinking blocks are passed back
  * unchanged, and all results of one turn go back in a single message.
  */
-export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns"; usd: number }> {
+export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns"; usd: number }> {
   const fb = fallbackFor(o.model);
   const from = ledger.length;
   const tools = o.tools.map((t) => ({ name: t.name, description: t.description, input_schema: z4.toJSONSchema(t.schema) as Anthropic.Beta.BetaTool["input_schema"] }));
@@ -145,7 +145,7 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
         max_tokens: o.maxTokens ?? 32000,
         system: o.system,
         messages,
-        tools,
+        tools: [...(o.serverTools ?? []), ...tools],
         cache_control: { type: "ephemeral" },
         output_config: { effort: o.effort ?? "medium" },
         ...(fb.betas.length ? { betas: fb.betas } : {}),

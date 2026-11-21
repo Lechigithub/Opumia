@@ -22,3 +22,4 @@ export * from "./publishing.js";
 export * from "./fingerprint.js";
 export * from "./story-measure.js";
 export * from "./writer-agent.js";
+export * from "./research-agent.js";

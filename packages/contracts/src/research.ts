@@ -50,6 +50,8 @@ export const FactSheet = z.object({
   angle: z.string().describe("the story angle: whose want, what obstacle, what turn"),
   claims: z.array(FactClaim).min(1),
   sources: z.array(z.object({ url: z.string().url(), title: z.string().optional(), reachable: z.boolean() })),
+  /** Facts the story needed that could not be verified on any readable source (said plainly, never papered over). */
+  gaps: z.array(z.string()).optional(),
   models: z.object({ research: z.string(), verify: z.string() }),
   /** Story dossier layer (characters, scenes, contrasts, quotes), every item bound to verified claims. */
   story: StoryLayer.optional(),

@@ -1,0 +1,65 @@
+[
+  {
+    "at": "2026-11-21T21:25:37.323Z",
+    "commit": "9fc8244",
+    "mode": "agent",
+    "results": [
+      {
+        "topic": "How Kodak invented the digital camera and still died",
+        "ok": true,
+        "verified": 12,
+        "supported": 12,
+        "quotes": 2,
+        "figures": 5,
+        "sources": 3,
+        "scenes": 6,
+        "contrasts": 3,
+        "gaps": [],
+        "seconds": 68,
+        "usd": 0.201
+      }
+    ]
+  },
+  {
+    "at": "2026-11-21T21:27:58.621Z",
+    "commit": "9fc8244",
+    "mode": "agent",
+    "results": [
+      {
+        "topic": "How Kodak invented the digital camera and still died",
+        "ok": true,
+        "verified": 24,
+        "supported": 20,
+        "quotes": 4,
+        "figures": 10,
+        "sources": 7,
+        "scenes": 7,
+        "contrasts": 4,
+        "gaps": [],
+        "seconds": 102,
+        "usd": 0.325
+      }
+    ]
+  },
+  {
+    "at": "2026-11-21T21:31:59.739Z",
+    "commit": "9fc8244",
+    "mode": "agent",
+    "results": [
+      {
+        "topic": "How Theranos fooled Silicon Valley",
+        "ok": true,
+        "verified": 49,
+        "supported": 42,
+        "quotes": 6,
+        "figures": 15,
+        "sources": 5,
+        "scenes": 8,
+        "contrasts": 4,
+        "gaps": [],
+        "seconds": 168,
+        "usd": 0.616
+      }
+    ]
+  }
+]

@@ -1,0 +1,102 @@
+{
+ "artdiamondblog.com": {
+  "read": 1,
+  "archive": 0,
+  "failed": 0
+ },
+ "bbc.com": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "britannica.com": {
+  "read": 0,
+  "archive": 1,
+  "failed": 2
+ },
+ "cnn.com": {
+  "read": 1,
+  "archive": 0,
+  "failed": 0
+ },
+ "en.wikipedia.org": {
+  "read": 7,
+  "archive": 0,
+  "failed": 0
+ },
+ "fda.gov": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "forbes.com": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "justice.gov": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "money.cnn.com": {
+  "read": 0,
+  "archive": 1,
+  "failed": 0
+ },
+ "npr.org": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "nytimes.com": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "petapixel.com": {
+  "read": 0,
+  "archive": 1,
+  "failed": 0
+ },
+ "photosecrets.com": {
+  "read": 0,
+  "archive": 1,
+  "failed": 0
+ },
+ "quartr.com": {
+  "read": 1,
+  "archive": 0,
+  "failed": 0
+ },
+ "reuters.com": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "sec.gov": {
+  "read": 1,
+  "archive": 0,
+  "failed": 0
+ },
+ "techcrunch.com": {
+  "read": 1,
+  "archive": 0,
+  "failed": 0
+ },
+ "theguardian.com": {
+  "read": 0,
+  "archive": 0,
+  "failed": 1
+ },
+ "variety.com": {
+  "read": 1,
+  "archive": 0,
+  "failed": 0
+ },
+ "weforum.org": {
+  "read": 2,
+  "archive": 0,
+  "failed": 0
+ }
+}

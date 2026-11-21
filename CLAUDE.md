@@ -285,6 +285,17 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Gate:** a script that is not accepted is not narrated (`script.story.json`; `OPUMIA_STORY=warn` overrides). `OPUMIA_WRITER=legacy` runs the five-pass writer.
 - **Limits:** acceptance means "inside the channel's measured range and factually clean", not "as good as the channel" — nobody has judged these scripts by ear or eye yet. Only 90-second scripts have been run; long-form is untested. Research leaves many claims unverified (Kodak: 20 of 36 "unreachable"), which starves the writer of facts — a research-agent problem. The other roles (director, scene designer, packaging) are still single prompts.
 
+### The researcher (second agent rebuilt)
+
+- **Why:** research was one pass — search once, fetch each source once with a basic request, drop every claim whose page could not be read. On Kodak 20 of 36 claims were lost that way (Washington Post, CNN Money, PetaPixel, Medium, even justice.gov refused or were gone), and the writer was left without the story's best facts.
+- **Skill:** `packages/agents/skills/research.md`.
+- **Tools** (`agents/research-agent.ts`): `web_search` (run by the API), `read_page` (live page, else the Internet Archive's copy — `agents/web.ts:readPage`; with `find` it returns the passages around a phrase), `plan_story` (the angle and the must-have facts it is held to), `record_claim` (one fact + its exact evidence sentence; the page is read, the sentence must be on it word for word, a strict Haiku check must agree; a failed claim is retried on another source), `sheet_status`, `finish` (refused until the sheet has depth and every must-have is covered or declared in `FactSheet.gaps`).
+- **Depth:** the sheet aims at twice the bare minimum (≥ 20 facts for a short): ≥ 3 word-for-word quotations, ≥ 5 figures, ≥ 8 dated events, ≥ 5 independent sources, no source carrying more than 45 %; near-duplicates and paraphrases labelled as quotations are refused.
+- **Memory:** `data/agents/research/hosts.json` (which sites could be read, from the archive, or not — learned every run, shown before the next) and `notes.md` (a log of every sheet).
+- **Score:** `npx tsx apps/cli/src/dev/research-score.ts "Topic" …` → `data/agents/research/score-history.json`. Kodak: 24 verified (20 fully), 4 quotations, 10 figures, 7 sources, 3 pages recovered from the archive, 102 s, $0.33 — the single pass had 16 usable of 36. Theranos: 49 verified, 168 s, $0.62 (it over-collected; it is now told to stop once the sheet is full — not re-run).
+- **Chain check:** the writer on the new Kodak sheet was accepted in 59 s for $0.28 with a visibly better script (viewer address 14 %, ends on Sasson keeping the camera "because it was too cool to throw away").
+- **Limits:** page reading still fails on some sites even with the archive (Theranos: 9 of 16 pages unreadable, e.g. bbc.com, fda.gov) — a headless-browser reader is the next step. Source quality is not yet scored (a blog counts the same as a court filing). `OPUMIA_RESEARCH=legacy` runs the old single pass.
+
 ## Preflight gate (2026-11-22)
 
 `produce` stage **B6** (`apps/cli/src/preflight.ts`, wired in `produce.ts`) runs every release-gate check that can be computed before the render, on the plan, the final scene previews and the narration. A failing check with a repair is repaired and checked again (two repair rounds); what still fails is written to `out/<job>/preflight.json` and **the render is refused** ("nothing was rendered"). `OPUMIA_PREFLIGHT=warn` renders anyway, for debugging only.

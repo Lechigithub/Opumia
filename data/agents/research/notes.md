@@ -1,0 +1,3 @@
+- LOG 2026-11-21 "How Kodak invented the digital camera and still died": complete, 12 verified, 2 rejected, must-haves 4/4 covered
+- LOG 2026-11-21 "How Kodak invented the digital camera and still died": complete, 24 verified, 1 rejected, must-haves 7/4 covered
+- LOG 2026-11-21 "How Theranos fooled Silicon Valley": complete, 49 verified, 1 rejected, must-haves 5/5 covered
