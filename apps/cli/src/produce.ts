@@ -7,6 +7,7 @@ import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, Li
 import { artDirect, critiqueScenes, designScenes, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { calibrationKey, narrate, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets } from "@opumia/resolver";
+import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
@@ -161,7 +162,14 @@ async function produceStages(o: ProduceOptions) {
   if (stop("storyboard")) return { jobDir };
 
   log("\n[B2] asset resolver (library first → stock/archival)");
-  let resolution = await cachedJson(path.join(jobDir, "resolution.json"), ResolutionReport, redo("resolve"), () => resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked: blockedRefs(memory), log }), log);
+  let resolution = await cachedJson(path.join(jobDir, "resolution.json"), ResolutionReport, redo("resolve"), async () => {
+    // Blocked = pictures earlier films rejected + everything the last films used (cross-film cooldown).
+    const cool = await cooldownRefs(o.data, jobId);
+    const blocked = new Set([...blockedRefs(memory), ...cool.pictures]);
+    log(`  cooldown: ${cool.pictures.size} picture ref(s) used by recent films are off limits`);
+    return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), log });
+  }, log);
+  await recordUsage(o.data, jobId, resolution, board);
   if (stop("resolve")) return { jobDir };
 
   // Composed scenes: designed per shot after the resolver, so only pictures that really exist are placed.
@@ -186,7 +194,7 @@ async function produceStages(o: ProduceOptions) {
   })();
   const sceneFile = path.join(jobDir, "scenes.json");
   const freshScenes = redo("resolve") || redo("storyboard") || redo("manifest") || !(await exists(sceneFile));
-  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, () => designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, log }), log);
+  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, () => designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, people: (facts.story?.characters ?? []).map((c) => c.name), log }), log);
   const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;
   log(`  captions: ${burnCaptions ? "burned in" : `not burned in (the channel shows captions on ${Math.round(pack.captions.bottomTextShare * 100)} % of long-form shots); SRT keeps every word`}`);
 
@@ -217,7 +225,7 @@ async function produceStages(o: ProduceOptions) {
     const issues = await critiqueScenes({ channel, previews: prev.map((p) => ({ shotId: p.shotId, sheet: p.sheet, line: lineAt(p.shotId), idea: scenePlan.scenes.find((x) => x.shotId === p.shotId)?.idea ?? "" })), reference: exemplars.slice(0, 4).map((e) => e.path) });
     log(`  critic: ${prev.length} scene(s) previewed in ${Math.round((Date.now() - t0p) / 1000)} s, ${issues.size} flagged${issues.size ? ` — ${[...issues.entries()].slice(0, 8).map(([k, v]) => `${k} ${v[0]}`).join(", ")}` : ""}`);
     if (issues.size) {
-      scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, issues, previous: scenePlan, log });
+      scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, people: (facts.story?.characters ?? []).map((c) => c.name), issues, previous: scenePlan, log });
       await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
       manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
       await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");

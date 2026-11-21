@@ -43,6 +43,8 @@ export const ResolvedMedia = z.object({
   slot: z.number().int().min(0).optional(),
   /** What the layer depicts (entity name + kind), so the scene designer can place it. */
   depicts: z.string().optional(),
+  /** Vision review of the picked picture: fit to the line 0–10, an identifiable face fills the frame, broadcaster banners present. */
+  seen: z.object({ fit: z.number(), face: z.boolean(), banner: z.boolean(), note: z.string() }).optional(),
   /** Fair-use record for press material: where it came from and how much was used. */
   fairUse: z.object({ sourceTitle: z.string(), channel: z.string().optional(), atS: z.number().optional(), usedS: z.number(), reason: z.string() }).optional(),
   ref: z.string(),

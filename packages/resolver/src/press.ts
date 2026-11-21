@@ -27,6 +27,9 @@ export const PRESS_MAX_CLIP_S = 6.5;
 
 /** Channels whose finished documentaries we never lift footage from (we'd be copying their edit). */
 const NO_LIFT = /\b(magnates ?media|how money works|logically answered|modern mba|moon|big company|business casual|company man|cold fusion|coldfusion|wendover|polymatter|johnny harris|vox|bloomberg originals? documentary)\b/i;
+/** Scripted dramas, films and trailers: actors playing real people are never documentary footage. */
+const DRAMA_CHANNEL = /\b(hulu|netflix|hbo|max|prime video|amazon prime|apple tv|disney|paramount|peacock|showtime|starz|movieclips|rotten tomatoes|ign|fandango|lionsgate|universal pictures|warner bros|sony pictures|a24|searchlight|still watching)\b/i;
+const DRAMA_TITLE = /\b(the dropout|scene|trailer|teaser|episode|season \d|s\d+e\d+|official clip|movie clip|film clip|full movie|series|miniseries|starring|cast|behind the scenes|bloopers|recap|ending explained|biopic|portrayed by|played by)\b/i;
 const NO_LIFT_TITLE = /\b(documentary|full movie|explained|the rise and fall|the untold story|compilation|reaction|tiktok|shorts?|#shorts|top \d+|ranking|podcast)\b/i;
 
 export interface PressCandidate extends StockCandidate {
@@ -35,6 +38,8 @@ export interface PressCandidate extends StockCandidate {
   /** Frame used for the vision check. */
   frameFile: string;
   depicts: string;
+  /** Broadcaster graphics visible (set by the vision check): the clip is cropped before use. */
+  banner?: boolean;
   fairUse: { sourceTitle: string; channel?: string; atS?: number; usedS: number; reason: string };
 }
 
@@ -157,6 +162,8 @@ export async function youtubePress(o: { entity: { name: string; type: string; ye
       seen.add(e.id);
       const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
       if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title)) continue;
+      // A title crediting two or more performers ("| Amanda Seyfried, Laurie Metcalf") is a drama clip.
+      if (DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title) || /[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) continue;
       if (!e.duration || e.duration < 25 || e.duration > 2400) continue;
       if (!namesAll(e.title, o.entity.name)) continue;
       hits.push(e);
@@ -205,9 +212,9 @@ export async function youtubePress(o: { entity: { name: string; type: string; ye
 // ---------------------------------------------------------------------------------------------------------
 // Vision check: does the picture really show the subject the line is about?
 
-const VisionPick = z.object({ verdicts: z.array(z.object({ index: z.number(), shows: z.boolean().describe("true only if the picture clearly shows the named subject (the person, the company's logo/building/product, the event)"), quality: z.number().describe("0–10 as a documentary shot: sharp, well-framed, no burned-in lower thirds/tickers covering the subject"), note: z.string() })) });
+const VisionPick = z.object({ verdicts: z.array(z.object({ index: z.number(), shows: z.boolean().describe("true only if the picture clearly shows the named subject (the person, the company's logo/building/product, the event)"), banner: z.boolean().describe("true if broadcaster graphics (lower-third banner, ticker, channel bug, burned-in captions) are visible"), quality: z.number().describe("0–10 as a documentary shot: sharp, well-framed, no burned-in lower thirds/tickers covering the subject"), note: z.string() })) });
 
-export async function visionCheck(items: Array<{ frameFile: string; depicts: string; line: string }>): Promise<Array<{ shows: boolean; quality: number; note: string }>> {
+export async function visionCheck(items: Array<{ frameFile: string; depicts: string; line: string }>): Promise<Array<{ shows: boolean; quality: number; note: string; banner?: boolean }>> {
   if (!items.length) return [];
   const blocks = (
     await Promise.all(
@@ -220,7 +227,7 @@ export async function visionCheck(items: Array<{ frameFile: string; depicts: str
   const { data } = await structured({
     stage: "resolve.press",
     model: MODELS.haiku,
-    system: [plain("You are a documentary picture researcher checking candidate frames. For each, say whether it clearly shows the named subject (a recognisable person's face or figure when a person is named; the company's real logo, building, store, product or staff when a company is named; the actual event when an event is named) and rate it as a shot. A news anchor in a studio, a title card, a thumbnail collage, a talking head of someone else, or a frame mostly covered by tickers and lower thirds does NOT show the subject.")],
+    system: [plain("You are a documentary picture researcher checking candidate frames. For each, say whether it clearly shows the named subject (a recognisable person's face or figure when a person is named; the company's real logo, building, store, product or staff when a company is named; the actual event when an event is named) and rate it as a shot. A news anchor in a studio, a title card, a thumbnail collage, a talking head of someone else, or a frame mostly covered by tickers and lower thirds does NOT show the subject. A scripted drama, film scene, re-enactment or anything that looks cinematically lit and staged with actors does NOT show a real person — answer shows=false for it even if the title names them.")],
     user: blocks,
     schema: VisionPick,
     effort: "low",
@@ -228,6 +235,123 @@ export async function visionCheck(items: Array<{ frameFile: string; depicts: str
   });
   return items.map((_, i) => {
     const v = data.verdicts.find((x) => x.index === i);
-    return v ? { shows: v.shows, quality: v.quality, note: v.note } : { shows: false, quality: 0, note: "no verdict" };
+    return v ? { shows: v.shows, quality: v.quality, note: v.note, banner: v.banner } : { shows: false, quality: 0, note: "no verdict" };
   });
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Review of EVERY picked picture (library, stock, archive): the editor's eye before anything reaches a scene.
+
+const Review = z.object({
+  verdicts: z.array(
+    z.object({
+      index: z.number(),
+      fit: z.number().describe("0–10: how well this picture shows what the line and intent are about (10 = exactly the thing; 5 = same general world; 2 = unrelated)"),
+      face: z.boolean().describe("true if one identifiable person's face is prominent (a close-up or medium shot a viewer would take to be a specific person)"),
+      banner: z.boolean().describe("true if burned-in text, captions, watermarks, title cards or broadcaster graphics are visible"),
+      wrongEra: z.boolean().describe("true if clothing, cars, devices or film stock clearly belong to a different period than stated"),
+      shows: z.string().describe("5–10 words: what the picture literally shows"),
+    }),
+  ),
+});
+export interface PictureReview { fit: number; face: boolean; banner: boolean; wrongEra: boolean; shows: string }
+
+export async function reviewPictures(items: Array<{ frameFile: string; intent: string; line: string; era: string }>): Promise<PictureReview[]> {
+  const out: PictureReview[] = [];
+  for (let i = 0; i < items.length; i += 12) {
+    const part = items.slice(i, i + 12);
+    const blocks = (
+      await Promise.all(
+        part.map(async (it, k) => [
+          { type: "text" as const, text: `[${k}] intent: ${it.intent.slice(0, 160)} | narration: "${it.line.slice(0, 200)}" | story period: ${it.era}` },
+          { type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: (await readFile(it.frameFile)).toString("base64") } },
+        ]),
+      )
+    ).flat();
+    const res = await structured({
+      stage: "resolve.review",
+      model: MODELS.haiku,
+      system: [plain("You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible. A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject.")],
+      user: blocks,
+      schema: Review,
+      effort: "low",
+      maxTokens: 3000,
+    }).catch(() => null);
+    for (let k = 0; k < part.length; k++) {
+      const v = res?.data.verdicts.find((x) => x.index === k);
+      out.push(v ? { fit: v.fit, face: v.face, banner: v.banner, wrongEra: v.wrongEra, shows: v.shows } : { fit: 5, face: false, banner: false, wrongEra: false, shows: "not reviewed" });
+    }
+  }
+  return out;
+}
+
+/** One frame of a local picture or clip for review. */
+export async function reviewFrame(src: string, out: string, atS = 0): Promise<boolean> {
+  await frameOf(src, out, atS).catch(() => {});
+  return exists(out);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Real article screenshots: the cited source itself on screen (headless Chromium, the same one Remotion uses).
+
+/** One shared headless browser (the Chromium Remotion already uses), opened on first use. */
+interface CdpPage { setViewport(v: { width: number; height: number; deviceScaleFactor: number }): Promise<void>; goto(o: { url: string; timeout: number }): Promise<unknown>; _client(): { send(m: string, p?: unknown): Promise<{ value: { data: string } }> }; close(): Promise<void> }
+let browserP: Promise<{ newPage(o: unknown): Promise<CdpPage>; close(o: { silent: boolean }): Promise<void> }> | null = null;
+let pageSeq = 0;
+async function browser() {
+  if (!browserP) {
+    browserP = import("@remotion/renderer").then((r) => r.openBrowser("chrome") as never);
+    process.once("beforeExit", () => void browserP?.then((b) => b.close({ silent: true })).catch(() => {}));
+  }
+  return browserP;
+}
+export async function closeBrowser(): Promise<void> {
+  const b = browserP;
+  browserP = null;
+  await b?.then((x) => x.close({ silent: true })).catch(() => {});
+}
+
+/** Screenshot the top of a web page (1280×900) as JPEG. Returns false when the page cannot be captured. */
+export async function screenshotPage(url: string, outJpg: string): Promise<boolean> {
+  if (await exists(outJpg)) return true;
+  if (!/^https?:\/\//.test(url) || /youtube\.com|youtu\.be|\.pdf($|\?)/i.test(url)) return false;
+  await mkdir(path.dirname(outJpg), { recursive: true });
+  let page: CdpPage | null = null;
+  try {
+    const b = await browser();
+    page = await b.newPage({ context: () => null, logLevel: "error", indent: false, pageIndex: 900 + pageSeq++, onBrowserLog: null, onLog: () => {} });
+    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    await Promise.race([page.goto({ url, timeout: 25_000 }).catch(() => null), new Promise((r) => setTimeout(r, 26_000))]);
+    await new Promise((r) => setTimeout(r, 2500)); // late layout, fonts, lazy hero images
+    // Clear the view for the capture only: hide consent/sign-up overlays and sticky bars (nothing is clicked or
+    // accepted), collapse empty ad slots, and bring the headline to the top of the frame.
+    await page
+      ._client()
+      .send("Runtime.evaluate", {
+        expression: `(() => {
+          const vw = innerWidth, vh = innerHeight;
+          for (const el of Array.from(document.querySelectorAll('body *'))) {
+            const cs = getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            const modal = el.matches('[role=dialog],[aria-modal=true],dialog') || /consent|cookie|gdpr|onetrust|paywall|newsletter|subscribe-modal|overlay|backdrop/i.test((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : ''));
+            const pinned = (cs.position === 'fixed' || cs.position === 'sticky') && (parseInt(cs.zIndex) >= 10 || r.width * r.height > vw * vh * 0.25);
+            if ((modal && (cs.position === 'fixed' || cs.position === 'absolute' || cs.position === 'sticky')) || pinned) el.style.setProperty('display', 'none', 'important');
+            if (/^(ad|ads|advert)|[-_ ](ad|ads|advert|banner)([-_ ]|$)/i.test((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '')) && r.height > 60) el.style.setProperty('display', 'none', 'important');
+          }
+          for (const el of [document.documentElement, document.body]) { el.style.setProperty('overflow', 'visible', 'important'); el.style.setProperty('filter', 'none', 'important'); }
+          const h = document.querySelector('h1');
+          if (h) scrollTo(0, Math.max(0, h.getBoundingClientRect().top + scrollY - 150));
+        })()`,
+      })
+      .catch(() => null);
+    await new Promise((r) => setTimeout(r, 500));
+    const { value } = await page._client().send("Page.captureScreenshot", { format: "jpeg", quality: 86, clip: { x: 0, y: 0, width: 1280, height: 900, scale: 1 }, captureBeyondViewport: false });
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(outJpg, Buffer.from(value.data, "base64"));
+  } catch {
+    return false;
+  } finally {
+    await page?.close().catch(() => {});
+  }
+  return exists(outJpg);
 }

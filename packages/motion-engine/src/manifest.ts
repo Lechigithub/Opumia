@@ -104,6 +104,8 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         props: { kind: primary.kind, mode: citation && !designed ? "parallax_card" : mode, focus: s.focus ?? [0.5, 0.5], transitionIn: s.transitionIn, period: primary.origin === "archival", ...(citation ? { citation } : {}), ...(designed && designed.designed !== "name_label" ? { dim: sceneSpec?.dim ?? 0.55 } : {}) },
       };
       video.push(layer);
+    } else if (designed && designed.designed === "scene") {
+      /* no footage: the scene draws its own backdrop (colour world / paper) */
     } else if (designed && designed.designed !== "map" && designed.designed !== "versus") {
       // Multi-layer stack: every designed scene sits on an atmospheric base — a borrowed approved plate (blurred,
       // darkened) or, for lines naming a person (no stand-in faces), the procedural atmosphere.

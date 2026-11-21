@@ -9,7 +9,7 @@ import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { downloadCandidate, providersFor, searchStock, type StockCandidate } from "./stock.js";
-import { visionCheck, wikipediaImages, youtubePress, type PressCandidate } from "./press.js";
+import { closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubePress, type PressCandidate } from "./press.js";
 
 const run = promisify(execFile);
 
@@ -130,10 +130,11 @@ async function hasBlack(file: string): Promise<boolean> {
 }
 
 /** Trim/transcode one picture source into the job's public dir (fast seeking, small, muted). */
-async function materialize(src: string, kind: "video" | "image", out: string, inS: number, durationS: number, srcHasAlpha: boolean) {
+async function materialize(src: string, kind: "video" | "image", out: string, inS: number, durationS: number, srcHasAlpha: boolean, cropBanner = false) {
   if (await exists(out)) return;
   if (kind === "video") {
-    await ffmpeg(["-ss", inS.toFixed(3), "-stream_loop", "-1", "-i", src, "-t", (durationS + 0.8).toFixed(3), "-an", "-vf", "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-movflags", "+faststart", out]);
+    // Broadcaster graphics (lower third, ticker, channel bug) are cropped away: bottom 22 %, a little off each side and the top.
+    await ffmpeg(["-ss", inS.toFixed(3), "-stream_loop", "-1", "-i", src, "-t", (durationS + 0.8).toFixed(3), "-an", "-vf", (cropBanner ? "crop=iw*0.9:ih*0.74:iw*0.05:ih*0.04," : "") + "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-movflags", "+faststart", out]);
   } else {
     await ffmpeg(["-i", src, "-vf", "scale='min(2400,iw)':-2", ...(srcHasAlpha ? [] : ["-q:v", "3"]), "-frames:v", "1", out]);
   }
@@ -150,6 +151,12 @@ export interface ResolveOptions {
   words?: Array<{ word: string; startS: number; endS: number }>;
   /** ProductionMemory: asset refs earlier films rejected (library key or provider:externalId) — never offered again. */
   blocked?: Set<string>;
+  /** Cited sources per narration segment (TimedScript.segments[].claims): real article screenshots for scenes. */
+  sources?: Map<string, Array<{ text: string; sourceUrl: string }>>;
+  /** Verified fact text: used to tell the vision check how the sources refer to a named person (he/she). */
+  factText?: string;
+  /** Story era from the fact sheet (more reliable than years spoken in the narration). */
+  era?: StoryEra | null;
   /** Fair-use press sourcing (YouTube news/interview excerpts, Wikipedia photos and logos). Default on. */
   press?: boolean;
   log?: (s: string) => void;
@@ -167,7 +174,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const bm = new Bm25(buildDocs(o.index));
   const orientation = o.storyboard.aspect === "9:16" ? "portrait" : "landscape";
 
-  const era = o.narration ? storyEraOf(o.narration) : null;
+  const era = o.era !== undefined ? o.era : o.narration ? storyEraOf(o.narration) : null;
   if (era) log(`  resolver: story era ${era.min}–${era.max}`);
   const needs = o.storyboard.shots.map((sh) => needOf(sh, era)).filter((n): n is Need => n !== null);
   for (const n of needs) n.line = (o.words ?? []).filter((w) => w.startS >= n.shot.startS - 0.05 && w.startS < n.shot.endS).map((w) => w.word).join(" ");
@@ -187,6 +194,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const pressNeeds = needs.filter((n) => n.shot.entities?.length);
     if (pressNeeds.length) log(`  resolver: press sourcing for ${pressNeeds.length} entity shot(s) (Wikipedia + YouTube excerpts, vision-checked)…`);
     const pool = new Map<string, PressCandidate[]>();
+    // How the sources refer to a person: a clip of somebody else (a relative, a reporter) must not pass as them.
+    const refersTo = (name: string) => {
+      const sn = name.split(/\s+/).at(-1) ?? name;
+      const sents = (o.factText ?? "").split(/(?<=[.!?])\s+/).filter((t) => t.includes(sn));
+      const he = sents.join(" ").match(/\b(he|his|him)\b/gi)?.length ?? 0;
+      const she = sents.join(" ").match(/\b(she|her|hers)\b/gi)?.length ?? 0;
+      return he >= 2 && he > she * 2 ? ', referred to as "he" in the sources — a woman on screen is NOT this person' : she >= 2 && she > he * 2 ? ', referred to as "she" in the sources — a man on screen is NOT this person' : "";
+    };
     const wikiCache = new Map<string, Promise<PressCandidate[]>>();
     const wiki = (e: { name: string; type: string }) => {
       const k = e.name.toLowerCase();
@@ -201,13 +216,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           const list: PressCandidate[] = [];
           if (e.type !== "event") list.push(...(await wiki(e)));
           if (!wantsImage(n) && ["person", "company", "event", "product"].includes(e.type)) list.push(...(await youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: n.durationS }).catch(() => [])));
+          if (e.type === "person") for (const c of list) if (!c.depicts.includes("referred to as")) c.depicts = `${c.depicts}${refersTo(e.name)}`;
           pool.set(n.shot.id, list.filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)));
         }),
       );
     }
     // Vision check in batches of 12 frames (Haiku).
     const flat = pressNeeds.flatMap((n) => (pool.get(n.shot.id) ?? []).map((c) => ({ n, c })));
-    const verdicts: Array<{ shows: boolean; quality: number; note: string }> = [];
+    const verdicts: Array<{ shows: boolean; quality: number; note: string; banner?: boolean }> = [];
     for (let i = 0; i < flat.length; i += 12) verdicts.push(...(await visionCheck(flat.slice(i, i + 12).map(({ n, c }) => ({ frameFile: c.frameFile, depicts: c.depicts, line: n.line }))).catch(() => flat.slice(i, i + 12).map(() => ({ shows: false, quality: 0, note: "check failed" })))));
     let placed = 0;
     for (const n of pressNeeds) {
@@ -219,6 +235,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       if (!pickP) continue;
       if (pickP.c.provider === "youtube") usedVideos.add(pickP.c.externalId.split("@")[0]!);
       else usedWiki.add(pickP.c.externalId);
+      pickP.c.banner = Boolean(pickP.v.banner);
       const isScene = n.shot.source.kind === "designed" && n.shot.source.designed === "scene";
       if (isScene && pickP.c.kind === "image") pressStills.push({ shotId: n.shot.id, c: pickP.c, q: pickP.v.quality });
       else chosen.set(n.shot.id, { src: "press", p: pickP.c, score: pickP.v.quality / 10 });
@@ -343,13 +360,71 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   }
   if (fallbacks) log(`  resolver: ${fallbacks} candidate(s) rejected for black frames; fell back`);
 
+  // Review EVERY library/stock/archive pick by eye (press picks were already checked): the picture must fit the
+  // line, carry no burned-in graphics, match the period, and — when the line names a person — must not put a
+  // stand-in face on screen. A rejected pick gets one alternate; failing that the shot has NO footage and the
+  // scene designer builds it on the film's colour world instead of a weak picture.
+  {
+    const eraText = era ? `${era.min}–${era.max}` : "unspecified";
+    const person = (n: Need) => n.shot.entities?.find((e) => e.type === "person")?.name ?? (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(n.line) && n.shot.lineLink === "literal" ? "a named person" : null);
+    let rejected = 0;
+    let replaced = 0;
+    for (let round = 0; round < 3; round++) {
+      const todo = media.filter((m) => m.role === "primary" && m.origin !== "press" && !m.seen);
+      if (!todo.length) break;
+      const items: Array<{ m: ResolvedMedia; n: Need; frame: string }> = [];
+      for (const m of todo) {
+        const n = needs.find((x) => x.shot.id === m.shotId);
+        const frame = `${m.localPath}.review.jpg`;
+        if (n && (await reviewFrame(m.localPath, frame, m.kind === "video" ? Math.min(1.2, n.durationS / 2) : 0))) items.push({ m, n, frame });
+        else m.seen = { fit: 5, face: false, banner: false, note: "not reviewed" };
+      }
+      const reviews = await reviewPictures(items.map((x) => ({ frameFile: x.frame, intent: x.n.shot.intent, line: x.n.line, era: eraText })));
+      for (const [k, x] of items.entries()) {
+        const r = reviews[k]!;
+        x.m.seen = { fit: r.fit, face: r.face, banner: r.banner, note: r.shows };
+        if (!x.m.depicts) x.m.depicts = r.shows;
+        const why = r.fit < 4 ? `poor fit (${r.fit}/10): shows ${r.shows}` : r.banner ? "burned-in graphics" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
+        if (!why) continue;
+        rejected++;
+        media.splice(media.indexOf(x.m), 1);
+        if (round === 0 && !(stock.get(x.n.shot.id) ?? []).length) {
+          // Widen the search: stock/archival for the query, and for the concrete nouns of the line itself.
+          const kind = x.n.kind === "image" ? "image" : "video";
+          const nouns = x.n.line.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 4 && !/^(their|there|which|would|could|about|after|before|because|every|other|these|those|being|where|while)$/i.test(w)).slice(0, 4).join(" ");
+          const found = (await Promise.all([x.n.query, nouns].filter((q) => q.length > 5).map((q) => searchStock(q, { kind, orientation, perPage: 5, providers: providersFor({ kind, period: x.n.period }) }).catch(() => [])))).flat();
+          stock.set(x.n.shot.id, found.filter((c) => !usedStock.has(`${c.provider}:${c.externalId}`) && !isBlocked(o.blocked, `${c.provider}:${c.externalId}`) && !anachronistic(`${c.title} ${c.tags.join(" ")}`, era) && !mismatch(`${c.title} ${c.tags.join(" ")}`, x.n.line, x.n.decade)).slice(0, 8).map((c) => ({ src: "stock" as const, c, score: 1 })));
+        }
+        const pool = [...(stock.get(x.n.shot.id) ?? []), ...(local.get(x.n.shot.id) ?? [])].filter((c) => !taken.has(keyOf(c)));
+        let ok = false;
+        if (round < 2) {
+          for (const alt of pool.slice(0, 2)) {
+            try {
+              const m2 = await materializeCand(alt, x.n);
+              if (m2.kind === "video" && (await hasBlack(m2.localPath))) continue;
+              media.push(m2);
+              taken.add(keyOf(alt));
+              replaced++;
+              ok = true;
+              break;
+            } catch {
+              /* try the next alternate */
+            }
+          }
+        }
+        if (!ok) unresolved.push({ shotId: x.n.shot.id, query: x.n.query, reason: `review: ${why}` });
+      }
+    }
+    log(`  resolver: every pick reviewed by eye — ${rejected} rejected (${replaced} replaced, ${rejected - replaced > 0 ? `${unresolved.filter((u) => u.reason.startsWith("review:")).length} shot(s) left for a designed scene` : "none left without a picture"})`);
+  }
+
   async function materializeCand(c: Cand, n: Need): Promise<ResolvedMedia> {
     if (c.src === "press") {
       const p = c.p;
       const alpha = /\.png$/i.test(p.localFile);
       const ext = p.kind === "video" ? "mp4" : alpha ? "png" : "jpg";
       const file = `${n.shot.id}_${createHash("sha1").update(`${p.provider}:${p.externalId}`).digest("hex").slice(0, 8)}.${ext}`;
-      await materialize(p.localFile, p.kind, path.join(mediaDir, file), 0, Math.min(n.durationS, p.durationS ?? n.durationS), alpha);
+      await materialize(p.localFile, p.kind, path.join(mediaDir, file), 0, Math.min(n.durationS, p.durationS ?? n.durationS), alpha, Boolean(p.banner));
       return { shotId: n.shot.id, role: "primary", origin: "press", ref: `${p.provider}:${p.externalId}`, provider: p.provider, kind: p.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, ...(p.width ? { width: p.width, height: p.height } : {}), license: p.license, attributionRequired: p.attributionRequired, ...(p.attributionText ? { attributionText: p.attributionText } : {}), sourceUrl: p.pageUrl, aiGenerated: false, score: c.score, query: n.query, depicts: p.depicts, fairUse: { ...p.fairUse, usedS: p.kind === "video" ? Math.round(Math.min(n.durationS + 0.8, p.durationS ?? n.durationS) * 10) / 10 : 0 } };
     }
     if (c.src === "local") {
@@ -404,6 +479,46 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       }
     }
     log(`  resolver: composed scenes — ${n} layer picture(s) placed across ${sceneShots.length} scene(s)`);
+  }
+
+  // Real article screenshots: for up to 4 scene shots whose line reports something a source published, the
+  // cited page itself becomes picture slot 6 (vision-checked: a readable article, not a cookie wall or error).
+  if (o.press !== false && o.sources) {
+    const REPORT = /\b(report|reported|according|investigat|article|newspaper|journal|magazine|headline|published|wrote|revealed|exposed|filing|lawsuit|sued|charged|convicted|announced|press)\b/i;
+    const usedUrls = new Set<string>();
+    const picks: Array<{ sh: StoryboardShot; url: string; text: string }> = [];
+    for (const sh of sceneShots) {
+      if (picks.length >= 4) break;
+      const line = (o.words ?? []).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
+      if (!REPORT.test(`${line} ${sh.intent}`)) continue;
+      const src = (o.sources.get(sh.scriptSegmentId) ?? []).find((c) => !usedUrls.has(c.sourceUrl) && !/wikipedia\.org|youtube\.com/.test(c.sourceUrl));
+      if (!src) continue;
+      usedUrls.add(src.sourceUrl);
+      picks.push({ sh, url: src.sourceUrl, text: src.text });
+    }
+    const shots = await Promise.all(
+      picks.map(async (p) => {
+        const out = path.join(pressDir, `web_${createHash("sha1").update(p.url).digest("hex").slice(0, 10)}.jpg`);
+        return (await screenshotPage(p.url, out)) ? { ...p, out } : null;
+      }),
+    );
+    const got = shots.filter((x): x is NonNullable<typeof x> => x !== null);
+    const ok = got.length ? await visionCheck(got.map((g) => ({ frameFile: g.out, depicts: `a readable published article or official page whose headline is about: ${g.text.slice(0, 140)} (NOT a cookie/consent wall, paywall, login, error or blank page)`, line: g.text }))).catch(() => got.map(() => ({ shows: false, quality: 0, note: "" }))) : [];
+    let n = 0;
+    for (const [k, g] of got.entries()) {
+      if (!ok[k]?.shows || (ok[k]?.quality ?? 0) < 5) continue;
+      const file = `layer_${g.sh.id}_6_${path.basename(g.out)}`;
+      try {
+        await materialize(g.out, "image", path.join(mediaDir, file), 0, 1, false);
+        const host = new URL(g.url).hostname.replace(/^www\./, "");
+        media.push({ shotId: g.sh.id, role: "layer", slot: 6, origin: "press", ref: `web:${g.url}`, provider: "web", kind: "image", localPath: path.join(mediaDir, file), publicPath: `media/${file}`, width: 1280, height: 900, license: "Fair use (screenshot of the cited source)", attributionRequired: true, attributionText: host, sourceUrl: g.url, aiGenerated: false, score: (ok[k]?.quality ?? 5) / 10, query: host, depicts: `screenshot of the real article on ${host} (1.42:1) — ${g.text.slice(0, 90)}`, fairUse: { sourceTitle: g.text.slice(0, 120), channel: host, usedS: 0, reason: "screenshot of the cited source shown as evidence under commentary" } });
+        n++;
+      } catch {
+        /* skip */
+      }
+    }
+    await closeBrowser();
+    if (picks.length) log(`  resolver: article screenshots — ${n}/${picks.length} cited source page(s) captured and approved`);
   }
 
   // Press stills picked for scene shots become picture slot 5 of that scene.

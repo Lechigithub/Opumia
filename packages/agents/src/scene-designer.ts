@@ -71,6 +71,8 @@ export interface DesignScenesOptions {
   channel: string;
   /** Real reference frames with their labels, shown to the designer with every batch. */
   exemplars?: SceneExemplar[];
+  /** Every real person the film names (research dossier characters), for the name-over-face guard. */
+  people?: string[];
   /** Redesign only these shots (after a preview critique), with the critic's notes per shot. */
   issues?: Map<string, string[]>;
   previous?: ScenePlan;
@@ -161,6 +163,9 @@ LAYOUT RULES:
   for (const r of rest) results.push(...r);
 
   const specs: SceneSpec[] = [...keep];
+  // Surnames of every person the film names (shot entities of type person).
+  const people = [...new Set([...(o.people ?? []), ...o.storyboard.shots.flatMap((s) => (s.entities ?? []).filter((e) => e.type === "person").map((e) => e.name))].map((n) => n.replace(/\s*\(.*?\)\s*/g, " ").trim().toLowerCase().split(/\s+/).at(-1)!.replace(/[^a-z]/g, "")))].filter((x) => x.length >= 3);
+  let nameGuarded = 0;
   let dropped = 0;
   let three = 0;
   for (const sh of todo) {
@@ -212,6 +217,14 @@ LAYOUT RULES:
       else if (e.type === "texture" && e.texture !== "none") els.push({ type: "texture", texture: e.texture, opacity: 0.28, at: 0 });
     }
     fitLayout(els, portrait);
+    // Name guard: collect every person named anywhere in the film; if this scene's on-screen text names one and
+    // its footage is not verified press of that person, the footage is dropped for the film's colour world.
+    const onScreen = els.map((e) => ("text" in e ? e.text : "")).join(" ").toLowerCase();
+    const primaryM = media.find((m) => m.role === "primary");
+    const named = people.filter((sn) => new RegExp(`\\b${sn}\\b`, "i").test(onScreen));
+    const verified = (sn: string) => primaryM?.origin === "press" && (primaryM.depicts ?? "").toLowerCase().includes(sn);
+    const unsafeFace = named.length > 0 && Boolean(primaryM) && !named.every(verified);
+    if (unsafeFace) nameGuarded++;
     if (!els.some((e) => e.type !== "texture" && e.type !== "shape")) {
       // Nothing focal survived: fall back to the channel's signature — a spoken phrase over the footage.
       const ws = lineOf(sh.startS, sh.endS).split(/\s+/).filter(Boolean);
@@ -221,7 +234,7 @@ LAYOUT RULES:
     specs.push({
       shotId: sh.id,
       idea: d.idea.slice(0, 200),
-      backdrop: !hasFootage && (d.backdrop === "footage" || d.backdrop === "split") ? "world" : d.backdrop,
+      backdrop: (!hasFootage || unsafeFace) && (d.backdrop === "footage" || d.backdrop === "split") ? "world" : d.backdrop,
       dim: clamp(d.dim, 0.1, 0.6),
       ...(d.wash && hasFootage && tr && tr.wash !== "none" ? { wash: { color: "primary" as const, strength: tr.washStrength, mode: tr.wash } } : {}),
       camera: (() => {
@@ -237,7 +250,7 @@ LAYOUT RULES:
   specs.sort((a, b) => a.shotId.localeCompare(b.shotId));
   const kinds = new Map<string, number>();
   for (const s of specs) for (const e of s.elements) kinds.set(e.type, (kinds.get(e.type) ?? 0) + 1);
-  log(`  scene designer: ${specs.length}/${all.length} scene(s) ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) dropped (missing slot, unspoken phrase or figure)` : ""}`);
+  log(`  scene designer: ${specs.length}/${all.length} scene(s) ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) dropped (missing slot, unspoken phrase or figure)` : ""}${nameGuarded ? `; ${nameGuarded} scene(s) moved off footage (a real name over a face that is not verified as that person)` : ""}`);
   return ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: specs, generatedAt: new Date().toISOString() });
 }
 

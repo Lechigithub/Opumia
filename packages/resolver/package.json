@@ -13,6 +13,7 @@
     "@opumia/ingest": "workspace:*",
     "@opumia/agents": "workspace:*",
     "zod": "^3.24.1",
-    "@opumia/senses": "workspace:*"
+    "@opumia/senses": "workspace:*",
+    "@remotion/renderer": "4.0.539"
   }
 }

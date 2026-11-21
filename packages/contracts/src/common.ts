@@ -67,5 +67,6 @@ export const StockProvider = z.enum([
   "wikidata",
   "wikipedia",
   "youtube",
+  "web",
 ]);
 export type StockProvider = z.infer<typeof StockProvider>;
