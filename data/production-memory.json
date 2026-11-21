@@ -187,6 +187,18 @@
         "hook": "irony",
         "ending": "callback",
         "spine": "Dark side exposed"
+      },
+      {
+        "job": "eval-quick-kodak",
+        "hook": "mystery",
+        "ending": "lesson",
+        "spine": "Brand decline and hype bust"
+      },
+      {
+        "job": "eval-quick-theranos",
+        "hook": "mystery",
+        "ending": "warning",
+        "spine": "Dark side exposed"
       }
     ]
   },

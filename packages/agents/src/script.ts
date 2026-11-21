@@ -3,7 +3,8 @@ import { ScriptDraft, usableClaims, type Aspect, type FactSheet } from "@opumia/
 import * as z from "zod/v4";
 import { cached, MODELS, plain, structured } from "./llm.js";
 import type { StylePack } from "./style-pack.js";
-import { critiqueNarrative } from "./narrative.js";
+import { critiqueNarrative, sentencesOf } from "./narrative.js";
+import { CONTRAST } from "./style-pack.js";
 import { normalizeFigures } from "./numeric-facts.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
@@ -218,6 +219,40 @@ export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
       maxTokens: 32000,
     });
     data = rev.data;
+  }
+  // Number budget, enforced in code (reference: 16 % of sentences carry a figure; ceiling 18 %). The strongest
+  // figures stay — contrast framing, money, the cold open — and the rest are rewritten without figures, sentence
+  // by sentence; a rewrite that still carries a digit is rejected and the original kept.
+  {
+    const all = data.segments.flatMap((sg, si) => sentencesOf(sg.text).map((t) => ({ si, t })));
+    const withNum = all.filter((x) => /\d/.test(x.t));
+    const budget = Math.max(1, Math.floor(all.length * 0.18));
+    if (withNum.length > budget) {
+      const rank = (x: { si: number; t: string }) => (CONTRAST.test(x.t) ? 3 : 0) + (/[$€£]|billion|million|trillion/i.test(x.t) ? 2 : 0) + (/%/.test(x.t) ? 1 : 0) + (["cold_open", "hook", "thesis"].includes(data.segments[x.si]!.role) ? 1 : 0) - (/^[^$€£%]*\b(1[5-9]\d\d|20\d\d)\b[^$€£%\d]*$/.test(x.t) ? 1.5 : 0);
+      const keep = new Set([...withNum].sort((a, b) => rank(b) - rank(a)).slice(0, budget));
+      const cut = withNum.filter((x) => !keep.has(x));
+      const res = await structured({
+        stage: "script.numbers",
+        model: MODELS.sonnet,
+        system: [plain(`You are the story editor of the channel in this brief. Rewrite each sentence WITHOUT any digit, year or figure, keeping its meaning, its facts and the narrator's voice, at about the same length. Replace dates with relative time ("a year later", "by then", "that same summer") and amounts with scale the viewer feels ("a fortune", "more than the company was worth", "almost nothing"). Never add facts.`)],
+        user: cut.map((x, i) => `[${i}] (in: "${data.segments[x.si]!.text.slice(0, 300)}")\n${x.t}`).join("\n\n"),
+        schema: z.object({ rewrites: z.array(z.object({ index: z.number(), text: z.string() })) }),
+        effort: "low",
+        maxTokens: 6000,
+      });
+      let done = 0;
+      for (const r of res.data.rewrites) {
+        const x = cut[r.index];
+        const t = r.text.trim();
+        if (!x || !t || /\d/.test(t)) continue;
+        const seg = data.segments[x.si]!;
+        if (!seg.text.includes(x.t)) continue;
+        seg.text = seg.text.replace(x.t, t);
+        done++;
+      }
+      const after = data.segments.flatMap((sg) => sentencesOf(sg.text)).filter((t) => /\d/.test(t)).length;
+      log(`  script: number budget — ${withNum.length}/${all.length} sentences carried figures; ${done} rewritten without them → ${after} (${Math.round((after / all.length) * 100)} %, ceiling 18 %)`);
+    }
   }
   {
     const left = critiqueNarrative(data.segments, o.narrationWpm, { short, maxGapS: 50 });

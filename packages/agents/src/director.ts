@@ -116,7 +116,7 @@ export async function directStoryboard(o: DirectOptions): Promise<Storyboard> {
 Constraints:
 - Aspect ${o.script.aspect}${o.script.aspect === "9:16" ? " (vertical: keep subjects centred, text in the upper two-thirds; captions own the band above the bottom 24%)" : " (landscape: lower thirds sit at 16% from the bottom, captions below them)"}.
 - Median shot ≈ ${medShot.toFixed(1)} s (never under 0.8 s, never over ${short ? 5 : 7} s). Each shot starts on a word index (startWord); startWord strictly increasing; the first shot of this chunk starts at its first word index. Cut on emphasis words and sentence starts.
-- VISUAL MIX (measured on the channel): ~70% sharp footage (reenactment, archival, b-roll) and 25–30% DESIGNED shots — roughly one designed shot in every 3–4. Hit that share. Designed elements sit over sharp, dark-graded footage, so every designed shot still needs a strong footage query. Reach for: hero_face the first time each key person appears; versus or chart for every contrast anchor (us vs a rival); document for memos, filings and quotes; map for places and expansions; screen for software/app beats; cutout_collage for a key product or person at a turning point; big_word text slams (1–2 words) on chapter turns, dates and verdicts; money_figure only for a decisive spoken figure.
+- VISUAL MIX (measured on the channel): ~70% sharp footage (reenactment, archival, b-roll) and 25–30% DESIGNED shots — roughly one designed shot in every 3–4. Hit that share. Designed elements sit over sharp, dark-graded footage, so every designed shot still needs a strong footage query. ABOUT HALF OF ALL DESIGNED SHOTS ARE "scene" (a custom composed layout for that exact line — the channel's logo reveals, photo-print collages, kinetic words over footage, callouts, step flows); the fixed kinds below cover the rest. Reach for: scene for any line that names a company, product or person at a turning point, a process, or a title moment; hero_face the first time each key person appears; versus or chart for every contrast anchor (us vs a rival); document for memos, filings and quotes; map for places and expansions; screen for software/app beats; cutout_collage for a key product or person at a turning point; big_word text slams (1–2 words) on chapter turns, dates and verdicts; money_figure only for a decisive spoken figure.
 - SHOW THE REAL THING (style pack section 8): when the line names a specific person, company, product, building or event, set entities (name, type, year) — the resolver then fetches real press footage (news, interviews, keynotes) and real photos/logos of it. Real material of the actual entity always beats generic stock. Generic stock and reenactment are for mood and process lines only.
 - FOLLOW THE VISUAL GRAMMAR (section 8): number lines are designed (counter, chart, scene with the spoken figure); comparison lines are versus/chart; process lines are step-flow scenes; literal lines that name a brand or person get the real footage/photo or a composed scene with their logo/photo; mood lines get footage.
 - NO AI-generated imagery ever. Visuals are real footage, real photos or designed graphics.
@@ -279,6 +279,32 @@ ${formatFactTable(nf) || "(none — do not use money_figure, chart or versus)"}`
   {
     const share = shots.filter((x) => x.source.kind === "designed").length / Math.max(1, shots.length);
     log(`  director: designed share ${(share * 100).toFixed(0)} % (reference 24–36 %)${share < 0.2 ? " — below the channel band" : ""}`);
+  }
+  // Visual grammar floor (reference: 24–36 % designed, about half of it custom compositions). The model under-uses
+  // designed shots, so the floor is enforced here: the strongest footage beats become composed scenes — lines that
+  // name a company/product/person first, then data and literal lines — spaced so designed shots never stack.
+  {
+    const isDes = (x: StoryboardShot) => x.source.kind === "designed" && x.source.designed !== "name_label";
+    const designedTarget = Math.ceil(shots.length * 0.26);
+    const sceneTarget = Math.max(2, Math.round(designedTarget * 0.5));
+    const scenesNow = () => shots.filter((x) => x.source.kind === "designed" && x.source.designed === "scene").length;
+    const score = (x: StoryboardShot) => (x.entities?.some((e) => ["company", "product", "person"].includes(e.type)) ? 3 : 0) + (x.lineLink === "data" ? 2 : x.lineLink === "literal" ? 1.5 : x.lineLink === "metaphor" ? 1 : 0) + (x.endS - x.startS >= 2.2 ? 0.5 : 0);
+    const free = () =>
+      shots
+        .map((x, k) => ({ x, k }))
+        .filter(({ x, k }) => x.source.kind === "query" && k > 0 && x.endS - x.startS >= 1.8 && !(shots[k - 1] && isDes(shots[k - 1]!)) && !(shots[k + 1] && isDes(shots[k + 1]!)))
+        .sort((a, b) => score(b.x) - score(a.x) || a.k - b.k);
+    let promoted = 0;
+    while ((scenesNow() < sceneTarget || shots.filter(isDes).length < designedTarget) && shots.filter(isDes).length < maxDesigned) {
+      const c = free()[0];
+      if (!c) break;
+      const sh = c.x;
+      const q = sh.source.kind === "query" ? sh.source.query : sh.intent;
+      const layers = (sh.entities ?? []).filter((e) => ["company", "product", "person", "place"].includes(e.type)).slice(0, 2).map((e) => ({ name: e.name, type: e.type }));
+      sh.source = { kind: "designed", designed: "scene", props: { brief: `compose this line visually: ${sh.intent}`, layers, words: [], background: { query: q, mustBe: "video" } }, assetIds: [] };
+      promoted++;
+    }
+    if (promoted) log(`  director: visual grammar floor — ${promoted} footage beat(s) promoted to composed scenes (${scenesNow()} scenes, ${shots.filter(isDes).length}/${shots.length} designed)`);
   }
   if (capped) log(`  director: variety caps — ${capped} graphic(s) returned to footage (≤ ${maxCounters} counters, unique slams, ≤ 30 % designed)`);
 
