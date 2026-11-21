@@ -350,7 +350,14 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
           <AbsoluteFill style={{ background: wc, mixBlendMode: wash.mode === "duotone" ? "color" : "soft-light", opacity: wash.mode === "duotone" ? Math.min(0.6, wash.strength * 0.9) : wash.strength * 1.2 }} />
         </>
       ) : null}
-      {bd === "world" || bd === "surface" ? <World kind={TREATMENT.world} /> : null}
+      {bd === "world" ? <World kind={TREATMENT.world} /> : null}
+      {/* The film's second stage: a deep surface in its own hues with a slow sweep — clearly not the colour world. */}
+      {bd === "surface" ? (
+        <AbsoluteFill style={{ background: `radial-gradient(ellipse at ${30 + Math.sin(f / 70) * 12}% 30%, ${PALETTE.steel}, ${PALETTE.ink} 72%)` }}>
+          <AbsoluteFill style={{ opacity: 0.5, background: `conic-gradient(from ${f / 3}deg at 70% 60%, transparent 0 25deg, ${PALETTE.crimsonDeep}55 25deg 60deg, transparent 60deg 360deg)` }} />
+          <AbsoluteFill style={{ opacity: 0.16, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.5) 0 1px, transparent 1px 64px)", backgroundPosition: `${f / 2}px 0` }} />
+        </AbsoluteFill>
+      ) : null}
       {bd === "paper" ? <World kind="paper" /> : null}
       {bd === "split" ? <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: "50%", overflow: "hidden" }}><World kind={TREATMENT.world} /></div> : null}
       <Particles kind={TREATMENT.particles} />

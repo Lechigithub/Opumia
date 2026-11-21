@@ -256,6 +256,16 @@ Test without rendering a film: `npx tsx apps/cli/src/dev/narrate-test.ts out/<jo
 - **Package check** (Haiku): title, thumbnail words, description and pinned comment against the narration — anything promised but not delivered is listed in `publish.json.checks`.
 - Reference packaging lives in the exemplar library (`packaging`: title, views, description story paragraph, tags).
 
+## Uniqueness: treatment and fingerprint (rebuild stage 9)
+
+No two films may share anything but the channel's style. `agents/fingerprint.ts`:
+
+- **Fingerprint** of every planned film (`data/fingerprints.json`, and `out/<job>/fingerprint.json`): colour world, type and treatment (incl. the film's **signature transition**), where designed elements sit on screen (element type × 3×3 cell), backdrop and shot-kind mix, story blueprint, opening and closing words, title, sounds and music.
+- **Similarity** per respect with limits (`UNIQUE_LIMITS`: colour 0.7, treatment 0.56, layout 0.9, story 0.67, words 0.4, sound 0.34). `closest()` names the nearest earlier film and what is over a limit; the release gate check `unique_plan` fails a film that is too close in any respect.
+- **Prevention at every planning stage** (`habitsOf` over the last 6 films): the art director is told recent hues, treatments, type and transitions (and guarded in code); the writer is given recent openings to avoid; the scene designer is told the placements recent films leaned on; sounds and pictures are on cooldown; thumbnail concepts are avoided.
+- **Within a film:** the treatment keeps it coherent; scene guards keep it from becoming a slide deck — no filler-word headlines, no empty frames (a frame shape must frame something), at most two scenes in a row on the same non-footage backdrop (rotates colour world → dark surface → paper).
+- `out/<job>/treatment.md` is the film's written treatment (concept, colour world, type, styles, transition, motif, story shape, closest earlier film).
+
 ## Platform evaluation (blind reference test)
 
 `opumia eval` measures the platform, not one film. Every film is cut into 20 s picture windows (frames + narration + same-method cut counts) and 45 s narration passages, each paired with a real reference window of the same position and shown blind (A/B) to a Sonnet judge. The judge is only trusted after calibration on degraded reference windows (wrong picture, generic stock, bland rewrite, real-vs-real). Report: caught count + indistinguishability, judge tells grouped by area, trend in `data/eval/<set>/history.json`.

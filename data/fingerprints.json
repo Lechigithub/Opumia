@@ -1,0 +1,209 @@
+[
+ {
+  "job": "preview-theranos",
+  "channel": "magnates-media",
+  "at": "2026-11-21T16:42:37.939Z",
+  "colour": {
+   "primary": "#0f95b8",
+   "accent": "#e8203a",
+   "surface": "#092632"
+  },
+  "type": {
+   "display": "geometric_sans",
+   "body": "grotesk",
+   "casing": "upper"
+  },
+  "treatment": {
+   "headline": "solid_stroke",
+   "phrase": "boxed",
+   "label": "tag",
+   "photo": "print",
+   "world": "spotlight",
+   "particles": "dust",
+   "wash": "duotone",
+   "transition": "whip"
+  },
+  "motif": "A single blood drop falling into a glass microsample vial, which fills and empties across the film as the valuation rise",
+  "layout": {
+   "text:kicker@00": 0.026,
+   "text:display@10": 0.013,
+   "shape@01": 0.026,
+   "phrase@01": 0.013,
+   "shape@20": 0.052,
+   "photo@20": 0.039,
+   "text:headline@00": 0.013,
+   "card3d@00": 0.013,
+   "text:headline@20": 0.039,
+   "phrase@21": 0.039,
+   "photo@00": 0.026,
+   "text:display@12": 0.013,
+   "shape@10": 0.065,
+   "text:kicker@02": 0.013,
+   "text:label@02": 0.052,
+   "shape@22": 0.013,
+   "phrase@10": 0.013,
+   "shape@02": 0.026,
+   "text:label@22": 0.039,
+   "text:display@01": 0.013,
+   "shape@00": 0.013,
+   "text:display@11": 0.052,
+   "text:headline@12": 0.013,
+   "text:headline@10": 0.013,
+   "text:label@00": 0.026,
+   "phrase@22": 0.013,
+   "text3d@10": 0.013,
+   "text:label@10": 0.026,
+   "text:display@21": 0.013,
+   "shape@21": 0.026,
+   "text:kicker@12": 0.013,
+   "phrase@12": 0.039,
+   "text:headline@21": 0.039,
+   "text:label@12": 0.026,
+   "shape@11": 0.026,
+   "text:display@00": 0.013,
+   "text:label@11": 0.013,
+   "text:stamp@20": 0.013,
+   "shape@12": 0.013,
+   "text:headline@01": 0.013,
+   "card3d@10": 0.013,
+   "phrase@11": 0.013,
+   "text3d@11": 0.013
+  },
+  "mix": {
+   "backdrop:footage": 0.18,
+   "backdrop:world": 0.246,
+   "backdrop:paper": 0.033,
+   "backdrop:split": 0.016,
+   "kind:scene": 0.475,
+   "kind:versus": 0.016,
+   "kind:document": 0.033
+  },
+  "story": {
+   "hook": "stakes",
+   "spine": "Dark side exposed",
+   "ending": "open_question"
+  },
+  "opening": "Theranos was reportedly worth billions on the strength of one blood-testing device, yet in 2014 it claimed a $100 million revenue stream and made about $100,000. So how did that fool Silicon Valley? This is how Holmes pulled it off, and what happened to the",
+  "closing": "about patients. She reported to federal prison in Texas, with a release date of Aug 16, 2032. So if jurors saw investors as the victims, who answers for the patients?",
+  "title": "How Theranos Fooled Silicon Valley",
+  "sound": {
+   "sfx": [
+    "095f1896d50b6e6f",
+    "1794a26d359d39b5",
+    "3c04c2822cfb527f",
+    "3c0eddf20492ef99",
+    "46332f391a89b80c",
+    "7f1c86033bd11655",
+    "9aac479c9e469c1c",
+    "9df52ecc7c28c9b2",
+    "e22b8a1e1759b9d4",
+    "f112c4720b330a9e"
+   ],
+   "music": [
+    "1860be91eb0e93b2"
+   ]
+  }
+ },
+ {
+  "job": "preview-kodak",
+  "channel": "magnates-media",
+  "at": "2026-11-21T16:55:12.822Z",
+  "colour": {
+   "primary": "#e3141f",
+   "accent": "#ffc400",
+   "surface": "#3a0b0f"
+  },
+  "type": {
+   "display": "slab",
+   "body": "humanist",
+   "casing": "upper"
+  },
+  "treatment": {
+   "headline": "boxed",
+   "phrase": "paper_cut",
+   "label": "bracket",
+   "photo": "polaroid",
+   "world": "halftone",
+   "particles": "dust",
+   "wash": "duotone",
+   "transition": "light_leak"
+  },
+  "motif": "a strip of 35mm film with sprocket holes whose frames fill with yellow, then go blank and fade to a single pixel grid",
+  "layout": {
+   "phrase@02": 0.013,
+   "photo@20": 0.013,
+   "text:headline@00": 0.026,
+   "shape@12": 0.079,
+   "text:label@02": 0.013,
+   "shape@10": 0.053,
+   "phrase@10": 0.039,
+   "text:display@11": 0.039,
+   "shape@11": 0.092,
+   "phrase@20": 0.013,
+   "shape@21": 0.013,
+   "cutout@10": 0.013,
+   "text:display@12": 0.013,
+   "text3d@20": 0.013,
+   "shape@20": 0.026,
+   "cutout@00": 0.013,
+   "card3d@20": 0.013,
+   "phrase@12": 0.066,
+   "phrase@00": 0.013,
+   "text:kicker@22": 0.013,
+   "text:headline@22": 0.026,
+   "shape@00": 0.026,
+   "text:display@10": 0.039,
+   "text:label@00": 0.026,
+   "shape@01": 0.039,
+   "phrase@11": 0.039,
+   "text3d@10": 0.013,
+   "text:label@12": 0.013,
+   "text:display@22": 0.013,
+   "text:display@20": 0.013,
+   "text:headline@10": 0.039,
+   "text:headline@12": 0.026,
+   "text:label@10": 0.013,
+   "phrase@22": 0.013,
+   "shape@22": 0.013,
+   "text:stamp@00": 0.013,
+   "text3d@11": 0.013,
+   "text:label@01": 0.013,
+   "text:display@01": 0.013,
+   "text:headline@21": 0.013
+  },
+  "mix": {
+   "backdrop:footage": 0.143,
+   "backdrop:world": 0.232,
+   "backdrop:paper": 0.089,
+   "backdrop:surface": 0.018,
+   "kind:scene": 0.482,
+   "kind:versus": 0.018,
+   "kind:document": 0.018
+  },
+  "story": {
+   "hook": "flash_forward",
+   "spine": "Brand decline and hype bust",
+   "ending": "lesson"
+  },
+  "opening": "A handmade box the size of a toaster oven sits wired to a TV in a windowless room in Rochester, New York. It takes almost a minute to show one picture, but it's a photo taken with no film at all. The engineer's colleagues are",
+  "closing": "billion months later. Kodak had the answer in that room, but kept protecting the film that paid the bills. If you won't replace your own best product, someone else will.",
+  "title": "How Kodak Invented the Digital Camera and Still Died",
+  "sound": {
+   "sfx": [
+    "2f6f517eeb6e4a13",
+    "489b07f3c187241b",
+    "48b11a856f6a3a71",
+    "69d856a4f9f7ebbf",
+    "76f884fedb10e13b",
+    "8aae89204369320c",
+    "bbe1249feb9ecf19",
+    "c8eac9e229c3fd1c",
+    "cac0a2fa9bf36109",
+    "da7e9240a1401d48"
+   ],
+   "music": [
+    "17d16bdc91e20542"
+   ]
+  }
+ }
+]

@@ -49,7 +49,7 @@ const Plan = z.object({
     z.object({
       shotId: z.string(),
       idea: z.string().describe("one line: what the viewer sees and why it fits the line"),
-      backdrop: z.enum(["footage", "world", "paper", "split"]),
+      backdrop: z.enum(["footage", "world", "surface", "paper", "split"]),
       wash: z.boolean().describe("colour this shot's footage into the film's palette (use on roughly half of the footage shots: mood, reenactment and generic footage; leave real press footage and photos natural)"),
       dim: z.number().describe("how much the footage is darkened under the design, 0.1..0.6"),
       camera: z.object({ fromScale: z.number(), toScale: z.number(), fromX: z.number(), toX: z.number(), fromY: z.number(), toY: z.number() }),
@@ -71,6 +71,8 @@ export interface DesignScenesOptions {
   channel: string;
   /** Real reference frames with their labels, shown to the designer with every batch. */
   exemplars?: SceneExemplar[];
+  /** Where recent films put things on screen (their most used placements): this film must not lean on the same ones. */
+  avoidLayouts?: string;
   /** Every real person the film names (research dossier characters), for the name-over-face guard. */
   people?: string[];
   /** Redesign only these shots (after a preview critique), with the critic's notes per shot. */
@@ -134,7 +136,8 @@ LAYOUT RULES:
 - Entrances: "at" in seconds, timed to when the word or thing is spoken, staggered ≥ 0.15 s; vary the enter type.
 - Camera: a clear move across the whole scene (scale travels at least 0.08 between 1.0 and 1.2; focus 0.4–0.6), direction alternating shot to shot — the picture is never static.
 - No two consecutive shots share a layout. Across the batch use at least 5 clearly different layouts, and at most HALF of the shots may be "phrase over footage" — the rest are picture compositions, headlines, labels on real footage, shapes that point at things, or 3D moments. Vary phrase colour (text, primary, primarySoft) and size too.
-- On-screen words are words the narrator says (or the name of what a slot shows). Never a number unless that exact figure is spoken in the shot. Never invent facts.
+${o.avoidLayouts ? `- Recent films leaned on these placements — this film must NOT: ${o.avoidLayouts}. Build this film's layouts around other parts of the frame.\n` : ""}- On-screen words are words the narrator says (or the name of what a slot shows). Never a number unless that exact figure is spoken in the shot. Never invent facts.
+- Without footage a scene must still be a PICTURE, not a caption on a colour: build it from the slots, a 3D element, large type with a drawn shape that means something (a strike-through, an arrow between two things, a circle around the key word), or the film's motif. Never leave an empty outlined box.
 - backdrop: "footage" when the shot has footage (dim 0.15–0.45, lower when the design is light); "world" or "paper" when it has none or when a picture composition needs a clean stage; "split" = footage left, world right.`;
 
   const exemplarBlocks: Anthropic.Beta.BetaContentBlockParam[] = [];
@@ -216,6 +219,26 @@ LAYOUT RULES:
       } else if (e.type === "shape" && e.shape !== "none") els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h || 0.008, 0.003, 0.9), color: e.color, ...(e.shape === "arrow" || e.shape === "line" ? { x2: clamp(e.x2, 0.02, 0.98), y2: clamp(e.y2, 0.02, 0.98) } : {}) });
       else if (e.type === "texture" && e.texture !== "none") els.push({ type: "texture", texture: e.texture, opacity: 0.28, at: 0 });
     }
+    // A headline or label must carry meaning: text made only of filler words ("THE", "AT ALL", "A") is dropped.
+    const FILLER = /^(the|a|an|of|and|to|in|on|at|all|for|by|with|was|is|it|its|his|her|their|this|that|as|from|but|so|then|they|he|she|we|i|that's|it's)$/i;
+    for (let k = els.length - 1; k >= 0; k--) {
+      const e = els[k]!;
+      if (e.type === "text" && e.text.split(/\s+/).every((w) => FILLER.test(w.replace(/[^\p{L}']/gu, "")))) (els.splice(k, 1), dropped++);
+    }
+    // An outlined box, bracket or circle that frames nothing is a placeholder, not design: a frame shape stays
+    // only if it sits around a picture or a piece of text. At most three shapes per scene.
+    {
+      const focal = els.filter((e) => e.type === "text" || e.type === "phrase" || e.type === "photo" || e.type === "cutout" || e.type === "card3d" || e.type === "text3d") as Array<{ x: number; y: number; w: number }>;
+      let shapes = 0;
+      for (let k = 0; k < els.length; k++) {
+        const e = els[k]!;
+        if (e.type !== "shape") continue;
+        const frame = e.shape === "rect" || e.shape === "bracket" || e.shape === "circle";
+        const near = focal.some((f) => f.x < e.x + e.w + 0.04 && f.x + f.w > e.x - 0.04 && Math.abs(f.y - e.y) < 0.3);
+        if ((frame && !near) || shapes >= 3) (els.splice(k, 1), k--, dropped++);
+        else shapes++;
+      }
+    }
     fitLayout(els, portrait);
     // Name guard: collect every person named anywhere in the film; if this scene's on-screen text names one and
     // its footage is not verified press of that person, the footage is dropped for the film's colour world.
@@ -248,6 +271,25 @@ LAYOUT RULES:
     });
   }
   specs.sort((a, b) => a.shotId.localeCompare(b.shotId));
+  // No slide deck: at most two scenes in a row on the same non-footage backdrop. A third rotates to the film's
+  // other stages (colour world → dark surface → paper), so a stretch without footage still changes scenery.
+  {
+    const order = ["world", "surface", "paper"] as const;
+    let run = 0;
+    for (let k = 0; k < specs.length; k++) {
+      const cur = specs[k]!;
+      const prev = specs[k - 1];
+      if (cur.backdrop === "footage" || cur.backdrop === "split") {
+        run = 0;
+        continue;
+      }
+      run = prev && prev.backdrop === cur.backdrop ? run + 1 : 1;
+      if (run > 2) {
+        cur.backdrop = order[(order.indexOf(cur.backdrop as (typeof order)[number]) + 1) % order.length]!;
+        run = 1;
+      }
+    }
+  }
   const kinds = new Map<string, number>();
   for (const s of specs) for (const e of s.elements) kinds.set(e.type, (kinds.get(e.type) ?? 0) + 1);
   log(`  scene designer: ${specs.length}/${all.length} scene(s) ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) dropped (missing slot, unspoken phrase or figure)` : ""}${nameGuarded ? `; ${nameGuarded} scene(s) moved off footage (a real name over a face that is not verified as that person)` : ""}`);

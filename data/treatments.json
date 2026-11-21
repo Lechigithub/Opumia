@@ -10,6 +10,21 @@
   "label": "tag",
   "display": "geometric_sans",
   "primary": "#0f95b8",
-  "accent": "#e8203a"
+  "accent": "#e8203a",
+  "transition": "whip"
+ },
+ {
+  "job": "preview-kodak",
+  "channel": "magnates-media",
+  "headline": "boxed",
+  "phrase": "paper_cut",
+  "world": "halftone",
+  "particles": "dust",
+  "photo": "polaroid",
+  "label": "bracket",
+  "display": "slab",
+  "primary": "#e3141f",
+  "accent": "#ffc400",
+  "transition": "light_leak"
  }
 ]

@@ -63,6 +63,8 @@ export interface ScriptOptions {
   narrationWpm: number;
   /** Blueprints this channel used recently (from ProductionMemory) — the chooser must not repeat them. */
   recent?: Array<{ hook: string; ending: string; spine: string }>;
+  /** How recent films opened (first ~20 words each): this film must open differently. */
+  recentOpenings?: string[];
   /** Reuse a chosen blueprint (e.g. on a length re-fit). */
   blueprint?: { hook: string; spine: string; ending: string; why: string };
   log?: (s: string) => void;
@@ -164,7 +166,7 @@ export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
   }
   log(`  script: blueprint — open ${bp.hook}, spine "${bp.spine}", end ${bp.ending}`);
   const system = [cached(o.pack.text), plain(WRITER_TASK({ short, words: targetWords, durationS: o.durationS, bp, aspect: o.aspect }))];
-  const user = `TOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n${dossierText(o.facts)}\n\nFACT SHEET:\n${factText}`;
+  const user = `TOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n${dossierText(o.facts)}\n\nFACT SHEET:\n${factText}${o.recentOpenings?.length ? `\n\nRECENT FILMS OPENED LIKE THIS — open differently: not the same first words, not the same sentence shape, not the same device (e.g. if they opened on a magazine cover or a net-worth figure, do not):\n${o.recentOpenings.map((x) => `- "${x}…"`).join("\n")}` : ""}`;
 
   log(`  script: drafting ${targetWords} words (${MODELS.sonnet}, style pack cached)…`);
   let { data, usage } = await structured({ stage: "script.draft", model: MODELS.sonnet, system, user, schema: DraftSchema, effort: "high", maxTokens: 32000 });

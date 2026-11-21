@@ -56,6 +56,7 @@ export interface Treatment {
   washStrength: number;
   glow: number;
   motif: string;
+  transition?: string;
 }
 /** The film's motion-design language (live binding, set by applyDesign). */
 export const TREATMENT: Treatment = { headline: "solid_stroke", phrase: "neon_glow", label: "tag", photo: "print", world: "smoke", particles: "dust", wash: "tint", washStrength: 0.3, glow: 0.6, motif: "" };

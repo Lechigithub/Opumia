@@ -19,3 +19,4 @@ export * from "./reference-grammar.js";
 export * from "./scene-designer.js";
 export * from "./voice-director.js";
 export * from "./publishing.js";
+export * from "./fingerprint.js";

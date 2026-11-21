@@ -289,6 +289,12 @@
         "hook": "stakes",
         "ending": "open_question",
         "spine": "Dark side exposed"
+      },
+      {
+        "job": "preview-kodak",
+        "hook": "flash_forward",
+        "ending": "lesson",
+        "spine": "Brand decline and hype bust"
       }
     ]
   },

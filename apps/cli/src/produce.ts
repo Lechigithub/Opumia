@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { artDirect, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -91,8 +91,11 @@ async function produceStages(o: ProduceOptions) {
   const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), log }), log);
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
   log("\n[A1b] art direction");
+  // Uniqueness: what the recent films did, so every planning stage can do something else.
+  const recentFps = (await loadFingerprints(o.data)).filter((f) => f.job !== jobId).slice(-6);
+  const habits = habitsOf(recentFps);
   const design = await cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), async () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), recent: (await recentTreatments(o.data)).filter((r) => r.job !== jobId), log }), log);
-  if (design.treatment) await recordTreatment(o.data, { job: jobId, channel, headline: design.treatment.headline, phrase: design.treatment.phrase, world: design.treatment.world, particles: design.treatment.particles, photo: design.treatment.photo, label: design.treatment.label, display: design.typography.display, primary: design.palette.primary, accent: design.palette.accent });
+  if (design.treatment) await recordTreatment(o.data, { job: jobId, channel, headline: design.treatment.headline, phrase: design.treatment.phrase, world: design.treatment.world, particles: design.treatment.particles, photo: design.treatment.photo, label: design.treatment.label, display: design.typography.display, primary: design.palette.primary, accent: design.palette.accent, transition: design.treatment.transition });
   log(`  "${design.concept}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}, ${design.typography.display}`);
   const memory = await loadMemory(o.data);
   if (stop("research")) return { jobDir };
@@ -109,7 +112,7 @@ async function produceStages(o: ProduceOptions) {
   const maxWpm = overrides?.channels[channel]?.maxWpm ?? Infinity;
   const narrationWpm = Math.round(Math.min(cal[calKey]?.wpm ?? 145, maxWpm));
   const narrationTargetS = short ? o.durationS - 3 : o.durationS;
-  let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), log }), log);
+  let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), log }), log);
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
   if (draft.blueprint) await updateMemory(o.data, (m) => recordBlueprint(m, channel, { job: jobId, hook: draft.blueprint!.hook, ending: draft.blueprint!.ending, spine: draft.blueprint!.spine }));
   if (stop("script")) return { jobDir };
@@ -146,7 +149,7 @@ async function produceStages(o: ProduceOptions) {
     const span = (timed.segments.at(-1)?.endS ?? timed.durationS) - (timed.segments[0]?.startS ?? 0);
     const measured = (words / Math.max(1, span)) * 60; // this script's own pace is the best predictor for its re-write
     log(`  ! narration ${timed.durationS.toFixed(1)} s outside ${minS}–${maxS} s; voice spoke ${measured.toFixed(1)} wpm → re-writing to fit and re-narrating once`);
-    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), ...(draft.blueprint ? { blueprint: draft.blueprint } : {}), log }), log);
+    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), ...(draft.blueprint ? { blueprint: draft.blueprint } : {}), log }), log);
     log(`  "${draft.title}" — ${draft.wordCount} words`);
     timed = await cachedJson(timedPath, TimedScript, true, doNarrate, log);
     await recordCalibration(timed);
@@ -164,6 +167,24 @@ async function produceStages(o: ProduceOptions) {
   // ---- Stage B: director → resolver
   log("\n[B1] storyboard director");
   let board = await cachedJson(path.join(jobDir, "storyboard.json"), Storyboard, redo("storyboard"), () => directStoryboard({ pack, script: timed, facts, index, avoidQueries: badQueries(memory), log }), log);
+  // The film's signature transition: every non-cut transition becomes it, and a new thought (the first shot
+  // of a narration segment) gets it when the director cut straight — roughly one shot in six.
+  if (design.treatment) {
+    const sig = design.treatment.transition;
+    let lastSeg = "";
+    let since = 0;
+    let n = 0;
+    for (const [i, sh] of board.shots.entries()) {
+      since++;
+      const newThought = sh.scriptSegmentId !== lastSeg;
+      lastSeg = sh.scriptSegmentId;
+      if (i === 0) continue;
+      if (sh.transitionIn !== "cut") sh.transitionIn = sig;
+      else if (newThought && since >= 4) sh.transitionIn = sig;
+      if (sh.transitionIn === sig) (n++, (since = 0));
+    }
+    log(`  transitions: ${n} "${sig}" (this film's signature), the rest straight cuts`);
+  }
   const designed = board.shots.filter((s) => s.source.kind === "designed").length;
   log(`  ${board.shots.length} shots (${designed} designed), ${board.shots.reduce((n, s) => n + s.sfx.length, 0)} sfx cues`);
   if (stop("storyboard")) return { jobDir };
@@ -201,7 +222,7 @@ async function produceStages(o: ProduceOptions) {
   })();
   const sceneFile = path.join(jobDir, "scenes.json");
   const freshScenes = redo("resolve") || redo("storyboard") || redo("manifest") || !(await exists(sceneFile));
-  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, () => designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, people: (facts.story?.characters ?? []).map((c) => c.name), log }), log);
+  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, () => designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people: (facts.story?.characters ?? []).map((c) => c.name), log }), log);
   const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;
   log(`  captions: ${burnCaptions ? "burned in" : `not burned in (the channel shows captions on ${Math.round(pack.captions.bottomTextShare * 100)} % of long-form shots); SRT keeps every word`}`);
 
@@ -232,7 +253,7 @@ async function produceStages(o: ProduceOptions) {
     const issues = await critiqueScenes({ channel, previews: prev.map((p) => ({ shotId: p.shotId, sheet: p.sheet, line: lineAt(p.shotId), idea: scenePlan.scenes.find((x) => x.shotId === p.shotId)?.idea ?? "" })), reference: exemplars.slice(0, 4).map((e) => e.path) });
     log(`  critic: ${prev.length} scene(s) previewed in ${Math.round((Date.now() - t0p) / 1000)} s, ${issues.size} flagged${issues.size ? ` — ${[...issues.entries()].slice(0, 8).map(([k, v]) => `${k} ${v[0]}`).join(", ")}` : ""}`);
     if (issues.size) {
-      scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, people: (facts.story?.characters ?? []).map((c) => c.name), issues, previous: scenePlan, log });
+      scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people: (facts.story?.characters ?? []).map((c) => c.name), issues, previous: scenePlan, log });
       await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
       manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
       await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
@@ -255,6 +276,28 @@ async function produceStages(o: ProduceOptions) {
     await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     await writeFile(soundFile, JSON.stringify(sd.report, null, 2) + "\n");
     await recordUsage(o.data, jobId, resolution, board);
+  }
+  // Fingerprint of this film against the earlier ones — the plan is checked before the render is paid for.
+  {
+    const fp = fingerprintOf({ job: jobId, channel, design, draft, board, scenes: scenePlan });
+    const near = closest(fp, recentFps);
+    await saveFingerprint(o.data, fp);
+    await writeFile(path.join(jobDir, "fingerprint.json"), JSON.stringify({ fingerprint: fp, closest: near }, null, 2) + "\n");
+    if (near) log(`  uniqueness: closest earlier film ${near.to} — overall ${near.sim.overall} (colour ${near.sim.colour}, treatment ${near.sim.treatment}, layout ${near.sim.layout}, story ${near.sim.story}, words ${near.sim.words}, sound ${near.sim.sound})${near.over.length ? ` — TOO CLOSE in: ${near.over.join("; ")}` : " — within every limit"}`);
+    else log("  uniqueness: first film on record");
+    const t = design.treatment;
+    await writeFile(path.join(jobDir, "treatment.md"), [
+      `# Treatment — ${draft.title}`,
+      ``,
+      `**Concept:** ${design.concept}`,
+      `**Colour world:** primary ${design.palette.primary}, accent ${design.palette.accent}, surface ${design.palette.surface}`,
+      `**Type:** ${design.typography.display} display, ${design.typography.body} body, ${design.typography.casing} case`,
+      ...(t ? [`**Headlines:** ${t.headline} · **narration phrases:** ${t.phrase} · **labels:** ${t.label} · **photos:** ${t.photo}`, `**Backdrop world:** ${t.world} · **particles:** ${t.particles} · **footage wash:** ${t.wash} (${t.washStrength})`, `**Signature transition:** ${t.transition}`, `**Motif:** ${t.motif}`] : []),
+      `**Story shape:** opens ${draft.blueprint?.hook ?? "?"}, spine "${draft.blueprint?.spine ?? "?"}", ends ${draft.blueprint?.ending ?? "?"}`,
+      ``,
+      near ? `**Closest earlier film:** ${near.to} (overall similarity ${near.sim.overall}${near.over.length ? `; too close in ${near.over.join(", ")}` : "; within every limit"})` : `**Closest earlier film:** none on record`,
+      ``,
+    ].join("\n"));
   }
   if (stop("manifest")) return { jobDir };
 

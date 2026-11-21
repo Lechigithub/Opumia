@@ -23,6 +23,8 @@ export const FilmTreatment = z.object({
   wash: z.enum(["none", "tint", "duotone"]),
   washStrength: z.number().min(0).max(0.8).default(0.35),
   glow: z.number().min(0).max(1).default(0.6),
+  /** The film's signature transition, used at the start of new thoughts (the rest are straight cuts). */
+  transition: z.enum(["whip", "dip_black", "light_leak", "fade"]).default("whip"),
   /** A recurring visual device unique to this film (e.g. "film sprocket strips", "blood-drop bullet points"). */
   motif: z.string(),
 });

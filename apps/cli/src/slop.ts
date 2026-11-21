@@ -70,6 +70,10 @@ export async function filmMetrics(jobDir: string, video: string, ex: ExemplarInd
     }
   }
 
+  // --- Uniqueness against earlier films (fingerprint written at planning time).
+  const fpj = await readJson<{ closest: { to: string; sim: { overall: number }; over: string[] } | null }>(path.join(jobDir, "fingerprint.json"));
+  if (fpj?.closest) add("unique_plan", `Respects in which the film is too close to ${fpj.closest.to}`, fpj.closest.over.length, "0 (colour, treatment, layout, story, words, sound)", fpj.closest.over.length === 0);
+
   // --- Voice: pace, pitch travel, dynamics and pauses against the reference narrator.
   const narr = path.join(jobDir, "narration.mp3");
   const tsRaw = await readJson<unknown>(path.join(jobDir, "timed-script.json"));
