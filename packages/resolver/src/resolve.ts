@@ -179,6 +179,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
 
   const pressDir = path.join(o.jobDir, "downloads", "press");
   const usedVideos = new Set<string>();
+  const pressStills: Array<{ shotId: string; c: PressCandidate; q: number }> = [];
   const usedWiki = new Set<string>();
   const wantsImage = (n: Need) => n.kind === "image" || (n.shot.source.kind === "designed" && ["hero_face", "cutout_collage"].includes(n.shot.source.designed));
   // Phase P — fair-use press first for named entities: the real person/company/product/event, checked by eye.
@@ -218,7 +219,9 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       if (!pickP) continue;
       if (pickP.c.provider === "youtube") usedVideos.add(pickP.c.externalId.split("@")[0]!);
       else usedWiki.add(pickP.c.externalId);
-      chosen.set(n.shot.id, { src: "press", p: pickP.c, score: pickP.v.quality / 10 });
+      const isScene = n.shot.source.kind === "designed" && n.shot.source.designed === "scene";
+      if (isScene && pickP.c.kind === "image") pressStills.push({ shotId: n.shot.id, c: pickP.c, q: pickP.v.quality });
+      else chosen.set(n.shot.id, { src: "press", p: pickP.c, score: pickP.v.quality / 10 });
       placed++;
     }
     if (pressNeeds.length) log(`  resolver: ${placed}/${pressNeeds.length} entity shot(s) placed from press (${flat.length} candidates checked)`);
@@ -401,6 +404,19 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       }
     }
     log(`  resolver: composed scenes — ${n} layer picture(s) placed across ${sceneShots.length} scene(s)`);
+  }
+
+  // Press stills picked for scene shots become picture slot 5 of that scene.
+  for (const ps of pressStills) {
+    if (media.some((m) => m.shotId === ps.shotId && m.role === "layer" && m.ref === `${ps.c.provider}:${ps.c.externalId}`)) continue;
+    const alpha = /\.png$/i.test(ps.c.localFile);
+    const file = `layer_${ps.shotId}_5_${createHash("sha1").update(ps.c.externalId).digest("hex").slice(0, 8)}.${alpha ? "png" : "jpg"}`;
+    try {
+      await materialize(ps.c.localFile, "image", path.join(mediaDir, file), 0, 1, alpha);
+      media.push({ shotId: ps.shotId, role: "layer", slot: 5, origin: "press", ref: `${ps.c.provider}:${ps.c.externalId}`, provider: ps.c.provider, kind: "image", localPath: path.join(mediaDir, file), publicPath: `media/${file}`, ...(ps.c.width ? { width: ps.c.width, height: ps.c.height } : {}), license: ps.c.license, attributionRequired: ps.c.attributionRequired, ...(ps.c.attributionText ? { attributionText: ps.c.attributionText } : {}), sourceUrl: ps.c.pageUrl, aiGenerated: false, score: ps.q / 10, query: ps.c.depicts, depicts: `${ps.c.depicts} — ${alpha ? "transparent logo/cutout" : "photo"}`, fairUse: ps.c.fairUse });
+    } catch {
+      /* unreadable still: no slot */
+    }
   }
 
   // Overlays, paper for documents, SFX and music — all from the licensed library.

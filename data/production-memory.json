@@ -283,6 +283,12 @@
         "hook": "flash_forward",
         "ending": "lesson",
         "spine": "Brand decline and hype bust"
+      },
+      {
+        "job": "preview-theranos",
+        "hook": "stakes",
+        "ending": "open_question",
+        "spine": "Dark side exposed"
       }
     ]
   },

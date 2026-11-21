@@ -358,7 +358,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
         const p = interpolate(f, [2, 34], [-30, 130], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) });
         return <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: "screen", opacity: 0.22, background: `linear-gradient(105deg, transparent ${p - 14}%, ${PALETTE.goldSoft} ${p}%, transparent ${p + 14}%)` }} />;
       })()}
-      <AbsoluteFill style={{ transform: `scale(${scale})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
+      <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.3})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
         <div style={{ position: "absolute", inset: 0, width, height }}>
           {spec.elements.map((el, i) => (
             <Element key={i} el={el} i={i} slots={slots} drift={drift} />

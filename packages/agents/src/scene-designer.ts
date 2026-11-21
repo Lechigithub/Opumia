@@ -131,7 +131,7 @@ LAYOUT RULES:
 - One focal idea per shot, 1–4 elements. Sizes with intent: a slam is big (0.12–0.2), a phrase medium (0.055–0.09), a label small (0.03–0.045).
 - Entrances: "at" in seconds, timed to when the word or thing is spoken, staggered ≥ 0.15 s; vary the enter type.
 - Camera: a clear move across the whole scene (scale travels at least 0.08 between 1.0 and 1.2; focus 0.4–0.6), direction alternating shot to shot — the picture is never static.
-- No two consecutive shots share a layout. Across the batch use at least 5 clearly different layouts.
+- No two consecutive shots share a layout. Across the batch use at least 5 clearly different layouts, and at most HALF of the shots may be "phrase over footage" — the rest are picture compositions, headlines, labels on real footage, shapes that point at things, or 3D moments. Vary phrase colour (text, primary, primarySoft) and size too.
 - On-screen words are words the narrator says (or the name of what a slot shows). Never a number unless that exact figure is spoken in the shot. Never invent facts.
 - backdrop: "footage" when the shot has footage (dim 0.15–0.45, lower when the design is light); "world" or "paper" when it has none or when a picture composition needs a clean stage; "split" = footage left, world right.`;
 
@@ -211,6 +211,7 @@ LAYOUT RULES:
       } else if (e.type === "shape" && e.shape !== "none") els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h || 0.008, 0.003, 0.9), color: e.color, ...(e.shape === "arrow" || e.shape === "line" ? { x2: clamp(e.x2, 0.02, 0.98), y2: clamp(e.y2, 0.02, 0.98) } : {}) });
       else if (e.type === "texture" && e.texture !== "none") els.push({ type: "texture", texture: e.texture, opacity: 0.28, at: 0 });
     }
+    fitLayout(els, portrait);
     if (!els.some((e) => e.type !== "texture" && e.type !== "shape")) {
       // Nothing focal survived: fall back to the channel's signature — a spoken phrase over the footage.
       const ws = lineOf(sh.startS, sh.endS).split(/\s+/).filter(Boolean);
@@ -238,6 +239,77 @@ LAYOUT RULES:
   for (const s of specs) for (const e of s.elements) kinds.set(e.type, (kinds.get(e.type) ?? 0) + 1);
   log(`  scene designer: ${specs.length}/${all.length} scene(s) ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) dropped (missing slot, unspoken phrase or figure)` : ""}`);
   return ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: specs, generatedAt: new Date().toISOString() });
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Layout guard
+
+type Boxed = Extract<SceneElement, { x: number }>;
+/** Estimated height of an element as a fraction of the frame height. */
+function estHeight(e: Boxed, portrait: boolean): number {
+  const k = portrait ? 16 / 9 : 9 / 16; // width of one height-unit in frame-width fractions
+  if (e.type === "text" || e.type === "phrase") {
+    const boxed = e.type === "phrase" ? 1.5 : 1.25;
+    const charW = e.size * 0.62 * k;
+    const words = e.text.split(/\s+/);
+    let lines = 1;
+    let cur = 0;
+    for (const w of words) {
+      const ww = (w.length + 1) * charW;
+      if (cur + ww > e.w && cur > 0) (lines++, (cur = ww));
+      else cur += ww;
+    }
+    return lines * e.size * boxed + 0.01;
+  }
+  if (e.type === "photo") return e.h ?? (e.w / k) * 0.72;
+  if (e.type === "cutout") return (e.w / k) * 0.8;
+  if (e.type === "card3d") return (e.w / k) * 0.75;
+  if (e.type === "text3d") return (e.w / k) * 0.42;
+  return 0;
+}
+
+/** Keep focal elements inside the safe area and apart from each other (mutates `els`). */
+function fitLayout(els: SceneElement[], portrait: boolean): void {
+  const SAFE = { l: 0.05, r: 0.95, t: 0.06, b: portrait ? 0.7 : 0.9 };
+  const focal = els.filter((e): e is Boxed => e.type !== "texture" && e.type !== "shape");
+  const rect = (e: Boxed) => ({ x0: e.x, y0: e.y, x1: e.x + e.w, y1: e.y + estHeight(e, portrait) });
+  const shrink = (e: Boxed) => {
+    if (e.type === "text" || e.type === "phrase") e.size = Math.max(0.026, e.size * 0.82);
+    else e.w = Math.max(0.12, e.w * 0.85);
+  };
+  for (const e of focal) {
+    e.w = Math.min(e.w, SAFE.r - SAFE.l);
+    if (e.x < SAFE.l) e.x = SAFE.l;
+    if (e.x + e.w > SAFE.r) e.x = SAFE.r - e.w;
+    for (let k = 0; k < 6 && e.y + estHeight(e, portrait) > SAFE.b; k++) {
+      const over = e.y + estHeight(e, portrait) - SAFE.b;
+      if (e.y - over >= SAFE.t) e.y -= over;
+      else (e.y = SAFE.t), shrink(e);
+    }
+    if (e.y < SAFE.t) e.y = SAFE.t;
+  }
+  // Separate overlaps: later (on top) element moves below or above the earlier one, else shrinks, else goes.
+  const gap = 0.025;
+  const drop = new Set<SceneElement>();
+  for (let i = 0; i < focal.length; i++) {
+    for (let j = 0; j < i; j++) {
+      const a = focal[j]!;
+      const b = focal[i]!;
+      if (drop.has(a) || drop.has(b)) continue;
+      for (let k = 0; k < 5; k++) {
+        const ra = rect(a);
+        const rb = rect(b);
+        const overlap = rb.x0 < ra.x1 && rb.x1 > ra.x0 && rb.y0 < ra.y1 && rb.y1 > ra.y0;
+        if (!overlap) break;
+        const hb = rb.y1 - rb.y0;
+        if (ra.y1 + gap + hb <= SAFE.b) b.y = ra.y1 + gap;
+        else if (ra.y0 - gap - hb >= SAFE.t) b.y = ra.y0 - gap - hb;
+        else if (k < 3) (shrink(b), shrink(a));
+        else drop.add(b.type === "phrase" && a.type !== "phrase" ? a : b);
+      }
+    }
+  }
+  if (drop.size) for (let i = els.length - 1; i >= 0; i--) if (drop.has(els[i]!)) els.splice(i, 1);
 }
 
 // ---------------------------------------------------------------------------------------------------------
