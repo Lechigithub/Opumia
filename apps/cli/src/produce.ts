@@ -173,7 +173,7 @@ async function produceStages(o: ProduceOptions) {
   log("\n[C1] render manifest");
   const finalName = `${slug(draft.title) || jobId}_${o.aspect.replace(":", "x")}.mp4`;
   const finalPath = path.join(jobDir, finalName);
-  const mopts = (): Omit<BuildManifestOptions, "storyboard" | "script" | "resolution"> => ({ ...mopts(), burnCaptions, scenes: new Map<string, unknown>(scenePlan.scenes.map((x) => [x.shotId, x])) });
+  const mopts = (): Omit<BuildManifestOptions, "storyboard" | "script" | "resolution"> => ({ libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions, scenes: new Map<string, unknown>(scenePlan.scenes.map((x) => [x.shotId, x])) });
   let manifest = await cachedJson(path.join(jobDir, "manifest.json"), RenderManifest, redo("manifest") || redo("resolve") || redo("storyboard"), () => buildManifest({ storyboard: board, script: timed, resolution, ...mopts() }), log);
   const srtPath = path.join(jobDir, "captions.srt");
   await writeFile(srtPath, toSrt(captionGroups(timed)));
