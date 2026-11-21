@@ -38,6 +38,44 @@ async function atomic(file: string, text: string) {
 }
 const ts = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
+/**
+ * What each source asks of a published film. `line` is the visible link back to the source (shown once when
+ * anything from it is used); `creators` = credit each creator by name where the source asks for it "when possible".
+ * Items whose licence REQUIRES attribution (CC BY / BY-SA, Vecteezy) are always credited individually with a link.
+ */
+const SOURCE_CREDIT: Array<{ host: RegExp; provider: string; line: string; creators: boolean }> = [
+  { host: /(^|\.)pexels\.com$/, provider: "pexels", line: "Stock footage and photos provided by Pexels — https://www.pexels.com", creators: true },
+  { host: /(^|\.)pixabay\.com$/, provider: "pixabay", line: "Stock footage and photos from Pixabay — https://pixabay.com", creators: true },
+  { host: /(^|\.)coverr\.co$/, provider: "coverr", line: "Stock footage from Coverr — https://coverr.co", creators: false },
+  { host: /(^|\.)vecteezy\.com$/, provider: "vecteezy", line: "Stock media from Vecteezy — https://www.vecteezy.com", creators: false },
+  { host: /(^|\.)wikimedia\.org$/, provider: "commons", line: "Images and footage from Wikimedia Commons — https://commons.wikimedia.org", creators: false },
+  { host: /(^|\.)europeana\.eu$/, provider: "europeana", line: "Images from Europeana — https://www.europeana.eu", creators: false },
+  { host: /(^|\.)archives\.gov$/, provider: "nara", line: "Archive material from the US National Archives — https://catalog.archives.gov", creators: false },
+  { host: /(^|\.)openverse\.org$/, provider: "openverse", line: "Openly licensed images found through Openverse — https://openverse.org", creators: false },
+  { host: /(^|\.)archive\.org$/, provider: "archive", line: "Public-domain films from the Internet Archive — https://archive.org", creators: false },
+];
+
+/**
+ * Credit lines for the description, from what the film really uses (press excerpts are covered by the fair-use
+ * notice, not here). Licence-required credits come first and are never dropped for space.
+ */
+export function creditLines(media: ResolutionReport["media"], maxItems = 24): { sources: string[]; items: string[] } {
+  const hostOf = (u?: string) => {
+    try {
+      return u ? new URL(u).hostname : "";
+    } catch {
+      return "";
+    }
+  };
+  const used = media.filter((m) => m.origin !== "press");
+  const policyOf = (m: (typeof used)[number]) => SOURCE_CREDIT.find((p) => p.provider === m.provider || p.host.test(hostOf(m.sourceUrl)));
+  const sources = SOURCE_CREDIT.filter((p) => used.some((m) => policyOf(m) === p)).map((p) => p.line);
+  const withLink = (m: (typeof used)[number]) => `${m.attributionText!.replace(/\s*\(optional courtesy credit\)/i, "").replace(/\s+/g, " ").trim()}${m.sourceUrl && !m.attributionText!.includes(m.sourceUrl) ? ` — ${m.sourceUrl}` : ""}`;
+  const required = [...new Set(used.filter((m) => m.attributionRequired && m.attributionText).map(withLink))];
+  const courtesy = [...new Set(used.filter((m) => !m.attributionRequired && m.attributionText && policyOf(m)?.creators && !/no credit required/i.test(m.attributionText)).map(withLink))].filter((c) => !required.includes(c));
+  return { sources, items: [...required, ...courtesy.slice(0, Math.max(0, maxItems - required.length))] };
+}
+
 export async function buildPublishingPackage(o: PublishOptions): Promise<{ thumbnailPath: string | null; usd: number }> {
   const log = o.log;
   let usd = 0;
@@ -178,7 +216,7 @@ export async function buildPublishingPackage(o: PublishOptions): Promise<{ thumb
   const sources = o.facts.sources.filter((s) => used.has(s.url));
   // Named rights holders only: the broadcaster or publisher of each excerpt (not the platform it was found on).
   const press = [...new Set(o.resolution.media.filter((m) => m.origin === "press" && m.fairUse?.channel).map((m) => m.fairUse!.channel!.replace(/^www\./, "")))].filter((c) => !/^(youtube|wikipedia|web)$/i.test(c));
-  const credits = [...new Set(o.resolution.media.filter((m) => m.attributionRequired && m.attributionText && m.origin !== "press").map((m) => m.attributionText!))];
+  const credit = creditLines(o.resolution.media);
   const description = [
     text.hook,
     "",
@@ -187,7 +225,8 @@ export async function buildPublishingPackage(o: PublishOptions): Promise<{ thumb
     ...(chapters.length > 1 ? ["Chapters:", ...chapters.map((c) => `${ts(c.at)} ${c.title}`), ""] : []),
     ...(sources.length ? ["Sources:", ...sources.map((s) => `- ${s.title ? `${s.title}: ` : ""}${s.url}`), ""] : []),
     ...(press.length ? [`This video includes brief excerpts and images from ${press.slice(0, 12).join(", ")} for the purposes of commentary, criticism and news reporting (fair use). All rights remain with their owners.`, ""] : []),
-    ...(credits.length ? ["Credits:", ...credits.slice(0, 20).map((c) => `- ${c}`), ""] : []),
+    ...(credit.sources.length ? ["Footage, pictures and sound:", ...credit.sources.map((c) => `- ${c}`), ""] : []),
+    ...(credit.items.length ? ["Credits:", ...credit.items.map((c) => `- ${c}`), ""] : []),
     text.hashtags.join(" "),
     "",
   ].join("\n").slice(0, 4900);
