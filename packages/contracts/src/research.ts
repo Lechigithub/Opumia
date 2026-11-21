@@ -75,7 +75,7 @@ export const ScriptDraft = z.object({
   title: z.string(),
   hookFormula: z.string().describe("which channel hook pattern this script instantiates"),
   /** Story blueprint chosen for this film: cold-open archetype, act spine, ending archetype. */
-  blueprint: z.object({ hook: z.string(), spine: z.string(), ending: z.string(), why: z.string() }).optional(),
+  blueprint: z.object({ hook: z.string(), spine: z.string(), ending: z.string(), why: z.string(), opening: z.string().optional(), closing: z.string().optional(), beats: z.array(z.string()).optional() }).optional(),
   segments: z
     .array(
       z.object({

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import type * as z4 from "zod/v4";
+import * as z4 from "zod/v4";
 
 /** Models named for this pipeline: Sonnet 5.5 for reasoning stages, Haiku 5.5 for high-volume checks. */
 export const MODELS = { sonnet: "claude-sonnet-5-5", haiku: "claude-haiku-5-5" } as const;
@@ -114,6 +114,76 @@ export async function structured<S extends z4.ZodType>(o: StructuredOpts<S>): Pr
   const parsed = o.schema.safeParse(JSON.parse(text));
   if (!parsed.success) throw new Error(`${o.stage}: response did not match schema`);
   return { data: parsed.data as z4.infer<S>, usage };
+}
+
+/** A tool an agent can call: validated input in, text out (an error thrown becomes an error result the agent sees). */
+export interface AgentTool {
+  name: string;
+  description: string;
+  schema: z4.ZodType;
+  run: (input: never) => Promise<string>;
+}
+
+/**
+ * A tool-using agent: the model works in a loop — it calls tools, sees their results and decides what to do
+ * next — until `done()` is true, it stops by itself, or `maxTurns` is reached. The conversation is cached
+ * turn to turn (the stable system blocks plus everything already said), thinking blocks are passed back
+ * unchanged, and all results of one turn go back in a single message.
+ */
+export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns"; usd: number }> {
+  const fb = fallbackFor(o.model);
+  const from = ledger.length;
+  const tools = o.tools.map((t) => ({ name: t.name, description: t.description, input_schema: z4.toJSONSchema(t.schema) as Anthropic.Beta.BetaTool["input_schema"] }));
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: o.user }];
+  const calls: Record<string, number> = {};
+  let nudges = 0;
+  const spent = () => ledger.slice(from).reduce((t, r) => t + r.usd, 0);
+  for (let turn = 1; turn <= (o.maxTurns ?? 24); turn++) {
+    const msg = await client()
+      .beta.messages.stream({
+        model: o.model,
+        max_tokens: o.maxTokens ?? 32000,
+        system: o.system,
+        messages,
+        tools,
+        cache_control: { type: "ephemeral" },
+        output_config: { effort: o.effort ?? "medium" },
+        ...(fb.betas.length ? { betas: fb.betas } : {}),
+        ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
+      })
+      .finalMessage();
+    record(o.stage, o.model, msg);
+    if (msg.stop_reason === "refusal") throw new RefusalError(o.stage, msg.stop_details?.category ?? null);
+    if (msg.stop_reason === "max_tokens") throw new Error(`${o.stage}: output truncated at max_tokens`);
+    messages.push({ role: "assistant", content: msg.content as Anthropic.Beta.BetaContentBlockParam[] });
+    const uses = msg.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
+    if (uses.length) {
+      const results = await Promise.all(
+        uses.map(async (u): Promise<Anthropic.Beta.BetaToolResultBlockParam> => {
+          calls[u.name] = (calls[u.name] ?? 0) + 1;
+          const tool = o.tools.find((t) => t.name === u.name);
+          if (!tool) return { type: "tool_result", tool_use_id: u.id, content: `unknown tool ${u.name}`, is_error: true };
+          const input = tool.schema.safeParse(u.input);
+          if (!input.success) return { type: "tool_result", tool_use_id: u.id, content: `invalid input: ${input.error.message.slice(0, 600)}`, is_error: true };
+          try {
+            return { type: "tool_result", tool_use_id: u.id, content: await tool.run(input.data as never) };
+          } catch (err) {
+            if (err instanceof BudgetError) throw err;
+            return { type: "tool_result", tool_use_id: u.id, content: `tool failed: ${(err as Error).message.slice(0, 600)}`, is_error: true };
+          }
+        }),
+      );
+      messages.push({ role: "user", content: results });
+      o.log?.(`    turn ${turn}: ${uses.map((u) => u.name).join(", ")}`);
+      if (o.done?.()) return { turns: turn, calls, stopped: "done", usd: spent() };
+      continue;
+    }
+    if (msg.stop_reason === "pause_turn") continue;
+    if (o.done?.() || !o.nudge || nudges >= 2) return { turns: turn, calls, stopped: o.done?.() ? "done" : "end_turn", usd: spent() };
+    nudges++;
+    messages.push({ role: "user", content: o.nudge });
+  }
+  return { turns: o.maxTurns ?? 24, calls, stopped: "max_turns", usd: spent() };
 }
 
 /** Research turn with the web search + fetch server tools; returns the final text and every URL the model saw. */

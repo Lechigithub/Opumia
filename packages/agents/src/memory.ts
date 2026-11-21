@@ -53,7 +53,7 @@ export const recentBlueprints = (m: ProductionMemory, channel: string, n = 4) =>
   ...(m.blueprints[channel] ?? []).slice(-n),
 ];
 
-export const recordBlueprint = (m: ProductionMemory, channel: string, b: { job: string; hook: string; ending: string; spine: string }) => {
+export const recordBlueprint = (m: ProductionMemory, channel: string, b: { job: string; hook: string; ending: string; spine: string; beats?: string[] }) => {
   m.blueprints[channel] = [...(m.blueprints[channel] ?? []).filter((x) => x.job !== b.job), b].slice(-20);
 };
 

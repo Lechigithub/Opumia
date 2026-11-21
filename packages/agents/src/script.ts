@@ -6,6 +6,8 @@ import type { StylePack } from "./style-pack.js";
 import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { CONTRAST } from "./style-pack.js";
 import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
+import type { ReferenceFilm, StoryBand } from "./story-measure.js";
+import { writeScriptAgent, type StoryReport } from "./writer-agent.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
 
@@ -62,7 +64,12 @@ export interface ScriptOptions {
   /** Words per minute the TTS voice will actually speak at. */
   narrationWpm: number;
   /** Blueprints this channel used recently (from ProductionMemory) — the chooser must not repeat them. */
-  recent?: Array<{ hook: string; ending: string; spine: string }>;
+  recent?: Array<{ hook: string; ending: string; spine: string; beats?: string[] }>;
+  /** The writer agent's material: the channel's measured story band, its real films, and the agent's memory folder. */
+  storyBand?: StoryBand | null;
+  films?: ReferenceFilm[];
+  memoryDir?: string;
+  onStory?: (r: StoryReport) => void;
   /** How recent films opened (first ~20 words each): this film must open differently. */
   recentOpenings?: string[];
   /** Reuse a chosen blueprint (e.g. on a length re-fit). */
@@ -137,8 +144,15 @@ function dossierText(f: FactSheet): string {
   ].join("\n");
 }
 
+/**
+ * The script. By default the writer agent writes it (one author with tools — writer-agent.ts). The older
+ * five-pass writer below runs only with OPUMIA_WRITER=legacy, or when the channel has no measured story band
+ * or reference films yet.
+ */
 export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
+  if (process.env.OPUMIA_WRITER !== "legacy" && o.storyBand && o.films?.length) return writeScriptAgent({ pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
   const log = o.log ?? (() => {});
+  log("  script: legacy five-pass writer (no story band or reference films for this channel, or OPUMIA_WRITER=legacy)");
   const short = o.durationS <= 90;
   const targetWords = Math.round((o.durationS * o.narrationWpm) / 60);
   const claims = usableClaims(o.facts);

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "channel": "magnates-media",
+  "films": 30,
+  "kinds": {
+    "scene": {
+      "p10": 0.033,
+      "p50": 0.078,
+      "p90": 0.111
+    },
+    "story": {
+      "p10": 0.2,
+      "p50": 0.311,
+      "p90": 0.478
+    },
+    "fact": {
+      "p10": 0.089,
+      "p50": 0.144,
+      "p90": 0.189
+    },
+    "explain": {
+      "p10": 0.156,
+      "p50": 0.244,
+      "p90": 0.4
+    },
+    "motive": {
+      "p10": 0.033,
+      "p50": 0.067,
+      "p90": 0.111
+    },
+    "quote": {
+      "p10": 0,
+      "p50": 0.033,
+      "p90": 0.067
+    },
+    "question": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.067
+    },
+    "address": {
+      "p10": 0.011,
+      "p50": 0.022,
+      "p90": 0.078
+    },
+    "tease": {
+      "p10": 0.022,
+      "p50": 0.056,
+      "p90": 0.078
+    },
+    "maxim": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.044
+    }
+  },
+  "viewer": {
+    "p10": 0.022,
+    "p50": 0.1,
+    "p90": 0.244
+  },
+  "structures": [
+    "\"How Facebook Destroyed Google\": Google should have won → Friendster, Orkut, Wave, Buzz → Google commits to Google+ → Launch, invites and big numbers → Why it failed: forced sign-ups and ghost town → No unique selling point; Circles → Gundotra leaves, breach, shutdown → Aftermath: Shoelace and Google culture",
+    "\"How WhatsApp Makes Money: The INSANE Story of WhatsApp\": Hook: you are the product → Acton rejected by Facebook, WhatsApp founded → No ads, no data: the $1 fee → Investors fund growth → Facebook buys WhatsApp for $19 billion → Why Facebook really bought it: data and rivals → Acton quits and founds Signal → EU fine, data sharing, encryption doubts → How WhatsApp makes money now → 2021 privacy policy backlash → Balanced take: should you remove WhatsApp",
+    "\"The Bankrupt Child That Created Rolls-Royce\": Hook: poor boy behind Rolls-Royce → Poverty, father's death, apprenticeship → F.H. Royce & Co and the doorbell → Marriage and first cars → Charles Rolls's background → Rolls-Royce formed; 10 HP and Silver Ghost → Rolls's air crash and Royce's decline → Eagle engines, backlog, Royce's death",
+    "\"The Craziest CEO Ever: War, Drugs & Time Machines\": Hook: what happened to DeLorean → Detroit childhood and GM rise → Pontiac GTO to Chevrolet, Vega, exit from GM → Founding DMC and the car design → Factory in Northern Ireland and the Troubles → Flop: price, quality, recession, Thatcher → Cocaine sting and trial → Scandal publicity and closure → Back to the Future time machine → Parts, replicas and revival; DeLorean's death",
+    "\"The Disturbing Story of Coco Chanel\": Convent hook → Orphanage and early years → Seamstress, singer, Balsan → Capel and first boutiques → WWI and jersey → Capel's death and Chanel No. 5 → Nazi occupation → Post-war exile and comeback → What to think of Chanel",
+    "\"The Most Illegal Business In The World: Silk Road\": Hook: dark web and the sweet-guy kingpin → Libertarian idea, Tor and Bitcoin, building the site → Launch, mushrooms and first growth → Press attention, guns, Julia and the Erica post → Travelling, bugs, staff and anything-goes categories → Variety Jones and the Dread Pirate Roberts alias → Unicorn-scale empire and its human cost → IRS agent Gary Alford tracks Altoid to Ross → Library arrest with open laptop → Corrupt agents and the staged hit → Trial, verdict and life sentence → Both sides of the debate → Silk Road 2.0 and the clones",
+    "\"Why Red Bull Isn't A Drink Company\": Baumgartner jump hook → Chaleo and Krating Daeng in Thailand → Dietrich Mateschitz finds it → Founding Red Bull and launch prep → Launch and guerrilla marketing → US debut and brand as story → Bans, lawsuits, heir scandal → Founders' deaths and wealth → Three lessons"
+  ]
+}

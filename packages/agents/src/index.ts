@@ -20,3 +20,5 @@ export * from "./scene-designer.js";
 export * from "./voice-director.js";
 export * from "./publishing.js";
 export * from "./fingerprint.js";
+export * from "./story-measure.js";
+export * from "./writer-agent.js";

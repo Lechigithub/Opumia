@@ -76,7 +76,7 @@ export const ProductionMemory = z.object({
   /** Query phrases that repeatedly produced mismatches (normalised) → penalty count. */
   badQueries: z.record(z.number().int()).default({}),
   /** Story blueprints used per channel (newest last) so films do not repeat openings/endings. */
-  blueprints: z.record(z.array(z.object({ job: z.string(), hook: z.string(), ending: z.string(), spine: z.string() }))).default({}),
+  blueprints: z.record(z.array(z.object({ job: z.string(), hook: z.string(), ending: z.string(), spine: z.string(), beats: z.array(z.string()).optional() }))).default({}),
   /** Outcomes per channel: benchmark score with the visual mix and pacing that produced it. */
   outcomes: z.record(z.array(z.object({ job: z.string(), overall: z.number(), designedShare: z.number(), medianShotS: z.number(), kinds: z.record(z.number()) }))).default({}),
 });

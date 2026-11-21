@@ -1,0 +1,42 @@
+[
+  {
+    "at": "2026-11-21T21:16:01.931Z",
+    "commit": "ae81ada",
+    "skillChars": 3987,
+    "passed": 2,
+    "of": 2,
+    "usd": 0.605,
+    "results": [
+      {
+        "job": "preview-theranos",
+        "topic": "How Theranos fooled Silicon Valley",
+        "pass": true,
+        "measurements": 13,
+        "seconds": 129,
+        "usd": 0.372,
+        "remaining": [],
+        "explain": 0.25,
+        "viewer": 0,
+        "quote": 0,
+        "fact": 0.167,
+        "opening": "Holmes on Mad Money the evening the WSJ article ran, Cramer calling it brutal; makes viewer ask how a device that didn't work fooled everyone",
+        "beats": 5
+      },
+      {
+        "job": "enron-mm",
+        "topic": "The rise and fall of Enron",
+        "pass": true,
+        "measurements": 5,
+        "seconds": 78,
+        "usd": 0.233,
+        "remaining": [],
+        "explain": 0.185,
+        "viewer": 0.037,
+        "quote": 0.074,
+        "fact": 0.222,
+        "opening": "April 17, 2001: an analyst asks Skilling why there is no balance sheet and gets attacked. Makes the viewer ask what Enron was hiding.",
+        "beats": 6
+      }
+    ]
+  }
+]
