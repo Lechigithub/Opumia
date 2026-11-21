@@ -104,6 +104,26 @@
     "wpm": 148,
     "samples": 5
   },
+  "_natural": {
+    "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
+      "wpm": 171.1,
+      "pitchTravelSt": 14.312,
+      "melodySt": 3.832,
+      "dynamicsDb": 5.988,
+      "characters": 463,
+      "measuredAt": "2026-11-21",
+      "source": "measured"
+    },
+    "nPczCjzI2devNBz1zQrb|eleven_v4": {
+      "wpm": 172.5,
+      "pitchTravelSt": 13.256,
+      "melodySt": 2.779,
+      "dynamicsDb": 5.816,
+      "characters": 463,
+      "measuredAt": "2026-11-21",
+      "source": "measured"
+    }
+  },
   "cjVigY5qzO86Huf0OWal|eleven_multilingual_v2|1.08|s0.45|st0.25": {
     "wpm": 151.8,
     "samples": 2

@@ -6,7 +6,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { RenderManifest, ResolutionReport, Storyboard, TimedScript, type SlopMetric } from "@opumia/contracts";
 import { measureLook, measurePace, measureProsody, measureSound, r3 } from "@opumia/senses";
-import { naturalWpmOf } from "@opumia/narration";
+import { storedVoiceMeasure } from "@opumia/narration";
 import type { ExemplarIndex } from "./exemplars.js";
 
 const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").then((t) => JSON.parse(t) as T, () => null);
@@ -84,7 +84,8 @@ export async function filmMetrics(jobDir: string, video: string, ex: ExemplarInd
     const pace = measurePace(ts.segments.flatMap((s) => s.words.map((w) => ({ word: w.word, start: w.startS, end: w.endS }))));
     // Pace is judged against this voice's own natural pace, never the reference narrator's (owner decision 2026-11-22).
     const job = await readJson<{ channel?: string }>(path.join(jobDir, "job.json"));
-    const natural = job?.channel ? naturalWpmOf(job.channel as never, ts.voice.modelId) : undefined;
+    void job;
+    const natural = (await storedVoiceMeasure(process.env.OPUMIA_DATA_DIR ?? path.resolve(jobDir, "..", "..", "data"), ts.voice.voiceId, ts.voice.modelId))?.wpm;
     if (natural) add("voice_wpm", "Narration pace against the voice's natural pace (wpm)", pace.wpm, `${Math.round(natural * 0.88)}–${Math.round(natural * 1.12)} (natural ${natural})`, pace.wpm >= natural * 0.88 && pace.wpm <= natural * 1.12);
     add("voice_pace_variety", "Pace variety between sentences", pace.sentenceWpmStd, `≥ ${r3(n.sentenceWpmStd * 0.7)}`, pace.sentenceWpmStd >= n.sentenceWpmStd * 0.7);
     const p = await measureProsody(narr).catch(() => null);

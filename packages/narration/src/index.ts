@@ -12,6 +12,7 @@ export * from "./elevenlabs.js";
 export * from "./align.js";
 export * from "./pronunciation.js";
 export * from "./voice.js";
+export * from "./measure.js";
 export * from "./beats.js";
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean);
