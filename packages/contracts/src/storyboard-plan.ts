@@ -11,6 +11,8 @@ export const MusicCue = z.object({
   gainDb: z.number().default(-18),
   mood: z.enum(["intrigue", "rise", "tension", "collapse", "resolve"]).optional(),
   drops: z.array(z.object({ startS: Seconds, endS: Seconds })).default([]),
+  /** Where in the bed to start (s): after its quiet intro, beat-aligned to the first strong hit. */
+  inS: Seconds.optional(),
 });
 
 export const Storyboard = z

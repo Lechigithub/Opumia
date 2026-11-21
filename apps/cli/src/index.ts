@@ -43,6 +43,7 @@ const HELP = `opumia <command>
       --until STAGE      stop after a stage
       --no-judge         skip the Sonnet visual QA judge
       --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
+  profile-audio        Measure every usable sound effect and music bed → data/audio-profile.json (incremental)
   build-exemplars      Reference exemplar library the agents look at → data/exemplars/<channel>/
       --channel ID       frames of labelled shots, thumbnails, per-film looks, narrator voice profile, technique clips
   eval                 Blind reference test of the platform → data/eval/
@@ -124,6 +125,13 @@ async function main() {
       const n = (s: string) => entries.filter(([, v]) => v === s).length;
       log(`${entries.length} keys: keychain=${n("keychain")} file=${n("file")} env=${n("env")} missing=${n("missing")}`);
       if (n("missing")) log(`Add one in macOS Terminal: security add-generic-password -U -s ${KEYCHAIN_SERVICE} -a NAME -w`);
+      return;
+    }
+    case "profile-audio": {
+      const { LibraryIndex } = await import("@opumia/contracts");
+      const { readFile } = await import("node:fs/promises");
+      const { buildAudioProfile } = await import("./audio-profile.js");
+      await buildAudioProfile({ data: DATA, library: LIBRARY, index: LibraryIndex.parse(JSON.parse(await readFile(path.join(DATA, "library-index.json"), "utf8"))), log });
       return;
     }
     case "build-exemplars":

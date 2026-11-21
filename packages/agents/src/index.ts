@@ -2,6 +2,7 @@ export * from "./llm.js";
 export * from "./style-pack.js";
 export * from "./narrative.js";
 export * from "./sound-design.js";
+export * from "./sound-timeline.js";
 export * from "./benchmark.js";
 export * from "./art-director.js";
 export * from "./memory.js";

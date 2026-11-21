@@ -4,9 +4,10 @@ import { promisify } from "node:util";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { artDirect, critiqueScenes, designScenes, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { artDirect, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
-import { repairShots, resolveAssets } from "@opumia/resolver";
+import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
+import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
@@ -236,6 +237,23 @@ async function produceStages(o: ProduceOptions) {
       await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     }
     await writeFile(reviewFile, JSON.stringify({ previewed: prev.length, flagged: Object.fromEntries(issues) }, null, 2) + "\n");
+  }
+  // [B5] Timeline sound design: sound goes on what the viewer sees, once the scenes are final.
+  const soundFile = path.join(jobDir, "sound.json");
+  if (freshScenes || !(await exists(soundFile))) {
+    log("\n[B5] timeline sound design");
+    const ap = await buildAudioProfile({ data: o.data, library: o.library, index, log });
+    const cool = await cooldownRefs(o.data, jobId);
+    const usable = index.assets.filter(isUsable);
+    const sd = designSoundTimeline({ storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed: jobId, drops: board.music.flatMap((m) => m.drops ?? []), log });
+    board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
+    await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
+    resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
+    await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+    manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+    await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+    await writeFile(soundFile, JSON.stringify(sd.report, null, 2) + "\n");
+    await recordUsage(o.data, jobId, resolution, board);
   }
   if (stop("manifest")) return { jobDir };
 

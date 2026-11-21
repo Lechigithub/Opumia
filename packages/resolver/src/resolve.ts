@@ -676,3 +676,25 @@ export async function repairShots(o: RepairOptions): Promise<ResolutionReport> {
   const primaries = media.filter((m) => m.role === "primary");
   return ResolutionReport.parse({ ...o.resolution, media, unresolved, stats: { ...o.resolution.stats, library: primaries.filter((m) => m.origin === "library").length, stock: primaries.filter((m) => m.origin === "stock").length, archival: primaries.filter((m) => m.origin === "archival").length }, generatedAt: new Date().toISOString() });
 }
+
+/**
+ * Replace a resolution's sound (effects and music) with what the storyboard now asks for — used after the
+ * timeline sound designer has placed sounds on the finished scenes. Pictures are untouched.
+ */
+export async function resolveAudio(o: { storyboard: Storyboard; index: LibraryIndex; libraryRoot: string; jobDir: string; resolution: ResolutionReport }): Promise<ResolutionReport> {
+  const byId = new Map(o.index.assets.map((a) => [a.id, a]));
+  const media = o.resolution.media.filter((m) => m.role !== "sfx" && m.role !== "music");
+  const audioDir = path.join(o.jobDir, "audio");
+  await mkdir(audioDir, { recursive: true });
+  const add = async (shotId: string, role: "sfx" | "music", id: string) => {
+    const a = byId.get(id);
+    if (!a || !isUsable(a) || media.some((m) => m.shotId === shotId && m.role === role && m.ref === id)) return;
+    const file = `${role}_${shotId}_${a.id}.mp3`;
+    const out = path.join(audioDir, file);
+    if (!(await exists(out))) await ffmpeg(["-i", await ensureLocal(o.libraryRoot, a.relPath, "library"), "-c:a", "libmp3lame", "-q:a", "2", out]);
+    media.push({ shotId, role, origin: "library", ref: a.id, provider: "library", kind: "audio", localPath: out, publicPath: `../audio/${file}`, ...(a.probe?.durationS ? { durationS: a.probe.durationS } : {}), license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: 1, query: role });
+  };
+  for (const s of o.storyboard.shots) for (const fx of s.sfx) await add(s.id, "sfx", fx.assetId);
+  for (const m of o.storyboard.music) await add("music", "music", m.assetId);
+  return ResolutionReport.parse({ ...o.resolution, media });
+}

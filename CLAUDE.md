@@ -235,6 +235,16 @@ Speech recognition backends (`senses/asr.ts`, `OPUMIA_ASR=local|cloudflare`): **
 
 Test without rendering a film: `npx tsx apps/cli/src/dev/narrate-test.ts out/<job-with-script>`.
 
+## Sound: timeline sound designer (rebuild stage 7)
+
+`agents/sound-timeline.ts:designSoundTimeline` (no model call) runs as `produce` stage **B5**, after the scenes are final, and replaces the director's sound plan:
+
+- **Sound goes on what the viewer sees.** Events come from the finished scenes: a stamp landing, a headline, 3D type, a 3D card, a data graphic opening, a document, a story turn. Each asks for a sound *family*.
+- **Reference budget and mix** (measured on MagnatesMedia: 3.06 strong hits/min — 55 % thud, 26 % boom, a few clicks/plucks/risers, almost no whooshes): strong hits capped at the channel's density and ≥ 2.4 s apart, booms ≤ 30 % of them, ≤ 2 light accents/min, a riser into the biggest moments.
+- **Files by measured character:** `pnpm opumia profile-audio` → `data/audio-profile.json` (`measureSound` / `measureMusic` on every usable effect and bed, incremental). Only designed hit sounds may be hits (`HIT_CLASS`); literal object noises are never used as accents. Choices are shuffled by the film's id, never repeated in a film, and exclude sounds the last 12 films used (`data/asset-usage.json`). The sound's peak is placed on the visual moment (start = moment − measured attack); level is set from the measured peak.
+- **Music:** per mood span, by title mood + measured tempo and pulse, off cooldown; `MusicCue.inS` starts the bed after its quiet intro with the beat on the first strong hit. Drop-outs from the earlier sound design are kept.
+- `resolver/resolve.ts:resolveAudio` re-materialises effects and music after this stage.
+
 ## Platform evaluation (blind reference test)
 
 `opumia eval` measures the platform, not one film. Every film is cut into 20 s picture windows (frames + narration + same-method cut counts) and 45 s narration passages, each paired with a real reference window of the same position and shown blind (A/B) to a Sonnet judge. The judge is only trusted after calibration on degraded reference windows (wrong picture, generic stock, bland rewrite, real-vs-real). Report: caught count + indistinguishability, judge tells grouped by area, trend in `data/eval/<set>/history.json`.
