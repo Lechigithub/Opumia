@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "channel": "magnates-media",
+  "films": 9,
+  "shots": 276,
+  "mix": {
+    "plain_footage": 0.42,
+    "words_over_footage": 0.257,
+    "caption_on_footage": 0.054,
+    "title_card": 0.054,
+    "picture_composition": 0.04,
+    "logo": 0.043,
+    "number_stat": 0.018,
+    "chart": 0.022,
+    "document_or_screen": 0.043,
+    "map": 0.011,
+    "comparison": 0.011,
+    "infographic": 0.022,
+    "quote_card": 0.004
+  },
+  "distinctKinds": {
+    "p10": 5,
+    "p50": 6,
+    "p90": 10
+  },
+  "topShare": {
+    "p10": 0.286,
+    "p50": 0.421,
+    "p90": 0.75
+  },
+  "textShare": {
+    "p10": 0.263,
+    "p50": 0.579,
+    "p90": 0.857
+  },
+  "pictureShare": {
+    "p10": 0,
+    "p50": 0.063,
+    "p90": 0.2
+  },
+  "wordsMedian": {
+    "p10": 2,
+    "p50": 5,
+    "p90": 14
+  },
+  "plainFootage": {
+    "p10": 0.19,
+    "p50": 0.4,
+    "p90": 0.75
+  },
+  "wordsOverFootage": {
+    "p10": 0.063,
+    "p50": 0.222,
+    "p90": 0.444
+  },
+  "titleCard": {
+    "p10": 0,
+    "p50": 0.053,
+    "p90": 0.167
+  }
+}

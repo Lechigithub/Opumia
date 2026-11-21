@@ -1,0 +1,40 @@
+[
+  {
+    "at": "2026-11-21T21:46:07.952Z",
+    "commit": "df92c8f",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "pass": true,
+        "measurements": 3,
+        "seconds": 78,
+        "usd": 0.129,
+        "remaining": [],
+        "kinds": 7,
+        "clean": 0.481,
+        "text": 0.556,
+        "pictures": 0,
+        "top": "plain_footage 48%"
+      }
+    ]
+  },
+  {
+    "at": "2026-11-21T21:48:35.501Z",
+    "commit": "df92c8f",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "pass": true,
+        "measurements": 5,
+        "seconds": 109,
+        "usd": 0.194,
+        "remaining": [],
+        "kinds": 7,
+        "clean": 0.519,
+        "text": 0.519,
+        "pictures": 0.037,
+        "top": "plain_footage 52%"
+      }
+    ]
+  }
+]

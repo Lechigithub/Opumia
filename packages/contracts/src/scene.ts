@@ -32,7 +32,8 @@ export const SceneSpec = z.object({
   wash: z.object({ color: ColorToken, strength: z.number().min(0).max(0.85), mode: z.enum(["tint", "duotone"]) }).optional(),
   dim: z.number().min(0).max(0.85).default(0.45),
   camera: z.object({ fromScale: z.number().min(0.9).max(1.6), toScale: z.number().min(0.9).max(1.6), fromX: z.number().default(0.5), toX: z.number().default(0.5), fromY: z.number().default(0.5), toY: z.number().default(0.5) }),
-  elements: z.array(SceneElement).min(1).max(12),
+  /** Empty = the footage plays clean, with nothing on it (the reference leaves about four shots in ten this way). */
+  elements: z.array(SceneElement).max(12),
   /** Why this layout (for logs / memory). */
   idea: z.string(),
 });

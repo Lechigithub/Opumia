@@ -121,7 +121,7 @@ export interface AgentTool {
   name: string;
   description: string;
   schema: z4.ZodType;
-  run: (input: never) => Promise<string>;
+  run: (input: never) => Promise<string | Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam>>;
 }
 
 /**

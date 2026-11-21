@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -285,7 +285,30 @@ async function produceStages(o: ProduceOptions) {
   })();
   const sceneFile = path.join(jobDir, "scenes.json");
   const freshScenes = redo("resolve") || redo("storyboard") || redo("manifest") || !(await exists(sceneFile));
-  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, () => designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people: (facts.story?.characters ?? []).map((c) => c.name), log }), log);
+  // The scene designer is an agent with eyes: it looks at the channel's real shots, designs every shot, renders
+  // its own previews, measures the film against the channel's mix of shot kinds, and revises. The older single
+  // prompt (with a separate critic, stage B4) runs with OPUMIA_SCENES=legacy or when the channel has no exemplars.
+  const visualBand = process.env.OPUMIA_SCENES === "legacy" ? null : await ensureVisualBand({ data: o.data, channelId: channel, log }).catch(() => null);
+  const referenceShots: ReferenceShot[] = visualBand
+    ? await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { shots: Array<{ kind: string; layout: string; motion: string; line: string; frames: string[] }> }).shots.filter((x) => x.frames.length).map((x) => ({ kind: x.kind, layout: x.layout, motion: x.motion, line: x.line, frame: path.join(o.data, "exemplars", channel, x.frames.at(-1)!) })), () => [])
+    : [];
+  const sceneAgent = Boolean(visualBand && referenceShots.length >= 40);
+  const people = (facts.story?.characters ?? []).map((c) => c.name);
+  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, async () => {
+    if (!sceneAgent) return designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, log });
+    const lookA = lookFromProfile(pack.profile.look, design.palette.primarySoft);
+    const burn = o.aspect === "9:16" || pack.captions.burnLongForm;
+    const render = async (plan: ScenePlan, shotIds: string[]) => {
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+      const prev = await renderShotPreviews({ manifest: m, look: lookA, design, publicDir: pub, outDir: path.join(jobDir, "previews"), shotIds });
+      return prev.map((pv) => ({ shotId: pv.shotId, sheet: pv.sheet, mid: pv.frames[1]!.path }));
+    };
+    let sceneReport: SceneReport | null = null;
+    const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), log });
+    // The designer already rendered, looked at and revised every scene: the separate critic pass (B4) is not run.
+    await writeFile(path.join(jobDir, "scenes.review.json"), JSON.stringify({ previewed: plan.scenes.length, flagged: {}, agent: sceneReport }, null, 2) + "\n");
+    return plan;
+  }, log);
   const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;
   log(`  captions: ${burnCaptions ? "burned in" : `not burned in (the channel shows captions on ${Math.round(pack.captions.bottomTextShare * 100)} % of long-form shots); SRT keeps every word`}`);
 
@@ -303,7 +326,7 @@ async function produceStages(o: ProduceOptions) {
   // [B4] Preview → critique → revise: the designer sees its own scenes rendered (three moments per shot), a
   // strict critic flags what would not ship, and the flagged scenes are redesigned once — before any film render.
   const reviewFile = path.join(jobDir, "scenes.review.json");
-  if (scenePlan.scenes.length && (freshScenes || !(await exists(reviewFile)))) {
+  if (!sceneAgent && scenePlan.scenes.length && (freshScenes || !(await exists(reviewFile)))) {
     log("\n[B4] scene previews → critique → revise");
     const lookP = lookFromProfile(pack.profile.look, design.palette.primarySoft);
     const allWp = timed.segments.flatMap((sg) => sg.words);
@@ -438,6 +461,17 @@ async function produceStages(o: ProduceOptions) {
           scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.wash ? { ...sc, wash: { ...sc.wash, strength: Math.round(sc.wash.strength * 50) / 100 }, dim: Math.round(sc.dim * 80) / 100 } : sc)) });
           for (const sc of scenePlan.scenes) if (sc.wash) stale.add(sc.shotId);
           done.push("soften_wash: colour wash and dimming reduced on every washed scene");
+        }
+        // vary_stage (second answer to a one-colour film, once the wash is already softened): picture-less
+        // scenes all sit on the film's colour stage — every other one moves to paper, the rest to the dark surface.
+        if (round >= 1 && fixable.some((c) => c.id === "one_colour_film")) {
+          let k = 0;
+          const moved: string[] = [];
+          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.backdrop === "world" ? (moved.push(sc.shotId), { ...sc, backdrop: k++ % 2 === 0 ? ("paper" as const) : ("surface" as const) }) : sc)) });
+          if (moved.length) {
+            for (const id of moved) stale.add(id);
+            done.push(`vary_stage: ${moved.join(", ")}`);
+          }
         }
         // reseed_sound: pick the effects and music again.
         if (fixable.some((c) => c.repair === "reseed_sound")) {

@@ -1,0 +1,2 @@
+- LESSON (How Kodak Invented the Digital Camera and Still Died): Call measure_film only after design_scenes returns (not in parallel). Render every shot before submitting; the submit gate requires it. Give no-footage shots a halftone texture plus real phrase text to avoid bare-word cards.
+- LOG 2026-11-21 "How Kodak Invented the Digital Camera and Still Died": accepted after 6 measurement(s); caught along the way: few_kinds, shots_missing, bare_word_cards, not_looked_at, reference_not_studied; final 9 kinds, clean 41%, text 52%, pictures 4%

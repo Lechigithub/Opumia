@@ -50,6 +50,7 @@ const Plan = z.object({
       shotId: z.string(),
       idea: z.string().describe("one line: what the viewer sees and why it fits the line"),
       backdrop: z.enum(["footage", "world", "surface", "paper", "split"]),
+      clean: z.boolean().describe("true = let the footage play clean, with NO elements on it — only for a shot whose footage is moving video that shows what the line is about; the real channel leaves about four shots in ten this way"),
       wash: z.boolean().describe("colour this shot's footage into the film's palette (use on roughly half of the footage shots: mood, reenactment and generic footage; leave real press footage and photos natural)"),
       dim: z.number().describe("how much the footage is darkened under the design, 0.1..0.6"),
       camera: z.object({ fromScale: z.number(), toScale: z.number(), fromX: z.number(), toX: z.number(), fromY: z.number(), toY: z.number() }),
@@ -58,6 +59,9 @@ const Plan = z.object({
   ),
 });
 type PlanScene = z.infer<typeof Plan>["scenes"][number];
+/** The scene agent's tool input: the same shape a model returns, checked by the same guards. */
+export const SceneDraftSchema = Plan;
+export type SceneDraftScene = PlanScene;
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : a));
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s$%€£.]/gu, "").replace(/\s+/g, " ").trim();
@@ -78,6 +82,8 @@ export interface DesignScenesOptions {
   /** Redesign only these shots (after a preview critique), with the critic's notes per shot. */
   issues?: Map<string, string[]>;
   previous?: ScenePlan;
+  /** Scenes already drawn up by the scene agent: checked and cleaned here exactly like a model's output (no model call). */
+  raw?: SceneDraftScene[];
   log?: (s: string) => void;
 }
 
@@ -86,8 +92,9 @@ const isScene = (s: StoryboardShot) => s.source.kind === "designed" && s.source.
 export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   const log = o.log ?? (() => {});
   const all = o.storyboard.shots.filter(isScene);
-  const todo = o.issues ? all.filter((s) => o.issues!.has(s.id)) : all;
-  const keep = o.issues && o.previous ? o.previous.scenes.filter((x) => !o.issues!.has(x.shotId)) : [];
+  const rawIds = o.raw ? new Set(o.raw.map((x) => x.shotId)) : null;
+  const todo = rawIds ? all.filter((s) => rawIds.has(s.id)) : o.issues ? all.filter((s) => o.issues!.has(s.id)) : all;
+  const keep = rawIds ? (o.previous?.scenes ?? []).filter((x) => !rawIds.has(x.shotId)) : o.issues && o.previous ? o.previous.scenes.filter((x) => !o.issues!.has(x.shotId)) : [];
   if (!todo.length) return ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: keep, generatedAt: new Date().toISOString() });
   const words = o.script.segments.flatMap((s) => s.words);
   const lineOf = (a: number, b: number) => words.filter((w) => w.startS >= a - 0.05 && w.startS < b).map((w) => w.word).join(" ");
@@ -153,17 +160,19 @@ ${o.avoidLayouts ? `- Recent films leaned on these placements — this film must
   const BATCH = 8;
   const batches: StoryboardShot[][] = [];
   for (let i = 0; i < todo.length; i += BATCH) batches.push(todo.slice(i, i + BATCH));
-  log(`  scene designer: ${todo.length} scene(s) in ${batches.length} batch(es)${o.issues ? " (revision after preview)" : ""}, ${ex.length} reference frames (${MODELS.sonnet})…`);
-  const results: PlanScene[] = [];
+  if (!o.raw) log(`  scene designer: ${todo.length} scene(s) in ${batches.length} batch(es)${o.issues ? " (revision after preview)" : ""}, ${ex.length} reference frames (${MODELS.sonnet})…`);
+  const results: PlanScene[] = o.raw ? [...o.raw] : [];
   // First batch alone (writes the cache), the rest in parallel (read it).
   const runBatch = async (b: StoryboardShot[], k: number) => {
     const neighbours = k > 0 ? `\n(The previous batch ended on a ${results.at(-1)?.backdrop ?? "footage"} scene: start differently.)` : "";
     const { data } = await structured({ stage: o.issues ? "scenes.revise" : "scenes.design", model: MODELS.sonnet, system: [plain(task)], user: [...exemplarBlocks, { type: "text", text: `${b.map(brief).join("\n\n")}${neighbours}` }], schema: Plan, effort: "medium", maxTokens: 16000 });
     return data.scenes;
   };
-  if (batches.length) results.push(...(await runBatch(batches[0]!, 0)));
-  const rest = await Promise.all(batches.slice(1).map((b, k) => runBatch(b, k + 1).catch(() => [] as PlanScene[])));
-  for (const r of rest) results.push(...r);
+  if (!o.raw) {
+    if (batches.length) results.push(...(await runBatch(batches[0]!, 0)));
+    const rest = await Promise.all(batches.slice(1).map((b, k) => runBatch(b, k + 1).catch(() => [] as PlanScene[])));
+    for (const r of rest) results.push(...r);
+  }
 
   const specs: SceneSpec[] = [...keep];
   // Surnames of every person the film names (shot entities of type person).
@@ -248,6 +257,12 @@ ${o.avoidLayouts ? `- Recent films leaned on these placements — this film must
     const verified = (sn: string) => primaryM?.origin === "press" && (primaryM.depicts ?? "").toLowerCase().includes(sn);
     const unsafeFace = named.length > 0 && Boolean(primaryM) && !named.every(verified);
     if (unsafeFace) nameGuarded++;
+    // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
+    const cleanOk = d.clean && primaryM?.kind === "video";
+    if (cleanOk) {
+      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
+      continue;
+    }
     if (!els.some((e) => e.type !== "texture" && e.type !== "shape")) {
       // Nothing focal survived: fall back to the channel's signature — a spoken phrase over the footage.
       const ws = lineOf(sh.startS, sh.endS).split(/\s+/).filter(Boolean);

@@ -37,12 +37,15 @@ export interface PreflightCheck {
  * most common one or its neighbour. A film washed in one tone scores near 1; the reference films score lower.
  */
 export async function hueDominance(frames: string[]): Promise<number | null> {
+  // A frame is "carried" by a colour family when at least half of ALL its pixels are saturated pixels of that
+  // family (or its neighbour) — a wash or a colour stage. Natural footage (wood, skin, sky, grey machinery)
+  // mixes hues and neutrals and is carried by none. -1 = not carried.
   const fam: number[] = [];
   for (const f of frames) {
     const px = (await rgbFrames(f, { fps: 1, w: 64, h: 36 }).catch(() => []))[0];
     if (!px) continue;
     const hist = new Array<number>(12).fill(0);
-    let coloured = 0;
+    const total = px.length / 3;
     for (let i = 0; i + 2 < px.length; i += 3) {
       const r = px[i]! / 255;
       const g = px[i + 1]! / 255;
@@ -50,24 +53,24 @@ export async function hueDominance(frames: string[]): Promise<number | null> {
       const mx = Math.max(r, g, b);
       const mn = Math.min(r, g, b);
       const d = mx - mn;
-      if (mx < 0.18 || d / (mx || 1) < 0.3) continue;
+      if (mx < 0.18 || d / (mx || 1) < 0.45) continue;
       const h = (mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
-      hist[Math.floor(h / 30) % 12]! += d * mx;
-      coloured++;
+      hist[Math.floor(h / 30) % 12]!++;
     }
-    if (coloured < px.length / 3 / 8) continue; // a near-neutral frame has no colour family
-    fam.push(hist.indexOf(Math.max(...hist)));
+    const top = hist.indexOf(Math.max(...hist));
+    const cover = (hist[top]! + hist[(top + 1) % 12]! + hist[(top + 11) % 12]!) / total;
+    fam.push(cover >= 0.5 ? top : -1);
   }
   if (fam.length < 6) return null;
   const count = new Array<number>(12).fill(0);
-  for (const k of fam) count[k]!++;
+  for (const k of fam) if (k >= 0) count[k]!++;
   const top = count.indexOf(Math.max(...count));
-  return fam.filter((k) => k === top || k === (top + 1) % 12 || k === (top + 11) % 12).length / fam.length;
+  return fam.filter((k) => k >= 0 && (k === top || k === (top + 1) % 12 || k === (top + 11) % 12)).length / fam.length;
 }
 
 /** The same measure on every reference film's labelled shots (cached in data/.cache): the channel's own range. */
 export async function referenceHueDominance(data: string, ex: ExemplarIndex): Promise<{ p50: number; p75: number; max: number; films: number } | null> {
-  const file = path.join(data, ".cache", `hue-dominance-${ex.channel}.json`);
+  const file = path.join(data, ".cache", `hue-dominance-v2-${ex.channel}.json`);
   const hit = await readFile(file, "utf8").then((t) => JSON.parse(t) as { generatedAt: string; p50: number; p75: number; max: number; films: number }, () => null);
   if (hit && hit.generatedAt === ex.generatedAt) return hit;
   const dir = path.join(data, "exemplars", ex.channel);
@@ -196,7 +199,11 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const designedShots = new Set(o.manifest.video.filter((l) => l.sourceKind === "designed" && !["captions", "atmosphere", "chapter_card"].includes(l.ref)).map((l) => l.shotId));
     const treated = shots.filter((s) => designedShots.has(s.id)).length / Math.max(1, shots.length);
     const slow = shots.filter((s) => !designedShots.has(s.id) && (s.camera.type === "ken_burns" || s.camera.type === "static")).length / Math.max(1, shots.length);
-    add({ id: "designed_share", label: "Shots with designed treatment", value: treated, target: "≥ 0.7", pass: treated >= 0.7, level: "blocker" });
+    // Clean footage is part of the style (measured: about four of the channel's shots in ten carry nothing), so
+    // a scene with no elements counts as designed here; what matters is that every shot is a decided scene.
+    add({ id: "designed_share", label: "Shots with a decided scene (designed or deliberately clean)", value: treated, target: "≥ 0.7", pass: treated >= 0.7, level: "blocker" });
+    const cleanStill = o.scenes.scenes.filter((sc) => sc.elements.length === 0 && o.resolution.media.find((m) => m.shotId === sc.shotId && m.role === "primary")?.kind !== "video").map((sc) => sc.shotId);
+    add({ id: "dead_frames", label: "Clean shots without moving footage (a still or an empty stage with nothing on it)", value: cleanStill.length, target: "0", pass: cleanStill.length === 0, level: "blocker", repair: "safe_scene", shots: cleanStill });
     add({ id: "slow_zoom_share", label: "Plain footage with only a slow zoom or static", value: slow, target: "≤ 0.2", pass: slow <= 0.2, level: "blocker" });
     const order = [...o.scenes.scenes].sort((a, b) => a.shotId.localeCompare(b.shotId));
     let run = 0;
@@ -231,7 +238,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     }
     const dom = await hueDominance(o.previewFrames);
     if (dom !== null && o.hueRef) {
-      const lim = Math.min(0.95, Math.max(o.hueRef.p75 * 1.1, o.hueRef.max));
+      const lim = Math.min(0.9, Math.max(o.hueRef.p75 * 1.1, o.hueRef.max) + 0.05);
       add({ id: "one_colour_film", label: "Share of scenes carried by the same colour (a film washed in one tone reads as monochrome)", value: dom, target: `≤ ${r3(lim)} (the channel's films: up to ${o.hueRef.max})`, pass: dom <= lim, level: "blocker", repair: "soften_wash" });
     }
   }
