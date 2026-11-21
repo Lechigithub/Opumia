@@ -11,7 +11,13 @@ export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDee
 
 export const SceneElement = z.discriminatedUnion("type", [
   z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, frame: z.enum(["none", "print", "torn", "circle", "tv", "polaroid"]).default("print"), grade: z.enum(["natural", "mono", "duotone"]).default("natural"), h: z.number().optional() }),
-  z.object({ type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true) }),
+  z.object({ type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true), outline: z.boolean().default(false) }),
+  /** Kinetic narration phrase: a run of words spoken in this shot, revealed word by word in sync with the voice. */
+  z.object({ type: z.literal("phrase"), text: z.string().min(1).max(120), ...Box, size: z.number().min(0.02).max(0.2), align: z.enum(["left", "center", "right"]).default("center"), color: ColorToken.default("text"), emphasis: z.string().optional() }),
+  /** Real 3D (Three.js): an extruded word with lights, slowly turning. */
+  z.object({ type: z.literal("text3d"), text: z.string().min(1).max(18), ...Box, color: ColorToken.default("primary"), spin: z.number().min(-60).max(60).default(18) }),
+  /** Real 3D (Three.js): a picture slot as a lit card in perspective, turning through `spin` degrees. */
+  z.object({ type: z.literal("card3d"), slot: z.number().int().min(0), ...Box, tilt: z.number().min(-40).max(40).default(-14), spin: z.number().min(-60).max(60).default(22) }),
   z.object({ type: z.literal("text"), text: z.string().min(1).max(90), role: z.enum(["display", "headline", "body", "label", "stamp", "kicker"]), ...Box, size: z.number().min(0.015).max(0.3), align: z.enum(["left", "center", "right"]).default("left"), color: ColorToken.default("text"), box: ColorToken.optional(), highlightWord: z.string().optional() }),
   z.object({ type: z.literal("shape"), shape: z.enum(["underline", "circle", "arrow", "bar", "line", "rect", "bracket", "cross"]), ...Box, h: z.number().default(0.01), color: ColorToken.default("accent"), x2: z.number().optional(), y2: z.number().optional() }),
   z.object({ type: z.literal("texture"), texture: z.enum(["paper", "halftone", "grid", "scanlines", "noise", "stripes"]), opacity: z.number().min(0).max(1).default(0.4), at: z.number().min(0).default(0) }),
@@ -21,7 +27,9 @@ export type SceneElement = z.infer<typeof SceneElement>;
 export const SceneSpec = z.object({
   shotId: z.string(),
   /** What sits behind the elements: the shot's own footage (sharp, dimmed), a design surface, or paper. */
-  backdrop: z.enum(["footage", "surface", "paper", "split"]).default("footage"),
+  backdrop: z.enum(["footage", "surface", "paper", "split", "world"]).default("footage"),
+  /** Colour the footage backdrop into the film's world. */
+  wash: z.object({ color: ColorToken, strength: z.number().min(0).max(0.85), mode: z.enum(["tint", "duotone"]) }).optional(),
   dim: z.number().min(0).max(0.85).default(0.45),
   camera: z.object({ fromScale: z.number().min(0.9).max(1.6), toScale: z.number().min(0.9).max(1.6), fromX: z.number().default(0.5), toX: z.number().default(0.5), fromY: z.number().default(0.5), toY: z.number().default(0.5) }),
   elements: z.array(SceneElement).min(1).max(12),

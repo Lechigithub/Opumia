@@ -3,7 +3,7 @@ import path from "node:path";
 import type { FilmDesignSystem, RenderManifest } from "@opumia/contracts";
 import { renderStill, selectComposition } from "@remotion/renderer";
 import { contactSheet } from "@opumia/senses";
-import { serveUrlFor, type Look } from "./render.js";
+import { GL, serveUrlFor, type Look } from "./render.js";
 
 /**
  * Shot preview: the agents' eyes on their own work. Renders any shot at several moments (default: just after
@@ -41,7 +41,7 @@ export async function renderShotPreviews(o: { manifest: RenderManifest; look: Lo
     for (const [k, m] of moments.entries()) {
       const frame = Math.min(o.manifest.durationFrames - 1, Math.round(r.start + (r.end - r.start - 1) * m));
       const p = path.join(o.outDir, `${id}_${k}.jpg`);
-      await renderStill({ composition, serveUrl: url, output: p, inputProps, frame, imageFormat: "jpeg", jpegQuality: 82, scale: o.scale ?? 0.5 });
+      await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: p, inputProps, frame, imageFormat: "jpeg", jpegQuality: 82, scale: o.scale ?? 0.5 });
       frames.push({ frame, path: p });
     }
     const sheet = await contactSheet(frames.map((f) => f.path), path.join(o.outDir, `${id}_sheet.jpg`), { cols: frames.length, cellW: 480 });

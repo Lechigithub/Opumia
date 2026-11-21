@@ -75,6 +75,7 @@ export async function renderVideo(o: { manifest: RenderManifest; look: Look; des
   // chunks that already finished are kept.
   const renderChunk = (range: [number, number], i: number, concurrency: number) =>
       renderMedia({
+        chromiumOptions: GL,
         composition,
         serveUrl: url,
         codec: "h264",
@@ -120,7 +121,7 @@ export async function renderThumbnailStill(o: { publicDir: string; bg: string; h
   const url = await serveUrl(o.publicDir, o.log ?? (() => {}), true);
   const inputProps = { bg: o.bg, headline: o.headline, accentWord: o.accentWord, accent: o.accent, placement: o.placement, w: o.width, h: o.height };
   const composition = await selectComposition({ serveUrl: url, id: "Thumbnail", inputProps });
-  await renderStill({ composition, serveUrl: url, output: o.out, inputProps, imageFormat: "jpeg", jpegQuality: 92 });
+  await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: o.out, inputProps, imageFormat: "jpeg", jpegQuality: 92 });
   return o.out;
 }
 
@@ -129,9 +130,12 @@ export async function renderLocalThumbnail(o: { publicDir: string; focal: string
   const url = await serveUrl(o.publicDir, o.log ?? (() => {}), true);
   const inputProps = { focal: o.focal, flames: o.flames, cash: o.cash, headline: o.headline, accentWord: o.accentWord, tone: o.tone, w: o.width, h: o.height };
   const composition = await selectComposition({ serveUrl: url, id: "ThumbnailLocal", inputProps });
-  await renderStill({ composition, serveUrl: url, output: o.out, inputProps, imageFormat: "jpeg", jpegQuality: 92 });
+  await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: o.out, inputProps, imageFormat: "jpeg", jpegQuality: 92 });
   return o.out;
 }
+
+/** WebGL backend for Three.js scenes: ANGLE on macOS/Windows, software ANGLE in Linux containers. */
+export const GL = { gl: (process.platform === "linux" ? "swangle" : "angle") as "angle" | "swangle" };
 
 /** Shared bundle access for other render helpers (frame gate). */
 export const serveUrlFor = (publicDir: string, log: (s: string) => void, fresh = false) => serveUrl(publicDir, log, fresh);

@@ -60,10 +60,9 @@ const Designed: React.FC<{ layer: Layer; accent: string }> = ({ layer, accent })
  */
 const Grade: React.FC<{ act?: DesignTokens["acts"][number] }> = ({ act }) => (
   <>
-    {act && act.tintStrength > 0 ? <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: "soft-light", background: act.tint, opacity: act.tintStrength * 1.6 }} /> : null}
-    <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: "multiply", background: "rgba(14,12,10,0.2)" }} />
-    <AccentLight color={PALETTE.crimsonDeep} at={[0.12, 0.85]} intensity={0.16} />
-    <Vignette strength={TEXTURE.vignette} />
+    {act && act.tintStrength > 0 ? <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: "soft-light", background: act.tint, opacity: Math.min(0.5, act.tintStrength * 1.2) }} /> : null}
+    <AccentLight color={PALETTE.crimsonDeep} at={[0.12, 0.85]} intensity={0.12} />
+    <Vignette strength={Math.min(0.45, TEXTURE.vignette * 0.6)} />
     <FilmGrain opacity={TEXTURE.grain} />
     {TEXTURE.halftone ? <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.07, backgroundImage: "radial-gradient(rgba(0,0,0,0.9) 1px, transparent 1.2px)", backgroundSize: "6px 6px" }} /> : null}
   </>
@@ -81,7 +80,9 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   const act = acts.length ? acts[Math.min(actIdx, acts.length - 1)] : undefined;
   // Grade crossfades 12 frames into each new act.
   const blend = actIdx > 0 ? interpolate(frame, [actStarts[actIdx]!, actStarts[actIdx]! + 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1;
-  const sat = act ? act.saturation * blend + (acts[Math.max(0, Math.min(actIdx - 1, acts.length - 1))]?.saturation ?? act.saturation) * (1 - blend) : Math.min(look.saturate, 0.85);
+  const satRaw = act ? act.saturation * blend + (acts[Math.max(0, Math.min(actIdx - 1, acts.length - 1))]?.saturation ?? act.saturation) * (1 - blend) : look.saturate;
+  // Never desaturate below natural: the reference is 1.5-2x more colourful than a neutral grade.
+  const sat = Math.max(1.05, satRaw + 0.15);
   const con = act ? act.contrast : Math.max(look.contrast, 1.12);
   const portrait = manifest.height > manifest.width;
   const layers = [...manifest.video].sort((a, b) => a.zIndex - b.zIndex || a.startFrame - b.startFrame);
@@ -117,7 +118,7 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {/* One world: footage pulled toward the reference look (luma ≈ 0.28, saturation ≈ 0.44, contrast up). */}
-      <AbsoluteFill style={{ filter: `saturate(${sat.toFixed(3)}) contrast(${con.toFixed(3)}) brightness(0.86)` }}>{below.map(render)}</AbsoluteFill>
+      <AbsoluteFill style={{ filter: `saturate(${sat.toFixed(3)}) contrast(${Math.min(con, 1.14).toFixed(3)}) brightness(1.0)` }}>{below.map(render)}</AbsoluteFill>
       <Grade {...(act ? { act } : {})} />
       {above.map(render)}
     </AbsoluteFill>

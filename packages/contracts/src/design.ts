@@ -8,6 +8,26 @@ const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
  * Per-film art direction, produced by the Art Director agent right after research. Every colour, font pairing,
  * texture level and per-act tint the motion engine uses comes from here — nothing topic-specific is hardcoded.
  */
+export const TextStyle = z.enum(["neon_glow", "solid_stroke", "boxed", "gradient", "paper_cut", "outline_only"]);
+export const FilmTreatment = z.object({
+  /** How headline and slam type is drawn. */
+  headline: TextStyle,
+  /** How the kinetic narration phrases are drawn (must differ from the headline style). */
+  phrase: TextStyle,
+  label: z.enum(["tag", "underline", "pill", "bracket", "plain"]),
+  photo: z.enum(["print", "torn", "polaroid", "none", "tv", "circle"]),
+  /** Procedural backdrop for scenes without footage, drawn in the film's colours. */
+  world: z.enum(["nebula", "blueprint", "paper", "halftone", "smoke", "stripes", "spotlight"]),
+  particles: z.enum(["none", "dust", "embers", "snow", "bokeh"]),
+  /** How footage is coloured into the film's world. */
+  wash: z.enum(["none", "tint", "duotone"]),
+  washStrength: z.number().min(0).max(0.8).default(0.35),
+  glow: z.number().min(0).max(1).default(0.6),
+  /** A recurring visual device unique to this film (e.g. "film sprocket strips", "blood-drop bullet points"). */
+  motif: z.string(),
+});
+export type FilmTreatment = z.infer<typeof FilmTreatment>;
+
 export const FilmDesignSystem = z.object({
   schemaVersion: z.literal(1),
   id: z.string(),
@@ -35,6 +55,11 @@ export const FilmDesignSystem = z.object({
   texture: z.object({ grain: z.number().min(0).max(0.5), vignette: z.number().min(0).max(1), halftone: z.boolean(), lightLeaks: z.boolean() }),
   /** Colour grade per act (chapter index → tint and strengths). */
   acts: z.array(z.object({ name: z.string(), tint: Hex, tintStrength: z.number().min(0).max(0.6), saturation: z.number().min(0.4).max(1.3), contrast: z.number().min(0.9).max(1.3) })).min(1),
+  /**
+   * Visual treatment: the film's own motion-design language, chosen for its topic. One system per film (so the
+   * film is coherent) and different from recent films (so no two films share a look).
+   */
+  treatment: FilmTreatment.optional(),
   /** Scene grammar: designed kinds this film should favour and the minimum gap before a layout may repeat. */
   sceneGrammar: z.object({ favour: z.array(z.string()), avoid: z.array(z.string()), minRepeatGapS: z.number().default(45) }),
   generatedAt: IsoDateTime,

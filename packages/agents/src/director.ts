@@ -280,31 +280,38 @@ ${formatFactTable(nf) || "(none — do not use money_figure, chart or versus)"}`
     const share = shots.filter((x) => x.source.kind === "designed").length / Math.max(1, shots.length);
     log(`  director: designed share ${(share * 100).toFixed(0)} % (reference 24–36 %)${share < 0.2 ? " — below the channel band" : ""}`);
   }
-  // Visual grammar floor (reference: 24–36 % designed, about half of it custom compositions). The model under-uses
-  // designed shots, so the floor is enforced here: the strongest footage beats become composed scenes — lines that
-  // name a company/product/person first, then data and literal lines — spaced so designed shots never stack.
+  // EVERY SHOT IS DESIGNED (measured on the reference: nearly every shot carries designed treatment). Data graphics
+  // keep their dedicated components; every other shot — footage, introductions, slams, quotes — becomes a composed
+  // scene that the scene designer lays out for that exact line, with the shot's entities as picture layers.
   {
-    const isDes = (x: StoryboardShot) => x.source.kind === "designed" && x.source.designed !== "name_label";
-    const designedTarget = Math.ceil(shots.length * 0.26);
-    const sceneTarget = Math.max(2, Math.round(designedTarget * 0.5));
-    const scenesNow = () => shots.filter((x) => x.source.kind === "designed" && x.source.designed === "scene").length;
-    const score = (x: StoryboardShot) => (x.entities?.some((e) => ["company", "product", "person"].includes(e.type)) ? 3 : 0) + (x.lineLink === "data" ? 2 : x.lineLink === "literal" ? 1.5 : x.lineLink === "metaphor" ? 1 : 0) + (x.endS - x.startS >= 2.2 ? 0.5 : 0);
-    const free = () =>
-      shots
-        .map((x, k) => ({ x, k }))
-        .filter(({ x, k }) => x.source.kind === "query" && k > 0 && x.endS - x.startS >= 1.8 && !(shots[k - 1] && isDes(shots[k - 1]!)) && !(shots[k + 1] && isDes(shots[k + 1]!)))
-        .sort((a, b) => score(b.x) - score(a.x) || a.k - b.k);
-    let promoted = 0;
-    while ((scenesNow() < sceneTarget || shots.filter(isDes).length < designedTarget) && shots.filter(isDes).length < maxDesigned) {
-      const c = free()[0];
-      if (!c) break;
-      const sh = c.x;
-      const q = sh.source.kind === "query" ? sh.source.query : sh.intent;
-      const layers = (sh.entities ?? []).filter((e) => ["company", "product", "person", "place"].includes(e.type)).slice(0, 2).map((e) => ({ name: e.name, type: e.type }));
-      sh.source = { kind: "designed", designed: "scene", props: { brief: `compose this line visually: ${sh.intent}`, layers, words: [], background: { query: q, mustBe: "video" } }, assetIds: [] };
-      promoted++;
+    const DATA = new Set(["chart", "map", "document", "versus", "money_figure", "timeline"]);
+    let scenes = 0;
+    for (const sh of shots) {
+      const src = sh.source;
+      if (src.kind === "designed" && (DATA.has(src.designed) || src.designed === "scene")) {
+        if (src.designed === "scene") scenes++;
+        continue;
+      }
+      const p = src.kind === "designed" ? src.props : {};
+      const bg = (src.kind === "designed" ? (p.background as { query?: string; era?: string } | undefined) : { query: src.kind === "query" ? src.query : sh.intent, era: src.kind === "query" ? src.era : undefined }) ?? {};
+      const was = src.kind === "designed" ? src.designed : "footage";
+      const hint =
+        was === "hero_face" ? `introduce ${String(p.name ?? "")} (${String(p.title ?? "")}) with their real photo and name`
+        : was === "name_label" ? `label who or what is on screen: ${String(p.name ?? "")} — ${String(p.title ?? "")}`
+        : was === "big_word" ? `a text slam: "${String(p.text ?? "")}"${p.sub ? ` / ${String(p.sub)}` : ""}`
+        : was === "quote_card" ? `the quote "${String(p.quote ?? "")}" — ${String(p.by ?? "")}`
+        : was === "cutout_collage" ? `cutout collage titled "${String(p.title ?? "")}"`
+        : was === "screen" ? `a screen/UI moment: ${String(p.title ?? "")}`
+        : "";
+      const ents = [...(sh.entities ?? [])];
+      if (was === "hero_face" && p.name && !ents.some((e) => e.name === p.name)) ents.unshift({ name: String(p.name), type: "person" });
+      const layers = ents.filter((e) => ["company", "product", "person", "place", "landmark"].includes(e.type)).slice(0, 2).map((e) => ({ name: e.name, type: e.type }));
+      sh.source = { kind: "designed", designed: "scene", props: { brief: [sh.intent, hint].filter(Boolean).join(" — "), layers, words: [], background: { query: bg.query && bg.query.length >= 3 ? bg.query : `${sh.intent} cinematic footage`, mustBe: "video", ...(bg.era ? { era: bg.era } : {}) } }, assetIds: [] };
+      if (ents.length) sh.entities = ents;
+      delete sh.factIds;
+      scenes++;
     }
-    if (promoted) log(`  director: visual grammar floor — ${promoted} footage beat(s) promoted to composed scenes (${scenesNow()} scenes, ${shots.filter(isDes).length}/${shots.length} designed)`);
+    log(`  director: every shot designed — ${scenes} composed scene(s), ${shots.length - scenes} data graphic(s)`);
   }
   if (capped) log(`  director: variety caps — ${capped} graphic(s) returned to footage (≤ ${maxCounters} counters, unique slams, ≤ 30 % designed)`);
 

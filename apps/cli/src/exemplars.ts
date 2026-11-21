@@ -67,7 +67,7 @@ export async function buildExemplars(ctx: Ctx, channel: string, maxFilms = 99): 
   for (const v of vids) {
     const d = v.durationS ?? 600;
     const parts: Look[] = [];
-    for (const f of [0.15, 0.45, 0.75]) parts.push(await measureLook(v.videoFile!, { ss: Math.max(40, d * f), t: 40, fps: 2 }));
+    for (const f of [0.15, 0.45, 0.75]) parts.push(await measureLook(v.videoFile!, { ss: Math.max(40, d * f), t: 40, fps: 4 }));
     const avg = (k: keyof Look) => r3(mean(parts.map((p) => p[k] as number)));
     const pal = new Map<string, number>();
     for (const p of parts) for (const c of p.palette) pal.set(c.hex, (pal.get(c.hex) ?? 0) + c.share / parts.length);

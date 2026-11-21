@@ -183,7 +183,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const wantsImage = (n: Need) => n.kind === "image" || (n.shot.source.kind === "designed" && ["hero_face", "cutout_collage"].includes(n.shot.source.designed));
   // Phase P — fair-use press first for named entities: the real person/company/product/event, checked by eye.
   if (o.press !== false) {
-    const pressNeeds = needs.filter((n) => n.shot.entities?.length && !(n.shot.source.kind === "designed" && n.shot.source.designed === "scene"));
+    const pressNeeds = needs.filter((n) => n.shot.entities?.length);
     if (pressNeeds.length) log(`  resolver: press sourcing for ${pressNeeds.length} entity shot(s) (Wikipedia + YouTube excerpts, vision-checked)…`);
     const pool = new Map<string, PressCandidate[]>();
     const wikiCache = new Map<string, Promise<PressCandidate[]>>();

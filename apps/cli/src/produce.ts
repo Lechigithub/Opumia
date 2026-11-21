@@ -4,10 +4,10 @@ import { promisify } from "node:util";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { artDirect, designScenes, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { artDirect, critiqueScenes, designScenes, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { calibrationKey, narrate, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets } from "@opumia/resolver";
-import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
+import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -88,7 +88,8 @@ async function produceStages(o: ProduceOptions) {
   const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), log }), log);
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
   log("\n[A1b] art direction");
-  const design = await cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), log }), log);
+  const design = await cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), async () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), recent: (await recentTreatments(o.data)).filter((r) => r.job !== jobId), log }), log);
+  if (design.treatment) await recordTreatment(o.data, { job: jobId, channel, headline: design.treatment.headline, phrase: design.treatment.phrase, world: design.treatment.world, particles: design.treatment.particles, photo: design.treatment.photo, label: design.treatment.label, display: design.typography.display, primary: design.palette.primary, accent: design.palette.accent });
   log(`  "${design.concept}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}, ${design.typography.display}`);
   const memory = await loadMemory(o.data);
   if (stop("research")) return { jobDir };
@@ -165,7 +166,27 @@ async function produceStages(o: ProduceOptions) {
 
   // Composed scenes: designed per shot after the resolver, so only pictures that really exist are placed.
   log("\n[B3] scene designer (composed scenes)");
-  const scenePlan = await cachedJson(path.join(jobDir, "scenes.json"), ScenePlan, redo("resolve") || redo("storyboard") || redo("manifest"), () => designScenes({ storyboard: board, script: timed, resolution, design, pack, log }), log);
+  // The designer looks at real reference frames (data/exemplars, built by `opumia build-exemplars`).
+  const exemplars: SceneExemplar[] = await (async () => {
+    const dir = path.join(o.data, "exemplars", channel);
+    const idx = await readFile(path.join(dir, "index.json"), "utf8").then((t) => JSON.parse(t) as { shots: Array<{ kind: string; designed: boolean; layout: string; motion: string; line: string; frames: string[] }> }, () => null);
+    if (!idx) {
+      log(`  ! no exemplar library for ${channel} (run \`opumia build-exemplars --channel ${channel}\`): designing without reference frames`);
+      return [];
+    }
+    const seen = new Set<string>();
+    const picks: SceneExemplar[] = [];
+    for (const s of idx.shots.filter((x) => x.designed && x.frames.length)) {
+      if (seen.has(s.kind)) continue;
+      seen.add(s.kind);
+      picks.push({ path: path.join(dir, s.frames.at(-1)!), caption: `${s.kind} — ${s.layout}; motion: ${s.motion}; over the line "${s.line.slice(0, 90)}"` });
+      if (picks.length >= 12) break;
+    }
+    return picks;
+  })();
+  const sceneFile = path.join(jobDir, "scenes.json");
+  const freshScenes = redo("resolve") || redo("storyboard") || redo("manifest") || !(await exists(sceneFile));
+  let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, () => designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, log }), log);
   const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;
   log(`  captions: ${burnCaptions ? "burned in" : `not burned in (the channel shows captions on ${Math.round(pack.captions.bottomTextShare * 100)} % of long-form shots); SRT keeps every word`}`);
 
@@ -179,6 +200,30 @@ async function produceStages(o: ProduceOptions) {
   await writeFile(srtPath, toSrt(captionGroups(timed)));
   if (!short) await writeFile(path.join(jobDir, "youtube-description.txt"), youtubeDescription(timed, facts));
   log(`  ${manifest.video.length} video layers, ${manifest.audio.length} audio layers, ${manifest.durationFrames} frames @ ${manifest.fps} fps; captions.srt written`);
+
+  // [B4] Preview → critique → revise: the designer sees its own scenes rendered (three moments per shot), a
+  // strict critic flags what would not ship, and the flagged scenes are redesigned once — before any film render.
+  const reviewFile = path.join(jobDir, "scenes.review.json");
+  if (scenePlan.scenes.length && (freshScenes || !(await exists(reviewFile)))) {
+    log("\n[B4] scene previews → critique → revise");
+    const lookP = lookFromProfile(pack.profile.look, design.palette.primarySoft);
+    const allWp = timed.segments.flatMap((sg) => sg.words);
+    const lineAt = (id: string) => {
+      const sh = board.shots.find((x) => x.id === id);
+      return sh ? allWp.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : "";
+    };
+    const t0p = Date.now();
+    const prev = await renderShotPreviews({ manifest, look: lookP, design, publicDir: pub, outDir: path.join(jobDir, "previews"), shotIds: scenePlan.scenes.map((x) => x.shotId), log });
+    const issues = await critiqueScenes({ channel, previews: prev.map((p) => ({ shotId: p.shotId, sheet: p.sheet, line: lineAt(p.shotId), idea: scenePlan.scenes.find((x) => x.shotId === p.shotId)?.idea ?? "" })), reference: exemplars.slice(0, 4).map((e) => e.path) });
+    log(`  critic: ${prev.length} scene(s) previewed in ${Math.round((Date.now() - t0p) / 1000)} s, ${issues.size} flagged${issues.size ? ` — ${[...issues.entries()].slice(0, 8).map(([k, v]) => `${k} ${v[0]}`).join(", ")}` : ""}`);
+    if (issues.size) {
+      scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, issues, previous: scenePlan, log });
+      await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+      await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+    }
+    await writeFile(reviewFile, JSON.stringify({ previewed: prev.length, flagged: Object.fromEntries(issues) }, null, 2) + "\n");
+  }
   if (stop("manifest")) return { jobDir };
 
   log("\n[C2] Remotion render + FFmpeg mastering");
@@ -203,7 +248,10 @@ async function produceStages(o: ProduceOptions) {
       for (const b of bad) {
         const sh = board.shots.find((x) => x.id === b.still!.shotId);
         if (!sh) continue;
-        if (b.fix === "drop_graphic" && sh.source.kind === "designed") {
+        if (b.fix === "drop_graphic" && sh.source.kind === "designed" && sh.source.designed === "scene") {
+          // Composed scenes were already reviewed and revised on previews; never fall back to a bare stock clip.
+          continue;
+        } else if (b.fix === "drop_graphic" && sh.source.kind === "designed") {
           const q = (sh.source.props.background as { query?: string } | undefined)?.query ?? sh.intent;
           sh.source = { kind: "query", query: q, mustBe: "any" };
           delete sh.factIds;

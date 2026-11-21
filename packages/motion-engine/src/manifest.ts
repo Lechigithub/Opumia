@@ -158,7 +158,20 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
       // Signature primitives take the shot's own picture: portrait for HeroFaceSplit, subject for CutoutCollage.
       if (designed.designed === "hero_face" && primary?.kind === "image") props.portraitSrc = primary.publicPath;
       if (designed.designed === "cutout_collage" && primary) props.subjectSrc = primary.publicPath;
-      if (designed.designed === "scene") props = { spec: sceneSpec, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
+      if (designed.designed === "scene") {
+        // Kinetic phrases: each word lands on the frame it is spoken.
+        const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}$%€£.]/gu, "").replace(/\.$/, "");
+        const pool = allWords.filter((w) => w.startS >= s.startS - 0.1 && w.startS < s.endS + 0.05);
+        const spec = sceneSpec as unknown as { elements: Array<Record<string, unknown>> };
+        const elements = spec.elements.map((el) => {
+          if (el.type !== "phrase") return el;
+          const want = String(el.text).split(/\s+/).filter(Boolean).map(norm);
+          const at = pool.findIndex((_, k) => want.every((wd, j) => norm(pool[k + j]?.word ?? "") === wd));
+          const wordFrames = want.map((_, j) => (at >= 0 ? Math.max(0, F(pool[at + j]!.startS) - start) : Math.round(j * fps * 0.22)));
+          return { ...el, wordFrames };
+        });
+        props = { spec: { ...spec, elements }, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
+      }
       if (s.factIds?.length) props.factIds = s.factIds;
       const win: [number, number] = [s.startS - 1.5, s.endS + 1.0];
       let keep = true;

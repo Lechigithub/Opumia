@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { FilmDesignSystem, RenderManifest } from "@opumia/contracts";
 import { renderStill, selectComposition } from "@remotion/renderer";
-import { serveUrlFor, type Look } from "./render.js";
+import { GL, serveUrlFor, type Look } from "./render.js";
 
 export interface GateFrame {
   frame: number;
@@ -42,7 +42,7 @@ export async function renderGateStills(o: { manifest: RenderManifest; look: Look
   const out: GateFrame[] = [];
   for (const f of o.frames) {
     const p = path.join(o.outDir, `gate_${String(f.frame).padStart(6, "0")}.jpg`);
-    await renderStill({ composition, serveUrl: url, output: p, inputProps, frame: Math.min(f.frame, o.manifest.durationFrames - 1), imageFormat: "jpeg", jpegQuality: 80, scale: 0.5 });
+    await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: p, inputProps, frame: Math.min(f.frame, o.manifest.durationFrames - 1), imageFormat: "jpeg", jpegQuality: 80, scale: 0.5 });
     out.push({ ...f, path: p });
   }
   return out;
