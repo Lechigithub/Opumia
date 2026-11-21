@@ -134,6 +134,15 @@ export async function renderLocalThumbnail(o: { publicDir: string; focal: string
   return o.out;
 }
 
+/** Thumbnail from a composed scene spec (real cutouts on the film's colour world), frozen after its entrances. */
+export async function renderThumbnailScene(o: { publicDir: string; spec: unknown; slots: Record<string, string>; design?: unknown; width?: number; height?: number; out: string; log?: (s: string) => void }): Promise<string> {
+  const url = await serveUrl(o.publicDir, o.log ?? (() => {}), true);
+  const inputProps = { spec: o.spec, slots: o.slots, ...(o.design ? { design: o.design } : {}), w: o.width ?? 1280, h: o.height ?? 720 };
+  const composition = await selectComposition({ serveUrl: url, id: "ThumbnailScene", inputProps });
+  await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: o.out, inputProps, frame: 80, imageFormat: "jpeg", jpegQuality: 93 });
+  return o.out;
+}
+
 /** WebGL backend for Three.js scenes: ANGLE on macOS/Windows, software ANGLE in Linux containers. */
 export const GL = { gl: (process.platform === "linux" ? "swangle" : "angle") as "angle" | "swangle" };
 

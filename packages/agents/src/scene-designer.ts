@@ -282,7 +282,7 @@ function estHeight(e: Boxed, portrait: boolean): number {
 }
 
 /** Keep focal elements inside the safe area and apart from each other (mutates `els`). */
-function fitLayout(els: SceneElement[], portrait: boolean): void {
+export function fitLayout(els: SceneElement[], portrait: boolean): void {
   const SAFE = { l: 0.05, r: 0.95, t: 0.06, b: portrait ? 0.7 : 0.9 };
   const focal = els.filter((e): e is Boxed => e.type !== "texture" && e.type !== "shape");
   const rect = (e: Boxed) => ({ x0: e.x, y0: e.y, x1: e.x + e.w, y1: e.y + estHeight(e, portrait) });

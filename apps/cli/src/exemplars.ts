@@ -28,6 +28,8 @@ export interface ExemplarIndex {
   looks: { films: Array<{ film: string } & Look>; band: Record<"luma" | "colourfulness" | "saturation" | "hueSpread" | "motion" | "stillShare" | "darkShare" | "cutsPerMin", { p25: number; p50: number; p75: number }> };
   narrator: { /** Pauses of ≥ 0.25 s between words, per minute (Whisper word timings). */ wordGapPausesPerMin?: { p25: number; p50: number; p75: number }; films: number; prosody: Record<keyof Omit<Prosody, "seconds">, { p25: number; p50: number; p75: number }>; pausesPerMin: { p25: number; p50: number; p75: number }; pauseMedianS: number; longPauseShare: number; wpm: { p25: number; p50: number; p75: number }; sentenceWpmStd: number };
   techniques: Array<{ kind: string; film: string; clip: string; strip: string }>;
+  /** How the channel packages a film: title, views, the story paragraph of its description, its tags. */
+  packaging?: Array<{ title: string; views: number | null; summary: string; tags: string[]; thumb?: string }>;
   generatedAt: string;
 }
 
@@ -142,6 +144,16 @@ export async function buildExemplars(ctx: Ctx, channel: string, maxFilms = 99): 
     if (l) thumbs.push({ film: v.title, title: v.title, views: v.views, file: rel, look: { luma: l.luma, colourfulness: l.colourfulness, saturation: l.saturation, palette: l.palette, hueSpread: l.hueSpread } });
   }
 
+  // --- Packaging: title, views, the description's story paragraph (promo/link lines removed), tags.
+  const packaging: NonNullable<ExemplarIndex["packaging"]> = [];
+  for (const v of vids) {
+    const info = await readFile(v.infoPath ?? "", "utf8").then((t) => JSON.parse(t) as { description?: string; tags?: string[] }, () => null);
+    if (!info) continue;
+    const paras = (info.description ?? "").split(/\n\s*\n|\n/).map((x) => x.trim()).filter((x) => x.length > 120 && !/https?:\/\/|www\.|\bsponsor|affiliate|discount|promo|subscribe|patreon|my (course|system|newsletter)/i.test(x));
+    const summary = paras.sort((a, b) => b.length - a.length)[0] ?? "";
+    packaging.push({ title: v.title, views: v.views, summary: summary.slice(0, 900), tags: (info.tags ?? []).slice(0, 25), ...(thumbs.find((t) => t.file === `thumbs/${v.ytId}.jpg`) ? { thumb: `thumbs/${v.ytId}.jpg` } : {}) });
+  }
+
   // --- Technique clips (read in place from Library/moments).
   const techniques: ExemplarIndex["techniques"] = [];
   const mi = await readFile(path.join(ctx.library, "moments", ch.dir, "index.json"), "utf8").then((t) => JSON.parse(t) as Record<string, { moments: Array<{ film: string; clip: string; strip: string }> }>).catch(() => ({}) as Record<string, { moments: Array<{ film: string; clip: string; strip: string }> }>);
@@ -155,6 +167,7 @@ export async function buildExemplars(ctx: Ctx, channel: string, maxFilms = 99): 
     looks: { films: looks, band: { luma: lb("luma"), colourfulness: lb("colourfulness"), saturation: lb("saturation"), hueSpread: lb("hueSpread"), motion: lb("motion"), stillShare: lb("stillShare"), darkShare: lb("darkShare"), cutsPerMin: lb("cutsPerMin") } },
     narrator: { wordGapPausesPerMin: band(gapPM), films: pros.length, prosody: { voicedShare: pk("voicedShare"), f0Hz: pk("f0Hz"), f0RangeSt: pk("f0RangeSt"), melodySt: pk("melodySt"), energyStdDb: pk("energyStdDb"), pausesPerMin: pk("pausesPerMin"), pauseMedianS: pk("pauseMedianS"), longPauseShare: pk("longPauseShare") }, pausesPerMin: band(pausePM), pauseMedianS: r3(median(pauseMed)), longPauseShare: r3(median(pauseLong)), wpm: band(wpm), sentenceWpmStd: r3(median(wstd)) },
     techniques,
+    packaging,
     generatedAt: new Date().toISOString(),
   };
   const file = path.join(out, "index.json");

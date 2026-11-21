@@ -245,6 +245,17 @@ Test without rendering a film: `npx tsx apps/cli/src/dev/narrate-test.ts out/<jo
 - **Music:** per mood span, by title mood + measured tempo and pulse, off cooldown; `MusicCue.inS` starts the bed after its quiet intro with the beat on the first strong hit. Drop-outs from the earlier sound design are kept.
 - `resolver/resolve.ts:resolveAudio` re-materialises effects and music after this stage.
 
+## Publishing package (rebuild stage 8)
+
+`produce` stage **C3** builds the whole package with `apps/cli/src/publish.ts` + `agents/publishing.ts` (test without rendering: `npx tsx apps/cli/src/dev/package-test.ts out/<job>`). Outputs: `thumbnail.jpg`, `publish.json`, `youtube-description.txt`, `youtube-tags.txt`, `pinned-comment.txt`.
+
+- **Thumbnail from real pictures, no generated imagery.** The film's verified press stills, the main subjects' Wikipedia photos and logos, and matching `Library/objects` cutouts become picture slots; photos are cut out with `senses/cutout.ts:removeBackground` (BiRefNet-lite, MIT, ONNX; keeps only source pixels). A Sonnet designer, shown real reference thumbnails and the channel's learned rules (`data/thumbnail-grammar/<channel>.json`), writes one composed scene with its own palette; it is rendered by the film's scene engine (`ThumbnailScene`), measured against the reference thumbnails' colourfulness, and put through an **imposter test** among real thumbnails; one revision if picked out. Recent concepts are avoided (`data/thumbnail-concepts.json`). The Higgsfield plate path is legacy (`OPUMIA_THUMBNAIL=higgsfield`).
+- **Title:** six candidates from the reference titles weighted by views; figures must be in the film; the winner is the candidate least often picked out among real titles.
+- **Description:** hook + story paragraph in the channel's style (only figures the narration speaks), chapters, sources, a fair-use notice naming the rights holders of press excerpts, credits, hashtags. **No channel-links slot** (owner decision).
+- **Tags** (≤ 480 characters; never the reference channel's name or a term the film does not use), **hashtags** (3–5), **pinned comment** (a specific question about the story; no links).
+- **Package check** (Haiku): title, thumbnail words, description and pinned comment against the narration — anything promised but not delivered is listed in `publish.json.checks`.
+- Reference packaging lives in the exemplar library (`packaging`: title, views, description story paragraph, tags).
+
 ## Platform evaluation (blind reference test)
 
 `opumia eval` measures the platform, not one film. Every film is cut into 20 s picture windows (frames + narration + same-method cut counts) and 45 s narration passages, each paired with a real reference window of the same position and shown blind (A/B) to a Sonnet judge. The judge is only trusted after calibration on degraded reference windows (wrong picture, generic stock, bland rewrite, real-vs-real). Report: caught count + indistinguishability, judge tells grouped by area, trend in `data/eval/<set>/history.json`.

@@ -9,6 +9,7 @@ import { calibrationKey, narrate, narrateDirected, readCalibration, resolveChann
 import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
+import { buildPublishingPackage } from "./publish.js";
 import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
@@ -212,7 +213,7 @@ async function produceStages(o: ProduceOptions) {
   let manifest = await cachedJson(path.join(jobDir, "manifest.json"), RenderManifest, redo("manifest") || redo("resolve") || redo("storyboard"), () => buildManifest({ storyboard: board, script: timed, resolution, ...mopts() }), log);
   const srtPath = path.join(jobDir, "captions.srt");
   await writeFile(srtPath, toSrt(captionGroups(timed)));
-  if (!short) await writeFile(path.join(jobDir, "youtube-description.txt"), youtubeDescription(timed, facts));
+  if (!(await exists(path.join(jobDir, "publish.json")))) await writeFile(path.join(jobDir, "youtube-description.txt"), youtubeDescription(timed, facts)); // replaced by the publishing package (C3)
   log(`  ${manifest.video.length} video layers, ${manifest.audio.length} audio layers, ${manifest.durationFrames} frames @ ${manifest.fps} fps; captions.srt written`);
 
   // [B4] Preview → critique → revise: the designer sees its own scenes rendered (three moments per shot), a
@@ -307,9 +308,18 @@ async function produceStages(o: ProduceOptions) {
   } else log(`  ✓ ${finalName} (cached)`);
   if (stop("render")) return { jobDir };
 
-  log("\n[C3] thumbnail (Higgsfield)");
+  log("\n[C3] publishing package (thumbnail, title, description, tags, hashtags, pinned comment)");
   let thumbnailPath: string | null = path.join(jobDir, "thumbnail.jpg");
-  if (redo("thumbnail") || !(await exists(thumbnailPath))) {
+  // The studio composes the thumbnail from real cut-out pictures; the generated-plate path is legacy
+  // (OPUMIA_THUMBNAIL=higgsfield).
+  const legacyThumb = process.env.OPUMIA_THUMBNAIL === "higgsfield";
+  if (!legacyThumb && (redo("thumbnail") || !(await exists(thumbnailPath)) || !(await exists(path.join(jobDir, "publish.json"))))) {
+    const pk = await buildPublishingPackage({ jobDir, data: o.data, library: o.library, channel, job: jobId, facts, script: timed, design, resolution, board, index, publicDir: pub, log }).catch((err: Error) => {
+      log(`  ! publishing package failed: ${err.message.slice(0, 160)}`);
+      return { thumbnailPath: null, usd: 0 };
+    });
+    thumbnailPath = pk.thumbnailPath;
+  } else if (legacyThumb && (redo("thumbnail") || !(await exists(thumbnailPath)))) {
     const style = await thumbnailStyle(channel, { reference: o.reference, data: o.data }, log);
     const briefPath = path.join(jobDir, "thumbnail.brief.json");
     const brief = (await exists(briefPath)) && !redo("thumbnail") ? JSON.parse(await readFile(briefPath, "utf8")) : await thumbnailBrief(style, draft, o.aspect);
