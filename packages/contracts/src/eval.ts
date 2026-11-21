@@ -61,12 +61,18 @@ export const Calibration = z.object({
   detection: z.record(z.string(), z.number()),
   /** Real-vs-real: share of "A" picks (target 0.35–0.65) and mean confidence (target ≤ 0.75). */
   positionBias: z.object({ aRate: z.number(), meanConfidence: z.number() }),
+  /** Films a person already judged as clearly not reference quality: the judge must catch them nearly always. */
+  knownBad: z.object({ caught: z.number(), total: z.number(), jobs: z.array(z.string()) }).optional(),
   trusted: z.boolean(),
   reasons: z.array(z.string()),
   usd: z.number(),
   generatedAt: IsoDateTime,
 });
 export type Calibration = z.infer<typeof Calibration>;
+
+/** One objective measurement of a film against the reference channel's measured band. */
+export const SlopMetric = z.object({ id: z.string(), label: z.string(), value: z.number(), target: z.string(), pass: z.boolean() });
+export type SlopMetric = z.infer<typeof SlopMetric>;
 
 export const FilmScore = z.object({
   job: z.string(),
@@ -77,6 +83,10 @@ export const FilmScore = z.object({
   /** Most frequent judge tells against the film, grouped by area. */
   topTells: z.array(z.object({ area: z.string(), count: z.number(), examples: z.array(z.string()) })),
   production: z.object({ claudeUsd: z.number().nullable(), wallS: z.number().nullable() }),
+  /** Objective checks (look, motion, voice, reuse) with the same measurement run on the reference films. */
+  metrics: z.array(SlopMetric).default([]),
+  /** Release gate: blind test near chance AND every objective check met AND not a template of another film. */
+  gate: z.object({ pass: z.boolean(), reasons: z.array(z.string()) }).optional(),
 });
 export type FilmScore = z.infer<typeof FilmScore>;
 
@@ -90,6 +100,8 @@ export const EvalReport = z.object({
   /** Mean realness ×2, capped at 1: 1.0 = the judge can no longer tell our films from the reference. */
   indistinguishability: z.object({ picture: z.number(), story: z.number(), overall: z.number() }),
   topTells: z.array(z.object({ area: z.string(), count: z.number(), examples: z.array(z.string()) })),
+  /** Cross-film sameness: how much two of OUR films look like one template (0–10), against the same test on pairs of reference films. */
+  sameness: z.object({ ours: z.array(z.object({ a: z.string(), b: z.string(), score: z.number(), shared: z.array(z.string()) })), referenceBaseline: z.number(), pass: z.boolean() }).optional(),
   usd: z.number(),
   generatedAt: IsoDateTime,
 });

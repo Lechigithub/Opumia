@@ -4,6 +4,7 @@ import path from "node:path";
 import { analyzeStyles, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
 import { KEYCHAIN_SERVICE, loadKeys } from "./keys.js";
 import { cmdEval } from "./eval.js";
+import { buildExemplars } from "./exemplars.js";
 import { produce, STAGES } from "./produce.js";
 
 const ROOT = path.resolve(process.env.OPUMIA_ROOT ?? process.cwd());
@@ -42,6 +43,8 @@ const HELP = `opumia <command>
       --until STAGE      stop after a stage
       --no-judge         skip the Sonnet visual QA judge
       --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
+  build-exemplars      Reference exemplar library the agents look at → data/exemplars/<channel>/
+      --channel ID       frames of labelled shots, thumbnails, per-film looks, narrator voice profile, technique clips
   eval                 Blind reference test of the platform → data/eval/
       calibrate --channel ID   check the judge on degraded reference windows (cached per judge version)
       score out/<job> …        score finished films against the real channel
@@ -123,6 +126,9 @@ async function main() {
       if (n("missing")) log(`Add one in macOS Terminal: security add-generic-password -U -s ${KEYCHAIN_SERVICE} -a NAME -w`);
       return;
     }
+    case "build-exemplars":
+      await buildExemplars({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, log }, opt("channel") ?? "magnates-media", Number(opt("films") ?? 99));
+      return;
     case "eval":
       return cmdEval({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, log }, rest);
     case "all":

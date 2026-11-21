@@ -201,6 +201,16 @@ curl -X POST $URL/jobs -H "authorization: Bearer $API_TOKEN" -d '{"topic":"…",
 ```
 Local verification without an account: `pnpm cf:dry-run` (add `--containers-rollout=none` without Docker), `npx wrangler d1 migrations apply opumia --local`, `npx tsx packages/cloudflare/scripts/adapter-test.ts`.
 
+## Senses, exemplars and the release gate (rebuild stage 1–3, 2026-11-20)
+
+The test films of 2026-11-20 were judged slop by the owner (templated, slideshow, generic stock, AI-sounding voice). Rule since then: **no agent works blind**, and **no film is produced until the release gate can pass on previews**.
+
+- **`@opumia/senses`** (ffmpeg + plain TS, no model): `measureLook` (brightness, colourfulness, palette, hue spread, movement, near-still share, cuts), `contactSheet`, `grabFrames`; `measureProsody` (pitch travel, phrase melody, dynamics, pauses), `measurePace`, `measureSound` (sound-effect family from spectrum/envelope), `measureMusic` (tempo, beat grid, energy arc). The same function measures our output and the reference.
+- **`renderShotPreviews`** (`motion-engine/preview.ts`): any shot at three moments, half resolution, plus a sheet — the designer agents' eyes before a film render.
+- **Exemplar library** `pnpm opumia build-exemplars --channel ID` → `data/exemplars/<channel>/` (git-ignored): two frames of every labelled reference shot, every thumbnail with title/views/look, per-film looks and the channel band, the narrator's voice profile, technique clips. Measured MagnatesMedia facts: colourfulness 31–46, movement 3.4–5.3, every film its own palette; narrator ≈ 209 wpm, sentence pace spread ≈ 33 wpm, ≈ 4 short pauses/min.
+- **Release gate** (`opumia eval`): a film passes only if (1) the blind judge (motion sheets + measured look, judge blind-v3) catches it in ≤ 65 % of comparisons, (2) every objective check in `apps/cli/src/slop.ts` is met (look, movement, designed-treatment share ≥ 70 %, slow-zoom share ≤ 20 %, no repeated or cross-film shared pictures/sound effects/music, voice pace/pauses/melody in the narrator band), and (3) the sameness test rates it no closer to another of our films than real channel films are to each other (+1). `eval/known-bad.json` lists films the owner rejected; calibration must catch them.
+- 3D uses **Three.js** via `@remotion/three` inside the Remotion render (owner decision) — never headless Blender.
+
 ## Platform evaluation (blind reference test)
 
 `opumia eval` measures the platform, not one film. Every film is cut into 20 s picture windows (frames + narration + same-method cut counts) and 45 s narration passages, each paired with a real reference window of the same position and shown blind (A/B) to a Sonnet judge. The judge is only trusted after calibration on degraded reference windows (wrong picture, generic stock, bland rewrite, real-vs-real). Report: caught count + indistinguishability, judge tells grouped by area, trend in `data/eval/<set>/history.json`.

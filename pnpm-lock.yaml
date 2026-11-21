@@ -38,6 +38,9 @@ importers:
       '@opumia/resolver':
         specifier: workspace:*
         version: link:../../packages/resolver
+      '@opumia/senses':
+        specifier: workspace:*
+        version: link:../../packages/senses
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -77,6 +80,9 @@ importers:
       '@opumia/ingest':
         specifier: workspace:*
         version: link:../ingest
+      '@opumia/senses':
+        specifier: workspace:*
+        version: link:../senses
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -126,6 +132,9 @@ importers:
       '@opumia/ingest':
         specifier: workspace:*
         version: link:../ingest
+      '@opumia/senses':
+        specifier: workspace:*
+        version: link:../senses
       '@remotion/bundler':
         specifier: 4.0.539
         version: 4.0.539(postcss@8.5.33)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
@@ -163,6 +172,9 @@ importers:
       '@opumia/ingest':
         specifier: workspace:*
         version: link:../ingest
+      '@opumia/senses':
+        specifier: workspace:*
+        version: link:../senses
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -178,9 +190,14 @@ importers:
       '@opumia/ingest':
         specifier: workspace:*
         version: link:../ingest
+      '@opumia/senses':
+        specifier: workspace:*
+        version: link:../senses
       zod:
         specifier: ^3.24.1
         version: 3.25.76
+
+  packages/senses: {}
 
 packages:
 

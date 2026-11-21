@@ -16,7 +16,7 @@ interface Word { word: string; start: number; end: number }
 interface Pretrain { words?: Word[]; shots?: Shot[] }
 
 export interface CaptionPolicy { burnLongForm: boolean; bottomTextShare: number; films: number }
-export interface GrammarRow { film: string; line: string; designed: boolean; kind: string; layout: string; motion: string; elements: string[]; shows: string; link: string; quality: number }
+export interface GrammarRow { film: string; /** Shot time range in the reference film (s), for exemplar frames. */ t0?: number; t1?: number; line: string; designed: boolean; kind: string; layout: string; motion: string; elements: string[]; shows: string; link: string; quality: number }
 export interface BeatPassage { role: string; film: string; text: string }
 
 async function filmDirs(reference: string, channelId: string): Promise<Array<{ date: string; dir: string }>> {
@@ -70,7 +70,7 @@ export async function visualGrammar(reference: string, channelId: string, prefix
       if (!shot || !pt?.words) continue;
       const line = pt.words.filter((w) => w.start >= shot.t0 - 0.4 && w.start < shot.t1 + 0.2).map((w) => w.word).join(" ").trim();
       if (line.split(/\s+/).length < 2) continue;
-      rows.push({ film: `${m[1]}-${m[2]}`, line: line.slice(0, 220), designed: r.designed, kind: r.kind, layout: r.layout, motion: r.motion, elements: (r.elements ?? []).slice(0, 6), shows: r.shows, link: r.line_link, quality: r.quality ?? 3 });
+      rows.push({ film: `${m[1]}-${m[2]}`, t0: shot.t0, t1: shot.t1, line: line.slice(0, 220), designed: r.designed, kind: r.kind, layout: r.layout, motion: r.motion, elements: (r.elements ?? []).slice(0, 6), shows: r.shows, link: r.line_link, quality: r.quality ?? 3 });
     }
   }
   return rows.sort((a, b) => a.film.localeCompare(b.film) || a.line.localeCompare(b.line));

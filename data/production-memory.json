@@ -7,10 +7,28 @@
       "job": "enron-mm",
       "count": 1
     },
+    "15d9553a39c3d65e#ia_1958-03-13_Dead_A-Bomb_Hits_US_Town:28": {
+      "reason": "Industrial machinery in low-quality footage that is not clearly Kodak-related. It is generic and weakly tied to the narration.",
+      "query": "film rolls on factory production line yellow boxes",
+      "job": "eval-quick-kodak",
+      "count": 1
+    },
     "27d5d692009f1488": {
       "reason": "Person peeking through doors with a red Adidas cap and sunglasses doesn't match 'King of Crypto' or the closing sentence, and reads as a fugitive. It could be misread as depicting Bankman-Fried.",
       "query": "prison corridor bars closing slowly",
       "job": "ftx-hmw",
+      "count": 1
+    },
+    "3a91bbc22846333e": {
+      "reason": "Modern stock boardroom with diverse participants raising hands. It clashes with the 1970s/90s vintage look and generically illustrates the board committing to digital. It is acceptable but anachronist",
+      "query": "George Fisher Kodak CEO 1990s press photo",
+      "job": "eval-quick-kodak",
+      "count": 1
+    },
+    "40334dad27c5b6e5#ia_Accordin1952:48": {
+      "reason": "Blurry, pixelated photo of a church building in an album. It has no clear connection to the Kodak, album or storage narration, and the quality is poor.",
+      "query": "person flipping through printed family photo album",
+      "job": "eval-quick-kodak",
       "count": 1
     },
     "61a9c09c6365923e": {
@@ -19,10 +37,22 @@
       "job": "enron-mm",
       "count": 1
     },
+    "6a7b56d63f05141f": {
+      "reason": "A dark stock portrait of an unidentified bearded man sits behind the 'secrecy / fear' typography. It could be read as depicting a real Theranos employee or whistleblower, which is misleading. Use a ne",
+      "query": "dark empty office corridor fluorescent lights",
+      "job": "eval-quick-theranos",
+      "count": 1
+    },
     "6c1197187236c24c": {
       "reason": "mismatch: Woman filming with a phone shows nothing about a tweet landing mid-run; footage is loosely related at best and not clearly on the line.",
       "query": "smartphone screen tweet notification night",
       "job": "ftx-hmw",
+      "count": 1
+    },
+    "72a4f74317fe76c3": {
+      "reason": "A generic stack of $100 bills sits in a skewed photo frame. It is acceptable for the revenue claim but looks like cheap stock and is not tied to the specific numbers ($100M vs $100K) spoken; consider ",
+      "query": "Jim Cramer Mad Money host close up",
+      "job": "eval-quick-theranos",
       "count": 1
     },
     "7e38eda56bfa6c72": {
@@ -43,6 +73,18 @@
       "job": "enron-mm",
       "count": 1
     },
+    "990e8ed9dcc688b4": {
+      "reason": "Generic stock boardroom shot of an unidentified man from behind. It loosely illustrates the board of statesmen but could imply a specific person or event. Prefer archival Theranos board or press image",
+      "query": "elderly statesmen in suits around boardroom table",
+      "job": "eval-quick-theranos",
+      "count": 1
+    },
+    "9f1c750923aaf663": {
+      "reason": "Blurry close-up of clasped hands in suit sleeves is out of focus and conveys nothing specific to the narration (the Ian Gibbons death or whistleblowers). It reads as generic filler; swap for footage t",
+      "query": "suited lawyers walking corporate hallway intimidating",
+      "job": "eval-quick-theranos",
+      "count": 1
+    },
     "a8a2a1c2d2fbb25b": {
       "reason": "Blurry numbers (72.113, 143.680, ...) don't match anything in the narration ('send lenders balance sheets'), and the bottom figure is cut off and illegible. They look like unverified random figures.",
       "query": "spreadsheet balance sheet on laptop screen dark office",
@@ -55,6 +97,12 @@
       "job": "ftx-hmw",
       "count": 1
     },
+    "b7c3d0513206cfe7#ia_OnGuard1956:62": {
+      "reason": "Heavily scanline-distorted, dark, near-abstract footage of a hand and equipment. It is unreadable, so it is unclear what is being shown and it adds nothing to the narration.",
+      "query": "two technicians soldering electronics at workbench 1970s",
+      "job": "eval-quick-kodak",
+      "count": 1
+    },
     "be9160727c61dbe6": {
       "reason": "Newspaper b-roll shows real, unrelated headlines (wildfires, Gaza, football) over 'which FTX had...'. Content is irrelevant to FTX and could read as misleading news context. Use footage with generic o",
       "query": "hand hiding documents in drawer secretive office",
@@ -65,6 +113,18 @@
       "reason": "Photo card has large black pillarbox areas on both sides, so the media looks broken or poorly cropped. The source caption text is partly covered by the burned-in caption. Shows a real identifiable per",
       "query": "Sam Bankman-Fried courtroom sketch sentencing 2024",
       "job": "ftx-hmw",
+      "count": 1
+    },
+    "d9ad07f2decea65b": {
+      "reason": "Burning stack of $100 bills with Benjamin Franklin's portrait. It is dramatic, but it reads as 'money burning' and does not match the bankruptcy or $950M/$1B narration. It is also slightly misleading.",
+      "query": "Kodak headquarters building exterior dramatic sky",
+      "job": "eval-quick-kodak",
+      "count": 1
+    },
+    "eba1c29305a0760b": {
+      "reason": "off_era: Modern Shanghai skyline with skyscrapers built after 2012 does not fit the 1990–2012 era line about replacing one's own product.",
+      "query": "empty office desk city skyline dusk",
+      "job": "eval-quick-kodak",
       "count": 1
     },
     "nara:638266645": {
@@ -139,10 +199,22 @@
       "job": "enron-mm",
       "count": 1
     },
+    "pixabay:205468": {
+      "reason": "misleading_person: Close-up of Holmes presented beside a Forbes wealth title; the Forbes title implies a claim about her, and a stranger photographer is also shown in the same card, so the layout is m",
+      "query": "glossy magazine covers on a table, flash photography",
+      "job": "eval-quick-theranos",
+      "count": 1
+    },
     "pixabay:32835": {
       "reason": "Extreme blurry close-up of a book edge (a Bible?) for 'what would she say under oath'. It is out of focus and only loosely relevant.",
       "query": "witness raising right hand swearing oath courtroom",
       "job": "ftx-hmw",
+      "count": 1
+    },
+    "wikipedia:File:Theranos Logo.svg": {
+      "reason": "broken: Cropped, blurred fragment of a word on a card; unreadable and reads as a corrupted or partial graphic.",
+      "query": "Theranos headquarters Palo Alto building sign",
+      "job": "eval-quick-theranos",
       "count": 1
     }
   },
@@ -152,16 +224,25 @@
     "businesswoman typing memo late night office computer glow": 1,
     "changpeng zhao cz binance 2022": 1,
     "cracked foundation building close up": 1,
+    "dark empty office corridor fluorescent lights": 1,
+    "elderly statesmen in suits around boardroom table": 1,
     "empty hospital corridor at dawn quiet": 1,
+    "empty office desk city skyline dusk": 1,
     "enron headquarters tower houston logo sign": 1,
+    "film rolls on factory production line yellow boxes": 1,
     "fortune magazine enron innovation award cover": 1,
+    "george fisher kodak ceo 1990s press photo": 1,
     "glass skyscraper looking up dusk city corporate tower": 1,
+    "glossy magazine covers on a table flash photography": 1,
     "hand hiding documents in drawer secretive office": 1,
     "house of cards falling close up": 1,
     "jeff skilling 2001 enron conference call speaking angry": 1,
+    "jim cramer mad money host close up": 1,
+    "kodak headquarters building exterior dramatic sky": 1,
     "man alone in prison cell looking out through bars": 1,
     "newspaper front page december 2001 enron bankruptcy headlines": 1,
     "people checking bank account on phone relieved": 1,
+    "person flipping through printed family photo album": 1,
     "person typing on laptop social media night": 1,
     "prison corridor bars closing slowly": 1,
     "sam bankman fried 2022 portrait": 1,
@@ -169,6 +250,9 @@
     "smartphone screen tweet notification night": 1,
     "spreadsheet balance sheet on laptop screen dark office": 1,
     "stacks of cash dollar bills counting dark": 1,
+    "suited lawyers walking corporate hallway intimidating": 1,
+    "theranos headquarters palo alto building sign": 1,
+    "two technicians soldering electronics at workbench 1970s": 1,
     "witness on stand in courtroom testifying tense faces": 1,
     "witness raising right hand swearing oath courtroom": 1
   },
@@ -189,16 +273,16 @@
         "spine": "Dark side exposed"
       },
       {
-        "job": "eval-quick-kodak",
-        "hook": "mystery",
-        "ending": "lesson",
-        "spine": "Brand decline and hype bust"
+        "job": "eval-quick-theranos",
+        "hook": "stakes",
+        "ending": "open_question",
+        "spine": "Dark side exposed"
       },
       {
-        "job": "eval-quick-theranos",
-        "hook": "mystery",
-        "ending": "warning",
-        "spine": "Dark side exposed"
+        "job": "eval-quick-kodak",
+        "hook": "flash_forward",
+        "ending": "lesson",
+        "spine": "Brand decline and hype bust"
       }
     ]
   },

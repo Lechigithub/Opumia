@@ -17,13 +17,15 @@ import { createWriteStream, existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { blandRewrite, JUDGE_VERSION, RefusalError, judgePictureBlind, judgeStoryBlind, type BlindResult, type EvalWindow } from "@opumia/agents";
+import { blandRewrite, JUDGE_VERSION, RefusalError, judgePictureBlind, judgeSameness, judgeStoryBlind, type BlindResult, type EvalWindow } from "@opumia/agents";
+import { contactSheet, grabFrames, measureLook } from "@opumia/senses";
+import { buildExemplars, loadExemplars } from "./exemplars.js";
+import { filmFacts, filmMetrics, type FilmFacts } from "./slop.js";
 import { Calibration, EvalReport, EvalSet, TimedScript, type EvalPair, type FilmScore } from "@opumia/contracts";
 import { CHANNELS, discoverVideos } from "@opumia/ingest";
 
 const run = promisify(execFile);
 const WINDOW_S = 20;
-const FRAMES = 10;
 const STORY_S = 45;
 const SPONSOR = /\b(sponsor|sponsored|link in the description|patreon|skillshare|brilliant\.org|nordvpn|audible|squarespace|surfshark|brought to you by|use code|promo code|subscribe)\b/i;
 
@@ -56,26 +58,23 @@ const probeDur = async (f: string) => Number((await run("ffprobe", ["-v", "error
 // ---------------------------------------------------------------------------------------------------------
 // Windows
 
-/** Frames, narration and same-method edit stats for [t0, t0+dur) of a video. Cached by file size/mtime. */
+/**
+ * One window of a video as the judge sees it: two motion sheets (16 evenly spaced frames), three detail frames,
+ * the narration, and same-method measurements (cuts, brightness, colourfulness, movement). Cached by size/mtime.
+ */
 async function extractWindow(ctx: Ctx, src: Source, t0: number, dur: number): Promise<EvalWindow> {
   const st = await stat(src.video);
-  const key = sha(`${src.video}|${st.size}|${st.mtimeMs}|${t0.toFixed(2)}|${dur}|${FRAMES}`);
+  const key = sha(`v3|${src.video}|${st.size}|${st.mtimeMs}|${t0.toFixed(2)}|${dur}`);
   const dir = path.join(ctx.data, "eval", ".cache", "windows", key);
   const cached = await readJson<EvalWindow>(path.join(dir, "window.json"));
-  if (cached && cached.frames.every((f) => existsSync(f.path))) return cached;
+  if (cached && cached.frames.every((f) => existsSync(f.path)) && (cached.sheets ?? []).every((f) => existsSync(f))) return cached;
   await mkdir(dir, { recursive: true });
-  const frames: EvalWindow["frames"] = [];
-  for (let k = 0; k < FRAMES; k++) {
-    const t = (dur / FRAMES) * (k + 0.5);
-    const p = path.join(dir, `f${String(k).padStart(2, "0")}.jpg`);
-    await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", (t0 + t).toFixed(2), "-i", src.video, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", p]);
-    frames.push({ path: p, t: r3(t) });
-  }
-  // Same detector on both sides so cut counts can't give the source away.
-  const sc = await run("ffmpeg", ["-hide_banner", "-ss", t0.toFixed(2), "-t", String(dur), "-i", src.video, "-an", "-vf", "scale=320:-2,select='gt(scene,0.3)',showinfo", "-f", "null", "-"], { maxBuffer: 64 << 20 }).catch((e: { stderr?: string }) => ({ stderr: e.stderr ?? "" }));
-  const cuts = (sc.stderr.match(/pts_time:/g) ?? []).length;
+  const small = await grabFrames(src.video, dir, { ss: t0, t: dur, n: 16, width: 480, prefix: "s" });
+  const sheets = [await contactSheet(small.slice(0, 8), path.join(dir, "sheet0.jpg"), { cols: 4, cellW: 480 }), await contactSheet(small.slice(8), path.join(dir, "sheet1.jpg"), { cols: 4, cellW: 480 })];
+  const detail = await grabFrames(src.video, dir, { ss: t0, t: dur, n: 3, width: 960, prefix: "d" });
+  const look = await measureLook(src.video, { ss: t0, t: dur, fps: 5 });
   const words = src.words.filter((w) => w.start >= t0 && w.start < t0 + dur);
-  const w: EvalWindow = { frames, text: words.map((x) => x.word).join(" ").trim(), stats: { seconds: dur, cuts, wpm: (words.length / dur) * 60 } };
+  const w: EvalWindow = { frames: detail.map((p, k) => ({ path: p, t: r3((dur / 3) * (k + 0.5)) })), sheets, look: { luma: look.luma, colourfulness: look.colourfulness, motion: look.motion, stillShare: look.stillShare }, text: words.map((x) => x.word).join(" ").trim(), stats: { seconds: dur, cuts: Math.round((look.cutsPerMin * dur) / 60), wpm: (words.length / dur) * 60 } };
   await atomicJson(path.join(dir, "window.json"), w);
   return w;
 }
@@ -182,10 +181,10 @@ function toPair(id: string, track: EvalPair["track"], position: string, control:
 
 const calFile = (ctx: Ctx, channel: string) => path.join(ctx.data, "eval", `calibration.${channel}.json`);
 
-export async function calibrate(ctx: Ctx, channel: string, n = 4): Promise<Calibration> {
+export async function calibrate(ctx: Ctx, channel: string, n = 4, fresh = false): Promise<Calibration> {
   const prev = await readJson<unknown>(calFile(ctx, channel));
   const parsed = prev ? Calibration.safeParse(prev) : null;
-  if (parsed?.success && parsed.data.judgeVersion === JUDGE_VERSION && parsed.data.pairs.length >= n * 4) return parsed.data;
+  if (!fresh && parsed?.success && parsed.data.judgeVersion === JUDGE_VERSION && parsed.data.pairs.length >= n * 4) return parsed.data;
   ctx.log(`  calibrating the blind judge for ${channel} (${n} samples per control)…`);
   const pool = await referencePool(ctx, channel);
   const modern = path.join(ctx.library, "cinematic", "modern");
@@ -240,6 +239,20 @@ export async function calibrate(ctx: Ctx, channel: string, n = 4): Promise<Calib
     }
     ctx.log(`    sample ${i + 1}/${n} judged`);
   }
+  // Known-bad anchor: films a person already judged as clearly not reference quality (eval/known-bad.json).
+  // A judge that lets them through is not measuring what a viewer sees.
+  const kb = (await readJson<{ jobs: string[] }>(path.join(ctx.root, "eval", "known-bad.json")))?.jobs ?? [];
+  const kbPairs: EvalPair[] = [];
+  const kbJobs: string[] = [];
+  for (const j of kb) {
+    const dir = path.resolve(ctx.root, j);
+    const job = await readJson<{ channel: string }>(path.join(dir, "job.json"));
+    if (!job || job.channel !== channel || !(await finished(dir))) continue;
+    kbJobs.push(path.basename(dir));
+    kbPairs.push(...(await scoreFilm(ctx, dir, { metrics: false })).pairs);
+    ctx.log(`    known-bad ${path.basename(dir)} judged`);
+  }
+  usd += kbPairs.reduce((t, p) => t + p.usd, 0);
   usd += pairs.reduce((t, p) => t + p.usd, 0);
   const detection: Record<string, number> = {};
   for (const c of ["wrong_picture", "foreign_picture", "bland_script"] as const) {
@@ -257,9 +270,15 @@ export async function calibrate(ctx: Ctx, channel: string, n = 4): Promise<Calib
   for (const [c, v] of Object.entries(detection)) if (c !== "overall" && v < 0.5) reasons.push(`misses most ${c} controls (${Math.round(v * 100)} %)`);
   if (aRate < 0.2 || aRate > 0.8) reasons.push(`position bias: picks A in ${Math.round(aRate * 100)} % of real-vs-real pairs`);
   if (meanConfidence > 0.85) reasons.push(`over-confident on real-vs-real (mean ${meanConfidence.toFixed(2)})`);
-  const cal = Calibration.parse({ schemaVersion: 1, judgeVersion: JUDGE_VERSION, channel, pairs, detection, positionBias: { aRate: r3(aRate), meanConfidence: r3(meanConfidence) }, trusted: reasons.length === 0, reasons, usd: r3(usd), generatedAt: new Date().toISOString() });
+  const kbCaught = kbPairs.filter((p) => p.pick !== p.candidateAs).length;
+  // The picture track must catch known-bad films; the story track is judged on text alone and is weaker, so the
+  // release gate (blind test + objective checks + sameness) is what finally accepts or rejects a film.
+  const kbPic = kbPairs.filter((p) => p.track === "picture");
+  const kbPicCaught = kbPic.filter((p) => p.pick !== p.candidateAs).length;
+  if (kbPic.length >= 4 && kbPicCaught / kbPic.length < 0.85) reasons.push(`lets known-bad films through on picture (${kbPicCaught}/${kbPic.length} caught, needs ≥ 85 %)`);
+  const cal = Calibration.parse({ schemaVersion: 1, judgeVersion: JUDGE_VERSION, channel, pairs, detection, positionBias: { aRate: r3(aRate), meanConfidence: r3(meanConfidence) }, ...(kbPairs.length ? { knownBad: { caught: kbCaught, total: kbPairs.length, jobs: kbJobs } } : {}), trusted: reasons.length === 0, reasons, usd: r3(usd), generatedAt: new Date().toISOString() });
   await atomicJson(calFile(ctx, channel), cal);
-  ctx.log(`  judge ${cal.trusted ? "TRUSTED" : "NOT TRUSTED"}: detection ${JSON.stringify(detection)}, real-vs-real A-rate ${aRate.toFixed(2)}, confidence ${meanConfidence.toFixed(2)}${reasons.length ? ` — ${reasons.join("; ")}` : ""} ($${usd.toFixed(2)})`);
+  ctx.log(`  judge ${cal.trusted ? "TRUSTED" : "NOT TRUSTED"}: detection ${JSON.stringify(detection)}, real-vs-real A-rate ${aRate.toFixed(2)}, confidence ${meanConfidence.toFixed(2)}${kbPairs.length ? `, known-bad caught ${kbCaught}/${kbPairs.length}` : ""}${reasons.length ? ` — ${reasons.join("; ")}` : ""} ($${usd.toFixed(2)})`);
   return cal;
 }
 
@@ -277,7 +296,7 @@ function groupTells(pairs: EvalPair[]) {
 }
 const mean = (xs: number[]) => (xs.length ? r3(xs.reduce((t, x) => t + x, 0) / xs.length) : 0);
 
-export async function scoreFilm(ctx: Ctx, jobDir: string): Promise<FilmScore> {
+export async function scoreFilm(ctx: Ctx, jobDir: string, o: { metrics?: boolean; others?: FilmFacts[] } = {}): Promise<FilmScore> {
   const film = await filmSource(jobDir);
   const channel = film.job.channel;
   const pool = await referencePool(ctx, channel);
@@ -326,7 +345,50 @@ export async function scoreFilm(ctx: Ctx, jobDir: string): Promise<FilmScore> {
     pairs,
     topTells: groupTells(pairs),
     production: { claudeUsd: usage ? r3(usage.runs.reduce((t, r) => t + r.usd, 0)) : null, wallS: done ? Number(done[1]) : null },
+    metrics: o.metrics === false ? [] : await filmMetrics(jobDir, film.video, (await loadExemplars(ctx.data, channel)) ?? (await buildExemplars(ctx, channel)), o.others ?? []),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Sameness (do two films look like one template?)
+
+/** A whole film as one sheet: 12 evenly spaced frames. */
+async function filmSheet(ctx: Ctx, video: string, durationS: number): Promise<string> {
+  const st = await stat(video);
+  const dir = path.join(ctx.data, "eval", ".cache", "films", sha(`${video}|${st.size}|${st.mtimeMs}`));
+  const sheet = path.join(dir, "sheet.jpg");
+  if (existsSync(sheet)) return sheet;
+  const frames = await grabFrames(video, dir, { ss: durationS * 0.04, t: durationS * 0.92, n: 12, width: 480 });
+  return contactSheet(frames, sheet, { cols: 4, cellW: 480 });
+}
+
+/** The same test on pairs of real reference films: the channel's own film-to-film similarity (cached). */
+async function referenceSameness(ctx: Ctx, channel: string): Promise<number> {
+  const file = path.join(ctx.data, "eval", `sameness.${channel}.json`);
+  const hit = await readJson<{ judgeVersion: string; scores: number[] }>(file);
+  if (hit?.judgeVersion === JUDGE_VERSION && hit.scores.length >= 3) return r3(hit.scores.reduce((t, x) => t + x, 0) / hit.scores.length);
+  const pool = await referencePool(ctx, channel);
+  const scores: number[] = [];
+  for (let k = 0; k < 3; k++) {
+    const a = pick(pool, `same|${channel}|${k}|a`);
+    const b = pick(pool, `same|${channel}|${k}|b`, new Set([a]));
+    // A 2-minute slice of each (same length as our test films), away from intros and sponsor reads.
+    const sa = await filmSheet(ctx, await sliceOf(ctx, a), 120);
+    const sb = await filmSheet(ctx, await sliceOf(ctx, b), 120);
+    const r = await judgeSameness({ channel, a: sa, b: sb });
+    scores.push(r.score);
+  }
+  await atomicJson(file, { judgeVersion: JUDGE_VERSION, scores });
+  return r3(scores.reduce((t, x) => t + x, 0) / scores.length);
+}
+
+/** A 120 s slice of a reference film as its own small file, so film sheets cover a comparable stretch. */
+async function sliceOf(ctx: Ctx, src: Source): Promise<string> {
+  const out = path.join(ctx.data, "eval", ".cache", "slices", `${src.id}.mp4`);
+  if (existsSync(out)) return out;
+  await mkdir(path.dirname(out), { recursive: true });
+  await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(Math.max(60, src.durationS * 0.3)), "-t", "120", "-i", src.video, "-an", "-vf", "scale=640:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", out]);
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -338,6 +400,34 @@ const pct = (x: number) => `${Math.round(x * 100)} %`;
 async function writeReport(ctx: Ctx, setId: string, films: FilmScore[], trusted: boolean): Promise<EvalReport> {
   const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const all = films.flatMap((f) => f.pairs);
+  // Sameness between our films (same channel), against the channel's own film-to-film similarity.
+  let sameness: EvalReport["sameness"];
+  let sameUsd = 0;
+  {
+    const ours: NonNullable<EvalReport["sameness"]>["ours"] = [];
+    const pairsOf = films.flatMap((a, i) => films.slice(i + 1).filter((b) => b.channel === a.channel).map((b) => [a, b] as const)).slice(0, 3);
+    for (const [a, b] of pairsOf) {
+      const va = await filmSource(path.join(ctx.root, "out", a.job));
+      const vb = await filmSource(path.join(ctx.root, "out", b.job));
+      const r = await judgeSameness({ channel: a.channel, a: await filmSheet(ctx, va.video, va.durationS), b: await filmSheet(ctx, vb.video, vb.durationS) });
+      sameUsd += r.usd;
+      ours.push({ a: a.job, b: b.job, score: r.score, shared: r.shared });
+    }
+    if (ours.length) {
+      const base = await referenceSameness(ctx, films[0]!.channel);
+      sameness = { ours, referenceBaseline: base, pass: Math.max(...ours.map((x) => x.score)) <= base + 1 };
+    }
+  }
+  for (const f of films) {
+    const reasons: string[] = [];
+    const caught = f.pairs.filter((p) => p.pick !== p.candidateAs).length;
+    if (f.pairs.length && caught / f.pairs.length > 0.65) reasons.push(`blind test: caught in ${caught} of ${f.pairs.length} comparisons (needs ≤ 65 %)`);
+    const miss = f.metrics.filter((m) => !m.pass);
+    if (miss.length) reasons.push(`${miss.length} objective check(s) missed: ${miss.slice(0, 6).map((m) => m.label).join("; ")}${miss.length > 6 ? "; …" : ""}`);
+    const same = (sameness?.ours ?? []).filter((x) => x.a === f.job || x.b === f.job).map((x) => x.score);
+    if (sameness && same.length && Math.max(...same) > sameness.referenceBaseline + 1) reasons.push(`looks like a template of another film (${Math.max(...same).toFixed(1)} / 10 vs ${sameness.referenceBaseline.toFixed(1)} for real films)`);
+    f.gate = { pass: reasons.length === 0, reasons };
+  }
   const pic = mean(all.filter((p) => p.track === "picture").map((p) => p.realness));
   const sto = mean(all.filter((p) => p.track === "story").map((p) => p.realness));
   const report = EvalReport.parse({
@@ -349,7 +439,8 @@ async function writeReport(ctx: Ctx, setId: string, films: FilmScore[], trusted:
     films,
     indistinguishability: { picture: indist(pic), story: indist(sto), overall: indist((pic + sto) / 2) },
     topTells: groupTells(all).slice(0, 12),
-    usd: r3(all.reduce((t, p) => t + p.usd, 0)),
+    ...(sameness ? { sameness } : {}),
+    usd: r3(all.reduce((t, p) => t + p.usd, 0) + sameUsd),
     generatedAt: new Date().toISOString(),
   });
   const dir = path.join(ctx.data, "eval", setId);
@@ -364,6 +455,10 @@ async function writeReport(ctx: Ctx, setId: string, films: FilmScore[], trusted:
     `# Eval ${setId} — ${runId}`,
     ``,
     `Judge ${JUDGE_VERSION}: ${trusted ? "trusted (passed calibration)" : "**NOT trusted — scores are indicative only**"}.`,
+    `## Release gate: ${films.filter((f) => f.gate?.pass).length} of ${films.length} film(s) pass`,
+    ``,
+    ...films.flatMap((f) => [`- **${f.job}: ${f.gate?.pass ? "PASS" : "REJECTED"}**`, ...(f.gate?.reasons ?? []).map((r) => `  - ${r}`)]),
+    ``,
     `**Caught: the judge picked the real channel film in ${all.filter((p) => p.pick !== p.candidateAs).length} of ${all.length} blind comparisons** (target: about half).`,
     ``,
     `Indistinguishability (100 % = the blind judge can no longer tell our films from the real channel; low-confidence wins count as partial credit, so read it with the caught count):`,
@@ -380,6 +475,26 @@ async function writeReport(ctx: Ctx, setId: string, films: FilmScore[], trusted:
     `|---|---|---|---|---|`,
     ...films.map((f) => `| ${f.job} | ${pct(indist(f.realness.picture))} | ${pct(indist(f.realness.story))} | ${f.production.claudeUsd ?? "–"} | ${f.production.wallS ? `${Math.round(f.production.wallS / 60)} min` : "–"} |`),
     ``,
+    ...(sameness
+      ? [
+          `## Sameness (do our films look like one template?)`,
+          ``,
+          `Real ${films[0]!.channel} films score **${sameness.referenceBaseline.toFixed(1)} / 10** against each other on this test. ${sameness.pass ? "Our films are within that." : "**Our films are more alike than the real channel's films are.**"}`,
+          ``,
+          ...sameness.ours.flatMap((x) => [`- ${x.a} vs ${x.b}: **${x.score.toFixed(1)} / 10**`, ...x.shared.map((t) => `  - ${t}`)]),
+          ``,
+        ]
+      : []),
+    `## Objective checks (same measurement on the reference films)`,
+    ``,
+    ...films.flatMap((f) => [
+      `### ${f.job} — ${f.metrics.filter((m) => m.pass).length}/${f.metrics.length} met`,
+      ``,
+      `| Check | Film | Target | |`,
+      `|---|---|---|---|`,
+      ...[...f.metrics].sort((a, b) => Number(a.pass) - Number(b.pass)).map((m) => `| ${m.label} | ${m.value} | ${m.target} | ${m.pass ? "ok" : "**MISS**"} |`),
+      ``,
+    ]),
     `## What gives our films away (judge tells, most frequent first)`,
     ``,
     ...report.topTells.flatMap((t) => [`- **${t.area}** (${t.count})`, ...t.examples.map((e) => `  - ${e}`)]),
@@ -419,7 +534,7 @@ export async function cmdEval(ctx: Ctx, args: string[]) {
   };
   const flag = (n: string) => rest.includes(`--${n}`);
   if (sub === "calibrate") {
-    await calibrate(ctx, opt("channel") ?? "magnates-media", Number(opt("n") ?? 4));
+    await calibrate(ctx, opt("channel") ?? "magnates-media", Number(opt("n") ?? 4), flag("fresh"));
     return;
   }
   if (sub === "score") {
@@ -427,16 +542,17 @@ export async function cmdEval(ctx: Ctx, args: string[]) {
     if (!jobs.length) throw new Error("usage: opumia eval score out/<job> [out/<job> …]");
     const films: FilmScore[] = [];
     const trusted = new Map<string, boolean>();
+    const others = (await Promise.all(jobs.map((j) => filmFacts(j)))).filter((x): x is FilmFacts => x !== null);
     for (const j of jobs) {
       const ch = (await readJson<{ channel: string }>(path.join(j, "job.json")))?.channel ?? "magnates-media";
       if (!trusted.has(ch)) trusted.set(ch, (await calibrate(ctx, ch)).trusted);
       ctx.log(`  scoring ${path.basename(j)}…`);
-      const f = await scoreFilm(ctx, j);
+      const f = await scoreFilm(ctx, j, { others });
       ctx.log(`    picture ${pct(indist(f.realness.picture))} · story ${pct(indist(f.realness.story))}`);
       films.push(f);
     }
     const r = await writeReport(ctx, opt("set") ?? "adhoc", films, [...trusted.values()].every(Boolean));
-    ctx.log(`Indistinguishability ${pct(r.indistinguishability.overall)} (picture ${pct(r.indistinguishability.picture)}, story ${pct(r.indistinguishability.story)}) → data/eval/${r.setId}/latest.md ($${r.usd.toFixed(2)})`);
+    ctx.log(`Release gate: ${r.films.filter((f) => f.gate?.pass).length}/${r.films.length} pass · blind ${pct(r.indistinguishability.overall)} (picture ${pct(r.indistinguishability.picture)}, story ${pct(r.indistinguishability.story)})${r.sameness ? ` · sameness ${Math.max(...r.sameness.ours.map((x) => x.score)).toFixed(1)} vs ${r.sameness.referenceBaseline.toFixed(1)}` : ""} → data/eval/${r.setId}/latest.md ($${r.usd.toFixed(2)})`);
     return;
   }
   if (sub === "run") {
@@ -463,6 +579,7 @@ export async function cmdEval(ctx: Ctx, args: string[]) {
     }
     const films: FilmScore[] = [];
     const trusted = new Map<string, boolean>();
+    const others = (await Promise.all(items.map((it) => filmFacts(path.join(ctx.root, "out", jobOf(it.id)))))).filter((x): x is FilmFacts => x !== null);
     for (const it of items) {
       const dir = path.join(ctx.root, "out", jobOf(it.id));
       if (!(await finished(dir))) {
@@ -470,7 +587,7 @@ export async function cmdEval(ctx: Ctx, args: string[]) {
         continue;
       }
       if (!trusted.has(it.channel)) trusted.set(it.channel, (await calibrate(ctx, it.channel)).trusted);
-      films.push(await scoreFilm(ctx, dir));
+      films.push(await scoreFilm(ctx, dir, { others }));
     }
     if (!films.length) throw new Error("no finished films to score");
     const r = await writeReport(ctx, setId, films, [...trusted.values()].every(Boolean));

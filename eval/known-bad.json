@@ -1,0 +1,4 @@
+{
+  "note": "Films the owner judged as clearly not reference quality (templated, slideshow, generic stock). The blind judge must catch these in at least 90 % of comparisons before its scores are trusted.",
+  "jobs": ["out/eval-quick-theranos", "out/eval-quick-kodak"]
+}

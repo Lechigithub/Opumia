@@ -22,3 +22,6 @@ renders/
 
 # Eval outputs (frame caches, verdicts, reports) — generated
 data/eval/
+
+# Reference exemplar library (frames extracted from Reference/) — generated
+data/exemplars/
