@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -50,13 +50,52 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
   return v;
 }
 
+/** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.3, B2: 0.12, B3: 0.45, B4: 0.3, B5: 0.02, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
+
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
   const jobDir = path.join(o.root, "out", jobId);
   const before = usageLedger().length;
+  // Stage clock: every "[XX] name" header in the log opens a stage; its seconds and Claude spend are recorded,
+  // compared with the stage's budget and written to timing.json. A film-level limit stops further model calls.
+  const k = Math.max(1, o.durationS / 90) ** 0.7;
+  const filmLimit = Number(process.env.OPUMIA_MAX_USD) || (o.durationS <= 90 ? 3 : o.durationS <= 240 ? 6 : 15);
+  setBudget(filmLimit);
+  const stages: Array<{ stage: string; seconds: number; usd: number; budgetUsd: number | null; over: boolean }> = [];
+  let open: { stage: string; t: number; n: number } | null = null;
+  const closeStage = () => {
+    if (!open) return;
+    const cur = open;
+    open = null;
+    const usd = Math.round(usageLedger().slice(cur.n).reduce((t, r) => t + r.usd, 0) * 1e4) / 1e4;
+    const code = /^\[([A-Z]\d)/.exec(cur.stage)?.[1] ?? "";
+    const b = STAGE_BUDGET_USD[code];
+    const budgetUsd = b === undefined ? null : Math.round(b * k * 100) / 100;
+    const over = budgetUsd !== null && usd > budgetUsd;
+    stages.push({ stage: cur.stage, seconds: Math.round((Date.now() - cur.t) / 100) / 10, usd, budgetUsd, over });
+    if (over) o.log(`  ! ${cur.stage.split("]")[0]}] spent $${usd.toFixed(2)}, over its budget of $${budgetUsd!.toFixed(2)}`);
+  };
+  const baseLog = o.log;
+  const log = (line: string) => {
+    if (line.startsWith("\n[")) {
+      closeStage();
+      open = { stage: line.trim(), t: Date.now(), n: usageLedger().length };
+    }
+    baseLog(line);
+  };
   try {
-    return await produceStages({ ...o, job: jobId });
+    return await produceStages({ ...o, job: jobId, log });
   } finally {
+    closeStage();
+    setBudget(null);
+    if (stages.length) {
+      const tf = path.join(jobDir, "timing.json");
+      const prevT = (await exists(tf)) ? (JSON.parse(await readFile(tf, "utf8")) as { runs: unknown[] }) : { runs: [] };
+      prevT.runs.push({ at: new Date().toISOString(), filmLimitUsd: filmLimit, seconds: Math.round(stages.reduce((t, x) => t + x.seconds, 0)), usd: Math.round(stages.reduce((t, x) => t + x.usd, 0) * 1e4) / 1e4, stages });
+      await writeFile(tf, JSON.stringify(prevT, null, 2) + "\n").catch(() => {});
+      baseLog(`\nWhere the time and money went:\n${stages.filter((x) => x.seconds >= 1 || x.usd > 0).map((x) => `  ${x.stage.slice(0, 44).padEnd(44)} ${x.seconds.toFixed(0).padStart(5)} s  $${x.usd.toFixed(3)}${x.over ? "  OVER BUDGET" : ""}`).join("\n")}`);
+    }
     // Every run is logged, including runs stopped early with --until or by an error.
     const calls = usageLedger().slice(before);
     if (calls.length) {
@@ -90,15 +129,22 @@ async function produceStages(o: ProduceOptions) {
   log("\n[A1] research & fact-check");
   const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), log }), log);
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
-  log("\n[A1b] art direction");
+  log("\n[A1b] art direction (runs alongside the script)");
   // Uniqueness: what the recent films did, so every planning stage can do something else.
   const recentFps = (await loadFingerprints(o.data)).filter((f) => f.job !== jobId).slice(-6);
   const habits = habitsOf(recentFps);
-  const design = await cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), async () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), recent: (await recentTreatments(o.data)).filter((r) => r.job !== jobId), log }), log);
+  // Art direction and the script need only the facts, so they run side by side; the design is awaited after the script.
+  const designP = cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), async () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), recent: (await recentTreatments(o.data)).filter((r) => r.job !== jobId), log }), log).then(async (design) => {
   if (design.treatment) await recordTreatment(o.data, { job: jobId, channel, headline: design.treatment.headline, phrase: design.treatment.phrase, world: design.treatment.world, particles: design.treatment.particles, photo: design.treatment.photo, label: design.treatment.label, display: design.typography.display, primary: design.palette.primary, accent: design.palette.accent, transition: design.treatment.transition });
-  log(`  "${design.concept}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}, ${design.typography.display}`);
+  log(`  art direction: "${design.concept}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}, ${design.typography.display}`);
+    return design;
+  });
+  designP.catch(() => {}); // any failure surfaces where the design is awaited
   const memory = await loadMemory(o.data);
-  if (stop("research")) return { jobDir };
+  if (stop("research")) {
+    await designP;
+    return { jobDir };
+  }
 
   log("\n[A2] script");
   const voice = await resolveChannelVoice(channel, o.data, log);
@@ -115,6 +161,7 @@ async function produceStages(o: ProduceOptions) {
   let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), log }), log);
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
   if (draft.blueprint) await updateMemory(o.data, (m) => recordBlueprint(m, channel, { job: jobId, hook: draft.blueprint!.hook, ending: draft.blueprint!.ending, spine: draft.blueprint!.spine }));
+  const design = await designP;
   if (stop("script")) return { jobDir };
 
   log("\n[A3] narration (ElevenLabs)");

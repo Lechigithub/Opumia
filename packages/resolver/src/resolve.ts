@@ -169,6 +169,13 @@ const isBlocked = (blocked: Set<string> | undefined, ref: string) => !!blocked &
 
 export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport> {
   const log = o.log ?? (() => {});
+  // Where the stage's time goes (written to sourcing.json): one lap per phase.
+  const laps: Array<{ phase: string; s: number }> = [];
+  let lapT = Date.now();
+  const lap = (phase: string) => {
+    laps.push({ phase, s: Math.round((Date.now() - lapT) / 100) / 10 });
+    lapT = Date.now();
+  };
   const pub = path.join(o.jobDir, "public");
   const mediaDir = path.join(pub, "media");
   const dlDir = path.join(o.jobDir, "downloads");
@@ -194,6 +201,17 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     return [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k);
   })();
   const pressDir = path.join(o.jobDir, "downloads", "press");
+  const eraLabel = era ? `${era.min}–${era.max}` : "unspecified";
+  const planP = planSourcing({ shots: needs.map((n) => ({ id: n.shot.id, line: n.line, intent: n.shot.intent, query: n.query, entities: (n.shot.entities ?? []).map((e) => e.name) })), subjects, era: eraLabel });
+  const hasScenes = o.storyboard.shots.some((sh) => sh.source.kind === "designed" && sh.source.designed === "scene");
+  const webP = o.press !== false && hasScenes ? planP.then((pl) => webPictures({ kit: pl.kit, subjects, pages: [...new Set([...(o.sources?.values() ?? [])].flat().map((c) => c.sourceUrl).filter((u) => /^https?:\/\//.test(u)))], dlDir: path.join(pressDir, "web"), log })).catch(() => []) : Promise.resolve([]);
+  const wikiMemo = new Map<string, Promise<PressCandidate[]>>();
+  const wikiOnce = (e: { name: string; type: string }, limit: number) => {
+    const k = `${e.name.toLowerCase()}|${e.type}|${limit}`;
+    if (!wikiMemo.has(k)) wikiMemo.set(k, wikipediaImages(e, pressDir, limit).catch(() => []));
+    return wikiMemo.get(k)!;
+  };
+  const ytMemo = new Map<string, Promise<PressCandidate[]>>();
   const usedVideos = new Set<string>();
   const pressStills: Array<{ shotId: string; c: PressCandidate; q: number }> = [];
   const usedWiki = new Set<string>();
@@ -211,20 +229,23 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       const she = sents.join(" ").match(/\b(she|her|hers)\b/gi)?.length ?? 0;
       return he >= 2 && he > she * 2 ? ', referred to as "he" in the sources — a woman on screen is NOT this person' : she >= 2 && she > he * 2 ? ', referred to as "she" in the sources — a man on screen is NOT this person' : "";
     };
-    const wikiCache = new Map<string, Promise<PressCandidate[]>>();
-    const wiki = (e: { name: string; type: string }) => {
+    const wiki = (e: { name: string; type: string }) => wikiOnce(e, 4);
+    const world = subjects.filter((x) => !o.storyboard.shots.some((sh) => sh.entities?.some((en) => en.name === x && en.type === "person")));
+    // Clips are fetched at the longest allowed length once per subject and trimmed per shot.
+    const press = (e: { name: string; type: string; year?: number }) => {
       const k = e.name.toLowerCase();
-      if (!wikiCache.has(k)) wikiCache.set(k, wikipediaImages(e, pressDir, 4).catch(() => []));
-      return wikiCache.get(k)!;
+      if (!ytMemo.has(k)) ytMemo.set(k, youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: 6, world }).catch(() => []));
+      return ytMemo.get(k)!;
     };
-    const lim = 4;
+    const lim = 8;
     for (let i = 0; i < pressNeeds.length; i += lim) {
       await Promise.all(
         pressNeeds.slice(i, i + lim).map(async (n) => {
           const e = n.shot.entities![0]!;
           const list: PressCandidate[] = [];
-          if (e.type !== "event") list.push(...(await wiki(e)));
-          if (!wantsImage(n) && ["person", "company", "event", "product"].includes(e.type)) list.push(...(await youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: n.durationS, world: subjects.filter((x) => !o.storyboard.shots.some((sh) => sh.entities?.some((en) => en.name === x && en.type === "person"))) }).catch(() => [])));
+          if (e.type !== "event") list.push(...(await wiki(e)).map((c) => ({ ...c })));
+          // Each shot gets its own copy of the candidate record (the vision note differs per line).
+          if (!wantsImage(n) && ["person", "company", "event", "product"].includes(e.type)) list.push(...(await press(e)).map((c) => ({ ...c })));
           if (e.type === "person") for (const c of list) if (!c.depicts.includes("referred to as")) c.depicts = `${c.depicts}${refersTo(e.name)}`;
           pool.set(n.shot.id, list.filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)));
         }),
@@ -253,11 +274,12 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     if (pressNeeds.length) log(`  resolver: ${placed}/${pressNeeds.length} entity shot(s) placed from press (${flat.length} candidates checked)`);
   }
 
+  lap("press by name");
   // Phase 0 — archive first for named entities: Commons, NARA, Europeana with name + year.
   const entityNeeds = needs.filter((n) => n.shot.entities?.length && !chosen.has(n.shot.id));
   const ent = new Map<string, Cand[]>();
   if (entityNeeds.length) {
-    for (const n of entityNeeds) {
+    await pooled(entityNeeds, 4, async (n) => {
       const list: Cand[] = [];
       const seen = new Set<string>();
       for (const e of n.shot.entities!.slice(0, 2)) {
@@ -280,20 +302,21 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         }
       }
       ent.set(n.shot.id, list.slice(0, 10));
-    }
+    });
     log(`  resolver: archives searched by name for ${entityNeeds.length} entity shot(s); ${entityNeeds.filter((n) => (ent.get(n.shot.id) ?? []).length).length} have candidates that name the subject (rated by eye with the rest)`);
   }
 
+  lap("archives by name");
   // The sourcing plan: for every shot, what must be seen, what kind of picture that is, and the right search for
   // each kind of source — plus the film's kit (the real things it must have pictures of).
-  const eraLabel = era ? `${era.min}–${era.max}` : "unspecified";
-  const plan = await planSourcing({ shots: needs.map((n) => ({ id: n.shot.id, line: n.line, intent: n.shot.intent, query: n.query, entities: (n.shot.entities ?? []).map((e) => e.name) })), subjects, era: eraLabel });
+  const plan = await planP;
   const briefOf = (n: Need): ShotBrief => plan.briefs.get(n.shot.id)!;
   {
     const c = (k: string) => needs.filter((n) => briefOf(n).need === k).length;
     log(`  resolver: sourcing plan — ${c("real")} real, ${c("period")} period, ${c("staged")} staged, ${c("object")} object, ${c("none")} designed without a picture; kit: ${plan.kit.slice(0, 4).join("; ")}${plan.kit.length > 4 ? "…" : ""}`);
   }
 
+  lap("sourcing plan");
   // Phase 1 — every source for every shot, judged by eye before anything is downloaded. Library, all stock and
   // archive sources and (for real subjects) YouTube are asked together; each candidate's preview picture is
   // rated against the line; the best-fitting picture wins, whatever source it came from.
@@ -346,7 +369,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     };
     type Offer = { n: Need; c: Cand; key: string; thumb: string };
     const offers: Offer[] = [];
-    await pooled(pending, 5, async (n) => {
+    await pooled(pending, 8, async (n) => {
       const b = briefOf(n);
       const kind = n.kind === "image" ? "image" : "video";
       const period = n.period || b.need === "period";
@@ -447,6 +470,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   };
   await sourceRound(pending);
 
+  lap("pooled search and rating");
   // The re-plan: a real production cuts to the footage it has. Every shot the first search could not fill goes
   // back to the director with what the sources actually returned; it is given a spare approved picture, a
   // different findable picture that tells the same line, or becomes a designed scene. Then one more search.
@@ -479,6 +503,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     }
   }
 
+  lap("re-plan and second search");
   // Materialize, screening each clip for black frames and falling back to the next candidate.
   const media: ResolvedMedia[] = [];
   const unresolved: ResolutionReport["unresolved"] = [];
@@ -518,6 +543,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   }
   if (fallbacks) log(`  resolver: ${fallbacks} candidate(s) rejected for black frames; fell back`);
 
+  lap("downloads");
   // Review EVERY library/stock/archive pick by eye (press picks were already checked): the picture must fit the
   // line, carry no burned-in graphics, match the period, and — when the line names a person — must not put a
   // stand-in face on screen. A rejected pick gets one alternate; failing that the shot has NO footage and the
@@ -604,21 +630,24 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     return { shotId: n.shot.id, role: "primary", origin: c.c.archival ? "archival" : "stock", ref: `${c.c.provider}:${c.c.externalId}`, provider: c.c.provider, kind: c.c.kind, localPath: path.join(mediaDir, file), publicPath: `media/${file}`, durationS: n.durationS, ...(c.c.width ? { width: c.c.width, height: c.c.height } : {}), license: c.c.license, attributionRequired: c.c.attributionRequired, ...(c.c.attributionText ? { attributionText: c.c.attributionText } : {}), sourceUrl: c.c.pageUrl, aiGenerated: false, score: 1, query: n.query };
   }
 
+  lap("final review");
   // Composed scenes: one picture per named layer (portrait for a person, logo/product/building otherwise),
   // from Wikipedia then Commons, vision-checked. The scene designer only places slots that resolved.
   const sceneShots = o.storyboard.shots.filter((sh) => sh.source.kind === "designed" && sh.source.designed === "scene");
   if (sceneShots.length) {
     const items: Array<{ sh: StoryboardShot; slot: number; name: string; type: string; c: PressCandidate }> = [];
-    for (const sh of sceneShots) {
+    const perScene = await pooled(sceneShots, 6, async (sh) => {
       const layers = (((sh.source as { props: Record<string, unknown> }).props.layers ?? []) as Array<{ name?: string; type?: string }>).filter((l) => l.name && l.name.trim().length > 1).slice(0, 4);
-      await Promise.all(
-        layers.map(async (l, slot) => {
-          const e = { name: l.name!.trim(), type: l.type ?? "company" };
-          const cands = (await wikipediaImages(e, pressDir, 3).catch(() => [] as PressCandidate[])).filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`));
-          for (const c of cands) items.push({ sh, slot, name: e.name, type: e.type, c });
-        }),
-      );
-    }
+      return (
+        await Promise.all(
+          layers.map(async (l, slot) => {
+            const e = { name: l.name!.trim(), type: l.type ?? "company" };
+            return (await wikiOnce(e, 3)).filter((c) => !isBlocked(o.blocked, `${c.provider}:${c.externalId}`)).map((c) => ({ sh, slot, name: e.name, type: e.type, c: { ...c } }));
+          }),
+        )
+      ).flat();
+    });
+    items.push(...perScene.flat());
     const line = (sh: StoryboardShot) => (o.words ?? []).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
     const verdicts: Array<{ shows: boolean; quality: number }> = [];
     for (let i = 0; i < items.length; i += 12) verdicts.push(...(await visionCheck(items.slice(i, i + 12).map((x) => ({ frameFile: x.c.frameFile, depicts: x.c.depicts, line: line(x.sh) }))).catch(() => items.slice(i, i + 12).map(() => ({ shows: false, quality: 0 })))));
@@ -642,6 +671,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     log(`  resolver: composed scenes — ${n} layer picture(s) placed across ${sceneShots.length} scene(s)`);
   }
 
+  lap("scene layer pictures");
   // Real article screenshots: for up to 4 scene shots whose line reports something a source published, the
   // cited page itself becomes picture slot 6 (vision-checked: a readable article, not a cookie wall or error).
   if (o.press !== false && o.sources) {
@@ -695,11 +725,11 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     }
   }
 
+  lap("article screenshots and press stills");
   // Web pictures: real photographs of the film's kit, from the cited sources and from pages found by web search.
   // Each is checked by eye against the lines it could sit under and becomes picture slot 7 of one scene.
   if (o.press !== false && sceneShots.length) {
-    const pages = [...new Set([...(o.sources?.values() ?? [])].flat().map((c) => c.sourceUrl).filter((u) => /^https?:\/\//.test(u)))];
-    const pics = await webPictures({ kit: plan.kit, subjects, pages, dlDir: path.join(pressDir, "web"), log }).catch(() => []);
+    const pics = await webP;
     const toks = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3));
     const lineOf = (sh: StoryboardShot) => (o.words ?? []).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
     const shotText = sceneShots.map((sh) => ({ sh, line: lineOf(sh), must: plan.briefs.get(sh.id)?.must ?? sh.intent, t: toks(`${lineOf(sh)} ${sh.intent} ${plan.briefs.get(sh.id)?.must ?? ""}`) }));
@@ -730,6 +760,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     if (pics.length) log(`  resolver: web pictures — ${n} placed as scene pictures (${pairs.length} picture/line pairs checked by eye)`);
   }
 
+  lap("web pictures");
   // Coverage report: what every shot needed, what was looked at, what it got — written before any design or render.
   {
     const rows = needs.map((n) => {
@@ -740,10 +771,11 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     });
     const wanted = rows.filter((r) => r.need !== "none");
     const real = rows.filter((r) => r.need === "real");
-    const report = { kit: plan.kit, refusedByRateLimit: Object.fromEntries(refused), sources: Object.fromEntries([...yieldBy.entries()].map(([k, y]) => [k, { searches: y.asked, results: y.got }])), shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
+    const report = { seconds: Object.fromEntries(laps.map((l) => [l.phase, l.s])), kit: plan.kit, refusedByRateLimit: Object.fromEntries(refused), sources: Object.fromEntries([...yieldBy.entries()].map(([k, y]) => [k, { searches: y.asked, results: y.got }])), shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
     const file = path.join(o.jobDir, "sourcing.json");
     await writeFile(`${file}.tmp`, JSON.stringify(report, null, 2));
     await rename(`${file}.tmp`, file);
+    log(`  resolver: time — ${laps.map((l) => `${l.phase} ${l.s} s`).join(", ")}`);
     log(`  resolver: coverage — ${report.withFootage}/${report.needPicture} shots that need a picture have footage, ${report.withScenePictureOnly} more have a real still; real-subject needs met ${report.realMet}/${report.realNeeded}; ${report.missing.length} missing${report.missing.length ? ` (${report.missing.slice(0, 8).join(", ")})` : ""} → sourcing.json`);
   }
 

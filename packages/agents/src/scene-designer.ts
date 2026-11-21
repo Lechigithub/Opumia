@@ -374,7 +374,8 @@ const Critique = z.object({
   shots: z.array(
     z.object({
       shotId: z.string(),
-      ok: z.boolean().describe("true only if a professional editor would ship this shot as is"),
+      ok: z.boolean().describe("true if the shot can ship: no defect a viewer would notice at normal speed"),
+      severity: z.number().describe("0–10: 0–3 fine or a matter of taste; 4–5 a small flaw a viewer would not notice; 6–7 a visible defect; 8–10 broken or misleading"),
       problems: z.array(z.enum(["text_overlap", "off_frame", "unreadable", "covers_subject", "cluttered", "empty_or_dull", "picture_mismatch", "ugly_layout", "broken"])),
       fix: z.string().describe("one concrete instruction for the designer, or empty"),
     }),
@@ -382,25 +383,41 @@ const Critique = z.object({
 });
 
 /** Each preview is one image: the same shot at several moments, left to right. */
-export async function critiqueScenes(o: { channel: string; previews: Array<{ shotId: string; sheet: string; line: string; idea: string }>; reference?: string[] }): Promise<Map<string, string[]>> {
-  const out = new Map<string, string[]>();
+/** Defects a viewer sees. The rest (clutter, dullness, layout taste) only counts when the critic calls the shot broken. */
+const HARD_DEFECT = new Set(["text_overlap", "off_frame", "unreadable", "covers_subject", "picture_mismatch", "broken"]);
+
+/**
+ * Calibrated on real reference frames (dev/critic-test.ts): the critic must pass nearly all of them. Only
+ * visible defects send a scene back, worst first, and at most `maxShare` of the film — a critic that flags
+ * everything doubles the design cost and tells the designer nothing.
+ */
+export async function critiqueScenes(o: { channel: string; previews: Array<{ shotId: string; sheet: string; line: string; idea: string }>; reference?: string[]; maxShare?: number }): Promise<Map<string, string[]>> {
+  const found: Array<{ shotId: string; severity: number; notes: string[] }> = [];
+  const parts: Array<typeof o.previews> = [];
+  for (let i = 0; i < o.previews.length; i += 6) parts.push(o.previews.slice(i, i + 6));
   const img = async (p: string): Promise<Anthropic.Beta.BetaContentBlockParam> => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: (await readFile(p)).toString("base64") } });
   const refBlocks: Anthropic.Beta.BetaContentBlockParam[] = [];
   for (const [i, r] of (o.reference ?? []).slice(0, 4).entries()) refBlocks.push({ type: "text", text: `REAL ${o.channel} frame ${i + 1} (the standard to meet):` }, await img(r));
-  for (let i = 0; i < o.previews.length; i += 6) {
-    const part = o.previews.slice(i, i + 6);
+  const review = async (part: typeof o.previews) => {
     const blocks: Anthropic.Beta.BetaContentBlockParam[] = [...refBlocks];
     for (const p of part) blocks.push({ type: "text", text: `SHOT ${p.shotId} — narration: "${p.line.slice(0, 160)}" — intended: ${p.idea.slice(0, 140)}. Preview (early, middle, end of the shot):` }, await img(p.sheet));
     const { data } = await structured({
       stage: "scenes.critique",
       model: MODELS.haiku,
-      system: [plain(`You are a strict finishing editor for the YouTube documentary channel ${o.channel}, reviewing rendered previews of designed shots before the film is rendered. For each shot say whether it ships. Flag: text overlapping other text or pictures; anything cut off by the frame edge; text that is hard to read against what is behind it; a design covering a face or the main subject; clutter; a shot that is empty, dull or just a stock clip with a little text nobody would notice; a picture that does not show what the line is about; an amateur or unbalanced layout; anything visibly broken. Be specific in the fix (what to move, shrink, remove or replace). Do not flag a shot only because it is simple — a strong phrase over good footage ships.`)],
+      system: [plain(`You are a strict finishing editor for the YouTube documentary channel ${o.channel}, reviewing rendered previews of designed shots before the film is rendered. For each shot say whether it ships. Flag: text overlapping other text or pictures; anything cut off by the frame edge; text that is hard to read against what is behind it; a design covering a face or the main subject; clutter; a shot that is empty, dull or just a stock clip with a little text nobody would notice; a picture that does not show what the line is about; an amateur or unbalanced layout; anything visibly broken. Be specific in the fix (what to move, shrink, remove or replace). Do not flag a shot only because it is simple — a strong phrase over good footage ships. The real frames above are the standard: they are simple, sometimes rough, and they ship. A preview sheet shows three moments, so text caught mid-entrance in the first moment is animation, not a defect. Do not ask for elements that are merely absent from the brief, and do not judge taste: flag only what a viewer would see as wrong. Most finished shots should pass.`)],
       user: blocks,
       schema: Critique,
       effort: "low",
       maxTokens: 4000,
     }).catch(() => ({ data: { shots: [] as z.infer<typeof Critique>["shots"] } }));
-    for (const s of data.shots) if (!s.ok && part.some((p) => p.shotId === s.shotId)) out.set(s.shotId, [...new Set(s.problems.map(String))].concat(s.fix ? [s.fix] : []));
-  }
-  return out;
+    for (const s of data.shots) {
+      if (s.ok || !part.some((p) => p.shotId === s.shotId)) continue;
+      const hard = s.problems.some((x) => HARD_DEFECT.has(String(x)));
+      if ((hard && s.severity >= 7) || s.severity >= 9) found.push({ shotId: s.shotId, severity: s.severity, notes: [...new Set(s.problems.map(String))].concat(s.fix ? [s.fix] : []) });
+    }
+  };
+  // Batches run side by side (they are independent); four at a time.
+  for (let i = 0; i < parts.length; i += 4) await Promise.all(parts.slice(i, i + 4).map(review));
+  const cap = Math.max(1, Math.ceil(o.previews.length * (o.maxShare ?? 0.4)));
+  return new Map(found.sort((a, b) => b.severity - a.severity || a.shotId.localeCompare(b.shotId)).slice(0, cap).map((f) => [f.shotId, f.notes]));
 }

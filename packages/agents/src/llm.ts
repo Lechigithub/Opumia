@@ -14,6 +14,7 @@ const PRICE: Record<ModelId, { in: number; out: number; cacheRead: number }> = {
 
 let _client: Anthropic | null = null;
 export function client(): Anthropic {
+  guardBudget();
   if (_client) return _client;
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPUMIA_ANTHROPIC_KEY;
   // Zero-arg resolution also works (auth token / `ant auth login` profile) when no key env var is set.
@@ -33,6 +34,18 @@ export interface UsageRecord {
 }
 const ledger: UsageRecord[] = [];
 export const usageLedger = () => [...ledger];
+
+/** A spend limit for the current film: once reached, no further model call is started (stages are cached, so a stopped job resumes). */
+export class BudgetError extends Error {}
+let budget: { limitUsd: number; from: number } | null = null;
+export function setBudget(limitUsd: number | null) {
+  budget = limitUsd === null ? null : { limitUsd, from: ledger.length };
+}
+const guardBudget = () => {
+  if (!budget) return;
+  const spent = ledger.slice(budget.from).reduce((t, r) => t + r.usd, 0);
+  if (spent >= budget.limitUsd) throw new BudgetError(`spend limit reached: $${spent.toFixed(2)} of $${budget.limitUsd.toFixed(2)} for this film (raise OPUMIA_MAX_USD to continue; finished stages are cached)`);
+};
 
 function record(stage: string, model: ModelId, msg: { model: string; usage: Anthropic.Beta.BetaUsage }) {
   const u = msg.usage;

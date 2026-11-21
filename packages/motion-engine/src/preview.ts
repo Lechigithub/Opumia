@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { FilmDesignSystem, RenderManifest } from "@opumia/contracts";
-import { renderStill, selectComposition } from "@remotion/renderer";
+import { openBrowser, renderStill, selectComposition } from "@remotion/renderer";
 import { contactSheet } from "@opumia/senses";
 import { GL, serveUrlFor, type Look } from "./render.js";
 
@@ -33,17 +33,33 @@ export async function renderShotPreviews(o: { manifest: RenderManifest; look: Lo
     ranges.set(l.shotId, { start: Math.min(r?.start ?? l.startFrame, l.startFrame), end: Math.max(r?.end ?? l.endFrame, l.endFrame), layout });
   }
   const ids = o.shotIds ?? [...ranges.keys()];
+  // One shared browser, four stills at a time (a fresh browser per still cost more than the still itself).
+  const jobs: Array<{ id: string; k: number; frame: number; p: string }> = [];
+  for (const id of ids) {
+    const r = ranges.get(id);
+    if (!r) continue;
+    for (const [k, m] of moments.entries()) jobs.push({ id, k, frame: Math.min(o.manifest.durationFrames - 1, Math.round(r.start + (r.end - r.start - 1) * m)), p: path.join(o.outDir, `${id}_${k}.jpg`) });
+  }
+  const browser = await openBrowser("chrome", { chromiumOptions: GL });
+  try {
+    let next = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(4, jobs.length) }, async () => {
+        for (;;) {
+          const j = jobs[next++];
+          if (!j) return;
+          await renderStill({ puppeteerInstance: browser, chromiumOptions: GL, composition, serveUrl: url, output: j.p, inputProps, frame: j.frame, imageFormat: "jpeg", jpegQuality: 82, scale: o.scale ?? 0.5 });
+        }
+      }),
+    );
+  } finally {
+    await browser.close({ silent: true }).catch(() => {});
+  }
   const out: ShotPreview[] = [];
   for (const id of ids) {
     const r = ranges.get(id);
     if (!r) continue;
-    const frames: ShotPreview["frames"] = [];
-    for (const [k, m] of moments.entries()) {
-      const frame = Math.min(o.manifest.durationFrames - 1, Math.round(r.start + (r.end - r.start - 1) * m));
-      const p = path.join(o.outDir, `${id}_${k}.jpg`);
-      await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: p, inputProps, frame, imageFormat: "jpeg", jpegQuality: 82, scale: o.scale ?? 0.5 });
-      frames.push({ frame, path: p });
-    }
+    const frames = jobs.filter((j) => j.id === id).sort((a, b) => a.k - b.k).map((j) => ({ frame: j.frame, path: j.p }));
     const sheet = await contactSheet(frames.map((f) => f.path), path.join(o.outDir, `${id}_sheet.jpg`), { cols: frames.length, cellW: 480 });
     out.push({ shotId: id, layout: r.layout, frames, sheet });
   }

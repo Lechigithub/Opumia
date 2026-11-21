@@ -204,7 +204,9 @@ export function providersFor(o: { kind: "video" | "image"; period: boolean }): s
 
 /** Every source that can supply this kind of picture: the pooled search asks all of them and judges by eye. */
 export function allProviders(o: { kind: "video" | "image"; period: boolean }): string[] {
-  if (o.kind === "video") return o.period ? ["commons", "nara", "archive", "pexels", "pixabay"] : ["pexels", "pixabay", "coverr", "vecteezy", "commons", "archive"];
+  // The Internet Archive adapter works but is not asked here: it returns whole films, and the fixed moment taken
+  // fitted 0 of 55 candidates on a real plan while costing a remote seek each. It needs moment finding first.
+  if (o.kind === "video") return o.period ? ["commons", "nara", "pexels", "pixabay"] : ["pexels", "pixabay", "coverr", "vecteezy", "commons"];
   return o.period ? ["commons", "europeana", "nara", "openverse"] : ["pexels", "pixabay", "commons", "openverse"];
 }
 
