@@ -25,3 +25,4 @@ export * from "./writer-agent.js";
 export * from "./research-agent.js";
 export * from "./visual-measure.js";
 export * from "./scene-agent.js";
+export * from "./director-agent.js";

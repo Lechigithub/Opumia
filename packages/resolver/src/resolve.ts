@@ -158,6 +158,8 @@ export interface ResolveOptions {
   factText?: string;
   /** Story era from the fact sheet (more reliable than years spoken in the narration). */
   era?: StoryEra | null;
+  /** Candidates the director already found and rated when it probed for footage (shot id → candidates). */
+  probes?: Map<string, StockCandidate[]>;
   /** Folder for the stock-search memo (results kept 20 h, so re-runs and films on one subject do not spend API quota twice). */
   cacheDir?: string;
   /** Fair-use press sourcing (YouTube news/interview excerpts, Wikipedia photos and logos). Default on. */
@@ -382,6 +384,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         list.push(c);
       };
       for (const c of ent.get(n.shot.id) ?? []) push(c);
+      for (const c of o.probes?.get(n.shot.id) ?? []) if (!usedStock.has(`${c.provider}:${c.externalId}`)) push({ src: "stock", c, score: 2 });
       for (const q of [n.query, ...b.stock])
         for (const r of bm.search(q, { kind: n.kind, decade: n.decade, limit: 12 }).filter((r) => !usedLocal.has(r.doc.key) && !tooOld(r.doc, n) && !r.doc.asset.bugSpots?.length && !anachronistic(r.doc.text, era) && !mismatch(r.doc.text, n.line, n.decade)).slice(0, 3)) push({ src: "local", doc: r.doc, score: r.score });
       const found = (

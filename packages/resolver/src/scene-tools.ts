@@ -155,3 +155,41 @@ export function makeSceneTools(o: SceneToolsOptions) {
   return { findPicture, searchObjects, addObject, cutOut };
 }
 export type SceneTools = ReturnType<typeof makeSceneTools>;
+
+// ---------------------------------------------------------------------------------------------------------
+// Footage probe for the director: does a picture like this exist? (asked before a shot is committed)
+
+export interface ProbeResult { key: string; found: number; fit: number; shows: string; candidates: StockCandidate[] }
+
+/**
+ * Searches the stock and archive sources for each described picture and rates the previews by eye against the
+ * line (and the line's own year). Nothing is downloaded. The best candidates are returned so sourcing can start
+ * from them instead of searching blind.
+ */
+export function makeFootageProbe(o: { jobDir: string; aspect: string; era: string }) {
+  const thumbDir = path.join(o.jobDir, "downloads", "thumbs");
+  const orientation = o.aspect === "9:16" ? ("portrait" as const) : ("landscape" as const);
+  return async function probe(items: Array<{ key: string; want: string; kind: "video" | "image"; line: string; when?: string }>): Promise<ProbeResult[]> {
+    return Promise.all(
+      items.map(async (it): Promise<ProbeResult> => {
+        const q = it.want.replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 6).join(" ");
+        if (q.length < 4) return { key: it.key, found: 0, fit: 0, shows: "the request was too short to search", candidates: [] };
+        const found = (await Promise.all([searchStock(q, { kind: it.kind, orientation, perPage: 6, providers: ["pexels"] }).catch(() => []), searchStock(q, { kind: it.kind, orientation, perPage: 3, providers: ["pixabay", "commons"] }).catch(() => [])])).flat().filter((c) => !c.aiGenerated).slice(0, 10);
+        const withThumb = (
+          await Promise.all(
+            found.map(async (c) => {
+              const thumb = path.join(thumbDir, `${sha(`${c.provider}:${c.externalId}`, 14)}.jpg`);
+              const ok = c.thumbUrl ? await thumbOf({ url: c.thumbUrl }, thumb) : c.fileUrl ? await thumbOf(c.kind === "image" ? { url: c.fileUrl } : { url: c.fileUrl, video: true, atS: 1 }, thumb) : false;
+              return ok ? { c, thumb } : null;
+            }),
+          )
+        ).filter((x): x is { c: StockCandidate; thumb: string } => x !== null);
+        if (!withThumb.length) return { key: it.key, found: 0, fit: 0, shows: "no source returned anything", candidates: [] };
+        const rated = await reviewPictures(withThumb.map((x) => ({ frameFile: x.thumb, intent: it.want, line: it.line, era: it.when || o.era }))).catch(() => []);
+        const good = withThumb.map((x, k) => ({ ...x, r: rated[k] })).filter((x) => x.r && x.r.shows !== "not reviewed" && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r!.fit - a.r!.fit);
+        const best = good[0];
+        return { key: it.key, found: withThumb.length, fit: best?.r?.fit ?? Math.max(0, ...rated.map((r) => (r.wrongEra ? Math.min(r.fit, 4) : r.fit))), shows: best?.r?.shows ?? (rated.some((r) => r.wrongEra) ? "only pictures from the wrong period" : "nothing usable"), candidates: good.filter((x) => x.r!.fit >= 6).slice(0, 3).map((x) => x.c) };
+      }),
+    );
+  };
+}

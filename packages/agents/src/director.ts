@@ -32,7 +32,11 @@ const PlanSchema = z.object({
   ),
 });
 
-const PROPS_SPEC = `designedProps JSON per kind. NUMBERS COME ONLY FROM THE NUMERIC FACT TABLE, referenced by id — never type a number yourself:
+/** The director agent's tool input: the same plan a model returns, turned into a storyboard by the same code. */
+export const DirectorPlanSchema = PlanSchema;
+export type DirectorPlan = z.infer<typeof PlanSchema>;
+
+export const PROPS_SPEC = `designedProps JSON per kind. NUMBERS COME ONLY FROM THE NUMERIC FACT TABLE, referenced by id — never type a number yourself:
 - money_figure: {"fact":"n03","label":str} — a gold counter laid over the shot's sharp footage (choose a strong query for that footage). ONLY a figure the narrator says during this very shot. At most one per ~50 s.
 - chart: {"type":"line" for a trajectory (growth then crash) | "bar" for a comparison,"title":str (2–4 words, one key word),"labels":[str,...],"facts":["n01","n04",...] (one fact id per label),"highlight":int}
 - versus: head-to-head rivalry or peak-vs-now contrast {"title":str,"left":{"label":str,"fact":"n05"},"right":{"label":str,"fact":"n06"}}
@@ -81,6 +85,8 @@ export interface DirectOptions {
   index: LibraryIndex;
   /** ProductionMemory: query phrasings that produced mismatches in earlier films. */
   avoidQueries?: string[];
+  /** A plan already drawn up by the director agent: no model call, only the conversion and its guards. */
+  raw?: DirectorPlan;
   log?: (s: string) => void;
 }
 
@@ -141,7 +147,11 @@ ${formatFactTable(nf) || "(none — do not use money_figure, chart or versus)"}`
   type PlanShot = z.infer<typeof PlanSchema>["shots"][number];
   const planned: PlanShot[] = [];
   const musicCues: Array<{ id: string; fromWord: number }> = [];
-  for (const [ci, ch] of chunks.entries()) {
+  if (o.raw) {
+    planned.push(...[...o.raw.shots].filter((s) => s.startWord >= 0 && s.startWord < words.length).sort((a, b) => a.startWord - b.startWord));
+    musicCues.push({ id: o.raw.musicId, fromWord: 0 });
+  }
+  for (const [ci, ch] of o.raw ? [] : [...chunks.entries()]) {
     const segIds = new Set(words.slice(ch.from, ch.to).map((w) => w.seg));
     const wordList = words.slice(ch.from, ch.to).map((w, k) => `${ch.from + k}:${w.word}@${w.startS.toFixed(2)}`).join(" ");
     const chunkDur = (words[ch.to - 1]?.endS ?? o.script.durationS) - (words[ch.from]?.startS ?? 0);

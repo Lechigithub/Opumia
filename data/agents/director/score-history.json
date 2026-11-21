@@ -1,0 +1,20 @@
+[
+  {
+    "at": "2026-11-21T22:23:03.244Z",
+    "commit": "d8ff89b",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "pass": true,
+        "measurements": 4,
+        "seconds": 120,
+        "usd": 0.404,
+        "remaining": [],
+        "shots": 24,
+        "cutsPerMin": 16.4,
+        "probed": 12,
+        "found": 12
+      }
+    ]
+  }
+]

@@ -5,9 +5,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
-import { makeSceneTools, pageTextViaBrowser, repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
+import { makeFootageProbe, makeSceneTools, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
@@ -54,7 +54,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.3, B2: 0.12, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.45, B2: 0.12, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -229,7 +229,18 @@ async function produceStages(o: ProduceOptions) {
 
   // ---- Stage B: director → resolver
   log("\n[B1] storyboard director");
-  let board = await cachedJson(path.join(jobDir, "storyboard.json"), Storyboard, redo("storyboard"), () => directStoryboard({ pack, script: timed, facts, index, avoidQueries: badQueries(memory), log }), log);
+  // The director is an agent: it reads how the channel shows lines like these, checks that the footage it asks
+  // for exists (probe_footage), measures its own plan and revises. What its probes found goes to sourcing
+  // (probes.json). OPUMIA_DIRECTOR=legacy runs the older single prompt.
+  const probesFile = path.join(jobDir, "probes.json");
+  let board = await cachedJson(path.join(jobDir, "storyboard.json"), Storyboard, redo("storyboard"), async () => {
+    if (process.env.OPUMIA_DIRECTOR === "legacy") return directStoryboard({ pack, script: timed, facts, index, avoidQueries: badQueries(memory), log });
+    const eraD = eraOfFacts(facts);
+    let dirReport: DirectorReport | null = null;
+    const res = await directStoryboardAgent({ pack, script: timed, facts, index, probe: makeFootageProbe({ jobDir, aspect: o.aspect, era: eraD ? `${eraD.min}–${eraD.max}` : "unspecified" }), memoryDir: path.join(o.data, "agents", "director"), avoidQueries: badQueries(memory), onReport: (r) => (dirReport = r), log });
+    await writeFile(probesFile, JSON.stringify({ report: dirReport, probes: Object.fromEntries(res.probes) }, null, 1) + "\n");
+    return res.storyboard;
+  }, log);
   // The film's signature transition: every non-cut transition becomes it, and a new thought (the first shot
   // of a narration segment) gets it when the director cut straight — roughly one shot in six.
   if (design.treatment) {
@@ -258,7 +269,7 @@ async function produceStages(o: ProduceOptions) {
     const cool = await cooldownRefs(o.data, jobId);
     const blocked = new Set([...blockedRefs(memory), ...cool.pictures]);
     log(`  cooldown: ${cool.pictures.size} picture ref(s) used by recent films are off limits`);
-    return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), log });
+    return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), probes: new Map(Object.entries(await readFile(probesFile, "utf8").then((t) => (JSON.parse(t) as { probes: Record<string, StockCandidate[]> }).probes, () => ({}) as Record<string, StockCandidate[]>))), log });
   }, log);
   await recordUsage(o.data, jobId, resolution, board);
   if (stop("resolve")) return { jobDir };
