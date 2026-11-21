@@ -20,6 +20,13 @@ A story, not a list of statistics:
 4. **Check where you stand** with `sheet_status`. It shows what is verified and what the film still lacks.
 5. **Finish** with `finish` when the must-haves are verified and the film has enough to stand on. If a must-have cannot be verified anywhere after a real attempt, say so in `gaps`. A stated gap is honest; a guessed fact is not.
 
+## Primary sources you can read
+
+`read_page` reads web pages, PDFs and YouTube videos. Use that:
+
+- A court filing, an annual report or a regulator's order is usually a PDF and carries the exact figures and dates.
+- An interview or a talk on video is where a person's real words are. Read its transcript and quote from it, with the video as the source. Captions drop punctuation and mishear names, so quote short runs of plain words.
+
 ## Depth
 
 The minimum is not the goal. A thin sheet gives a thin film: the writer can only choose among what you verified. Go past the first sources a search returns. Look for the interview where the person told the story in their own words, the filing or court document with the real figure, the contemporary report from the day it happened, and the rival's number from the same year. If your must-haves include a contrast with another company, verify the other company's side too.

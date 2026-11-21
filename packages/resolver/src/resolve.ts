@@ -9,7 +9,7 @@ import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, type StockCandidate } from "./stock.js";
-import { closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
+import { periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
 import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
 const run = promisify(execFile);
@@ -444,6 +444,27 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       .filter((x) => x.r.fit >= 6 && !x.r.wrongEra && !x.r.synthetic && !x.r.banner && !(namedPerson(x.n) && x.r.face && !titledAs(x.c, x.n)))
       .map((x) => ({ ...x, score: x.r.fit + (x.c.src === "press" ? 0.6 : x.c.src === "local" ? 0.3 : x.c.c.archival && briefOf(x.n).need !== "staged" ? 0.3 : 0) }))
       .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
+    // Period: for lines set before 2009, the three best candidates of each shot are dated by a dedicated check
+    // and anything later than the line is taken out before a pick is made.
+    {
+      const toDate = pending.flatMap((n) => {
+        const y = yearOf(briefOf(n).when);
+        return y !== null && y <= 2008 ? good.filter((x) => x.n === n && x.c.src !== "press").slice(0, 3).map((x) => ({ x, y })) : [];
+      });
+      if (toDate.length) {
+        const dated = await periodCheck(toDate.map((t) => ({ frameFile: t.x.thumb, year: t.y })));
+        const late = new Set(toDate.filter((_, k) => !dated[k]!.ok).map((t) => t.x));
+        for (const [k, t] of toDate.entries()) if (!dated[k]!.ok) (looked.get(t.x.n.shot.id) ?? []).filter((c) => c.ref === t.x.key).forEach((c) => ((c.wrongEra = true), (c.shows = `${c.shows} [dated ${dated[k]!.earliestYear}+: ${dated[k]!.evidence}]`)));
+        // Undated runners-up of a period shot are not trusted either: only dated candidates may be picked for it.
+        const datedOk = new Set(toDate.filter((_, k) => dated[k]!.ok).map((t) => t.x));
+        const periodShots = new Set(toDate.map((t) => t.x.n));
+        for (let k = good.length - 1; k >= 0; k--) {
+          const g = good[k]!;
+          if (late.has(g) || (periodShots.has(g.n) && g.c.src !== "press" && !datedOk.has(g))) good.splice(k, 1);
+        }
+        if (late.size) log(`  resolver: period check — ${late.size} of ${toDate.length} leading candidate(s) under period lines were too modern and were taken out`);
+      }
+    }
     for (const x of good) ratedSeen.set(`${x.n.shot.id}|${x.key}`, { fit: x.r.fit, face: x.r.face, banner: x.r.banner, note: x.r.shows });
     const takenKeys = new Set<string>();
     for (const x of good) {

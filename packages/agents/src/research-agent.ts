@@ -39,7 +39,26 @@ export interface ResearchResult {
   agent: { turns: number; calls: Record<string, number>; usd: number; pagesRead: number; fromArchive: number; rejected: number };
 }
 
-export async function researchAgent(o: { topic: string; format: string; want: number; memoryDir?: string; /** Reads a page through a real browser when the plain request and the archive both fail. */ browserRead?: (url: string) => Promise<string | null>; log?: (s: string) => void }): Promise<ResearchResult> {
+export interface ResearchAgentOptions {
+  topic: string;
+  format: string;
+  want: number;
+  memoryDir?: string;
+  /** Reads a page through a real browser when the plain request and the archive both fail. */
+  browserRead?: (url: string) => Promise<string | null>;
+  /** The spoken words of a video (captions), for interviews and talks. */
+  videoTranscript?: (url: string) => Promise<{ title: string; channel: string; text: string } | null>;
+  /**
+   * Quick mode: another agent (the writer) asks for specific facts. No story plan and no depth targets — find
+   * and verify what was asked, then finish. Claim ids continue after `idStart`.
+   */
+  questions?: string[];
+  idStart?: number;
+  log?: (s: string) => void;
+}
+
+export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchResult> {
+  const quick = Boolean(o.questions?.length);
   const log = o.log ?? (() => {});
   // The writer needs room to choose: the sheet aims at twice the bare minimum a script could be written from.
   const want = Math.max(o.want * 2, 20);
@@ -54,7 +73,10 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
     if (!pages.has(url))
       pages.set(
         url,
-        readPage(url, 80_000, o.browserRead).then((p) => {
+        (/youtube\.com|youtu\.be/i.test(url) && o.videoTranscript
+          ? o.videoTranscript(url).then((v) => (v ? { text: `${v.title} — ${v.channel} (spoken words of the video)\n${v.text}`.slice(0, 120_000), via: "live" as const } : null), () => null)
+          : readPage(url, 80_000, o.browserRead)
+        ).then((p) => {
           const h = hostOf(url);
           if (h) {
             const e = (hosts[h] ??= { read: 0, archive: 0, failed: 0 });
@@ -87,6 +109,7 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
     const top = [...srcs].map((h) => ({ h, n: u.filter((c) => hostOf(c.sourceUrl) === h).length })).sort((a, b) => b.n - a.n)[0];
     if (top && u.length >= 8 && top.n / u.length > 0.45) need.push(`less reliance on ${top.h} (${top.n} of ${u.length} facts) — bring facts from other sources, ideally primary ones`);
     if (!plan) need.push("a plan (call plan_story)");
+    if (quick) need.length = 0;
     return { need, text: `VERIFIED so far: ${u.length} fact(s) — ${count("event")} events, ${count("date")} dates, ${count("number")} figures, ${count("quote")} quotations, ${count("context")} context — from ${srcs.size} source(s).\n${plan ? `MUST-HAVES:\n${plan.mustHave.map((m, i) => `  ${i}. ${m}`).join("\n")}` : "No plan yet."}\n${need.length ? `STILL NEEDED:\n${need.map((n) => `  - ${n}`).join("\n")}` : "The film has enough to stand on. Make sure every must-have is verified, then finish."}\nCLAIMS:\n${u.map((c) => `  [${c.id}] (${c.kind}) ${c.text} — ${hostOf(c.sourceUrl)}`).join("\n") || "  none"}` };
   };
 
@@ -102,7 +125,7 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
     },
     {
       name: "read_page",
-      description: "Read a web page as text (the live page, or the Internet Archive's copy when the site refuses or the page is gone). Returns the start of the page; pass `find` (a name, a figure, a phrase) to also get the passages around every match — use it to locate the exact sentence you will quote as evidence.",
+      description: "Read a source as text: a web page (live, or the Internet Archive's copy, or through a browser when the site refuses), a PDF (filings, court documents, reports), or a YouTube video (its spoken words — an interview or a talk is often where a quotation really comes from). Returns the start of the page; pass `find` (a name, a figure, a phrase) to also get the passages around every match — use it to locate the exact sentence you will quote as evidence.",
       schema: z.object({ url: z.string(), find: z.string().describe("optional: text to locate on the page, or empty") }),
       run: (async (i: { url: string; find: string }) => {
         if (!/^https?:\/\//.test(i.url)) throw new Error("not a URL");
@@ -160,7 +183,7 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
           rejected++;
           return `NOT VERIFIED — the passage does not support the claim: ${chk?.data.why.slice(0, 200)}. Correct the claim to what the page says, or use another source.`;
         }
-        const id = `c${String(claims.length + 1).padStart(2, "0")}`;
+        const id = `c${String(claims.length + 1 + (o.idStart ?? 0)).padStart(2, "0")}`;
         claims.push({ id, text: i.text.trim(), kind: i.kind, sourceUrl: i.sourceUrl, ...(i.sourceTitle.trim() ? { sourceTitle: i.sourceTitle.trim() } : {}), evidence: i.evidence.trim().slice(0, 300), verdict, checkedBy: MODELS.haiku });
         // Enough is enough: once the sheet has what the film needs, the researcher is told to stop collecting.
         const enough = status().need.length === 0;
@@ -178,6 +201,10 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
       description: "Finish the fact sheet. Give a two-sentence summary, the story angle, which verified claim covers each must-have, and any must-have you could not verify anywhere (gaps). Accepted only when the film has enough to stand on and every must-have is either covered or declared a gap.",
       schema: z.object({ summary: z.string(), angle: z.string(), covered: z.array(z.object({ mustHave: z.number(), claimId: z.string() })), gaps: z.array(z.string()) }),
       run: (async (i: { summary: string; angle: string; covered: Array<{ mustHave: number; claimId: string }>; gaps: string[] }) => {
+        if (quick) {
+          finished = i;
+          return "ACCEPTED.";
+        }
         const stt = status();
         const ids = new Set(usable().map((c) => c.id));
         const bad = i.covered.filter((c) => !ids.has(c.claimId)).map((c) => c.claimId);
@@ -191,6 +218,17 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
     },
   ];
 
+  tools.push({
+    name: "note_lesson",
+    description: "Save one short lesson for your future self (which kinds of source carried the best facts, what kept failing verification).",
+    schema: z.object({ lesson: z.string().max(400) }),
+    run: (async (i: { lesson: string }) => {
+      if (!o.memoryDir) return "no memory configured";
+      await mkdir(o.memoryDir, { recursive: true });
+      await appendFile(path.join(o.memoryDir, "notes.md"), `- LESSON (${o.topic.slice(0, 60)}): ${i.lesson.replace(/\s+/g, " ").trim()}\n`);
+      return "saved";
+    }) as AgentTool["run"],
+  });
   const known = Object.entries(hosts);
   const refused = known.filter(([, v]) => v.failed >= 2 && v.read + v.archive === 0).map(([h]) => h);
   const good = known.filter(([, v]) => v.read + v.archive >= 2).sort((a, b) => b[1].read + b[1].archive - (a[1].read + a[1].archive)).map(([h]) => h);
@@ -199,16 +237,18 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
       `${skill}\n\n## This film\n${o.format}. A script can be written from ${o.want} facts, but a writer needs room to choose: build a sheet of at least ${want} verified facts — people and what they wanted, dated scenes, contrasts, at least three word-for-word quotations and five figures — from at least five independent sources, no single source carrying most of it.${refused.length ? `\n\n## Sites that could not be read on earlier films (do not rely on them)\n${refused.slice(0, 40).join(", ")}` : ""}${good.length ? `\n\n## Sites that were readable on earlier films\n${good.slice(0, 40).join(", ")}` : ""}${notes.trim() ? `\n\n## Your notes from earlier films\n${tail(notes, 20)}` : ""}`,
     ),
   ];
-  log(`  research: one researcher with tools — search, read, verify each claim on a readable page (${MODELS.sonnet})…`);
+  if (!quick) log(`  research: one researcher with tools — search, read, verify each claim on a readable page (${MODELS.sonnet})…`);
   const run = await agentLoop({
     stage: "research.agent",
     model: MODELS.sonnet,
     system,
-    user: `Research this film: ${o.topic}\n\nStart with a few searches to learn the story, then plan_story, then read and record.`,
+    user: quick
+      ? `The film is: ${o.topic}\n\nThe writer needs these specific facts verified. For each, find a readable source, record it with record_claim (one fact per claim, exact evidence), then call finish (summary and angle may be one line; covered may be empty; list in gaps anything you could not verify). Do not research anything else.\n${o.questions!.map((q) => `- ${q}`).join("\n")}`
+      : `Research this film: ${o.topic}\n\nStart with a few searches to learn the story, then plan_story, then read and record.`,
     tools,
-    serverTools: [{ type: "web_search_20260209", name: "web_search", max_uses: 20 } as Anthropic.Beta.BetaToolUnion],
-    effort: "medium",
-    maxTurns: 50,
+    serverTools: [{ type: "web_search_20260209", name: "web_search", max_uses: quick ? 6 : 20 } as Anthropic.Beta.BetaToolUnion],
+    effort: quick ? "low" : "medium",
+    maxTurns: quick ? 12 : 50,
     maxTokens: 16000,
     done: () => finished !== null,
     nudge: "The fact sheet is not finished. Call sheet_status, fill what is still needed, then finish.",
@@ -219,15 +259,15 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
   const thePlan = plan as { angle: string; mustHave: string[] } | null;
   const allPages = await Promise.all([...pages.entries()].map(async ([url, p]) => ({ url, p: await p })));
   const fromArchive = allPages.filter((x) => x.p?.via === "archive").length;
-  log(`  research: ${fin ? "fact sheet complete" : "NOT FINISHED"} after ${run.turns} turn(s) — ${u.length} verified fact(s) (${rejected} attempt(s) rejected and retried), ${allPages.filter((x) => x.p).length}/${allPages.length} page(s) readable (${fromArchive} from the archive), $${run.usd.toFixed(2)}${fin?.gaps.length ? ` — gaps: ${fin.gaps.map((g) => g.slice(0, 60)).join("; ")}` : ""}`);
-  if (u.filter((c) => c.verdict === "supported").length < Math.min(5, o.want)) throw new Error(`research: only ${u.length} verified claims — not enough to write a factual script`);
+  if (!quick) log(`  research: ${fin ? "fact sheet complete" : "NOT FINISHED"} after ${run.turns} turn(s) — ${u.length} verified fact(s) (${rejected} attempt(s) rejected and retried), ${allPages.filter((x) => x.p).length}/${allPages.length} page(s) readable (${fromArchive} from the archive), $${run.usd.toFixed(2)}${fin?.gaps.length ? ` — gaps: ${fin.gaps.map((g) => g.slice(0, 60)).join("; ")}` : ""}`);
+  if (!quick && u.filter((c) => c.verdict === "supported").length < Math.min(5, o.want)) throw new Error(`research: only ${u.length} verified claims — not enough to write a factual script`);
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });
     if (hostsFile) {
       await writeFile(`${hostsFile}.tmp`, JSON.stringify(Object.fromEntries(Object.entries(hosts).sort(([a], [b]) => a.localeCompare(b))), null, 1) + "\n");
       await rename(`${hostsFile}.tmp`, hostsFile);
     }
-    await appendFile(path.join(o.memoryDir, "notes.md"), `- LOG ${new Date().toISOString().slice(0, 10)} "${o.topic.slice(0, 60)}": ${fin ? "complete" : "not finished"}, ${u.length} verified, ${rejected} rejected, must-haves ${fin ? fin.covered.length : 0}/${thePlan?.mustHave.length ?? 0} covered${fin?.gaps.length ? `, gaps: ${fin.gaps.join("; ").slice(0, 200)}` : ""}\n`);
+    if (!quick) await appendFile(path.join(o.memoryDir, "notes.md"), `- LOG ${new Date().toISOString().slice(0, 10)} "${o.topic.slice(0, 60)}": ${fin ? "complete" : "not finished"}, ${u.length} verified, ${rejected} rejected, must-haves ${fin ? fin.covered.length : 0}/${thePlan?.mustHave.length ?? 0} covered${fin?.gaps.length ? `, gaps: ${fin.gaps.join("; ").slice(0, 200)}` : ""}\n`);
   }
   const srcUrls = [...new Set(claims.map((c) => c.sourceUrl))];
   return {

@@ -17,7 +17,31 @@ const BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/
  * most recent copy (many news and company pages block automated readers or have been taken down, and a claim
  * whose source cannot be read cannot be verified). `via` says which copy was read.
  */
+/** The text of a PDF (court and company filings, reports): up to 60 pages, read with pdf.js. Null when it is not a readable PDF. */
+export async function pdfText(url: string, maxChars = 120_000): Promise<string | null> {
+  try {
+    const res = await fetch(url, { headers: { "user-agent": BROWSER_UA, accept: "application/pdf,*/*" }, redirect: "follow", signal: AbortSignal.timeout(40_000) });
+    if (!res.ok) return null;
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (buf.length < 500 || buf.length > 40_000_000 || String.fromCharCode(...buf.slice(0, 5)) !== "%PDF-") return null;
+    const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as unknown as { getDocument: (o: { data: Uint8Array; useSystemFonts: boolean; verbosity: number }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str?: string }> }> }> }> } };
+    const doc = await pdfjs.getDocument({ data: buf, useSystemFonts: true, verbosity: 0 }).promise;
+    let text = "";
+    for (let i = 1; i <= Math.min(doc.numPages, 60) && text.length < maxChars; i++) {
+      const c = await (await doc.getPage(i)).getTextContent();
+      text += `${c.items.map((x) => x.str ?? "").join(" ").replace(/\s+/g, " ").trim()}\n`;
+    }
+    return text.trim().length > 200 ? text.slice(0, maxChars) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function readPage(url: string, maxChars = 80_000, browser?: (url: string) => Promise<string | null>): Promise<{ text: string; via: "live" | "archive" | "browser" } | null> {
+  if (/\.pdf($|[?#])/i.test(url)) {
+    const pdf = await pdfText(url, Math.max(maxChars, 120_000));
+    if (pdf) return { text: pdf, via: "live" };
+  }
   const live = await fetchPageText(url, maxChars, BROWSER_UA);
   if (live && live.length > 600) return { text: live, via: "live" };
   try {

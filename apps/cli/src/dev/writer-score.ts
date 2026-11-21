@@ -6,7 +6,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { FactSheet } from "@opumia/contracts";
-import { buildStylePack, ensureReferenceFilms, ensureStoryBand, usageLedger, writeScript, type StoryReport } from "@opumia/agents";
+import { buildStylePack, ensureReferenceFilms, ensureStoryBand, researchAgent, usageLedger, writeScript, type StoryReport } from "@opumia/agents";
+import { closeBrowser, pageTextViaBrowser, youtubeTranscript } from "@opumia/resolver";
 import { resolveChannelVoice, storedVoiceMeasure, ttsModel } from "@opumia/narration";
 import { loadKeys } from "../keys.js";
 
@@ -29,10 +30,11 @@ for (const arg of process.argv.slice(2)) {
   const t0 = Date.now();
   console.log(`\n### ${path.basename(src)} — ${facts.topic}`);
   // Each script in the set is shown the shapes of the ones written before it, as in production.
-  const draft = await writeScript({ pack, facts, aspect: job.aspect, durationS: job.durationS <= 90 ? job.durationS - 3 : job.durationS, narrationWpm: wpm, recent: earlier, storyBand, films, memoryDir, onStory: (r) => (report = r), log: console.log });
+  const draft = await writeScript({ pack, facts, aspect: job.aspect, durationS: job.durationS <= 90 ? job.durationS - 3 : job.durationS, narrationWpm: wpm, recent: earlier, storyBand, films, memoryDir, askResearcher: (questions) => researchAgent({ topic: facts.topic, format: "", want: 0, questions, idStart: facts.claims.length, browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log: console.log }).then((r) => r.claims), onStory: (r) => (report = r), log: console.log });
   const out = path.resolve("out", "writer-score", path.basename(src));
   mkdirSync(out, { recursive: true });
   writeFileSync(path.join(out, "script.draft.json"), JSON.stringify(draft, null, 2));
+  writeFileSync(path.join(out, "facts.json"), JSON.stringify(facts, null, 2));
   const rp = report as StoryReport | null;
   const p = rp?.rounds.at(-1)?.profile;
   if (draft.blueprint) earlier.push({ hook: draft.blueprint.hook, ending: draft.blueprint.ending, spine: draft.blueprint.spine, ...(draft.blueprint.beats ? { beats: draft.blueprint.beats } : {}) });
@@ -49,3 +51,4 @@ hist.push(entry);
 writeFileSync(hf, JSON.stringify(hist, null, 2) + "\n");
 console.log(`\nWRITER SCORE: ${entry.passed}/${entry.of} accepted — $${entry.usd}`);
 for (const r of results) console.log(`  ${r.job.padEnd(20)} ${r.pass ? "accepted" : `NOT accepted (${r.remaining.join(", ")})`} | ${r.measurements} measurement(s), ${r.seconds} s, $${r.usd} | explains ${Math.round(r.explain * 100)}% viewer ${Math.round(r.viewer * 100)}% quotes ${Math.round(r.quote * 100)}% facts ${Math.round(r.fact * 100)}% | ${r.beats} turns`);
+await closeBrowser();

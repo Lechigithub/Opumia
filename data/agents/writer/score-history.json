@@ -63,5 +63,30 @@
         "beats": 6
       }
     ]
+  },
+  {
+    "at": "2026-11-21T22:49:20.109Z",
+    "commit": "bf2c6b6",
+    "skillChars": 4449,
+    "passed": 1,
+    "of": 1,
+    "usd": 0.263,
+    "results": [
+      {
+        "job": "how-kodak-invented-the-digital-camera-and-still-di",
+        "topic": "How Kodak invented the digital camera and still died",
+        "pass": true,
+        "measurements": 4,
+        "seconds": 60,
+        "usd": 0.263,
+        "remaining": [],
+        "explain": 0.3,
+        "viewer": 0.2,
+        "quote": 0,
+        "fact": 0.1,
+        "opening": "Sasson builds the first digital camera inside Kodak's lab, in the company that sold 90% of America's film; the viewer wants to know how a company invents the future and still dies.",
+        "beats": 7
+      }
+    ]
   }
 ]

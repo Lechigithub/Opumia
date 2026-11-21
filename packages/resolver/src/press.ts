@@ -269,6 +269,25 @@ function captionMoment(info: YtInfo, words: string[]): number | null {
   return best.t >= 0 ? best.t + 1 : null;
 }
 
+/**
+ * The spoken words of a YouTube video (its captions) as text — for the researcher: an interview or a talk is
+ * often the primary source of a quotation. Nothing is downloaded but the caption track.
+ */
+export async function youtubeTranscript(url: string): Promise<{ title: string; channel: string; text: string } | null> {
+  const id = /(?:v=|youtu\.be\/|\/shorts\/|\/embed\/)([\w-]{11})/.exec(url)?.[1];
+  if (!id) return null;
+  const info = await ytInfo(id);
+  if (!info || !info.captions.length) return null;
+  // Auto-captions repeat lines as they scroll: keep each new run of words once.
+  const out: string[] = [];
+  for (const c of info.captions) {
+    const t = c.text.replace(/\s+/g, " ").trim();
+    if (t && t !== out.at(-1) && !out.at(-1)?.endsWith(t)) out.push(t);
+  }
+  const text = out.join(" ").replace(/\s+/g, " ").trim();
+  return text.length > 200 ? { title: info.title, channel: info.channel, text } : null;
+}
+
 const Moments = z.object({ picks: z.array(z.object({ sheet: z.number(), cell: z.number(), what: z.string() })) });
 
 /** Where in the video the wanted picture is: the model looks at the video's thumbnail strip and names the cells. */
@@ -447,6 +466,57 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
       out.push(v ? { fit: v.fit, face: v.face, banner: v.banner, wrongEra: v.wrongEra, synthetic: v.synthetic, shows: v.shows } : { fit: 5, face: false, banner: false, wrongEra: false, synthetic: false, shows: "not reviewed" });
     }
   }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Period check: a dedicated look at what dates a picture. The general picture review above asks about period
+// as one of five things and misses it too often (a headset, a tablet or a glass office under a 1975 line);
+// this asks only that, of a stronger model.
+
+const Period = z.object({ frames: z.array(z.object({ index: z.number(), earliestYear: z.number().describe("the earliest year this scene could have been filmed as it looks; 1900 if nothing in it dates it"), evidence: z.string().describe("the things that date it, in a few words; empty if nothing does") })) });
+
+/** The year a line is set in, from a phrase like "1975", "1970s" or "mid-1990s" (a decade counts to its end). Null when unknown. */
+export function yearOf(when: string | undefined): number | null {
+  const m = /(1[89]\d\d|20\d\d)(s)?/.exec(when ?? "");
+  return m ? Number(m[1]) + (m[2] ? 9 : 0) : null;
+}
+
+/**
+ * For each frame: the earliest year the scene could have been filmed, and whether that fits the line's year
+ * (three years of tolerance). Sonnet vision, eight frames a call. A frame that cannot be judged passes.
+ */
+export async function periodCheck(items: Array<{ frameFile: string; year: number }>): Promise<Array<{ ok: boolean; earliestYear: number; evidence: string }>> {
+  const out = items.map(() => ({ ok: true, earliestYear: 1900, evidence: "" }));
+  const parts: number[][] = [];
+  for (let i = 0; i < items.length; i += 8) parts.push(items.slice(i, i + 8).map((_, k) => i + k));
+  await Promise.all(
+    parts.map(async (idx) => {
+      const blocks = (
+        await Promise.all(
+          idx.map(async (g, k) => {
+            const data = await readFile(items[g]!.frameFile).then((b) => b.toString("base64"), () => null);
+            return data ? [{ type: "text" as const, text: `[${k}]` }, { type: "image" as const, source: { type: "base64" as const, media_type: (/\.png$/i.test(items[g]!.frameFile) ? "image/png" : "image/jpeg") as "image/png" | "image/jpeg", data } }] : [];
+          }),
+        )
+      ).flat();
+      if (!blocks.length) return;
+      const res = await structured({
+        stage: "resolve.period",
+        model: MODELS.sonnet,
+        system: [plain("You date pictures for a documentary editor. For each numbered frame, look for what dates the scene: phones, tablets, laptops, flat screens, headsets and earbuds, LED lighting, cars, clothing and hairstyles, office furniture and architecture (glass-walled open offices), signage, packaging, the look of the image itself. Give the earliest year the scene could have been filmed as it looks. Be concrete and unsentimental: a smartphone means 2007 or later, a tablet 2010, a flat monitor about 2002, wireless earbuds 2016, a modern open office about 2005. A close-up with nothing datable (hands, paper, an old object alone, a landscape) is 1900. Ignore designed text or graphics laid over the picture; date what was filmed.")],
+        user: blocks,
+        schema: Period,
+        effort: "low",
+        maxTokens: 1200,
+      }).catch(() => null);
+      for (const f of res?.data.frames ?? []) {
+        const g = idx[f.index];
+        if (g === undefined) continue;
+        out[g] = { ok: f.earliestYear <= items[g]!.year + 3, earliestYear: f.earliestYear, evidence: f.evidence };
+      }
+    }),
+  );
   return out;
 }
 

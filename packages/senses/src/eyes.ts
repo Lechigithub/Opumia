@@ -152,3 +152,26 @@ export async function grabFrames(file: string, outDir: string, o: { ss: number; 
   }
   return out;
 }
+
+/**
+ * Is a frame carried by one colour? The share of ALL its pixels that are saturated pixels of its leading colour
+ * family (or a neighbour). Natural footage mixes hues and neutrals and scores low; a wash or a colour stage
+ * scores high (0.5 and above reads as "one colour").
+ */
+export async function colourCover(file: string): Promise<number | null> {
+  const px = (await rgbFrames(file, { fps: 1, w: 64, h: 36 }).catch(() => []))[0];
+  if (!px) return null;
+  const hist = new Array<number>(12).fill(0);
+  for (let i = 0; i + 2 < px.length; i += 3) {
+    const r = px[i]! / 255;
+    const g = px[i + 1]! / 255;
+    const b = px[i + 2]! / 255;
+    const mx = Math.max(r, g, b);
+    const d = mx - Math.min(r, g, b);
+    if (mx < 0.18 || d / (mx || 1) < 0.45) continue;
+    const h = (mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+    hist[Math.floor(h / 30) % 12]!++;
+  }
+  const top = hist.indexOf(Math.max(...hist));
+  return (hist[top]! + hist[(top + 1) % 12]! + hist[(top + 11) % 12]!) / (px.length / 3);
+}

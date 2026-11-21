@@ -18,7 +18,7 @@ import { isUsable } from "@opumia/agents";
 import type { LibraryIndex, ResolutionReport, ResolvedMedia, Storyboard } from "@opumia/contracts";
 import { ensureLocal } from "@opumia/ingest";
 import { removeBackground } from "@opumia/senses";
-import { reviewPictures } from "./press.js";
+import { periodCheck, reviewPictures, yearOf } from "./press.js";
 import { materialize } from "./resolve.js";
 import { allProviders, downloadCandidate, searchStock, type StockCandidate } from "./stock.js";
 import { thumbOf } from "./widen.js";
@@ -80,7 +80,16 @@ export function makeSceneTools(o: SceneToolsOptions) {
     ).filter((x): x is { c: StockCandidate; thumb: string } => x !== null);
     if (!withThumb.length) return { ok: false, why: "candidates were found but none could be previewed" };
     const rated = await reviewPictures(withThumb.map((x) => ({ frameFile: x.thumb, intent: i.want, line: lineOf(i.shotId), era: o.whenOf?.(i.shotId) || o.era })));
-    const best = withThumb.map((x, k) => ({ ...x, r: rated[k]! })).filter((x) => x.r.shows !== "not reviewed" && x.r.fit >= 6 && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r.fit - a.r.fit)[0];
+    let fits = withThumb.map((x, k) => ({ ...x, r: rated[k]! })).filter((x) => x.r.shows !== "not reviewed" && x.r.fit >= 6 && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r.fit - a.r.fit);
+    const year = yearOf(o.whenOf?.(i.shotId));
+    if (year !== null && year <= 2008 && fits.length) {
+      fits = fits.slice(0, 4);
+      const dated = await periodCheck(fits.map((x) => ({ frameFile: x.thumb, year })));
+      const kept = fits.filter((_, k) => dated[k]!.ok);
+      if (!kept.length) return { ok: false, why: `the pictures that fit all look later than ${year} (${dated.map((d) => d.evidence).filter(Boolean).slice(0, 2).join("; ")}). Ask for something timeless: a close-up of hands, an object, paper, a place with nothing modern in it.` };
+      fits = kept;
+    }
+    const best = fits[0];
     if (!best) return { ok: false, why: `${withThumb.length} candidates were looked at and none fitted (best ${Math.max(...rated.map((r) => r.fit))}/10). Ask for something more common or more concrete.` };
     await mkdir(mediaDir, { recursive: true });
     const c = best.c;
@@ -159,7 +168,7 @@ export type SceneTools = ReturnType<typeof makeSceneTools>;
 // ---------------------------------------------------------------------------------------------------------
 // Footage probe for the director: does a picture like this exist? (asked before a shot is committed)
 
-export interface ProbeResult { key: string; found: number; fit: number; shows: string; candidates: StockCandidate[] }
+export interface ProbeResult { key: string; found: number; fit: number; shows: string; candidates: StockCandidate[]; /** Preview of the best candidate, for the director to look at. */ thumb?: string }
 
 /**
  * Searches the stock and archive sources for each described picture and rates the previews by eye against the
@@ -186,9 +195,18 @@ export function makeFootageProbe(o: { jobDir: string; aspect: string; era: strin
         ).filter((x): x is { c: StockCandidate; thumb: string } => x !== null);
         if (!withThumb.length) return { key: it.key, found: 0, fit: 0, shows: "no source returned anything", candidates: [] };
         const rated = await reviewPictures(withThumb.map((x) => ({ frameFile: x.thumb, intent: it.want, line: it.line, era: it.when || o.era }))).catch(() => []);
-        const good = withThumb.map((x, k) => ({ ...x, r: rated[k] })).filter((x) => x.r && x.r.shows !== "not reviewed" && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r!.fit - a.r!.fit);
-        const best = good[0];
-        return { key: it.key, found: withThumb.length, fit: best?.r?.fit ?? Math.max(0, ...rated.map((r) => (r.wrongEra ? Math.min(r.fit, 4) : r.fit))), shows: best?.r?.shows ?? (rated.some((r) => r.wrongEra) ? "only pictures from the wrong period" : "nothing usable"), candidates: good.filter((x) => x.r!.fit >= 6).slice(0, 3).map((x) => x.c) };
+        let good = withThumb.map((x, k) => ({ ...x, r: rated[k] })).filter((x) => x.r && x.r.shows !== "not reviewed" && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r!.fit - a.r!.fit);
+        const year = yearOf(it.when);
+        let lateNote = "";
+        if (year !== null && year <= 2008 && good.some((x) => x.r!.fit >= 6)) {
+          const top = good.filter((x) => x.r!.fit >= 6).slice(0, 3);
+          const dated = await periodCheck(top.map((x) => ({ frameFile: x.thumb, year })));
+          const late = new Set(top.filter((_, k) => !dated[k]!.ok));
+          if (late.size === top.length) lateNote = `what fits looks later than ${year} (${dated.map((d) => d.evidence).filter(Boolean).slice(0, 2).join("; ")})`;
+          good = good.filter((x) => !late.has(x) && (x.r!.fit < 6 || top.includes(x)));
+        }
+        const best = lateNote ? undefined : good[0];
+        return { key: it.key, found: withThumb.length, fit: lateNote ? 3 : (best?.r?.fit ?? Math.max(0, ...rated.map((r) => (r.wrongEra ? Math.min(r.fit, 4) : r.fit)))), shows: lateNote || (best?.r?.shows ?? (rated.some((r) => r.wrongEra) ? "only pictures from the wrong period" : "nothing usable")), candidates: lateNote ? [] : good.filter((x) => x.r!.fit >= 6).slice(0, 3).map((x) => x.c), ...(best ? { thumb: best.thumb } : {}) };
       }),
     );
   };

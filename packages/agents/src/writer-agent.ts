@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { ScriptDraft, usableClaims, type Aspect, type FactSheet } from "@opumia/contracts";
+import { ScriptDraft, usableClaims, type Aspect, type FactClaim, type FactSheet } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
 import { critiqueNarrative, sentencesOf } from "./narrative.js";
@@ -50,6 +50,11 @@ export interface WriterOptions {
   narrationWpm: number;
   storyBand: StoryBand;
   films: ReferenceFilm[];
+  /**
+   * The writer's line to the researcher: specific facts the story needs and the sheet lacks. Returns the claims
+   * that could be verified (they are added to the fact sheet, which is changed in place).
+   */
+  askResearcher?: (questions: string[]) => Promise<FactClaim[]>;
   /** Where the writer keeps its memory (data/agents/writer). */
   memoryDir?: string;
   recent?: Array<{ hook: string; ending: string; spine: string; beats?: string[] }>;
@@ -69,7 +74,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const claims = usableClaims(o.facts);
   const known = new Set(claims.map((c) => c.id));
   const st = o.facts.story;
-  const factText = norm([...claims.map((c) => c.text), ...(st ? [...st.characters.map((c) => `${c.name} ${c.role} ${c.want} ${c.flaw} ${c.cost}`), ...st.scenes.map((c) => `${c.when} ${c.where} ${c.what} ${c.stakes}`), ...st.contrasts.map((c) => c.text), ...st.quotes.map((q) => q.text)] : [])].join(" ")).replace(/,/g, "");
+  let factText = norm([...claims.map((c) => c.text), ...(st ? [...st.characters.map((c) => `${c.name} ${c.role} ${c.want} ${c.flaw} ${c.cost}`), ...st.scenes.map((c) => `${c.when} ${c.where} ${c.what} ${c.stakes}`), ...st.contrasts.map((c) => c.text), ...st.quotes.map((q) => q.text)] : [])].join(" ")).replace(/,/g, "");
   const band = o.storyBand;
   const pc = (x: number) => `${Math.round(x * 100)}%`;
   const skill = await readFile(new URL("../skills/writer.md", import.meta.url), "utf8");
@@ -110,7 +115,29 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   let noteSaved = false;
   let grace = 1; // one more turn after acceptance, for the writer's own note
   let lastSubmission: z.infer<typeof Submission> | null = null;
+  let asked = 0;
   const tools: AgentTool[] = [
+    ...(o.askResearcher
+      ? [
+          {
+            name: "ask_researcher",
+            description: "Ask the researcher to find and verify specific facts the story needs and the fact sheet lacks: the other side of a contrast, a date, a figure, what happened next. Up to 3 facts per call, 2 calls per script. Each comes back verified with a claim id you can then use, or not found. Ask only for what the script will actually use.",
+            schema: z.object({ questions: z.array(z.string()).min(1).max(3) }),
+            run: (async (i: { questions: string[] }) => {
+              if (asked >= 2) return "You have used both calls. Write with the facts you have.";
+              asked++;
+              const got = (await o.askResearcher!(i.questions)).filter((c) => c.verdict === "supported" || c.verdict === "partially_supported");
+              for (const c of got) {
+                o.facts.claims.push(c);
+                claims.push(c);
+                known.add(c.id);
+              }
+              factText = `${factText} ${norm(got.map((c) => c.text).join(" ")).replace(/,/g, "")}`;
+              return got.length ? `VERIFIED and added to the fact sheet:\n${got.map((c) => `[${c.id}] (${c.verdict}) ${c.text}`).join("\n")}\nAnything you asked for that is not listed could not be verified: do not use it.` : "Nothing could be verified. Do not use those facts.";
+            }) as AgentTool["run"],
+          } satisfies AgentTool,
+        ]
+      : []),
     {
       name: "list_reference_films",
       description: "List the channel's real films you can read: id, title, length, what kind of story each is, and its own section sequence. Call this first to choose what to study.",

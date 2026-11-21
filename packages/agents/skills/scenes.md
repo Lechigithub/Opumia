@@ -43,6 +43,12 @@ Use these before settling for a picture-less shot. Do not collect pictures you w
 - Coordinates are fractions of the frame; `x,y` is the top-left corner, `w` the width; keep inside 0.04–0.96. Text height is about `size` times the number of lines. Leave space between elements.
 - `at` is seconds after the shot starts; time each element to the word it belongs to.
 
+## What the measurement also checks on your frames
+
+- **Readability.** Text that is too small, low in contrast against what is behind it, lying across a busy area, cut off or overlapping is reported shot by shot.
+- **Colour.** A footage shot tinted so heavily that the whole frame reads as one colour is reported. The channel's footage keeps its natural colour: leave `wash` off unless one moment truly needs the mood.
+- **Period.** A picture you fetch for a line set in the past is dated before you get it; if everything that fits looks too modern you are told, and the answer is a timeless close-up.
+
 ## What you never do
 
 - Put words on a shot only because you can. If the footage carries the line, mark it `clean`.

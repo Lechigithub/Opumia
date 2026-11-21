@@ -15,6 +15,7 @@ import { ScenePlan, type FilmDesignSystem, type ResolutionReport, type Storyboar
 import * as z from "zod/v4";
 import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
 import { designScenes, SceneDraftSchema, type SceneDraftScene } from "./scene-designer.js";
+import { colourCover } from "@opumia/senses";
 import { labelShots, SHOT_KINDS, visualIssues, visualProfile, type VisualBand, type VisualProfile } from "./visual-measure.js";
 
 export type PictureResult = { ok: true; shotId: string; as: "footage" | "slot"; slot?: number; kind: "video" | "image"; depicts: string; fit?: number; preview: string } | { ok: false; why: string };
@@ -130,6 +131,36 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     const bare = staged.filter((sc) => !hasPicture(sc) && wordsOn(sc) <= 3 && !sc.elements.some((e) => e.type === "text3d"));
     const allow = Math.max(1, Math.floor(plan.scenes.length * 0.08));
     if (bare.length > allow) issues.push({ kind: "bare_word_cards", detail: `${bare.length} shots are a word or two on a plain stage (${bare.map((sc) => sc.shotId).join(", ")}); at most ${allow} in a film this long. A lone word on colour is a slide: carry the line with more of the narration's words set with intent, a drawn shape that means something, the film's motif, or 3D type for the one biggest moment.` });
+    // Readability: text that cannot be read at a glance (labelled on the rendered frame, like everything else).
+    const hard = ids.filter((id, k) => labels[k] && labels[k]!.words > 0 && !labels[k]!.readable);
+    if (hard.length) issues.push({ kind: "hard_to_read", detail: `text is hard to read at a glance in ${hard.join(", ")} (too small, low contrast against what is behind it, across a busy area, cut off, or overlapping). Make it larger, move it to a calm part of the frame, or dim the footage under it — then look again.` });
+    // Colour: footage tinted so heavily that the frame reads as one colour.
+    const washed: string[] = [];
+    for (const sc of plan.scenes) {
+      if (!sc.wash || !frames.has(sc.shotId)) continue;
+      const cover = await colourCover(frames.get(sc.shotId)!.mid).catch(() => null);
+      if (cover !== null && cover >= 0.5) washed.push(sc.shotId);
+    }
+    // One colour carrying the film: frames that are a colour stage or a tint, whatever is on them. The channel's
+    // typical film has 5–11 % such shots and its most extreme 38 %.
+    const carried: string[] = [];
+    for (const id of ids) {
+      const cover = await colourCover(frames.get(id)!.mid).catch(() => null);
+      if (cover !== null && cover >= 0.5) carried.push(id);
+    }
+    if (carried.length / Math.max(1, ids.length) > 0.3) issues.push({ kind: "too_many_colour_frames", detail: `${carried.length} of ${ids.length} shots are a frame of one colour (${carried.join(", ")}) — a colour stage or tinted footage; the channel's films typically have about one in ten. Put these lines on real footage (find_picture as footage), on paper, or let existing footage play in its natural colour.` });
+    // The same picture placed again and again reads as a template.
+    const placed = new Map<string, string[]>();
+    for (const sc of plan.scenes)
+      for (const e of sc.elements) {
+        if (e.type !== "photo" && e.type !== "cutout" && e.type !== "card3d") continue;
+        const ref = o.resolution.media.find((m) => m.shotId === sc.shotId && m.role === "layer" && m.slot === e.slot)?.ref;
+        if (ref) placed.set(ref, [...new Set([...(placed.get(ref) ?? []), sc.shotId])]);
+      }
+    const overused = [...placed.entries()].filter(([, v]) => v.length > 2);
+    if (overused.length) issues.push({ kind: "same_picture_repeated", detail: `the same picture is placed in more than two shots: ${overused.map(([, v]) => v.join(", ")).join(" | ")}. Show it at most twice; give the other shots a different picture or let their footage play.` });
+    const washAllow = Math.floor(plan.scenes.length * 0.1);
+    if (washed.length > washAllow) issues.push({ kind: "washed_footage", detail: `${washed.length} footage shot(s) are tinted so heavily that the whole frame reads as one colour (${washed.join(", ")}); the channel's footage keeps its natural colour. Set wash to false on these (at most ${washAllow} may stay washed, for a deliberate mood moment).` });
     if (submitting) {
       if (unseen.size) issues.push({ kind: "not_looked_at", detail: `you have not looked at these shots since designing or changing them: ${[...unseen].sort().join(", ")}. Render them with render_previews and look before you submit.` });
       if (referenceViews < 3) issues.push({ kind: "reference_not_studied", detail: `you have looked at the channel's real shots ${referenceViews} time(s). Look at least at clean footage ("none"), words over footage and one composed kind before you submit.` });

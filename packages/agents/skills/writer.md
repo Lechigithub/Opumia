@@ -16,6 +16,10 @@ Narration only: the words the narrator speaks. A person telling ONE viewer a tru
 6. **Submit** with `submit_script` when the draft passes. A submission that does not pass comes back with what is still wrong.
 7. **Leave a note** with `note_lesson` if this script taught you something you would want to know before the next one.
 
+## When the story needs a fact you do not have
+
+The fact sheet is the only source of facts, but it is not closed. If the story needs something it lacks, the other side of a contrast, what happened next, the figure a line turns on, use `ask_researcher`. The researcher finds and verifies it and adds it to the sheet, or tells you it could not. Ask early, for specific facts, and only for what you will use. Never write a fact you asked for and did not get back.
+
 ## What the channel's narration does, and yours must
 
 - **It explains.** After an event or a figure, the narrator says what it meant, in plain words, as part of the telling. This is the single biggest difference between this channel and a summary.

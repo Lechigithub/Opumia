@@ -107,7 +107,7 @@
  {
   "job": "preview-kodak",
   "channel": "magnates-media",
-  "at": "2026-11-21T22:30:09.889Z",
+  "at": "2026-11-21T23:04:16.663Z",
   "colour": {
    "primary": "#e3141f",
    "accent": "#ffc400",
@@ -130,24 +130,31 @@
   },
   "motif": "a strip of 35mm film with sprocket holes whose frames fill with yellow, then go blank and fade to a single pixel grid",
   "layout": {
-   "photo@20": 0.118,
-   "text:display@11": 0.059,
-   "text:headline@11": 0.176,
-   "cutout@10": 0.059,
-   "text:label@02": 0.118,
-   "text:headline@10": 0.059,
-   "phrase@12": 0.118,
-   "text:stamp@11": 0.059,
-   "cutout@00": 0.118,
-   "text:display@10": 0.059,
-   "phrase@11": 0.059
+   "text:label@02": 0.125,
+   "cutout@10": 0.042,
+   "text:headline@12": 0.042,
+   "photo@20": 0.125,
+   "phrase@02": 0.042,
+   "text:headline@01": 0.042,
+   "text:display@11": 0.125,
+   "cutout@00": 0.042,
+   "phrase@21": 0.042,
+   "shape@12": 0.042,
+   "text:headline@10": 0.042,
+   "text:display@00": 0.042,
+   "phrase@12": 0.042,
+   "photo@10": 0.042,
+   "photo@00": 0.042,
+   "text:headline@02": 0.042,
+   "phrase@10": 0.042,
+   "phrase@11": 0.042
   },
   "mix": {
-   "backdrop:footage": 0.447,
-   "backdrop:surface": 0.021,
-   "kind:scene": 0.468,
-   "kind:money_figure": 0.043,
-   "kind:versus": 0.021
+   "backdrop:footage": 0.386,
+   "backdrop:paper": 0.045,
+   "backdrop:world": 0.045,
+   "kind:scene": 0.477,
+   "kind:money_figure": 0.045
   },
   "story": {
    "hook": "flash_forward",
@@ -162,7 +169,7 @@
     "489b07f3c187241b",
     "48b11a856f6a3a71",
     "69d856a4f9f7ebbf",
-    "76f884fedb10e13b",
+    "89287d3ce8b13263",
     "bbe1249feb9ecf19",
     "c8eac9e229c3fd1c"
    ],

@@ -5,9 +5,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
-import { makeFootageProbe, makeSceneTools, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
+import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
@@ -54,7 +54,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.45, B2: 0.12, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.45, B2: 0.2, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -130,7 +130,7 @@ async function produceStages(o: ProduceOptions) {
 
   // ---- Stage A: research → script → narration
   log("\n[A1] research & fact-check");
-  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), memoryDir: path.join(o.data, "agents", "research"), browserRead: pageTextViaBrowser, log }), log);
+  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), memoryDir: path.join(o.data, "agents", "research"), browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log }), log);
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
   log("\n[A1b] art direction (runs alongside the script)");
   // Uniqueness: what the recent films did, so every planning stage can do something else.
@@ -170,15 +170,22 @@ async function produceStages(o: ProduceOptions) {
   const storyBand = await ensureStoryBand({ reference: o.reference, data: o.data, channelId: channel, log }).catch(() => null);
   const films = await ensureReferenceFilms({ reference: o.reference, data: o.data, channelId: channel }).catch(() => []);
   const memoryDir = path.join(o.data, "agents", "writer");
+  // The writer's line to the researcher: verified claims are added to the fact sheet (and saved with it).
+  const claimsBefore = facts.claims.length;
+  const askResearcher = (questions: string[]) => researchAgent({ topic: o.topic, format: "", want: 0, questions, idStart: facts.claims.length, browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log }).then((r) => r.claims);
   const storyFile = path.join(jobDir, "script.story.json");
   const onStory = (r: StoryReport) => void writeFile(storyFile, JSON.stringify(r, null, 2) + "\n");
-  let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), storyBand, films, memoryDir, onStory, log }), log);
+  let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
   if (draft.blueprint) await updateMemory(o.data, (m) => recordBlueprint(m, channel, { job: jobId, hook: draft.blueprint!.hook, ending: draft.blueprint!.ending, spine: draft.blueprint!.spine, ...(draft.blueprint!.beats?.length ? { beats: draft.blueprint!.beats } : {}) }));
   {
     // A script that still misses the channel's story band is not narrated (OPUMIA_STORY=warn narrates anyway).
     const st = await readFile(storyFile, "utf8").then((t) => JSON.parse(t) as StoryReport, () => null);
     if (st && !st.pass && process.env.OPUMIA_STORY !== "warn" && !(await exists(path.join(jobDir, "timed-script.json")))) throw new Error(`story test: the script still misses the channel's story band (${st.remaining.map((x) => x.kind).join(", ")}) — see script.story.json; nothing was narrated`);
+  }
+  if (facts.claims.length > claimsBefore) {
+    await writeFile(path.join(jobDir, "facts.json"), JSON.stringify(facts, null, 2) + "\n");
+    log(`  writer: asked the researcher — ${facts.claims.length - claimsBefore} verified fact(s) added to the fact sheet`);
   }
   const design = await designP;
   if (stop("script")) return { jobDir };
@@ -216,7 +223,7 @@ async function produceStages(o: ProduceOptions) {
     const span = (timed.segments.at(-1)?.endS ?? timed.durationS) - (timed.segments[0]?.startS ?? 0);
     const measured = (words / Math.max(1, span)) * 60; // this script's own pace is the best predictor for its re-write
     log(`  ! narration ${timed.durationS.toFixed(1)} s outside ${minS}–${maxS} s; voice spoke ${measured.toFixed(1)} wpm → re-writing to fit and re-narrating once`);
-    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), ...(draft.blueprint ? { blueprint: draft.blueprint } : {}), storyBand, films, memoryDir, onStory, log }), log);
+    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), ...(draft.blueprint ? { blueprint: draft.blueprint } : {}), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
     log(`  "${draft.title}" — ${draft.wordCount} words`);
     timed = await cachedJson(timedPath, TimedScript, true, doNarrate, log);
     await recordCalibration(timed);
@@ -237,7 +244,9 @@ async function produceStages(o: ProduceOptions) {
     if (process.env.OPUMIA_DIRECTOR === "legacy") return directStoryboard({ pack, script: timed, facts, index, avoidQueries: badQueries(memory), log });
     const eraD = eraOfFacts(facts);
     let dirReport: DirectorReport | null = null;
-    const res = await directStoryboardAgent({ pack, script: timed, facts, index, probe: makeFootageProbe({ jobDir, aspect: o.aspect, era: eraD ? `${eraD.min}–${eraD.max}` : "unspecified" }), memoryDir: path.join(o.data, "agents", "director"), avoidQueries: badQueries(memory), onReport: (r) => (dirReport = r), log });
+    const refDir = path.join(o.data, "exemplars", channel);
+    const refShots = await readFile(path.join(refDir, "index.json"), "utf8").then((t) => (JSON.parse(t) as { shots: Array<{ kind: string; layout: string; motion: string; line: string; frames: string[] }> }).shots.filter((x) => x.frames.length).map((x) => ({ kind: x.kind, layout: x.layout, motion: x.motion, line: x.line, frame: path.join(refDir, x.frames.at(-1)!) })), () => []);
+    const res = await directStoryboardAgent({ pack, script: timed, facts, index, referenceShots: refShots, probe: makeFootageProbe({ jobDir, aspect: o.aspect, era: eraD ? `${eraD.min}–${eraD.max}` : "unspecified" }), memoryDir: path.join(o.data, "agents", "director"), avoidQueries: badQueries(memory), onReport: (r) => (dirReport = r), log });
     await writeFile(probesFile, JSON.stringify({ report: dirReport, probes: Object.fromEntries(res.probes) }, null, 1) + "\n");
     return res.storyboard;
   }, log);
@@ -434,6 +443,31 @@ async function produceStages(o: ProduceOptions) {
     let stale = new Set(scenePlan.scenes.map((x) => x.shotId).filter((id) => revised.includes(id) || !existsSync(path.join(prevDir, `${id}_sheet.jpg`))));
     let look2 = new Set(scenePlan.scenes.map((x) => x.shotId)); // scenes whose final preview the critic has not seen yet
     const defects = new Map<string, string[]>();
+    // Refill: a shot that lost its footage (too modern for its line) or sits on a bare stage gets a new picture
+    // through the same tool the scene designer uses — searched, rated by eye and dated against the line's year.
+    const srcRows = new Map<string, { must?: string; when?: string }>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; must?: string; when?: string }> }).rows.map((r) => [r.shotId, r] as [string, { must?: string; when?: string }]), () => []));
+    const eraG = eraOfFacts(facts);
+    const gateTools = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: allW, era: eraG ? `${eraG.min}–${eraG.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...recent.pictures]), iconColor: design.palette.text, whenOf: (id) => srcRows.get(id)?.when });
+    const refill = async (ids: string[]) => {
+      const got: string[] = [];
+      for (const id of ids) {
+        const want = (srcRows.get(id)?.must ?? board.shots.find((x) => x.id === id)?.intent ?? "").replace(/^(the|a|an)\s+/i, "");
+        // Two tries: what the shot asked for, then a timeless close-up of it.
+        for (const w of [want, `${want.split(/\s+/).slice(0, 3).join(" ")} close up hands`]) {
+          const r = await gateTools.findPicture({ shotId: id, want: w, as: "footage", kind: "video" }).catch(() => ({ ok: false as const, why: "" }));
+          if (r.ok) {
+            got.push(id);
+            break;
+          }
+        }
+      }
+      return got;
+    };
+    // A redesign made by the gate never tints footage: the wash is what made films read as one colour.
+    const unwash = (ids: string[]) => {
+      const set = new Set(ids);
+      scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (set.has(sc.shotId) && sc.wash ? (({ wash: _w, ...rest }) => rest)(sc) : sc)) });
+    };
     const rounds: Array<{ round: number; failing: string[]; repairs: string[] }> = [];
     let checks: PreflightCheck[] = [];
     let soundRound = 0;
@@ -458,11 +492,15 @@ async function produceStages(o: ProduceOptions) {
         // drop_picture: remove the offending picture, then design those scenes again without it.
         const drop = dropPictures(resolution, fixable, recent.pictures);
         if (drop.shots.size) {
-          resolution = ResolutionReport.parse({ ...resolution, media: drop.media });
+          // In place: the picture tools hold this same resolution object.
+          resolution.media.splice(0, resolution.media.length, ...drop.media);
+          const lateIds = fixable.filter((c) => c.id === "period_footage").flatMap((c) => c.shots ?? []);
+          const refilled = new Set(lateIds.length ? await refill(lateIds) : []);
           const ids = scenePlan.scenes.map((x) => x.shotId).filter((id) => drop.shots.has(id));
-          if (ids.length) scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(ids.map((id) => [id, ["a picture was removed from this shot (it repeated another shot or broke a sourcing rule): design the scene again from what is left"]])), previous: scenePlan, log });
+          if (ids.length) scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(ids.map((id) => [id, [refilled.has(id) ? "this shot's footage was replaced (the old one looked too modern for the line): design the scene for the new footage — let it play clean if it carries the line" : "a picture was removed from this shot (it repeated another shot or broke a sourcing rule): design the scene again from what is left"]])), previous: scenePlan, log });
+          unwash(ids);
           for (const id of ids) stale.add(id);
-          done.push(`drop_picture: ${[...drop.shots].join(", ")}`);
+          done.push(`drop_picture: ${[...drop.shots].join(", ")}${refilled.size ? ` (${refilled.size} given period-correct footage)` : ""}`);
         }
         // safe_scene: a scene that is still visibly wrong after its revision is reduced to its clean core.
         const unsafe = new Set(fixable.filter((c) => c.repair === "safe_scene").flatMap((c) => c.shots ?? []));
@@ -487,12 +525,20 @@ async function produceStages(o: ProduceOptions) {
         // vary_stage (second answer to a one-colour film, once the wash is already softened): picture-less
         // scenes all sit on the film's colour stage — every other one moves to paper, the rest to the dark surface.
         if (round >= 1 && fixable.some((c) => c.id === "one_colour_film")) {
-          let k = 0;
           const moved: string[] = [];
-          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.backdrop === "world" ? (moved.push(sc.shotId), { ...sc, backdrop: k++ % 2 === 0 ? ("paper" as const) : ("surface" as const) }) : sc)) });
+          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.backdrop === "world" || sc.backdrop === "surface" ? (moved.push(sc.shotId), { ...sc, backdrop: "paper" as const }) : sc)) });
           if (moved.length) {
             for (const id of moved) stale.add(id);
             done.push(`vary_stage: ${moved.join(", ")}`);
+          }
+          // And fewer stage shots altogether: a picture-less stage shot gets footage, then a design for it.
+          const bare = scenePlan.scenes.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId);
+          const filled = bare.length ? await refill(bare) : [];
+          if (filled.length) {
+            scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(filled.map((id) => [id, ["this shot now has real footage: design the scene for it — let it play clean if it carries the line, no colour wash"]])), previous: scenePlan, log });
+            unwash(filled);
+            for (const id of filled) stale.add(id);
+            done.push(`refill_stage: ${filled.join(", ")}`);
           }
         }
         // reseed_sound: pick the effects and music again.

@@ -11,6 +11,7 @@
  */
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { FactSheet, LibraryIndex, Storyboard, TimedScript } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { directStoryboard, DirectorPlanSchema, PROPS_SPEC, type DirectorPlan } from "./director.js";
@@ -19,7 +20,7 @@ import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
 import { bindFactProps, formatFactTable, numericFacts } from "./numeric-facts.js";
 import type { StylePack } from "./style-pack.js";
 
-export interface ProbeAnswer { key: string; found: number; fit: number; shows: string; candidates: unknown[] }
+export interface ProbeAnswer { key: string; found: number; fit: number; shows: string; candidates: unknown[]; thumb?: string }
 export interface DirectorReport {
   pass: boolean;
   rounds: Array<{ issues: string[]; shots: number; cutsPerMin: number; medianS: number; probed: number; found: number }>;
@@ -33,6 +34,8 @@ export interface DirectorAgentOptions {
   index: LibraryIndex;
   /** resolver/scene-tools.ts:makeFootageProbe */
   probe: (items: Array<{ key: string; want: string; kind: "video" | "image"; line: string; when?: string }>) => Promise<ProbeAnswer[]>;
+  /** Real frames of the channel's labelled shots, so the director can look at them (kind, layout, line, frame). */
+  referenceShots?: Array<{ kind: string; layout: string; motion: string; line: string; frame: string }>;
   memoryDir?: string;
   avoidQueries?: string[];
   onReport?: (r: DirectorReport) => void;
@@ -42,6 +45,7 @@ export interface DirectorAgentOptions {
 const DATA = new Set(["chart", "map", "document", "versus", "money_figure", "timeline"]);
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
 const normQ = (q: string) => q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: /\.png$/i.test(file) ? "image/png" : "image/jpeg", data: (await readFile(file)).toString("base64") } });
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]! : 0);
 
 /** Returns the storyboard and, per shot id, the candidates the director's probes found. */
@@ -126,7 +130,16 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
         const rows = o.pack.grammar.filter((r) => r.link === q || `${r.line} ${r.kind} ${r.layout} ${r.shows ?? ""}`.toLowerCase().includes(q));
         if (!rows.length) return `no labelled shot matches "${i.query}". Try a single common word, or one of: literal, mood, data, metaphor.`;
         const step = Math.max(1, Math.floor(rows.length / 12));
-        return rows.filter((_, k) => k % step === 0).slice(0, 12).map((r) => `"${r.line.slice(0, 110)}" → ${r.designed ? r.kind : "clean footage"}: ${r.designed ? r.layout : (r.shows ?? r.layout)}${r.t0 !== undefined && r.t1 !== undefined ? ` (${(r.t1 - r.t0).toFixed(1)} s)` : ""}`).join("\n");
+        const text = rows.filter((_, k) => k % step === 0).slice(0, 12).map((r) => `"${r.line.slice(0, 110)}" → ${r.designed ? r.kind : "clean footage"}: ${r.designed ? r.layout : (r.shows ?? r.layout)}${r.t0 !== undefined && r.t1 !== undefined ? ` (${(r.t1 - r.t0).toFixed(1)} s)` : ""}`).join("\n");
+        // Eyes: up to four of the real frames themselves.
+        const frames = (o.referenceShots ?? []).filter((s) => `${s.line} ${s.kind} ${s.layout}`.toLowerCase().includes(q) || (q === "mood" && s.kind === "none"));
+        const fstep = Math.max(1, Math.floor(frames.length / 4));
+        const blocks: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text }];
+        for (const s of frames.filter((_, k) => k % fstep === 0).slice(0, 4)) {
+          const im = await img(s.frame).catch(() => null);
+          if (im) blocks.push({ type: "text", text: `REAL FRAME — ${s.kind === "none" ? "clean footage" : s.kind}, over "${s.line.slice(0, 90)}":` }, im);
+        }
+        return blocks.length > 1 ? blocks : text;
       }) as AgentTool["run"],
     },
     {
@@ -139,10 +152,19 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
           const res = await o.probe(fresh.map((x) => ({ key: normQ(x.want), want: x.want, kind: x.kind, line: lineFrom(Math.max(0, x.startWord), Math.min(words.length, x.startWord + 18)), ...(x.when.trim() ? { when: x.when.trim() } : {}) })));
           for (const r of res) probed.set(r.key, r);
         }
-        return i.items.map((x) => {
+        const text = i.items.map((x) => {
           const r = probed.get(normQ(x.want));
           return r ? `"${x.want}" → ${r.fit >= 6 ? "FOUND" : "NOT FOUND"} (best ${r.fit}/10 of ${r.found} looked at): ${r.shows.slice(0, 110)}` : `"${x.want}" → not checked`;
         }).join("\n");
+        // Eyes: the best picture found for up to six of the items, so the director sees what the shot would be.
+        const blocks: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text }];
+        for (const x of i.items) {
+          const r = probed.get(normQ(x.want));
+          if (blocks.length >= 13 || !r?.thumb || r.fit < 6) continue;
+          const im = await img(r.thumb).catch(() => null);
+          if (im) blocks.push({ type: "text", text: `Best found for "${x.want}":` }, im);
+        }
+        return blocks.length > 1 ? blocks : text;
       }) as AgentTool["run"],
     },
     {

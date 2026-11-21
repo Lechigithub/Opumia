@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { researchTopic, usageLedger } from "@opumia/agents";
 import { usableClaims } from "@opumia/contracts";
-import { closeBrowser, pageTextViaBrowser } from "@opumia/resolver";
+import { closeBrowser, pageTextViaBrowser, youtubeTranscript } from "@opumia/resolver";
 import { loadKeys } from "../keys.js";
 
 loadKeys(process.cwd());
@@ -20,7 +20,7 @@ for (const topic of process.argv.slice(2)) {
   const t0 = Date.now();
   console.log(`\n### ${topic}`);
   try {
-    const fs = await researchTopic({ topic, format: "90-second 16:9 mini-documentary", minClaims: 12, memoryDir, browserRead: pageTextViaBrowser, log: console.log });
+    const fs = await researchTopic({ topic, format: "90-second 16:9 mini-documentary", minClaims: 12, memoryDir, browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log: console.log });
     const out = path.resolve("out", "research-score", slug(topic));
     mkdirSync(out, { recursive: true });
     writeFileSync(path.join(out, "facts.json"), JSON.stringify(fs, null, 2));

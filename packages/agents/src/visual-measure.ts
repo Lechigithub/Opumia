@@ -29,10 +29,11 @@ kind:
 - quote_card: a quotation as text, usually with who said it.
 words: how many words of text are readable in the frame (0 if none; ignore tiny watermarks).
 pictures: how many distinct photographs or cut-out pictures are composed in the frame (footage filling the frame counts as 0).
-layered: true if elements clearly sit at different depths (a cut-out over a background, a card over footage).`;
+layered: true if elements clearly sit at different depths (a cut-out over a background, a card over footage).
+readable: false if any text in the frame is hard to read at a glance — too small, too little contrast with what is behind it, lying across a busy part of the picture, cut off by the frame edge, or overlapping other text. true when there is no text or all of it reads at once.`;
 
-const Labels = z.object({ frames: z.array(z.object({ i: z.number(), kind: z.enum(SHOT_KINDS), words: z.number(), pictures: z.number(), layered: z.boolean() })) });
-export interface ShotLabel { kind: ShotKind; words: number; pictures: number; layered: boolean }
+const Labels = z.object({ frames: z.array(z.object({ i: z.number(), kind: z.enum(SHOT_KINDS), words: z.number(), pictures: z.number(), layered: z.boolean(), readable: z.boolean() })) });
+export interface ShotLabel { kind: ShotKind; words: number; pictures: number; layered: boolean; readable: boolean }
 
 /** Haiku vision, ten frames a call. A frame that cannot be labelled comes back as null. */
 export async function labelShots(files: string[]): Promise<Array<ShotLabel | null>> {
@@ -50,7 +51,7 @@ export async function labelShots(files: string[]): Promise<Array<ShotLabel | nul
         }
         if (!blocks.length) return;
         const res = await structured({ stage: "visual.label", model: MODELS.haiku, system: [plain(SYSTEM)], user: blocks, schema: Labels, effort: "low", maxTokens: 1500 }).catch(() => null);
-        for (const l of res?.data.frames ?? []) if (l.i >= 0 && l.i < part.items.length) out[part.from + l.i] = { kind: l.kind, words: l.words, pictures: l.pictures, layered: l.layered };
+        for (const l of res?.data.frames ?? []) if (l.i >= 0 && l.i < part.items.length) out[part.from + l.i] = { kind: l.kind, words: l.words, pictures: l.pictures, layered: l.layered, readable: l.readable };
       }),
     );
   }

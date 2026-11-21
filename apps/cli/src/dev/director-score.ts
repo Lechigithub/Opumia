@@ -22,11 +22,13 @@ for (const arg of process.argv.slice(2)) {
   const timed = TimedScript.parse(read(path.join(jobDir, "timed-script.json")));
   const facts = FactSheet.parse(read(path.join(jobDir, "facts.json")));
   const pack = await buildStylePack(job.channel as never, roots);
+  const refDir = path.join(roots.data, "exemplars", job.channel);
+  const referenceShots = existsSync(path.join(refDir, "index.json")) ? read<{ shots: Array<{ kind: string; layout: string; motion: string; line: string; frames: string[] }> }>(path.join(refDir, "index.json")).shots.filter((x) => x.frames.length).map((x) => ({ kind: x.kind, layout: x.layout, motion: x.motion, line: x.line, frame: path.join(refDir, x.frames.at(-1)!) })) : [];
   let report: DirectorReport | null = null;
   const before = usageLedger().reduce((t, r) => t + r.usd, 0);
   const t0 = Date.now();
   console.log(`\n### ${path.basename(jobDir)}`);
-  const { storyboard, probes } = await directStoryboardAgent({ pack, script: timed, facts, index, probe: makeFootageProbe({ jobDir, aspect: timed.aspect, era: "unspecified" }), memoryDir, onReport: (r) => (report = r), log: console.log });
+  const { storyboard, probes } = await directStoryboardAgent({ pack, script: timed, facts, index, referenceShots, probe: makeFootageProbe({ jobDir, aspect: timed.aspect, era: "unspecified" }), memoryDir, onReport: (r) => (report = r), log: console.log });
   writeFileSync(path.join(jobDir, "storyboard.agent.json"), JSON.stringify(storyboard, null, 2));
   writeFileSync(path.join(jobDir, "probes.agent.json"), JSON.stringify(Object.fromEntries(probes), null, 1));
   const words = timed.segments.flatMap((s) => s.words);

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { ScriptDraft, usableClaims, type Aspect, type FactSheet } from "@opumia/contracts";
+import { ScriptDraft, usableClaims, type Aspect, type FactClaim, type FactSheet } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { cached, MODELS, plain, structured } from "./llm.js";
 import type { StylePack } from "./style-pack.js";
@@ -68,6 +68,8 @@ export interface ScriptOptions {
   /** The writer agent's material: the channel's measured story band, its real films, and the agent's memory folder. */
   storyBand?: StoryBand | null;
   films?: ReferenceFilm[];
+  /** The writer's line to the researcher (verified claims are added to `facts` in place). */
+  askResearcher?: (questions: string[]) => Promise<FactClaim[]>;
   memoryDir?: string;
   onStory?: (r: StoryReport) => void;
   /** How recent films opened (first ~20 words each): this film must open differently. */
@@ -150,7 +152,7 @@ function dossierText(f: FactSheet): string {
  * or reference films yet.
  */
 export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
-  if (process.env.OPUMIA_WRITER !== "legacy" && o.storyBand && o.films?.length) return writeScriptAgent({ pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
+  if (process.env.OPUMIA_WRITER !== "legacy" && o.storyBand && o.films?.length) return writeScriptAgent({ pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.askResearcher ? { askResearcher: o.askResearcher } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
   const log = o.log ?? (() => {});
   log("  script: legacy five-pass writer (no story band or reference films for this channel, or OPUMIA_WRITER=legacy)");
   const short = o.durationS <= 90;

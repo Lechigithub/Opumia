@@ -15,6 +15,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RenderManifest, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
 import { contactSheet, measureLook, measurePace, measureProsody, measureSound, pct, r3, rgbFrames } from "@opumia/senses";
+import { periodCheck, reviewFrame, yearOf } from "@opumia/resolver";
 import type { ExemplarIndex } from "./exemplars.js";
 
 export type Repair = "drop_picture" | "safe_scene" | "soften_wash" | "reseed_sound" | "prune_shapes";
@@ -154,11 +155,18 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
   // --- Pictures: nothing repeated inside the film, nothing a recent film used.
   {
     const seen = new Map<string, string>();
+    const wikiSeen = new Map<string, number>();
     const dupShots: string[] = [];
     for (const m of [...pics].sort((a, b) => a.shotId.localeCompare(b.shotId))) {
       // The same logo or portrait may anchor several scenes as a small picture; footage and web photos may not repeat.
-      if (m.role === "layer" && m.provider === "wikipedia") continue;
       const k = baseRef(m.ref);
+      // A logo or portrait may anchor two scenes as a small picture; a third time reads as a template.
+      if (m.role === "layer" && m.provider === "wikipedia") {
+        const n = (wikiSeen.get(k) ?? 0) + 1;
+        wikiSeen.set(k, n);
+        if (n > 2) dupShots.push(m.shotId);
+        continue;
+      }
       if (seen.has(k) && seen.get(k) !== m.shotId) dupShots.push(m.shotId);
       else seen.set(k, m.shotId);
     }
@@ -215,6 +223,24 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     add({ id: "bare_backdrop_run", label: "Longest run of scenes on the same picture-less backdrop", value: worst, target: "≤ 2", pass: worst <= 2, level: "blocker" });
     const bare = order.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).length / Math.max(1, order.length);
     add({ id: "picture_less_scenes", label: "Scenes with no picture at all (text and shapes on colour)", value: bare, target: "≤ 0.35", pass: bare <= 0.35, level: "blocker", note: "more of these and the film reads as a slide deck" });
+  }
+
+  // --- Period: footage under a line set before 2009 must not look later than the line (a dedicated dating
+  // check on the footage itself, not on the designed frame). Real press footage of the subject is exempt.
+  {
+    const src = await readJson<{ rows: Array<{ shotId: string; when?: string }> }>(path.join(o.jobDir, "sourcing.json"));
+    const items: Array<{ shotId: string; frameFile: string; year: number }> = [];
+    for (const m of o.resolution.media.filter((x) => x.role === "primary" && x.origin !== "press")) {
+      const year = yearOf(src?.rows.find((r) => r.shotId === m.shotId)?.when);
+      if (year === null || year > 2008) continue;
+      const frame = `${m.localPath}.period.jpg`;
+      if (await reviewFrame(m.localPath, frame, m.kind === "video" ? 1 : 0)) items.push({ shotId: m.shotId, frameFile: frame, year });
+    }
+    if (items.length) {
+      const dated = await periodCheck(items);
+      const late = items.map((it, k) => ({ it, d: dated[k]! })).filter((x) => !x.d.ok);
+      add({ id: "period_footage", label: "Footage that looks later than the line it sits under", value: late.length, target: "0", pass: late.length === 0, level: "blocker", repair: "drop_picture", shots: late.map((x) => x.it.shotId), ...(late.length ? { note: late.slice(0, 4).map((x) => `${x.it.shotId} (line set in ${x.it.year}): ${x.d.evidence.slice(0, 60)}`).join("; ") } : {}) });
+    }
   }
 
   // --- Scenes: no outlined box or circle that frames nothing.
@@ -316,13 +342,22 @@ export function dropPictures(resolution: ResolutionReport, checks: PreflightChec
   const repeat = want("repeat_in_film");
   const shared = want("shared_pictures");
   const press = new Set(failing.filter((c) => c.id.startsWith("fair_use")).flatMap((c) => c.shots ?? []));
+  const late = want("period_footage");
   const first = new Map<string, string>();
-  for (const m of [...resolution.media].filter((x) => x.role === "primary" || x.role === "layer").sort((x, y) => x.shotId.localeCompare(y.shotId))) if (!first.has(baseRef(m.ref))) first.set(baseRef(m.ref), m.shotId);
+  const keepWiki = new Map<string, Set<string>>(); // the first two shots a portrait or logo appears in
+  for (const m of [...resolution.media].filter((x) => x.role === "primary" || x.role === "layer").sort((x, y) => x.shotId.localeCompare(y.shotId))) {
+    if (!first.has(baseRef(m.ref))) first.set(baseRef(m.ref), m.shotId);
+    if (m.role === "layer" && m.provider === "wikipedia") {
+      const set = keepWiki.get(baseRef(m.ref)) ?? new Set<string>();
+      if (set.size < 2) set.add(m.shotId);
+      keepWiki.set(baseRef(m.ref), set);
+    }
+  }
   const shots = new Set<string>();
   const media = resolution.media.filter((m) => {
     if (m.role !== "primary" && m.role !== "layer") return true;
     const wiki = m.role === "layer" && m.provider === "wikipedia";
-    const gone = (repeat.has(m.shotId) && !wiki && first.get(baseRef(m.ref)) !== m.shotId) || (shared.has(m.shotId) && !wiki && recent.has(baseRef(m.ref))) || (press.has(m.shotId) && m.role === "primary" && m.origin === "press");
+    const gone = (repeat.has(m.shotId) && !wiki && first.get(baseRef(m.ref)) !== m.shotId) || (repeat.has(m.shotId) && wiki && !keepWiki.get(baseRef(m.ref))?.has(m.shotId)) || (shared.has(m.shotId) && !wiki && recent.has(baseRef(m.ref))) || (press.has(m.shotId) && m.role === "primary" && m.origin === "press") || (late.has(m.shotId) && m.role === "primary" && m.origin !== "press");
     if (gone) shots.add(m.shotId);
     return !gone;
   });
