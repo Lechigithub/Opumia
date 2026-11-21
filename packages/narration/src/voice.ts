@@ -24,15 +24,25 @@ export interface ChannelVoice {
  * (pitch travel, melody, pauses, variety), not speed. `naturalWpm` is the pace measured for the voice at these
  * settings: scripts are cut to it and the release gate checks the narration against it.
  */
-export const CHANNEL_VOICES: Record<ChannelId, { voiceId?: string; voiceName?: string; name: string; settings: VoiceSettings; naturalWpm?: number }> = {
+export const CHANNEL_VOICES: Record<ChannelId, { voiceId?: string; voiceName?: string; name: string; settings: VoiceSettings; naturalWpm?: Record<string, number> }> = {
   // MagnatesMedia: the account's "Christopher" voice.
-  "magnates-media": { voiceName: "Christopher", name: "Christopher", settings: { stability: 0.28, similarityBoost: 0.8, style: 0.55, speed: 1.0 }, naturalWpm: 190 }, // measured 2026-11-22 on a 262-word script
+  "magnates-media": { voiceName: "Christopher", name: "Christopher", settings: { stability: 0.28, similarityBoost: 0.8, style: 0.55, speed: 1.0 }, naturalWpm: { eleven_v4: 171, eleven_multilingual_v2: 190 } }, // measured 2026-11-22 on a 262-word script, per model
   "logically-answered": { voiceId: "nPczCjzI2devNBz1zQrb", name: "Brian", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.0 } },
   "big-company": { voiceId: "JBFqnCBsd6RMkjVDRZzb", name: "George", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.0 } },
   "modern-mba": { voiceId: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.0 } },
   "how-money-works": { voiceId: "cjVigY5qzO86Huf0OWal", name: "Eric", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.0 } },
   moon: { voiceId: "3YzGaTGef0x5PLEK9yGq", name: "Atlas", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.3, speed: 1.0 } },
 };
+
+/**
+ * The narration model. Eleven v4 (owner decision 2026-11-22): measured on the same script and voice against
+ * Multilingual v2 — phrase melody 3.55 vs 2.79, pitch travel 14.2 vs 11.4 st, dynamics 6.2 vs 5.8 dB.
+ * OPUMIA_TTS_MODEL overrides it.
+ */
+export const DEFAULT_TTS_MODEL = "eleven_v4";
+export const ttsModel = () => process.env.OPUMIA_TTS_MODEL ?? DEFAULT_TTS_MODEL;
+/** The pace a channel's voice naturally speaks at on a model (measured), if known. */
+export const naturalWpmOf = (channel: ChannelId, modelId: string = ttsModel()): number | undefined => CHANNEL_VOICES[channel]?.naturalWpm?.[modelId];
 
 /** Shape of data/voice-calibration.json: `_voices` holds the resolved narrator per channel; other keys are wpm calibrations. */
 export interface VoiceCalibrationFile {

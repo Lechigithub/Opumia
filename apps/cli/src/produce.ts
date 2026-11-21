@@ -6,7 +6,7 @@ import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
-import { CHANNEL_VOICES, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
+import { naturalWpmOf, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
@@ -151,7 +151,7 @@ async function produceStages(o: ProduceOptions) {
 
   log("\n[A2] script");
   const voice = await resolveChannelVoice(channel, o.data, log);
-  const ttsModel = process.env.OPUMIA_TTS_MODEL ?? "eleven_multilingual_v2";
+  const ttsModel = currentTtsModel();
   const calKey = calibrationKey(voice, ttsModel);
   const calFile = await readCalibration(o.data);
   const cal = calFile as Record<string, { wpm: number; samples: number } | undefined>;
@@ -160,7 +160,7 @@ async function produceStages(o: ProduceOptions) {
   const overrides = (await exists(ovPath)) ? LicenseOverrides.parse(JSON.parse(await readFile(ovPath, "utf8"))) : null;
   const maxWpm = overrides?.channels[channel]?.maxWpm ?? Infinity;
   // The script is cut to the pace this voice naturally speaks at (measured), never the reference narrator's pace.
-  const narrationWpm = Math.round(Math.min(cal[calKey]?.wpm ?? CHANNEL_VOICES[channel].naturalWpm ?? 145, maxWpm));
+  const narrationWpm = Math.round(Math.min(cal[calKey]?.wpm ?? naturalWpmOf(channel, ttsModel) ?? 145, maxWpm));
   const narrationTargetS = short ? o.durationS - 3 : o.durationS;
   let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), log }), log);
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
@@ -390,7 +390,7 @@ async function produceStages(o: ProduceOptions) {
         for (const [k2, v] of found) defects.set(k2, v);
         look2 = new Set();
       }
-      checks = await preflightChecks({ jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...(CHANNEL_VOICES[channel].naturalWpm ? { naturalWpm: CHANNEL_VOICES[channel].naturalWpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent });
+      checks = await preflightChecks({ jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...(naturalWpmOf(channel, timed.voice.modelId) ? { naturalWpm: naturalWpmOf(channel, timed.voice.modelId)! } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent });
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       const fixable = failing.filter((c) => c.repair);
       const done: string[] = [];

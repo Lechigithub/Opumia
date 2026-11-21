@@ -9,7 +9,7 @@ import { TimedScript, type FactSheet, type ScriptDraft } from "@opumia/contracts
 import { asrBackend, diffSpeech, espeakIpa, pcm, phonemeMatch, phonemeTokens, spokenPhonemes, transcribe, type PronunciationCheck } from "@opumia/senses";
 import { alignWords, tokensFromAlignment } from "./align.js";
 import { remainingCharacters, ttsWithTimestamps, type CharAlignment } from "./elevenlabs.js";
-import type { ChannelVoice } from "./voice.js";
+import { ttsModel, type ChannelVoice } from "./voice.js";
 
 /**
  * Directed narration: the script is spoken line by line under a voice director, then LISTENED TO and corrected.
@@ -151,7 +151,7 @@ async function writeMp3(samples: Float32Array, out: string): Promise<void> {
 export async function narrateDirected(o: DirectedOptions): Promise<{ script: TimedScript; audioPath: string; alignmentPath: string; characters: number; report: NarrationReport }> {
   const log = o.log ?? (() => {});
   const voice = o.voice;
-  const modelId = o.modelId ?? process.env.OPUMIA_TTS_MODEL ?? "eleven_multilingual_v2";
+  const modelId = o.modelId ?? ttsModel();
   await mkdir(path.join(o.outDir, "takes"), { recursive: true });
 
   // Lines = sentences, kept inside their segments.

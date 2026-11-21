@@ -5,7 +5,7 @@ import { cached, MODELS, plain, structured } from "./llm.js";
 import type { StylePack } from "./style-pack.js";
 import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { CONTRAST } from "./style-pack.js";
-import { normalizeFigures } from "./numeric-facts.js";
+import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
 
@@ -81,7 +81,7 @@ const WRITER_TASK = (o: { short: boolean; words: number; durationS: number; bp: 
 - Act spine: ${o.bp.spine}
 - Ending: ${o.bp.ending} — ${ENDING_ARCHETYPES[o.bp.ending as EndKey]}
 
-You are the head writer for the channel described in the style pack above. Write narration only — the words the narrator says. Section 6 holds the channel's measured narrative devices; section 9 (BEAT LIBRARY) holds REAL narration for each story role. Before writing each part, reread the real passages for that role and match their voice, rhythm and attitude in your own words.
+You are the head writer for the channel described in the style pack above. Write narration only — the words the narrator says. Write for the ear: no dashes used as pauses, no brackets, no semicolons (a narrator cannot speak them); let commas and full stops carry the breathing. Section 6 holds the channel's measured narrative devices; section 9 (BEAT LIBRARY) holds REAL narration for each story role. Before writing each part, reread the real passages for that role and match their voice, rhythm and attitude in your own words.
 
 VOICE (this decides whether viewers stay):
 - A storyteller talking to ONE viewer, in plain spoken English — the way a smart friend retells a wild story, not the way a journalist files a report. Contractions, everyday words, the odd aside ("which, to be fair, sounds insane"), a dry sense of irony.
@@ -262,7 +262,7 @@ export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
   }
 
   const known = new Set(claims.map((c) => c.id));
-  const segments = data.segments.map((s, i) => ({ id: `s${String(i + 1).padStart(2, "0")}`, role: s.role, ...(!short && s.chapter.trim() ? { chapter: s.chapter.trim() } : {}), text: normalizeFigures(s.text.trim()), claimIds: s.claimIds.filter((c) => known.has(c)), visualIdea: s.visualIdea }));
+  const segments = data.segments.map((s, i) => ({ id: `s${String(i + 1).padStart(2, "0")}`, role: s.role, ...(!short && s.chapter.trim() ? { chapter: s.chapter.trim() } : {}), text: earPunctuation(normalizeFigures(s.text.trim())), claimIds: s.claimIds.filter((c) => known.has(c)), visualIdea: s.visualIdea }));
   // Long-form: every segment inherits the last named chapter so chapters are contiguous.
   let lastChapter = segments.find((s) => s.chapter)?.chapter;
   for (const s of segments) if (!short) s.chapter = (s.chapter ??= lastChapter), (lastChapter = s.chapter);

@@ -28,7 +28,24 @@ function dipChain(cue: RenderManifest["audio"][number], fps: number): string {
 }
 
 /** Build the pre-master mix: voice chain, music ducked by a voice sidechain, SFX placed at frame-exact delays. */
-function mixGraph(m: RenderManifest) {
+/**
+ * Room tone. Measured on five MagnatesMedia films (2026-11-22): the quietest 1 % of the sound sits 21–33 dB below
+ * the speech level — the track never falls to silence. Ours fell 34–53 dB below (a dry synthetic voice on digital
+ * silence whenever the music drops out, which listeners read as artificial). A very low, filtered noise bed is
+ * mixed under the whole film so the floor stays at the quiet end of the reference range. It is plain filtered
+ * noise made by FFmpeg (no model, no recording). OPUMIA_ROOM_TONE=off disables it.
+ */
+const ROOM_TONE_BELOW_VOICE_RMS_DB = 27;
+/** RMS level of the brown-noise source after its filters, at amplitude 1 (measured). */
+const TONE_SOURCE_RMS_DB = -19.1;
+
+async function overallRmsDb(file: string): Promise<number | null> {
+  const r = await ff(["-i", file, "-af", "astats=metadata=0", "-f", "null", "-"]).catch(() => null);
+  const all = [...(r?.stderr ?? "").matchAll(/RMS level dB:\s*(-?[\d.]+)/g)].map((x) => Number(x[1]));
+  return all.length ? all[all.length - 1]! : null;
+}
+
+function mixGraph(m: RenderManifest, toneDb: number | null = null) {
   const fps = m.fps;
   const durS = m.durationFrames / fps;
   const voice = m.audio.find((a) => a.role === "narration");
@@ -70,6 +87,12 @@ function mixGraph(m: RenderManifest) {
     mixIns.push(`[s${idx}]`);
     idx++;
   }
+  if (toneDb !== null) {
+    inputs.push("-f", "lavfi", "-i", `anoisesrc=color=brown:amplitude=1:sample_rate=48000:duration=${(durS + 1).toFixed(2)}:seed=7`);
+    chains.push(`[${idx}:a]highpass=f=80,lowpass=f=1800,aformat=channel_layouts=stereo,volume=${(toneDb - TONE_SOURCE_RMS_DB).toFixed(2)}dB,afade=t=in:d=0.4[tone]`);
+    mixIns.push("[tone]");
+    idx++;
+  }
   chains.push(`${mixIns.join("")}amix=inputs=${mixIns.length}:duration=first:dropout_transition=0:normalize=0,atrim=0:${durS.toFixed(3)}[mix]`);
   return { inputs, graph: chains.join(";") };
 }
@@ -78,7 +101,9 @@ const LN = (target: number, tp: number) => `loudnorm=I=${target}:TP=${tp}:LRA=11
 
 /** Two-pass EBU R128 mastering to the manifest's LUFS target (default −14) with a −1.5 dBTP ceiling. */
 export async function masterAudio(m: RenderManifest, outWav: string, truePeak = -1.5): Promise<LoudnessStats> {
-  const { inputs, graph } = mixGraph(m);
+  const voice = m.audio.find((a) => a.role === "narration");
+  const vRms = voice && process.env.OPUMIA_ROOM_TONE !== "off" ? await overallRmsDb(voice.src) : null;
+  const { inputs, graph } = mixGraph(m, vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB);
   // Pass 1: measure.
   const p1 = await ff([...inputs, "-filter_complex", `${graph};[mix]${LN(m.loudnessTargetLufs, truePeak)}:print_format=json[out]`, "-map", "[out]", "-f", "null", "-"]);
   const j = JSON.parse(/\{[^{}]*"input_i"[^{}]*\}/s.exec(p1.stderr)?.[0] ?? "{}") as Record<string, string>;

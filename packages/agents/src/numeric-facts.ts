@@ -11,6 +11,24 @@ export interface NumericFact {
 }
 
 /** Currency codes → symbols ("EUR 5.44 billion" → "€5.44 billion") so the narrator says "euros" and parity can match the graphic. */
+/**
+ * Write for the ear: punctuation a narrator cannot speak is rewritten before the script is used — dashes used
+ * as a pause become commas, bracketed asides become comma clauses, semicolons end the sentence. Hyphens inside
+ * words ("film-less") are left alone. Applied in code, so no script reaches the voice with them.
+ */
+export const earPunctuation = (t: string) =>
+  t
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/\s+-\s+/g, ", ")
+    .replace(/\s*\(([^()]{1,200})\)\s*([.,!?])?/g, (_m, inner: string, end?: string) => `, ${inner.trim()}${end ?? ","} `)
+    .replace(/\s*;\s*(\p{L})/gu, (_m, c: string) => `. ${c.toUpperCase()}`)
+    .replace(/;/g, ".")
+    .replace(/,\s*,/g, ",")
+    .replace(/,\s*([.!?])/g, "$1")
+    .replace(/\s+([,.!?])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
 export const normalizeFigures = (t: string) =>
   t
     .replace(/\bEUR\s?(\d)/g, "€$1")

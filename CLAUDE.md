@@ -263,6 +263,10 @@ Speech recognition backends (`senses/asr.ts`, `OPUMIA_ASR=local|cloudflare`): **
 
 Test without rendering a film: `npx tsx apps/cli/src/dev/narrate-test.ts out/<job-with-script>`.
 
+8. **Narration model: Eleven v4** (`narration/voice.ts:DEFAULT_TTS_MODEL`, owner decision 2026-11-22; `OPUMIA_TTS_MODEL` overrides). Measured on the same Kodak script and voice against Multilingual v2: phrase melody 3.55 vs 2.79 (reference ≥ 3.53), pitch travel 14.2 vs 11.4 st, dynamics 6.2 vs 5.8 dB, natural pace 171 vs 190 wpm (`naturalWpm` is kept per model), word error 0.4 % after retakes. It pauses more inside lines (9 word-gap pauses a minute against the reference's 2–4) — left as spoken.
+9. **Write for the ear** (`agents/numeric-facts.ts:earPunctuation`, applied to every script segment): dashes used as pauses become commas, bracketed asides become comma clauses, semicolons end the sentence; hyphens inside words stay. The writer is told the rule and the code enforces it. Sentence length is NOT shortened — the channel's median sentence is 19 words and choppy prose is rejected.
+10. **Room tone** (`motion-engine/audio.ts`): measured on five MagnatesMedia films, the quietest 1 % of the sound sits 21–33 dB below the speech level; ours fell 34–53 dB below (a dry voice on digital silence when the music drops out). A filtered-noise bed made by FFmpeg sits 27 dB under the voice's level across the film: quietest 1 % now 26.6 dB below speech, loudness unchanged (−12.5 LUFS). `OPUMIA_ROOM_TONE=off` disables it.
+
 ## Preflight gate (2026-11-22)
 
 `produce` stage **B6** (`apps/cli/src/preflight.ts`, wired in `produce.ts`) runs every release-gate check that can be computed before the render, on the plan, the final scene previews and the narration. A failing check with a repair is repaired and checked again (two repair rounds); what still fails is written to `out/<job>/preflight.json` and **the render is refused** ("nothing was rendered"). `OPUMIA_PREFLIGHT=warn` renders anyway, for debugging only.
