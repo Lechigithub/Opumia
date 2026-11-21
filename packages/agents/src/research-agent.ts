@@ -39,7 +39,7 @@ export interface ResearchResult {
   agent: { turns: number; calls: Record<string, number>; usd: number; pagesRead: number; fromArchive: number; rejected: number };
 }
 
-export async function researchAgent(o: { topic: string; format: string; want: number; memoryDir?: string; log?: (s: string) => void }): Promise<ResearchResult> {
+export async function researchAgent(o: { topic: string; format: string; want: number; memoryDir?: string; /** Reads a page through a real browser when the plain request and the archive both fail. */ browserRead?: (url: string) => Promise<string | null>; log?: (s: string) => void }): Promise<ResearchResult> {
   const log = o.log ?? (() => {});
   // The writer needs room to choose: the sheet aims at twice the bare minimum a script could be written from.
   const want = Math.max(o.want * 2, 20);
@@ -49,12 +49,12 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
   const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, "notes.md"), "utf8").catch(() => "") : "";
 
   // ---- pages (each read once per run; the outcome per site is remembered across runs)
-  const pages = new Map<string, Promise<{ text: string; via: "live" | "archive" } | null>>();
+  const pages = new Map<string, Promise<{ text: string; via: "live" | "archive" | "browser" } | null>>();
   const page = (url: string) => {
     if (!pages.has(url))
       pages.set(
         url,
-        readPage(url).then((p) => {
+        readPage(url, 80_000, o.browserRead).then((p) => {
           const h = hostOf(url);
           if (h) {
             const e = (hosts[h] ??= { read: 0, archive: 0, failed: 0 });
@@ -108,7 +108,7 @@ export async function researchAgent(o: { topic: string; format: string; want: nu
         if (!/^https?:\/\//.test(i.url)) throw new Error("not a URL");
         const p = await page(i.url);
         if (!p) return `UNREADABLE: ${hostOf(i.url)} could not be read live or from the archive. Use another source for this fact.`;
-        const out = [`${hostOf(i.url)} (${p.via === "archive" ? "archived copy" : "live"}, ${p.text.length} characters)`, p.text.slice(0, 5000)];
+        const out = [`${hostOf(i.url)} (${p.via === "archive" ? "archived copy" : p.via === "browser" ? "read in a browser" : "live"}, ${p.text.length} characters)`, p.text.slice(0, 5000)];
         const q = i.find.trim().toLowerCase();
         if (q.length >= 3) {
           const lower = p.text.toLowerCase();

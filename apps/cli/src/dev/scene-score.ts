@@ -8,6 +8,8 @@ import path from "node:path";
 import { FactSheet, FilmDesignSystem, ResolutionReport, Storyboard, TimedScript, type ScenePlan } from "@opumia/contracts";
 import { buildStylePack, designScenesAgent, ensureVisualBand, usageLedger, type ReferenceShot, type SceneReport } from "@opumia/agents";
 import { buildManifest, lookFromProfile, renderShotPreviews } from "@opumia/motion-engine";
+import { makeSceneTools } from "@opumia/resolver";
+import { LibraryIndex } from "@opumia/contracts";
 import { contactSheet } from "@opumia/senses";
 import { loadKeys } from "../keys.js";
 
@@ -38,12 +40,18 @@ for (const arg of process.argv.slice(2)) {
     const prev = await renderShotPreviews({ manifest, look, design, publicDir: pub, outDir, shotIds });
     return prev.map((p) => ({ shotId: p.shotId, sheet: p.sheet, mid: p.frames[1]!.path }));
   };
+  const manifestOf = (plan: ScenePlan) => buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: roots.library, outputPath: path.join(jobDir, "_agent.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+  const play = async (plan: ScenePlan, shotId: string) => (await renderShotPreviews({ manifest: await manifestOf(plan), look, design, publicDir: pub, outDir: path.join(outDir, "play"), shotIds: [shotId], moments: [0.04, 0.2, 0.35, 0.5, 0.65, 0.8, 0.96] }))[0]?.sheet ?? null;
+  const index = LibraryIndex.parse(read(path.join(roots.data, "library-index.json")));
+  const whenByShot = new Map<string, string>(existsSync(path.join(jobDir, "sourcing.json")) ? read<{ rows: Array<{ shotId: string; when?: string }> }>(path.join(jobDir, "sourcing.json")).rows.filter((r) => r.when).map((r) => [r.shotId, r.when!] as [string, string]) : []);
+  const pictures = makeSceneTools({ jobDir, dataDir: roots.data, libraryRoot: roots.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: "unspecified", iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
   let report: SceneReport | null = null;
   const before = usageLedger().reduce((t, r) => t + r.usd, 0);
   const t0 = Date.now();
   console.log(`\n### ${path.basename(jobDir)}`);
-  const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel: job.channel, visualBand: band, referenceShots, render, memoryDir, people: (facts.story?.characters ?? []).map((c) => c.name), onReport: (r) => (report = r), log: console.log });
+  const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel: job.channel, visualBand: band, referenceShots, render, play, pictures, memoryDir, people: (facts.story?.characters ?? []).map((c) => c.name), onReport: (r) => (report = r), log: console.log });
   writeFileSync(path.join(jobDir, "scenes.agent.json"), JSON.stringify(plan, null, 2));
+  writeFileSync(path.join(jobDir, "resolution.agent.json"), JSON.stringify(resolution, null, 2));
   const mids = plan.scenes.map((s) => path.join(outDir, `${s.shotId}_1.jpg`)).filter((f) => existsSync(f));
   if (mids.length) console.log(await contactSheet(mids, path.join(jobDir, "scenes_agent.jpg"), { cols: 6, cellW: 320 }));
   const rp = report as SceneReport | null;

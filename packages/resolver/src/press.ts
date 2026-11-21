@@ -477,6 +477,29 @@ export async function closeBrowser(): Promise<void> {
 }
 
 /** Screenshot the top of a web page (1280×900) as JPEG. Returns false when the page cannot be captured. */
+/**
+ * A page's readable text through the real browser (JavaScript runs, so pages that refuse a plain request or
+ * build their text on load can still be read). Nothing is clicked or accepted. Null when it cannot be read.
+ */
+export async function pageTextViaBrowser(url: string, maxChars = 80_000): Promise<string | null> {
+  if (!/^https?:\/\//.test(url) || /youtube\.com|youtu\.be|\.pdf($|\?)/i.test(url)) return null;
+  let page: CdpPage | null = null;
+  try {
+    const b = await browser();
+    page = await b.newPage({ context: () => null, logLevel: "error", indent: false, pageIndex: 900 + pageSeq++, onBrowserLog: null, onLog: () => {} });
+    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    await Promise.race([page.goto({ url, timeout: 25_000 }).catch(() => null), new Promise((r) => setTimeout(r, 26_000))]);
+    await new Promise((r) => setTimeout(r, 2000));
+    const res = (await page._client().send("Runtime.evaluate", { expression: "document.body ? document.body.innerText : ''", returnByValue: true })) as unknown as { value?: { result?: { value?: string } } };
+    const text = (res.value?.result?.value ?? "").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+    return text.length > 600 ? text.slice(0, maxChars) : null;
+  } catch {
+    return null;
+  } finally {
+    await page?.close().catch(() => {});
+  }
+}
+
 export async function screenshotPage(url: string, outJpg: string): Promise<boolean> {
   if (await exists(outJpg)) return true;
   if (!/^https?:\/\//.test(url) || /youtube\.com|youtu\.be|\.pdf($|\?)/i.test(url)) return false;

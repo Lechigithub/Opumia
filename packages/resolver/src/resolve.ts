@@ -131,7 +131,7 @@ async function hasBlack(file: string): Promise<boolean> {
 }
 
 /** Trim/transcode one picture source into the job's public dir (fast seeking, small, muted). */
-async function materialize(src: string, kind: "video" | "image", out: string, inS: number, durationS: number, srcHasAlpha: boolean, cropBanner = false) {
+export async function materialize(src: string, kind: "video" | "image", out: string, inS: number, durationS: number, srcHasAlpha: boolean, cropBanner = false) {
   if (await exists(out)) return;
   if (kind === "video") {
     // Broadcaster graphics (lower third, ticker, channel bug) are cropped away: bottom 22 %, a little off each side and the top.
@@ -767,7 +767,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       const b = briefOf(n);
       const pm = media.find((m) => m.shotId === n.shot.id && m.role === "primary");
       const layers = media.filter((m) => m.shotId === n.shot.id && m.role === "layer").length;
-      return { shotId: n.shot.id, line: n.line, need: b.need, must: b.must, searches: { stock: b.stock, archive: b.archive, youtube: b.youtube }, candidatesSeen: offered.get(n.shot.id)?.n ?? 0, bestFit: offered.get(n.shot.id)?.best ?? null, footage: pm ? { ref: pm.ref, origin: pm.origin, provider: pm.provider, fit: pm.seen?.fit ?? Math.round(pm.score * 10), shows: pm.depicts ?? "" } : null, scenePictures: layers, missing: b.need !== "none" && !pm && !layers, ...(replans.has(n.shot.id) ? { replanned: replans.get(n.shot.id) } : {}), candidates: (looked.get(n.shot.id) ?? []).sort((a, b) => b.fit - a.fit) };
+      return { shotId: n.shot.id, line: n.line, need: b.need, must: b.must, ...(b.when ? { when: b.when } : {}), searches: { stock: b.stock, archive: b.archive, youtube: b.youtube }, candidatesSeen: offered.get(n.shot.id)?.n ?? 0, bestFit: offered.get(n.shot.id)?.best ?? null, footage: pm ? { ref: pm.ref, origin: pm.origin, provider: pm.provider, fit: pm.seen?.fit ?? Math.round(pm.score * 10), shows: pm.depicts ?? "" } : null, scenePictures: layers, missing: b.need !== "none" && !pm && !layers, ...(replans.has(n.shot.id) ? { replanned: replans.get(n.shot.id) } : {}), candidates: (looked.get(n.shot.id) ?? []).sort((a, b) => b.fit - a.fit) };
     });
     const wanted = rows.filter((r) => r.need !== "none");
     const real = rows.filter((r) => r.need === "real");

@@ -17,6 +17,7 @@ import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
 import { designScenes, SceneDraftSchema, type SceneDraftScene } from "./scene-designer.js";
 import { labelShots, SHOT_KINDS, visualIssues, visualProfile, type VisualBand, type VisualProfile } from "./visual-measure.js";
 
+export type PictureResult = { ok: true; shotId: string; as: "footage" | "slot"; slot?: number; kind: "video" | "image"; depicts: string; fit?: number; preview: string } | { ok: false; why: string };
 export interface ReferenceShot { kind: string; layout: string; motion: string; line: string; frame: string }
 export interface SceneReport {
   pass: boolean;
@@ -34,6 +35,15 @@ export interface SceneAgentOptions {
   referenceShots: ReferenceShot[];
   /** Renders the given shots of a plan at three moments: the sheet (all three) and the middle frame. */
   render: (plan: ScenePlan, shotIds: string[]) => Promise<Array<{ shotId: string; sheet: string; mid: string }>>;
+  /** Renders one shot at seven moments as a strip, so the designer can see it move. */
+  play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
+  /** Sourcing tools (resolver/scene-tools.ts): they add pictures to `resolution` in place. */
+  pictures?: {
+    findPicture: (i: { shotId: string; want: string; as: "footage" | "slot"; kind: "video" | "image" }) => Promise<PictureResult>;
+    searchObjects: (i: { query: string }) => Array<{ id: string; type: "object" | "icon"; name: string; tags: string[] }>;
+    addObject: (i: { shotId: string; assetId: string }) => Promise<PictureResult>;
+    cutOut: (i: { shotId: string; slot: number }) => Promise<PictureResult>;
+  };
   memoryDir?: string;
   people?: string[];
   avoidLayouts?: string;
@@ -43,7 +53,7 @@ export interface SceneAgentOptions {
 
 const isScene = (s: StoryboardShot) => s.source.kind === "designed" && s.source.designed === "scene";
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
-const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: (await readFile(file)).toString("base64") } });
+const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: /\.png$/i.test(file) ? "image/png" : "image/jpeg", data: (await readFile(file)).toString("base64") } });
 
 export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan> {
   const log = o.log ?? (() => {});
@@ -64,6 +74,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const dirty = new Set<string>(); // designed or changed since the last render
   const unseen = new Set<string>(); // designed or changed since the designer last LOOKED at it
   let referenceViews = 0;
+  const triedPicture = new Map<string, number>(); // shots the designer asked a picture for and got none
   const frames = new Map<string, { sheet: string; mid: string }>();
   const rounds: SceneReport["rounds"] = [];
   let lastIssues: Array<{ kind: string; detail: string }> = [{ kind: "not_designed", detail: "no scenes were designed" }];
@@ -109,6 +120,12 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     const hasPicture = (sc: (typeof staged)[number]) => sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d");
     const unused = staged.filter((sc) => !hasPicture(sc) && slotsOf(sc.shotId).length > 0);
     if (unused.length) issues.push({ kind: "unused_picture", detail: `these shots have real pictures available and show none: ${unused.map((sc) => `${sc.shotId} (${slotsOf(sc.shotId).map((m) => `[${m.slot}] ${(m.depicts ?? m.query).slice(0, 40)}`).join("; ")})`).join(", ")}. Build the scene around the picture.` });
+    // A shot with no footage must be built around a picture, unless the designer really tried to get one
+    // (two different requests that found nothing). With the picture tools there is no excuse for a bare stage.
+    if (o.pictures) {
+      const bareStage = staged.filter((sc) => !hasPicture(sc) && !sc.elements.some((e) => e.type === "text3d") && (triedPicture.get(sc.shotId) ?? 0) < 2);
+      if (bareStage.length) issues.push({ kind: "stage_without_picture", detail: `these shots have no footage and show no picture: ${bareStage.map((sc) => sc.shotId).join(", ")}. For each, get one: find_picture as footage (moving video of what the line is about) or as a slot to compose, or a library object or icon that makes the idea visible — then redesign the shot around it. Only after two different requests found nothing may a shot stay without a picture.` });
+    }
     const wordsOn = (sc: (typeof staged)[number]) => sc.elements.filter((e) => e.type === "text" || e.type === "phrase" || e.type === "text3d").reduce((n, e) => n + ("text" in e ? e.text.trim().split(/\s+/).length : 0), 0);
     const bare = staged.filter((sc) => !hasPicture(sc) && wordsOn(sc) <= 3 && !sc.elements.some((e) => e.type === "text3d"));
     const allow = Math.max(1, Math.floor(plan.scenes.length * 0.08));
@@ -183,6 +200,75 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         return blocks;
       }) as AgentTool["run"],
     },
+    ...(o.play
+      ? [
+          {
+            name: "play_shot",
+            description: "See one shot move: seven moments from start to end as a strip. Use it on shots where timing matters — elements arriving on a word, a camera move, anything that might collide while entering.",
+            schema: z.object({ shotId: z.string() }),
+            run: (async (i: { shotId: string }) => {
+              if (!plan.scenes.some((s) => s.shotId === i.shotId)) return "design that shot first";
+              const strip = await o.play!(plan, i.shotId);
+              if (!strip) return "that shot could not be rendered";
+              return [{ type: "text" as const, text: `${i.shotId} from start to end:` }, await img(strip)];
+            }) as AgentTool["run"],
+          } satisfies AgentTool,
+        ]
+      : []),
+    ...(o.pictures
+      ? ([
+          {
+            name: "find_picture",
+            description: "Get a different or an additional picture for one shot. Every stock and archive source is searched for what you describe, the candidates are checked by eye against the line, and the best fitting one is fetched. as=\"footage\" replaces the shot's footage (kind video or image); as=\"slot\" adds a photo as a new picture slot you can place, frame or cut out. Describe it the way a stock library would title it: concrete and visual, a few words, no names of people.",
+            schema: z.object({ shotId: z.string(), want: z.string(), as: z.enum(["footage", "slot"]), kind: z.enum(["video", "image"]) }),
+            run: (async (i: { shotId: string; want: string; as: "footage" | "slot"; kind: "video" | "image" }) => {
+              const r = await o.pictures!.findPicture(i);
+              if (!r.ok) {
+                triedPicture.set(i.shotId, (triedPicture.get(i.shotId) ?? 0) + 1);
+                return `NOT FOUND — ${r.why}`;
+              }
+              dirty.add(i.shotId);
+              unseen.add(i.shotId);
+              const text = r.as === "footage" ? `${i.shotId} now has ${r.kind === "video" ? "moving video" : "a still"} as footage: ${r.depicts} (fit ${r.fit}/10). Redesign the shot for it.` : `${i.shotId} has a new picture slot [${r.slot}]: ${r.depicts} (fit ${r.fit}/10). Place it with a photo, cutout or card3d element.`;
+              const im = r.preview ? await img(r.preview).catch(() => null) : null;
+              return im ? [{ type: "text" as const, text }, im] : text;
+            }) as AgentTool["run"],
+          },
+          {
+            name: "search_library_objects",
+            description: "Search the licensed library for cut-out objects (photographs on transparency: a briefcase, a calculator, a stack of cash) and line icons, by keyword. Returns ids to use with add_library_object.",
+            schema: z.object({ query: z.string() }),
+            run: (async (i: { query: string }) => {
+              const r = o.pictures!.searchObjects(i);
+              return r.length ? r.map((x) => `${x.id} | ${x.type} | ${x.name} | ${x.tags.join(", ")}`).join("\n") : `nothing in the library for "${i.query}" — try a simpler everyday word`;
+            }) as AgentTool["run"],
+          },
+          {
+            name: "add_library_object",
+            description: "Add a library cut-out object or icon to a shot as a new picture slot (transparent — place it with a cutout element).",
+            schema: z.object({ shotId: z.string(), assetId: z.string() }),
+            run: (async (i: { shotId: string; assetId: string }) => {
+              const r = await o.pictures!.addObject(i);
+              if (!r.ok) return `NOT ADDED — ${r.why}`;
+              const text = `${i.shotId} has a new picture slot [${r.slot}]: ${r.depicts}. Place it with a cutout element.`;
+              const im = r.preview ? await img(r.preview).catch(() => null) : null;
+              return im ? [{ type: "text" as const, text }, im] : text;
+            }) as AgentTool["run"],
+          },
+          {
+            name: "cut_out_subject",
+            description: "Lift the subject of a photo slot (a person, a product, a building) off its background. The cut-out becomes a new transparent slot of the same shot, to place with a cutout element over a stage or over footage.",
+            schema: z.object({ shotId: z.string(), slot: z.number() }),
+            run: (async (i: { shotId: string; slot: number }) => {
+              const r = await o.pictures!.cutOut(i);
+              if (!r.ok) return `NOT CUT OUT — ${r.why}`;
+              const text = `${i.shotId} has a new picture slot [${r.slot}]: ${r.depicts}.`;
+              const im = r.preview ? await img(r.preview).catch(() => null) : null;
+              return im ? [{ type: "text" as const, text }, im] : text;
+            }) as AgentTool["run"],
+          },
+        ] satisfies AgentTool[])
+      : []),
     {
       name: "measure_film",
       description: "Measure the whole film: every shot's middle frame is labelled the way the channel's real shots were, and the film's mix of shot kinds, how much text it carries and how many pictures it composes are compared with the channel's range.",
@@ -229,7 +315,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     ),
   ];
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${MODELS.sonnet})…`);
-  const run = await agentLoop({ stage: "scenes.agent", model: MODELS.sonnet, system, user: `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: 26, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
+  const run = await agentLoop({ stage: "scenes.agent", model: MODELS.sonnet, system, user: `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: 34, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
   // Whatever happened, every shot leaves with a rendered, measured scene plan.
   if (!accepted && plan.scenes.length) await measure().catch(() => {});
   const report: SceneReport = { pass: accepted, rounds, remaining: accepted ? [] : lastIssues, agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4, rendered } };

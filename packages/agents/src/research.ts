@@ -46,6 +46,8 @@ export interface ResearchOptions {
   minClaims?: number;
   /** Where the research agent keeps its memory (data/agents/research). */
   memoryDir?: string;
+  /** Reads a page through a real browser when the plain request and the archive both fail (resolver/press.ts). */
+  browserRead?: (url: string) => Promise<string | null>;
   log?: (s: string) => void;
 }
 
@@ -89,7 +91,7 @@ export async function researchTopic(o: ResearchOptions): Promise<FactSheet> {
   const log = o.log ?? (() => {});
   const want = Math.max(o.minClaims ?? 8, 8);
   if (process.env.OPUMIA_RESEARCH !== "legacy") {
-    const res = await researchAgent({ topic: o.topic, format: o.format, want, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), log });
+    const res = await researchAgent({ topic: o.topic, format: o.format, want, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.browserRead ? { browserRead: o.browserRead } : {}), log });
     const story = await storyLayer(o.topic, res.claims, log);
     return FactSheet.parse({ ...(story ? { story } : {}), schemaVersion: 1, id: `fs_${createHash("sha1").update(o.topic).digest("hex").slice(0, 10)}`, topic: o.topic, summary: res.summary, angle: res.angle, claims: res.claims, sources: res.sources, ...(res.gaps.length ? { gaps: res.gaps } : {}), models: { research: MODELS.sonnet, verify: MODELS.haiku }, generatedAt: new Date().toISOString() });
   }

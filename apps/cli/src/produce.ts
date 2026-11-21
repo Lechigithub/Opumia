@@ -7,7 +7,7 @@ import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
-import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
+import { makeSceneTools, pageTextViaBrowser, repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
@@ -130,7 +130,7 @@ async function produceStages(o: ProduceOptions) {
 
   // ---- Stage A: research → script → narration
   log("\n[A1] research & fact-check");
-  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), memoryDir: path.join(o.data, "agents", "research"), log }), log);
+  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), memoryDir: path.join(o.data, "agents", "research"), browserRead: pageTextViaBrowser, log }), log);
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
   log("\n[A1b] art direction (runs alongside the script)");
   // Uniqueness: what the recent films did, so every planning stage can do something else.
@@ -303,10 +303,21 @@ async function produceStages(o: ProduceOptions) {
       const prev = await renderShotPreviews({ manifest: m, look: lookA, design, publicDir: pub, outDir: path.join(jobDir, "previews"), shotIds });
       return prev.map((pv) => ({ shotId: pv.shotId, sheet: pv.sheet, mid: pv.frames[1]!.path }));
     };
+    const play = async (plan: ScenePlan, shotId: string) => {
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+      return (await renderShotPreviews({ manifest: m, look: lookA, design, publicDir: pub, outDir: path.join(jobDir, "previews", "play"), shotIds: [shotId], moments: [0.04, 0.2, 0.35, 0.5, 0.65, 0.8, 0.96] }))[0]?.sheet ?? null;
+    };
+    const whenByShot = new Map<string, string>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; when?: string }> }).rows.filter((r) => r.when).map((r) => [r.shotId, r.when!] as [string, string]), () => []));
+    const coolS = await cooldownRefs(o.data, jobId);
+    const eraS = eraOfFacts(facts);
+    const pictures = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
     let sceneReport: SceneReport | null = null;
-    const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), log });
+    const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), log });
     // The designer already rendered, looked at and revised every scene: the separate critic pass (B4) is not run.
     await writeFile(path.join(jobDir, "scenes.review.json"), JSON.stringify({ previewed: plan.scenes.length, flagged: {}, agent: sceneReport }, null, 2) + "\n");
+    // Pictures the designer fetched are part of the film: saved with their licences, counted for the cooldown.
+    await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+    await recordUsage(o.data, jobId, resolution, board);
     return plan;
   }, log);
   const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;

@@ -17,7 +17,7 @@ const BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/
  * most recent copy (many news and company pages block automated readers or have been taken down, and a claim
  * whose source cannot be read cannot be verified). `via` says which copy was read.
  */
-export async function readPage(url: string, maxChars = 80_000): Promise<{ text: string; via: "live" | "archive" } | null> {
+export async function readPage(url: string, maxChars = 80_000, browser?: (url: string) => Promise<string | null>): Promise<{ text: string; via: "live" | "archive" | "browser" } | null> {
   const live = await fetchPageText(url, maxChars, BROWSER_UA);
   if (live && live.length > 600) return { text: live, via: "live" };
   try {
@@ -33,6 +33,9 @@ export async function readPage(url: string, maxChars = 80_000): Promise<{ text: 
   } catch {
     /* no archived copy */
   }
+  // Last resort: a real browser (the page may need JavaScript, or refuse anything that is not a browser).
+  const viaBrowser = browser ? await browser(url).catch(() => null) : null;
+  if (viaBrowser && viaBrowser.length > 600) return { text: viaBrowser.slice(0, maxChars), via: "browser" };
   return live ? { text: live, via: "live" } : null;
 }
 
