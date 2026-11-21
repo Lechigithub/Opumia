@@ -1,0 +1,335 @@
+/**
+ * Preflight gate: every release-gate check that can be computed BEFORE the render — from the plan, the scene
+ * previews and the narration — so a film that would fail is repaired or stopped before render time is spent.
+ *
+ * Each check names its repair (applied by produce.ts, then the check is run again):
+ *   drop_picture   a repeated picture / a second clip from one source video is removed and the scene redesigned
+ *   safe_scene     a scene that still shows a visible defect after its revision is reduced to its clean core
+ *   soften_wash    the colour wash over footage is halved when the previews are too monochrome, dark or dull
+ *   reseed_sound   sound effects and music are picked again when they lean on one family or on earlier films
+ *   prune_shapes   an outlined box or circle that frames nothing is removed from its scene
+ * "blocker" checks stop the render when they still fail; "advisory" checks are reported (they have no automatic
+ * repair — e.g. how expressive a fixed voice is — and the finished-film gate still judges them).
+ */
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
+import type { RenderManifest, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
+import { contactSheet, measureLook, measurePace, measureProsody, measureSound, pct, r3, rgbFrames } from "@opumia/senses";
+import type { ExemplarIndex } from "./exemplars.js";
+
+export type Repair = "drop_picture" | "safe_scene" | "soften_wash" | "reseed_sound" | "prune_shapes";
+export interface PreflightCheck {
+  id: string;
+  label: string;
+  value: number;
+  target: string;
+  pass: boolean;
+  level: "blocker" | "advisory";
+  repair?: Repair;
+  /** Shots the repair applies to. */
+  shots?: string[];
+  note?: string;
+}
+
+/**
+ * How much one colour carries a set of frames: each frame's dominant hue family (12 families, weighted by how
+ * saturated and bright the pixels are); the result is the share of coloured frames whose family is the film's
+ * most common one or its neighbour. A film washed in one tone scores near 1; the reference films score lower.
+ */
+export async function hueDominance(frames: string[]): Promise<number | null> {
+  const fam: number[] = [];
+  for (const f of frames) {
+    const px = (await rgbFrames(f, { fps: 1, w: 64, h: 36 }).catch(() => []))[0];
+    if (!px) continue;
+    const hist = new Array<number>(12).fill(0);
+    let coloured = 0;
+    for (let i = 0; i + 2 < px.length; i += 3) {
+      const r = px[i]! / 255;
+      const g = px[i + 1]! / 255;
+      const b = px[i + 2]! / 255;
+      const mx = Math.max(r, g, b);
+      const mn = Math.min(r, g, b);
+      const d = mx - mn;
+      if (mx < 0.18 || d / (mx || 1) < 0.3) continue;
+      const h = (mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+      hist[Math.floor(h / 30) % 12]! += d * mx;
+      coloured++;
+    }
+    if (coloured < px.length / 3 / 8) continue; // a near-neutral frame has no colour family
+    fam.push(hist.indexOf(Math.max(...hist)));
+  }
+  if (fam.length < 6) return null;
+  const count = new Array<number>(12).fill(0);
+  for (const k of fam) count[k]!++;
+  const top = count.indexOf(Math.max(...count));
+  return fam.filter((k) => k === top || k === (top + 1) % 12 || k === (top + 11) % 12).length / fam.length;
+}
+
+/** The same measure on every reference film's labelled shots (cached in data/.cache): the channel's own range. */
+export async function referenceHueDominance(data: string, ex: ExemplarIndex): Promise<{ p50: number; p75: number; max: number; films: number } | null> {
+  const file = path.join(data, ".cache", `hue-dominance-${ex.channel}.json`);
+  const hit = await readFile(file, "utf8").then((t) => JSON.parse(t) as { generatedAt: string; p50: number; p75: number; max: number; films: number }, () => null);
+  if (hit && hit.generatedAt === ex.generatedAt) return hit;
+  const dir = path.join(data, "exemplars", ex.channel);
+  const byFilm = new Map<string, string[]>();
+  for (const sh of ex.shots) byFilm.set(sh.film, [...(byFilm.get(sh.film) ?? []), ...sh.frames.slice(-1).map((f) => path.join(dir, f))]);
+  const vals: number[] = [];
+  for (const frames of byFilm.values()) {
+    const v = frames.length >= 8 ? await hueDominance(frames) : null;
+    if (v !== null) vals.push(v);
+  }
+  if (vals.length < 3) return null;
+  const out = { generatedAt: ex.generatedAt, p50: r3(pct(vals, 0.5)), p75: r3(pct(vals, 0.75)), max: r3(Math.max(...vals)), films: vals.length };
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(`${file}.tmp`, JSON.stringify(out, null, 2) + "\n");
+  await rename(`${file}.tmp`, file);
+  return out;
+}
+
+type Scene = ScenePlan["scenes"][number];
+/** An outlined box or circle with no other element inside it: it frames nothing. */
+const framesNothing = (sc: Scene, e: Scene["elements"][number]): boolean => {
+  if (e.type !== "shape" || (e.shape !== "rect" && e.shape !== "circle") || e.w < 0.12 || e.h < 0.06) return false;
+  return !sc.elements.some((x) => {
+    if (x === e || x.type === "texture") return false;
+    const cx = x.x + x.w / 2;
+    const cy = x.y + ("size" in x ? x.size / 2 : 0.03);
+    return cx > e.x - 0.02 && cx < e.x + e.w + 0.02 && cy > e.y - 0.03 && cy < e.y + e.h + 0.03;
+  });
+};
+
+/** Scenes holding such a shape: shot id → how many. */
+export function emptyFrames(scenes: ScenePlan): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const sc of scenes.scenes) {
+    const n = sc.elements.filter((e) => framesNothing(sc, e)).length;
+    if (n) out.set(sc.shotId, n);
+  }
+  return out;
+}
+
+/** prune_shapes repair: remove them (a scene always keeps at least one element). */
+export function pruneEmptyFrames(scenes: ScenePlan): ScenePlan {
+  return {
+    ...scenes,
+    scenes: scenes.scenes.map((sc) => {
+      const keep = sc.elements.filter((e) => !framesNothing(sc, e));
+      return keep.length && keep.length < sc.elements.length ? { ...sc, elements: keep } : sc;
+    }),
+  };
+}
+
+const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").then((t) => JSON.parse(t) as T, () => null);
+const baseRef = (ref: string) => ref.split("#")[0]!.split("@")[0]!;
+
+export interface PreflightInput {
+  jobDir: string;
+  board: Storyboard;
+  scenes: ScenePlan;
+  resolution: ResolutionReport;
+  manifest: RenderManifest;
+  timed: TimedScript;
+  exemplars: ExemplarIndex | null;
+  /** The voice's own measured pace (words a minute) — the narration is checked against this, not the reference. */
+  naturalWpm?: number;
+  /** Scenes that still show a visible defect on their final preview (shot id → what is wrong). */
+  sceneDefects: Map<string, string[]>;
+  /** Middle preview frame of every scene (final design). */
+  previewFrames: string[];
+  /** The channel's own range for how much one colour carries a film (referenceHueDominance). */
+  hueRef?: { p75: number; max: number } | null;
+  /** Pictures and sounds the recent films used (cross-film cooldown). */
+  recent: { pictures: Set<string>; sfx: Set<string>; music: Set<string> };
+}
+
+export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck[]> {
+  const out: PreflightCheck[] = [];
+  const add = (c: PreflightCheck) => out.push({ ...c, value: r3(c.value) });
+  const shots = o.board.shots;
+  const pics = o.resolution.media.filter((m) => m.role === "primary" || m.role === "layer");
+
+  // --- Pictures: nothing repeated inside the film, nothing a recent film used.
+  {
+    const seen = new Map<string, string>();
+    const dupShots: string[] = [];
+    for (const m of [...pics].sort((a, b) => a.shotId.localeCompare(b.shotId))) {
+      // The same logo or portrait may anchor several scenes as a small picture; footage and web photos may not repeat.
+      if (m.role === "layer" && m.provider === "wikipedia") continue;
+      const k = baseRef(m.ref);
+      if (seen.has(k) && seen.get(k) !== m.shotId) dupShots.push(m.shotId);
+      else seen.set(k, m.shotId);
+    }
+    add({ id: "repeat_in_film", label: "Pictures used more than once in the film", value: dupShots.length, target: "0", pass: dupShots.length === 0, level: "blocker", repair: "drop_picture", shots: dupShots });
+    const shared = pics.filter((m) => !(m.provider === "wikipedia") && o.recent.pictures.has(baseRef(m.ref))).map((m) => m.shotId);
+    add({ id: "shared_pictures", label: "Pictures a recent film already used", value: shared.length, target: "0", pass: shared.length === 0, level: "blocker", repair: "drop_picture", shots: shared });
+  }
+
+  // --- Fair use: one clip per source video, clips ≤ 7.5 s, press footage ≤ 45 % of the runtime.
+  {
+    const clips = o.resolution.media.filter((m) => m.role === "primary" && m.origin === "press" && m.kind === "video");
+    const byVideo = new Map<string, string[]>();
+    for (const c of clips) byVideo.set(baseRef(c.ref), [...(byVideo.get(baseRef(c.ref)) ?? []), c.shotId]);
+    const extra = [...byVideo.values()].flatMap((v) => v.sort().slice(1));
+    add({ id: "fair_use_one_clip", label: "Extra clips taken from one source video", value: extra.length, target: "0", pass: extra.length === 0, level: "blocker", repair: "drop_picture", shots: extra });
+    const dur = (id: string) => {
+      const sh = shots.find((x) => x.id === id);
+      return sh ? sh.endS - sh.startS : 0;
+    };
+    const long = clips.filter((c) => (c.fairUse?.usedS ?? dur(c.shotId)) > 7.5).map((c) => c.shotId);
+    add({ id: "fair_use_clip_length", label: "Press clips longer than 7.5 s", value: long.length, target: "0", pass: long.length === 0, level: "blocker", repair: "drop_picture", shots: long });
+    const share = clips.reduce((t, c) => t + dur(c.shotId), 0) / Math.max(1, o.timed.durationS);
+    add({ id: "fair_use_share", label: "Share of the runtime on press footage", value: share, target: "≤ 0.45", pass: share <= 0.45, level: "blocker", repair: "drop_picture", shots: share > 0.45 ? clips.sort((a, b) => dur(b.shotId) - dur(a.shotId)).slice(0, 1).map((c) => c.shotId) : [] });
+  }
+
+  // --- Coverage: enough of the film stands on real pictures (from the sourcing report).
+  {
+    const src = await readJson<{ needPicture: number; withFootage: number; withScenePictureOnly: number; refusedByRateLimit?: Record<string, number> }>(path.join(o.jobDir, "sourcing.json"));
+    if (src && src.needPicture) {
+      const cov = (src.withFootage + src.withScenePictureOnly) / src.needPicture;
+      const refused = Object.values(src.refusedByRateLimit ?? {}).reduce((t, n) => t + n, 0);
+      add({ id: "picture_coverage", label: "Shots that need a picture and have one", value: cov, target: "≥ 0.6", pass: cov >= 0.6, level: "blocker", ...(refused ? { note: `${refused} searches were refused by rate limits — run sourcing again later (--redo resolve)` } : { note: "sourcing and its re-plan already ran; a film this bare would be a slide deck" }) });
+    }
+  }
+
+  // --- Edit: designed treatment on nearly every shot, little plain slow-zoom footage, no long run on one bare backdrop.
+  {
+    const designedShots = new Set(o.manifest.video.filter((l) => l.sourceKind === "designed" && !["captions", "atmosphere", "chapter_card"].includes(l.ref)).map((l) => l.shotId));
+    const treated = shots.filter((s) => designedShots.has(s.id)).length / Math.max(1, shots.length);
+    const slow = shots.filter((s) => !designedShots.has(s.id) && (s.camera.type === "ken_burns" || s.camera.type === "static")).length / Math.max(1, shots.length);
+    add({ id: "designed_share", label: "Shots with designed treatment", value: treated, target: "≥ 0.7", pass: treated >= 0.7, level: "blocker" });
+    add({ id: "slow_zoom_share", label: "Plain footage with only a slow zoom or static", value: slow, target: "≤ 0.2", pass: slow <= 0.2, level: "blocker" });
+    const order = [...o.scenes.scenes].sort((a, b) => a.shotId.localeCompare(b.shotId));
+    let run = 0;
+    let worst = 0;
+    for (const [k, sc] of order.entries()) {
+      run = sc.backdrop !== "footage" && sc.backdrop !== "split" && order[k - 1]?.backdrop === sc.backdrop ? run + 1 : 1;
+      if (sc.backdrop !== "footage" && sc.backdrop !== "split") worst = Math.max(worst, run);
+    }
+    add({ id: "bare_backdrop_run", label: "Longest run of scenes on the same picture-less backdrop", value: worst, target: "≤ 2", pass: worst <= 2, level: "blocker" });
+    const bare = order.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).length / Math.max(1, order.length);
+    add({ id: "picture_less_scenes", label: "Scenes with no picture at all (text and shapes on colour)", value: bare, target: "≤ 0.35", pass: bare <= 0.35, level: "blocker", note: "more of these and the film reads as a slide deck" });
+  }
+
+  // --- Scenes: no outlined box or circle that frames nothing.
+  {
+    const ef = emptyFrames(o.scenes);
+    add({ id: "empty_frames", label: "Scenes with an outlined box or circle that frames nothing", value: ef.size, target: "0", pass: ef.size === 0, level: "blocker", repair: "prune_shapes", shots: [...ef.keys()] });
+  }
+
+  // --- Scenes: nothing with a visible defect goes to render.
+  add({ id: "scene_defects", label: "Scenes with a visible defect on the final preview", value: o.sceneDefects.size, target: "0", pass: o.sceneDefects.size === 0, level: "blocker", repair: "safe_scene", shots: [...o.sceneDefects.keys()], ...(o.sceneDefects.size ? { note: [...o.sceneDefects.entries()].slice(0, 4).map(([k, v]) => `${k}: ${v[0]}`).join("; ") } : {}) });
+
+  // --- Look, measured on the final preview frames against the channel's own films (movement needs the render).
+  const band = o.exemplars?.looks.band;
+  if (band && o.previewFrames.length >= 4) {
+    const sheet = await contactSheet(o.previewFrames, path.join(o.jobDir, "preflight_look.jpg"), { cols: 6, cellW: 320 });
+    const look = await measureLook(sheet).catch(() => null);
+    if (look) {
+      add({ id: "preview_luma", label: "Brightness of the scenes", value: look.luma, target: `≥ ${band.luma.p25}`, pass: look.luma >= band.luma.p25 * 0.95, level: "blocker", repair: "soften_wash" });
+      add({ id: "preview_colourfulness", label: "Colourfulness of the scenes", value: look.colourfulness, target: `≥ ${band.colourfulness.p25}`, pass: look.colourfulness >= band.colourfulness.p25 * 0.95, level: "blocker", repair: "soften_wash" });
+      add({ id: "preview_hue_spread", label: "Colour variety across the scenes", value: look.hueSpread, target: `≥ ${band.hueSpread.p25}`, pass: look.hueSpread >= band.hueSpread.p25 * 0.95, level: "blocker", repair: "soften_wash" });
+    }
+    const dom = await hueDominance(o.previewFrames);
+    if (dom !== null && o.hueRef) {
+      const lim = Math.min(0.95, Math.max(o.hueRef.p75 * 1.1, o.hueRef.max));
+      add({ id: "one_colour_film", label: "Share of scenes carried by the same colour (a film washed in one tone reads as monochrome)", value: dom, target: `≤ ${r3(lim)} (the channel's films: up to ${o.hueRef.max})`, pass: dom <= lim, level: "blocker", repair: "soften_wash" });
+    }
+  }
+
+  // --- Uniqueness of the plan against earlier films.
+  {
+    const fp = await readJson<{ closest: { to: string; over: string[] } | null }>(path.join(o.jobDir, "fingerprint.json"));
+    const over = fp?.closest?.over ?? [];
+    const soundOnly = over.length > 0 && over.every((x) => x.startsWith("sound"));
+    add({ id: "unique_plan", label: `Respects in which the plan is too close to ${fp?.closest?.to ?? "an earlier film"}`, value: over.length, target: "0", pass: over.length === 0, level: "blocker", ...(soundOnly ? { repair: "reseed_sound" as const } : {}), ...(over.length ? { note: over.join("; ") } : {}) });
+  }
+
+  // --- Sound: no effect or bed a recent film used; no single family carrying the film.
+  {
+    const sfx = shots.flatMap((s) => s.sfx.map((f) => f.assetId));
+    const sharedSfx = [...new Set(sfx)].filter((x) => o.recent.sfx.has(x)).length / Math.max(1, new Set(sfx).size);
+    add({ id: "shared_sfx", label: "Sound effects a recent film already used", value: sharedSfx, target: "≤ 0.34 of the film's effects", pass: sharedSfx <= 0.34, level: "blocker", repair: "reseed_sound" });
+    const sharedMusic = o.board.music.filter((m) => o.recent.music.has(m.assetId)).length;
+    add({ id: "shared_music", label: "Music beds a recent film already used", value: sharedMusic, target: "0", pass: sharedMusic === 0, level: "blocker", repair: "reseed_sound" });
+    const files = o.resolution.media.filter((m) => m.role === "sfx").map((m) => m.localPath);
+    if (files.length >= 3) {
+      const fam = new Map<string, number>();
+      for (const f of [...new Set(files)].slice(0, 24)) {
+        const c = await measureSound(f).catch(() => null);
+        if (c) fam.set(c.family, (fam.get(c.family) ?? 0) + 1);
+      }
+      const total = [...fam.values()].reduce((t, v) => t + v, 0);
+      if (total) {
+        const top = Math.max(...fam.values()) / total;
+        add({ id: "sfx_variety", label: "Share of the most-used sound family", value: top, target: "≤ 0.6", pass: top <= 0.6, level: "blocker", repair: "reseed_sound" });
+      }
+    }
+  }
+
+  // --- Voice. Words must be right (blockers). Pace is checked against THIS voice's natural pace, never the
+  // reference narrator's. Expressiveness is compared with the reference narrator and reported (a fixed voice
+  // has no automatic repair for it).
+  {
+    const rep = await readJson<{ wer: number | null; unresolved: string[] }>(path.join(o.jobDir, "narration.report.json"));
+    if (rep) {
+      add({ id: "voice_unresolved", label: "Narration lines with an unresolved word or pronunciation problem", value: rep.unresolved.length, target: "0", pass: rep.unresolved.length === 0, level: "blocker", ...(rep.unresolved.length ? { note: `${rep.unresolved.slice(0, 2).join("; ")} — re-run the narration (--redo narration)` } : {}) });
+      if (rep.wer !== null) add({ id: "voice_wer", label: "Word error against the script", value: rep.wer, target: "≤ 0.01", pass: rep.wer <= 0.01, level: "blocker" });
+    }
+    const words = o.timed.segments.flatMap((s) => s.words.map((w) => ({ word: w.word, start: w.startS, end: w.endS })));
+    const pace = measurePace(words);
+    if (o.naturalWpm) add({ id: "voice_natural_pace", label: "Narration pace against this voice's own natural pace (wpm)", value: pace.wpm, target: `${Math.round(o.naturalWpm * 0.88)}–${Math.round(o.naturalWpm * 1.12)} (natural ${o.naturalWpm})`, pass: pace.wpm >= o.naturalWpm * 0.88 && pace.wpm <= o.naturalWpm * 1.12, level: "blocker", note: "outside this band the voice was pushed or dragged" });
+    const n = o.exemplars?.narrator;
+    if (n) {
+      add({ id: "voice_pace_variety", label: "Pace variety between sentences", value: pace.sentenceWpmStd, target: `≥ ${r3(n.sentenceWpmStd * 0.7)}`, pass: pace.sentenceWpmStd >= n.sentenceWpmStd * 0.7, level: "advisory" });
+      const p = await measureProsody(o.timed.voice.audioPath).catch(() => null);
+      if (p) {
+        add({ id: "voice_pitch_travel", label: "Pitch travel (semitones)", value: p.f0RangeSt, target: `≥ ${n.prosody.f0RangeSt.p25}`, pass: p.f0RangeSt >= n.prosody.f0RangeSt.p25 * 0.95, level: "advisory" });
+        add({ id: "voice_melody", label: "Phrase melody (semitones)", value: p.melodySt, target: `≥ ${n.prosody.melodySt.p25}`, pass: p.melodySt >= n.prosody.melodySt.p25 * 0.95, level: "advisory" });
+        add({ id: "voice_dynamics", label: "Voice dynamics (dB)", value: p.energyStdDb, target: `≥ ${n.prosody.energyStdDb.p25}`, pass: p.energyStdDb >= n.prosody.energyStdDb.p25 * 0.9, level: "advisory" });
+      }
+      if (n.wordGapPausesPerMin) {
+        let g = 0;
+        for (let k = 0; k + 1 < words.length; k++) if (words[k + 1]!.start - words[k]!.end >= 0.25) g++;
+        const perMin = (g / Math.max(1, o.timed.durationS)) * 60;
+        const lim = Math.max(4, n.wordGapPausesPerMin.p75 * 1.3);
+        add({ id: "voice_pauses", label: "Pauses per minute (≥ 0.25 s)", value: perMin, target: `≤ ${r3(lim)}`, pass: perMin <= lim, level: "advisory" });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * drop_picture repair: the offending picture is taken out of its shot (the earlier use of a repeated picture
+ * stays). Returns the trimmed media list and the shots whose scenes must be designed again without it.
+ */
+export function dropPictures(resolution: ResolutionReport, checks: PreflightCheck[], recent: Set<string>): { media: ResolutionReport["media"]; shots: Set<string> } {
+  const failing = checks.filter((c) => !c.pass && c.repair === "drop_picture" && c.shots?.length);
+  const want = (id: string) => new Set(failing.filter((c) => c.id === id).flatMap((c) => c.shots ?? []));
+  const repeat = want("repeat_in_film");
+  const shared = want("shared_pictures");
+  const press = new Set(failing.filter((c) => c.id.startsWith("fair_use")).flatMap((c) => c.shots ?? []));
+  const first = new Map<string, string>();
+  for (const m of [...resolution.media].filter((x) => x.role === "primary" || x.role === "layer").sort((x, y) => x.shotId.localeCompare(y.shotId))) if (!first.has(baseRef(m.ref))) first.set(baseRef(m.ref), m.shotId);
+  const shots = new Set<string>();
+  const media = resolution.media.filter((m) => {
+    if (m.role !== "primary" && m.role !== "layer") return true;
+    const wiki = m.role === "layer" && m.provider === "wikipedia";
+    const gone = (repeat.has(m.shotId) && !wiki && first.get(baseRef(m.ref)) !== m.shotId) || (shared.has(m.shotId) && !wiki && recent.has(baseRef(m.ref))) || (press.has(m.shotId) && m.role === "primary" && m.origin === "press");
+    if (gone) shots.add(m.shotId);
+    return !gone;
+  });
+  return { media, shots };
+}
+
+/** A scene reduced to its clean core: its backdrop and its first spoken phrase (or headline), set in the safe lower-left. */
+export function safeScene(spec: ScenePlan["scenes"][number]): ScenePlan["scenes"][number] {
+  const phrase = spec.elements.find((e) => e.type === "phrase") ?? spec.elements.find((e) => e.type === "text");
+  const picture = spec.backdrop === "footage" || spec.backdrop === "split" ? undefined : spec.elements.find((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d");
+  const els: ScenePlan["scenes"][number]["elements"] = [];
+  if (picture && "x" in picture) els.push({ ...picture, x: 0.52, y: 0.16, w: 0.4, rot: 0, at: 0 });
+  if (phrase && phrase.type === "phrase") els.push({ ...phrase, x: 0.07, y: picture ? 0.36 : 0.6, w: picture ? 0.4 : 0.6, rot: 0, at: 0, align: "left", size: Math.min(phrase.size, 0.07) });
+  else if (phrase && phrase.type === "text") els.push({ ...phrase, x: 0.07, y: picture ? 0.4 : 0.62, w: picture ? 0.4 : 0.6, rot: 0, at: 0, align: "left", size: Math.min(phrase.size, 0.09) });
+  if (!els.length) return spec;
+  return { ...spec, elements: els, idea: `${spec.idea} [reduced to its clean core by the preflight gate]` };
+}

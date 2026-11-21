@@ -1,15 +1,18 @@
 import { copyFile, readFile, stat, writeFile, mkdir, readdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
-import { calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, tempoFit, writeCalibration } from "@opumia/narration";
+import { CHANNEL_VOICES, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { repairShots, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
+import { loadExemplars } from "./exemplars.js";
+import { dropPictures, preflightChecks, pruneEmptyFrames, referenceHueDominance, safeScene, type PreflightCheck } from "./preflight.js";
 import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
@@ -51,7 +54,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.3, B2: 0.12, B3: 0.45, B4: 0.3, B5: 0.02, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.3, B2: 0.12, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -156,7 +159,8 @@ async function produceStages(o: ProduceOptions) {
   const ovPath = path.join(o.data, "license-overrides.json");
   const overrides = (await exists(ovPath)) ? LicenseOverrides.parse(JSON.parse(await readFile(ovPath, "utf8"))) : null;
   const maxWpm = overrides?.channels[channel]?.maxWpm ?? Infinity;
-  const narrationWpm = Math.round(Math.min(cal[calKey]?.wpm ?? 145, maxWpm));
+  // The script is cut to the pace this voice naturally speaks at (measured), never the reference narrator's pace.
+  const narrationWpm = Math.round(Math.min(cal[calKey]?.wpm ?? CHANNEL_VOICES[channel].naturalWpm ?? 145, maxWpm));
   const narrationTargetS = short ? o.durationS - 3 : o.durationS;
   let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), log }), log);
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
@@ -190,8 +194,9 @@ async function produceStages(o: ProduceOptions) {
   const maxS = short ? o.durationS - 1 : o.durationS * 1.1;
   const minS = short ? o.durationS - 8 : o.durationS * 0.9;
   if (fresh) await recordCalibration(timed);
-  // Small overshoot (≤ 6 %) is tempo-fitted below instead of re-writing (saves a TTS call).
-  if (timed.durationS > maxS * 1.06 || timed.durationS < minS) {
+  // Length is fitted with words, never by stretching the voice: outside the window the script is re-written once
+  // at this narration's own measured pace (takes are cached per line, so only changed lines are recorded again).
+  if (timed.durationS > maxS || timed.durationS < minS) {
     const words = timed.segments.reduce((n, sg) => n + sg.words.length, 0);
     const span = (timed.segments.at(-1)?.endS ?? timed.durationS) - (timed.segments[0]?.startS ?? 0);
     const measured = (words / Math.max(1, span)) * 60; // this script's own pace is the best predictor for its re-write
@@ -201,13 +206,9 @@ async function produceStages(o: ProduceOptions) {
     timed = await cachedJson(timedPath, TimedScript, true, doNarrate, log);
     await recordCalibration(timed);
   }
-  if (timed.durationS > maxS && timed.durationS <= maxS * 1.06) {
-    timed = await tempoFit(timed, maxS - 0.5, log);
-    await writeFile(timedPath, JSON.stringify(timed, null, 2) + "\n");
-  }
-  {
-    if (timed.durationS > maxS) throw new Error(`narration still ${timed.durationS.toFixed(1)} s after one re-fit; shorten the script or raise voice speed`);
-  }
+  // A small miss after the re-fit is accepted as it is (the voice is not touched); a large one stops the job.
+  if (timed.durationS > maxS * 1.05) throw new Error(`narration still ${timed.durationS.toFixed(1)} s after one re-fit (limit ${maxS.toFixed(1)} s); the script needs cutting`);
+  if (timed.durationS > maxS) log(`  narration runs ${(timed.durationS - maxS).toFixed(1)} s over the target and is kept at its natural pace`);
   log(`  narration ${timed.durationS.toFixed(2)} s, ${timed.segments.length} segments`);
   if (stop("narration")) return { jobDir };
 
@@ -309,12 +310,11 @@ async function produceStages(o: ProduceOptions) {
   }
   // [B5] Timeline sound design: sound goes on what the viewer sees, once the scenes are final.
   const soundFile = path.join(jobDir, "sound.json");
-  if (freshScenes || !(await exists(soundFile))) {
-    log("\n[B5] timeline sound design");
+  const designSound = async (seed: string) => {
     const ap = await buildAudioProfile({ data: o.data, library: o.library, index, log });
     const cool = await cooldownRefs(o.data, jobId);
     const usable = index.assets.filter(isUsable);
-    const sd = designSoundTimeline({ storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed: jobId, drops: board.music.flatMap((m) => m.drops ?? []), log });
+    const sd = designSoundTimeline({ storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed, drops: board.music.flatMap((m) => m.drops ?? []), log });
     board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
     await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
     resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
@@ -323,9 +323,13 @@ async function produceStages(o: ProduceOptions) {
     await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     await writeFile(soundFile, JSON.stringify(sd.report, null, 2) + "\n");
     await recordUsage(o.data, jobId, resolution, board);
+  };
+  if (freshScenes || !(await exists(soundFile))) {
+    log("\n[B5] timeline sound design");
+    await designSound(jobId);
   }
   // Fingerprint of this film against the earlier ones — the plan is checked before the render is paid for.
-  {
+  const writeFingerprint = async () => {
     const fp = fingerprintOf({ job: jobId, channel, design, draft, board, scenes: scenePlan });
     const near = closest(fp, recentFps);
     await saveFingerprint(o.data, fp);
@@ -345,8 +349,114 @@ async function produceStages(o: ProduceOptions) {
       near ? `**Closest earlier film:** ${near.to} (overall similarity ${near.sim.overall}${near.over.length ? `; too close in ${near.over.join(", ")}` : "; within every limit"})` : `**Closest earlier film:** none on record`,
       ``,
     ].join("\n"));
+  };
+  await writeFingerprint();
+
+  // [B6] Preflight gate: every release-gate check that can be computed before the render runs here, on the plan,
+  // the final scene previews and the narration. A failing check with a repair is repaired and checked again
+  // (two rounds); what still fails is written down and the render is refused.
+  const preFile = path.join(jobDir, "preflight.json");
+  if (scenePlan.scenes.length && (freshScenes || redo("render") || !(await exists(preFile)))) {
+    log("\n[B6] preflight gate (checked before any render)");
+    const ex = await loadExemplars(o.data, channel);
+    const recent = await cooldownRefs(o.data, jobId);
+    const hueRef = ex ? await referenceHueDominance(o.data, ex) : null;
+    const lookP = lookFromProfile(pack.profile.look, design.palette.primarySoft);
+    const allW = timed.segments.flatMap((sg) => sg.words);
+    const lineOf = (id: string) => {
+      const sh = board.shots.find((x) => x.id === id);
+      return sh ? allW.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : "";
+    };
+    const prevDir = path.join(jobDir, "previews");
+    const people = (facts.story?.characters ?? []).map((c) => c.name);
+    // Previews from B4 are still right for scenes that were not revised; the rest are rendered again.
+    const revised = await readFile(reviewFile, "utf8").then((t) => Object.keys((JSON.parse(t) as { flagged: Record<string, unknown> }).flagged), () => [] as string[]);
+    let stale = new Set(scenePlan.scenes.map((x) => x.shotId).filter((id) => revised.includes(id) || !existsSync(path.join(prevDir, `${id}_sheet.jpg`))));
+    let look2 = new Set(scenePlan.scenes.map((x) => x.shotId)); // scenes whose final preview the critic has not seen yet
+    const defects = new Map<string, string[]>();
+    const rounds: Array<{ round: number; failing: string[]; repairs: string[] }> = [];
+    let checks: PreflightCheck[] = [];
+    let soundRound = 0;
+    for (let round = 0; ; round++) {
+      if (stale.size) {
+        await renderShotPreviews({ manifest, look: lookP, design, publicDir: pub, outDir: prevDir, shotIds: [...stale], log });
+        for (const id of stale) look2.add(id);
+        stale = new Set();
+      }
+      if (look2.size) {
+        const ids = [...look2].filter((id) => existsSync(path.join(prevDir, `${id}_sheet.jpg`)));
+        const found = await critiqueScenes({ channel, previews: ids.map((id) => ({ shotId: id, sheet: path.join(prevDir, `${id}_sheet.jpg`), line: lineOf(id), idea: scenePlan.scenes.find((x) => x.shotId === id)?.idea ?? "" })), reference: exemplars.slice(0, 4).map((e) => e.path), maxShare: 1 });
+        for (const id of ids) defects.delete(id);
+        for (const [k2, v] of found) defects.set(k2, v);
+        look2 = new Set();
+      }
+      checks = await preflightChecks({ jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...(CHANNEL_VOICES[channel].naturalWpm ? { naturalWpm: CHANNEL_VOICES[channel].naturalWpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent });
+      const failing = checks.filter((c) => !c.pass && c.level === "blocker");
+      const fixable = failing.filter((c) => c.repair);
+      const done: string[] = [];
+      if (fixable.length && round < 2) {
+        // drop_picture: remove the offending picture, then design those scenes again without it.
+        const drop = dropPictures(resolution, fixable, recent.pictures);
+        if (drop.shots.size) {
+          resolution = ResolutionReport.parse({ ...resolution, media: drop.media });
+          const ids = scenePlan.scenes.map((x) => x.shotId).filter((id) => drop.shots.has(id));
+          if (ids.length) scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(ids.map((id) => [id, ["a picture was removed from this shot (it repeated another shot or broke a sourcing rule): design the scene again from what is left"]])), previous: scenePlan, log });
+          for (const id of ids) stale.add(id);
+          done.push(`drop_picture: ${[...drop.shots].join(", ")}`);
+        }
+        // safe_scene: a scene that is still visibly wrong after its revision is reduced to its clean core.
+        const unsafe = new Set(fixable.filter((c) => c.repair === "safe_scene").flatMap((c) => c.shots ?? []));
+        if (unsafe.size) {
+          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (unsafe.has(sc.shotId) ? safeScene(sc) : sc)) });
+          for (const id of unsafe) stale.add(id);
+          done.push(`safe_scene: ${[...unsafe].join(", ")}`);
+        }
+        // prune_shapes: outlined boxes and circles that frame nothing are removed.
+        const empties = new Set(fixable.filter((c) => c.repair === "prune_shapes").flatMap((c) => c.shots ?? []));
+        if (empties.size) {
+          scenePlan = ScenePlan.parse(pruneEmptyFrames(scenePlan));
+          for (const id of empties) stale.add(id);
+          done.push(`prune_shapes: ${[...empties].join(", ")}`);
+        }
+        // soften_wash: halve the colour wash over footage when the previews are too dark, dull or monochrome.
+        if (fixable.some((c) => c.repair === "soften_wash") && scenePlan.scenes.some((sc) => sc.wash)) {
+          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.wash ? { ...sc, wash: { ...sc.wash, strength: Math.round(sc.wash.strength * 50) / 100 }, dim: Math.round(sc.dim * 80) / 100 } : sc)) });
+          for (const sc of scenePlan.scenes) if (sc.wash) stale.add(sc.shotId);
+          done.push("soften_wash: colour wash and dimming reduced on every washed scene");
+        }
+        // reseed_sound: pick the effects and music again.
+        if (fixable.some((c) => c.repair === "reseed_sound")) {
+          soundRound++;
+          await designSound(`${jobId}#${soundRound}`);
+          done.push("reseed_sound: effects and music picked again");
+        }
+        // Sound follows what is on screen: when scenes changed, the sound timeline is laid again on the final scenes.
+        if (done.some((d) => /^(drop_picture|safe_scene|prune_shapes)/.test(d)) && !done.some((d) => d.startsWith("reseed_sound"))) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId);
+        if (done.length) {
+          await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+          await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+          manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+          await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+          await writeFingerprint();
+        }
+      }
+      rounds.push({ round, failing: failing.map((c) => c.id), repairs: done });
+      log(`  preflight round ${round + 1}: ${checks.filter((c) => c.pass).length}/${checks.length} checks pass${failing.length ? ` — failing: ${failing.map((c) => c.id).join(", ")}` : ""}${done.length ? ` → repaired: ${done.map((d) => d.split(":")[0]).join(", ")}` : ""}`);
+      if (!done.length) break;
+    }
+    const blockers = checks.filter((c) => !c.pass && c.level === "blocker");
+    const advisory = checks.filter((c) => !c.pass && c.level === "advisory");
+    await writeFile(preFile, JSON.stringify({ at: new Date().toISOString(), pass: blockers.length === 0, rounds, blockers: blockers.map((c) => c.id), advisory: advisory.map((c) => c.id), checks }, null, 2) + "\n");
+    for (const c of blockers) log(`  ✗ ${c.label}: ${c.value} (target ${c.target})${c.note ? ` — ${c.note}` : ""}`);
+    for (const c of advisory) log(`  ~ ${c.label}: ${c.value} (target ${c.target}) — reported, no automatic repair`);
+    log(blockers.length ? `  preflight: NOT ready to render — ${blockers.length} check(s) still fail` : `  preflight: ready to render${advisory.length ? ` (${advisory.length} advisory note(s))` : ""}`);
   }
   if (stop("manifest")) return { jobDir };
+  {
+    // Only a plan that passed is rendered (OPUMIA_PREFLIGHT=warn renders anyway, for debugging).
+    const pre = await readFile(preFile, "utf8").then((t) => JSON.parse(t) as { pass: boolean; blockers: string[] }, () => null);
+    if (pre && !pre.pass && process.env.OPUMIA_PREFLIGHT !== "warn" && (redo("render") || !(await exists(finalPath)))) throw new Error(`preflight gate: the plan would not pass the release gate (${pre.blockers.join(", ")}) — see preflight.json; nothing was rendered`);
+  }
 
   log("\n[C2] Remotion render + FFmpeg mastering");
   const silent = path.join(jobDir, "video_silent.mp4");

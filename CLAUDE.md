@@ -256,11 +256,31 @@ Sourcing is planned per film, not searched blind (`resolver/widen.ts`, `resolver
 3. **Pauses set in code from the audio:** lead-in/tail trimmed, silences inside a line capped (0.19 s → 0.11 s), gaps between lines from the director (0.03 / 0.10 / 0.36 s; a held beat at most one line in six). Reference narrator: ≈ 2.8 pauses ≥ 0.25 s per minute.
 4. **Listen-back** (`@opumia/senses`): `transcribe` (Whisper, no name hints) + `diffSpeech` against the script; the **sound check** recognises the phonemes of each whole line once (`spokenPhonemes`: wav2vec2-espeak ONNX on onnxruntime-node, model in `data/models/phoneme/`) and looks for each risky word's target around its place in the line (`phonemeMatch`). A word passes on its **consonant skeleton** (≥ 0.8); the recogniser cannot judge vowel or stress errors — that limit is real.
 5. **Retakes:** only failing lines; first a fresh take, then a respelled one; the best take per line is always kept. Unresolved lines are written to `narration.report.json` and fail the release gate (`voice_unresolved`, `voice_wer`).
-6. **Voice settings live in code** (`narration/voice.ts`): MagnatesMedia Christopher stability 0.28 / style 0.55 / speed 1.08 → ≈ 206 wpm, pitch travel 12 st, measured against the reference narrator.
+6. **Voice settings live in code** (`narration/voice.ts`): MagnatesMedia Christopher stability 0.28 / style 0.55 / **speed 1.0**.
+7. **Natural pace (owner decision 2026-11-22, overrides every older pace note in this file):** a voice speaks at its own natural pace — speed 1.0 on every line, never pushed toward the reference narrator's words a minute and never time-stretched (`atempo` is gone from the directed path and `tempoFit` is no longer called). The reference teaches expressiveness (pitch travel, melody, pauses, variety), not speed. `CHANNEL_VOICES[channel].naturalWpm` is the voice's measured pace (Christopher 190 wpm, measured on a 262-word script: pace variety 29, pitch travel 11.4 st, melody 2.8, 0 % word error): scripts are cut to it, length is fitted by re-writing words (takes are cached per line), and both gates check the narration against the voice's own band (±12 %). The voice director's pace note shapes the pauses around a line, not the speed. No re-audition: Christopher stays.
 
 Speech recognition backends (`senses/asr.ts`, `OPUMIA_ASR=local|cloudflare`): **local** whisper.cpp (`brew install whisper-cpp`, model `data/models/ggml-large-v3-turbo-q5_0.bin`) and **Cloudflare Workers AI** `@cf/openai/whisper-large-v3-turbo` over REST (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`; the renderer container gets both and uses this backend). The Cloudflare backend is written but has not been run against a real account yet. `espeak-ng` (target sounds for respellings) is in the renderer image.
 
 Test without rendering a film: `npx tsx apps/cli/src/dev/narrate-test.ts out/<job-with-script>`.
+
+## Preflight gate (2026-11-22)
+
+`produce` stage **B6** (`apps/cli/src/preflight.ts`, wired in `produce.ts`) runs every release-gate check that can be computed before the render, on the plan, the final scene previews and the narration. A failing check with a repair is repaired and checked again (two repair rounds); what still fails is written to `out/<job>/preflight.json` and **the render is refused** ("nothing was rendered"). `OPUMIA_PREFLIGHT=warn` renders anyway, for debugging only.
+
+| Check (blocker unless noted) | Repair |
+| --- | --- |
+| picture repeated in the film / used by a recent film; second clip from one source video; press clip > 7.5 s; press footage > 45 % of runtime | `drop_picture`: the picture is removed and that scene designed again |
+| scene with a visible defect on its **final** preview (every scene gets a second look, not only revised ones) | `safe_scene`: reduced to its clean core (backdrop + its spoken phrase) |
+| outlined box or circle that frames nothing | `prune_shapes` |
+| previews too dark, dull, or carried by one colour (`one_colour_film`: share of scenes whose dominant colour family is the film's most common one, against the channel's own films — `data/.cache/hue-dominance-<channel>.json`) | `soften_wash`: colour wash and dimming halved on washed scenes |
+| effects or music a recent film used; one sound family > 60 %; plan too close to an earlier film in sound only | `reseed_sound` |
+| picture coverage < 60 %; designed share < 70 %; slow-zoom share > 20 %; > 2 scenes in a row on one bare backdrop; > 35 % picture-less scenes; plan too close to an earlier film in colour/treatment/layout/story/words; unresolved narration words; word error > 1 %; pace outside the voice's natural band | none — the render is refused with the reason |
+| voice expressiveness against the reference narrator (pace variety, pitch travel, melody, dynamics, pauses) | **advisory**: reported, no automatic repair with a fixed voice |
+
+- After scene repairs the sound timeline is laid again on the final scenes; the manifest and fingerprint are rebuilt.
+- Measured on the Kodak plan: the first version passed a plan with a visible empty box, garbled text and a one-tone look, so the one-colour, empty-frame and all-scenes second-look checks were added; it then failed 3 checks, repaired them in two rounds and passed — 61 s, under $0.01.
+- Movement, near-still time, cuts and anything needing the mixed audio can only be measured on the rendered film: those stay with `opumia eval`.
+- Listen-back compares a hyphenated compound as one word when the recogniser writes it that way ("Film-less" / "filmless") — it used to cost three paid retakes and leave the line unresolved.
 
 ## Sound: timeline sound designer (rebuild stage 7)
 

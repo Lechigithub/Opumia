@@ -112,8 +112,14 @@ function spokenForms(w: string): string[] {
 export function diffSpeech(script: Array<{ word: string; startS: number }>, heard: AsrWord[]): SpeechDiff {
   // Hyphenated compounds are heard as separate words; dotted abbreviations lose their dots.
   const split = <T extends { word: string }>(ws: T[]) => ws.flatMap((w) => w.word.split(/[-–—/]/).filter(Boolean).map((part) => ({ ...w, word: part })));
-  const A = split(script).map((w) => ({ n: normWord(w.word).replace(/\./g, ""), forms: spokenForms(w.word), raw: w.word, t: w.startS })).filter((w) => w.n);
   const B = split(heard).map((w) => ({ n: normWord(w.word).replace(/\./g, ""), raw: w.word, t: w.start })).filter((w) => w.n);
+  // A compound the recogniser writes as one word ("Film-less" heard as "filmless") is compared as one word.
+  const heardSet = new Set(B.map((w) => w.n));
+  const joined = (w: string) => normWord(w.replace(/[-–—/]/g, "")).replace(/\./g, "");
+  const A = script
+    .flatMap((w) => (/[-–—/]/.test(w.word) && heardSet.has(joined(w.word)) ? [{ ...w, word: w.word.replace(/[-–—/]/g, "") }] : split([w])))
+    .map((w) => ({ n: normWord(w.word).replace(/\./g, ""), forms: spokenForms(w.word), raw: w.word, t: w.startS }))
+    .filter((w) => w.n);
   // Same word in another spelling (Shultz/Schultz, Walgreen/Walgreens, Aug/August): close enough for the
   // recogniser — whether it SOUNDS right is the phoneme checker's job.
   const close = (x: string, y: string) => {

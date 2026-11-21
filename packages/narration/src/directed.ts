@@ -22,7 +22,7 @@ import type { ChannelVoice } from "./voice.js";
  *  4. Listen-back: Whisper transcribes the result and it is compared word for word with the script; the phoneme
  *     checker compares the SOUNDS of every risky word with its target pronunciation.
  *  5. Only failing lines are regenerated (new take; respelling for a word that sounded wrong), then re-checked.
- *  6. Pace is brought into the reference narrator's band with a small pitch-preserving tempo change.
+ *  6. Pace is left as the voice spoke it: no speed push and no tempo change (owner decision 2026-11-22).
  */
 const run = promisify(execFile);
 const SR = 44100;
@@ -174,8 +174,10 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   if (remaining !== null && remaining < scriptText.length * 1.3) throw new Error(`ElevenLabs quota too low: ${remaining} chars left, need about ${Math.round(scriptText.length * 1.3)}`);
 
   // 2. Takes (cached by exact request).
+  // Every line is spoken at the voice's natural speed. The director's pace note shapes the pauses around a
+  // line (step 3), never the speed of the voice itself.
   const base = voice.settings.speed;
-  const speedOf = (p: LineDirection["pace"]) => Math.min(1.2, Math.max(0.9, p === "fast" ? base + 0.1 : p === "slow" ? base - 0.04 : base + 0.04));
+  const speedOf = (_p: LineDirection["pace"]) => base;
   let characters = 0;
   let takesMade = 0;
   const alignDump: unknown[] = [];
@@ -333,12 +335,11 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   }
   await savePronunciationLexicon(o.dataDir, { ...lexAll, ...lex });
 
-  // 6. Pace into the narrator's band (pitch-preserving, at most 6 %).
+  // 6. Pace is left as spoken.
   let timed = asm.timed;
   let durationS = asm.durationS;
-  const wpmNow = (timed.length / Math.max(1, durationS)) * 60;
-  const target = o.narrator ? o.narrator.wpm * 0.96 : wpmNow;
-  const factor = Math.min(1.06, Math.max(1, target / wpmNow));
+  // No tempo change: the narration keeps the pace the voice spoke it at (a stretched voice sounds synthetic).
+  const factor = 1 as number;
   if (factor > 1.012) {
     const rawTake = audioPath.replace(/\.mp3$/, ".untimed.mp3");
     await rename(audioPath, rawTake);

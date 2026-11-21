@@ -1,4 +1,16 @@
 {
+ "2012": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "twenty twelve"
+ },
+ "$1 billion": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "one billion dollars"
+ },
  "$100 million": {
   "kind": "figure",
   "ipa": "",
@@ -11,16 +23,78 @@
   "respelling": "",
   "spoken": "one hundred thousand dollars"
  },
+ "$950 million": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "nine hundred and fifty million dollars"
+ },
+ "13 staff": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "thirteen staff"
+ },
+ "15 to 20 years": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "fifteen to twenty years"
+ },
  "Aug 16, 2032": {
   "kind": "abbreviation",
   "ipa": "",
   "respelling": "",
   "spoken": "August sixteenth, twenty thirty-two"
  },
+ "colour": {
+  "kind": "rare",
+  "ipa": "ˈkʌlɚ",
+  "respelling": "KUL-er",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Film-less Photography": {
+  "kind": "rare",
+  "ipa": "ˈfɪlmləs fəˈtɑɡrəfi",
+  "respelling": "FILM-less fuh-TOG-ruh-fee",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
  "Forbes": {
   "kind": "brand",
   "ipa": "fɔrbz",
   "respelling": "FORBZ",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Gareth Lloyd": {
+  "kind": "name",
+  "ipa": "ˈɡærɪθ lɔɪd",
+  "respelling": "GA-reth LOYD",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "George Fisher": {
+  "kind": "name",
+  "ipa": "dʒɔrdʒ ˈfɪʃɚ",
+  "respelling": "jorj FISH-er",
   "spoken": "",
   "checks": {
    "ok": 2,
@@ -61,6 +135,17 @@
   },
   "works": "plain"
  },
+ "Instagram": {
+  "kind": "brand",
+  "ipa": "ˈɪnstəɡræm",
+  "respelling": "IN-stuh-gram",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
  "Jim Cramer": {
   "kind": "name",
   "ipa": "dʒɪm ˈkreɪmər",
@@ -83,6 +168,28 @@
   },
   "works": "plain"
  },
+ "Jim Schueckler": {
+  "kind": "name",
+  "ipa": "dʒɪm ˈʃɛklɚ",
+  "respelling": "jim SHEK-ler",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Kodak": {
+  "kind": "brand",
+  "ipa": "ˈkoʊdæk",
+  "respelling": "KOH-dak",
+  "spoken": "",
+  "checks": {
+   "ok": 10,
+   "fail": 0
+  },
+  "works": "plain"
+ },
  "Mad Money": {
   "kind": "brand",
   "ipa": "mæd ˈmʌni",
@@ -94,10 +201,38 @@
   },
   "works": "plain"
  },
+ "mid-1990s": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "mid nineteen nineties"
+ },
+ "New York": {
+  "kind": "place",
+  "ipa": "nu ˈjɔrk",
+  "respelling": "noo YORK",
+  "spoken": "",
+  "checks": {
+   "ok": 1,
+   "fail": 0
+  },
+  "works": "plain"
+ },
  "Phyllis Gardner": {
   "kind": "name",
   "ipa": "ˈfɪlɪs ˈɡɑːrdnər",
   "respelling": "FIL-iss GARD-ner",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
+ "Rochester": {
+  "kind": "place",
+  "ipa": "ˈrɑtʃɛstɚ",
+  "respelling": "ROTCH-es-ter",
   "spoken": "",
   "checks": {
    "ok": 2,
@@ -138,6 +273,17 @@
   },
   "works": "plain"
  },
+ "Steve Sasson": {
+  "kind": "name",
+  "ipa": "stiv ˈsæsən",
+  "respelling": "steev SASS-un",
+  "spoken": "",
+  "checks": {
+   "ok": 2,
+   "fail": 0
+  },
+  "works": "plain"
+ },
  "Texas": {
   "kind": "place",
   "ipa": "ˈtɛksəs",
@@ -159,6 +305,18 @@
    "fail": 0
   },
   "works": "plain"
+ },
+ "thirty-second": {
+  "kind": "figure",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "thirty-second"
+ },
+ "TV": {
+  "kind": "acronym",
+  "ipa": "",
+  "respelling": "",
+  "spoken": "T V"
  },
  "Tyler Shultz": {
   "kind": "name",

@@ -61,7 +61,7 @@ export async function directVoice(o: { channel: string; sentences: Array<{ text:
     stage: "voice.direct",
     model: MODELS.sonnet,
     system: [
-      plain(`You are the voice director for the YouTube documentary channel ${o.channel}. The narration will be spoken by a synthetic voice, one line at a time. The real channel's narrator is fast and alive (about ${Math.round(o.narratorWpm ?? 205)} words a minute), changes pace from line to line, and rarely pauses — a real pause is saved for a turn or a reveal.
+      plain(`You are the voice director for the YouTube documentary channel ${o.channel}. The narration will be spoken by a synthetic voice, one line at a time. The real channel's narrator is alive: energy and emphasis change from line to line, and a real pause is saved for a turn or a reveal. The voice speaks every line at its own natural pace — it is never sped up or slowed down — so your pace note shapes the breathing room around a line, not the speed of the voice.
 
 1. DELIVERY, for every line (index from the list): pace = "fast" for momentum, lists and build-up; "normal" for explanation; "slow" only for a reveal, a verdict or a line that must land. pauseAfter = "none" when the next line continues the same thought (most lines); "short" at the end of a thought; "beat" only before a turn or after a reveal (at most one line in six). emphasis = the single word the narrator leans on, or empty.
 

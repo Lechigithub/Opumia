@@ -16,15 +16,22 @@ export interface ChannelVoice {
   settings: VoiceSettings;
 }
 
-/** Per-channel narrator defaults. A `voiceName` is resolved via /v1/voices once and cached in data/voice-calibration.json. */
-export const CHANNEL_VOICES: Record<ChannelId, { voiceId?: string; voiceName?: string; name: string; settings: VoiceSettings }> = {
-  // MagnatesMedia: the account's "Christopher" voice, tuned in `opumia voice-audition` (settings below are the fallback).
-  "magnates-media": { voiceName: "Christopher", name: "Christopher", settings: { stability: 0.28, similarityBoost: 0.8, style: 0.55, speed: 1.08 } },
-  "logically-answered": { voiceId: "nPczCjzI2devNBz1zQrb", name: "Brian", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.05 } },
+/**
+ * Per-channel narrator defaults. A `voiceName` is resolved via /v1/voices once and cached in data/voice-calibration.json.
+ *
+ * Owner decision (2026-11-22): a voice speaks at ITS OWN natural pace — speed 1.0 on every line, never pushed
+ * toward the reference narrator's words-per-minute and never time-stretched. The reference teaches expressiveness
+ * (pitch travel, melody, pauses, variety), not speed. `naturalWpm` is the pace measured for the voice at these
+ * settings: scripts are cut to it and the release gate checks the narration against it.
+ */
+export const CHANNEL_VOICES: Record<ChannelId, { voiceId?: string; voiceName?: string; name: string; settings: VoiceSettings; naturalWpm?: number }> = {
+  // MagnatesMedia: the account's "Christopher" voice.
+  "magnates-media": { voiceName: "Christopher", name: "Christopher", settings: { stability: 0.28, similarityBoost: 0.8, style: 0.55, speed: 1.0 }, naturalWpm: 190 }, // measured 2026-11-22 on a 262-word script
+  "logically-answered": { voiceId: "nPczCjzI2devNBz1zQrb", name: "Brian", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.0 } },
   "big-company": { voiceId: "JBFqnCBsd6RMkjVDRZzb", name: "George", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.0 } },
-  "modern-mba": { voiceId: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.05 } },
-  "how-money-works": { voiceId: "cjVigY5qzO86Huf0OWal", name: "Eric", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.08 } },
-  moon: { voiceId: "3YzGaTGef0x5PLEK9yGq", name: "Atlas", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.3, speed: 1.05 } },
+  "modern-mba": { voiceId: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", settings: { stability: 0.5, similarityBoost: 0.8, style: 0.2, speed: 1.0 } },
+  "how-money-works": { voiceId: "cjVigY5qzO86Huf0OWal", name: "Eric", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.25, speed: 1.0 } },
+  moon: { voiceId: "3YzGaTGef0x5PLEK9yGq", name: "Atlas", settings: { stability: 0.45, similarityBoost: 0.8, style: 0.3, speed: 1.0 } },
 };
 
 /** Shape of data/voice-calibration.json: `_voices` holds the resolved narrator per channel; other keys are wpm calibrations. */
