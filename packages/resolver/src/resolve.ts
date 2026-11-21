@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { ResolutionReport, type AssetRecord, type LibraryIndex, type ResolvedMedia, type Storyboard, type StoryboardShot } from "@opumia/contracts";
@@ -8,9 +8,9 @@ import { isUsable, MODELS, plain, structured } from "@opumia/agents";
 import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
-import { allProviders, downloadCandidate, providersFor, searchStock, type StockCandidate } from "./stock.js";
+import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, type StockCandidate } from "./stock.js";
 import { closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
-import { planSourcing, pooled, thumbOf, webPictures, type ShotBrief } from "./widen.js";
+import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
 const run = promisify(execFile);
 
@@ -158,6 +158,8 @@ export interface ResolveOptions {
   factText?: string;
   /** Story era from the fact sheet (more reliable than years spoken in the narration). */
   era?: StoryEra | null;
+  /** Folder for the stock-search memo (results kept 20 h, so re-runs and films on one subject do not spend API quota twice). */
+  cacheDir?: string;
   /** Fair-use press sourcing (YouTube news/interview excerpts, Wikipedia photos and logos). Default on. */
   press?: boolean;
   log?: (s: string) => void;
@@ -306,14 +308,40 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const stock = new Map<string, Cand[]>();
   const offered = new Map<string, { n: number; best: number }>();
   const ratedSeen = new Map<string, { fit: number; face: boolean; banner: boolean; note: string }>();
-  const looked = new Map<string, Array<{ source: string; ref: string; fit: number; wrongEra: boolean; banner: boolean; face: boolean; shows: string }>>();
-  if (pending.length) {
+  const looked = new Map<string, Array<{ source: string; ref: string; fit: number; wrongEra: boolean; banner: boolean; face: boolean; synthetic: boolean; shows: string }>>();
+  // Approved pictures no shot took: the re-plan may give one to another line.
+  const spares: Array<{ c: Cand; key: string; thumb: string; shows: string }> = [];
+  // Search memo on disk and a count of what each source was asked and returned (a silent source is reported).
+  const cacheFile = o.cacheDir ? path.join(o.cacheDir, "stock-search.json") : null;
+  const disk: Record<string, { at: number; hits: StockCandidate[] }> = cacheFile ? await readFile(cacheFile, "utf8").then((t) => JSON.parse(t) as Record<string, { at: number; hits: StockCandidate[] }>, () => ({})) : {};
+  const yieldBy = new Map<string, { asked: number; got: number }>();
+  const saveDisk = async () => {
+    if (!cacheFile) return;
+    const now = Date.now();
+    for (const k of Object.keys(disk)) if (now - disk[k]!.at > 20 * 3600_000) delete disk[k];
+    await mkdir(path.dirname(cacheFile), { recursive: true });
+    await writeFile(`${cacheFile}.tmp`, JSON.stringify(disk));
+    await rename(`${cacheFile}.tmp`, cacheFile);
+  };
+  const askSource = async (p: string, q: string, kind: "video" | "image", perPage: number): Promise<StockCandidate[]> => {
+    const k = `${p}|${kind}|${orientation}|${perPage}|${q.toLowerCase()}`;
+    const hit = disk[k];
+    if (hit && Date.now() - hit.at < 20 * 3600_000) return hit.hits;
+    const hits = await searchStock(q, { kind, orientation, perPage, providers: [p] }).catch(() => [] as StockCandidate[]);
+    const y = yieldBy.get(p) ?? { asked: 0, got: 0 };
+    yieldBy.set(p, { asked: y.asked + 1, got: y.got + hits.length });
+    if (hits.length) disk[k] = { at: Date.now(), hits };
+    return hits;
+  };
+  const replans = new Map<string, { asked: string; action: string; why: string }>();
+  const sourceRound = async (pending: Need[], extra: Map<string, Array<{ c: Cand; thumb: string }>> = new Map()) => {
+    if (!pending.length) return;
     const thumbDir = path.join(dlDir, "thumbs");
     const memo = new Map<string, Promise<StockCandidate[]>>();
     // Measured on real plans: Pexels supplies most of the usable stock, so it is asked for more per search.
     const search = (q: string, kind: "video" | "image", providers: string[]): Promise<StockCandidate[]> => {
       const k = `${kind}|${providers.join(",")}|${q.toLowerCase()}`;
-      if (!memo.has(k)) memo.set(k, Promise.all([providers.includes("pexels") ? searchStock(q, { kind, orientation, perPage: 6, providers: ["pexels"] }).catch(() => []) : [], searchStock(q, { kind, orientation, perPage: 3, providers: providers.filter((x) => x !== "pexels") }).catch(() => [])]).then((r) => r.flat()));
+      if (!memo.has(k)) memo.set(k, Promise.all(providers.map((pv) => askSource(pv, q, kind, pv === "pexels" ? 6 : 3))).then((r) => r.flat().filter((c) => !c.aiGenerated)));
       return memo.get(k)!;
     };
     type Offer = { n: Need; c: Cand; key: string; thumb: string };
@@ -360,11 +388,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           let ok = false;
           if (c.src === "press") (thumb = c.p.frameFile), (ok = true);
           else if (c.src === "local") ok = await thumbOf({ file: await ensureLocal(o.libraryRoot, c.doc.asset.relPath, "library"), video: c.doc.kind === "video", atS: c.doc.inS + 1 }, thumb);
+          // A whole archive film: the preview is the very moment that would be used, not the item's poster.
+          else if (c.c.provider === "archive" && c.c.fileUrl) ok = await thumbOf({ url: c.c.fileUrl, video: true, atS: archiveAt(c.c) + 1.2 }, thumb);
           else if (c.c.thumbUrl) ok = await thumbOf({ url: c.c.thumbUrl }, thumb);
           else if (c.c.fileUrl) ok = await thumbOf(c.c.kind === "image" ? { url: c.c.fileUrl } : { url: c.c.fileUrl, video: true, atS: 1 }, thumb);
           if (ok) offers.push({ n, c, key, thumb });
         }),
       );
+      for (const e of extra.get(n.shot.id) ?? []) if (!offers.some((x) => x.n === n && x.key === refOf(e.c))) offers.push({ n, c: e.c, key: refOf(e.c), thumb: e.thumb });
     });
     log(`  resolver: ${offers.length} candidate picture(s) gathered for ${pending.length} shot(s) from ${new Set(offers.map((x) => (x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider))).size} source(s); rating each by eye (${MODELS.haiku})…`);
     // One shot's candidates are rated side by side (steadier scores than a mixed batch), at most 11 per call.
@@ -373,18 +404,18 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       const mine = offers.filter((x) => x.n === n).sort((a, b) => a.key.localeCompare(b.key));
       for (let k = 0; k < mine.length; k += 11) chunks.push(mine.slice(k, k + 11));
     }
-    const rated = (await pooled(chunks, 8, async (part) => (await reviewPictures(part.map((x) => ({ frameFile: x.thumb, intent: `${briefOf(x.n).must} — ${x.n.shot.intent}`, line: x.n.line, era: eraLabel }))).catch(() => part.map(() => null))).map((r, k) => ({ ...part[k]!, r })))).flat();
+    const rated = (await pooled(chunks, 8, async (part) => (await reviewPictures(part.map((x) => ({ frameFile: x.thumb, intent: `${briefOf(x.n).must} — ${x.n.shot.intent}`, line: x.n.line, era: briefOf(x.n).when || eraLabel }))).catch(() => part.map(() => null))).map((r, k) => ({ ...part[k]!, r })))).flat();
     const good = rated
       .filter((x): x is typeof x & { r: NonNullable<typeof x.r> } => Boolean(x.r) && x.r!.shows !== "not reviewed")
       .map((x) => {
         const cur = offered.get(x.n.shot.id) ?? { n: 0, best: 0 };
         offered.set(x.n.shot.id, { n: cur.n + 1, best: Math.max(cur.best, x.r.fit) });
-        looked.set(x.n.shot.id, [...(looked.get(x.n.shot.id) ?? []), { source: x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider, ref: x.key, fit: x.r.fit, wrongEra: x.r.wrongEra, banner: x.r.banner, face: x.r.face, shows: x.r.shows }]);
+        looked.set(x.n.shot.id, [...(looked.get(x.n.shot.id) ?? []), { source: x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider, ref: x.key, fit: x.r.fit, wrongEra: x.r.wrongEra, banner: x.r.banner, face: x.r.face, synthetic: x.r.synthetic, shows: x.r.shows }]);
         return x;
       })
       // Burned-in captions or graphics mark someone else's edit: never taken. A face under a line naming a person is
       // accepted only from footage whose own title names that person.
-      .filter((x) => x.r.fit >= 6 && !x.r.wrongEra && !x.r.banner && !(namedPerson(x.n) && x.r.face && !titledAs(x.c, x.n)))
+      .filter((x) => x.r.fit >= 6 && !x.r.wrongEra && !x.r.synthetic && !x.r.banner && !(namedPerson(x.n) && x.r.face && !titledAs(x.c, x.n)))
       .map((x) => ({ ...x, score: x.r.fit + (x.c.src === "press" ? 0.6 : x.c.src === "local" ? 0.3 : x.c.c.archival && briefOf(x.n).need !== "staged" ? 0.3 : 0) }))
       .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
     for (const x of good) ratedSeen.set(`${x.n.shot.id}|${x.key}`, { fit: x.r.fit, face: x.r.face, banner: x.r.banner, note: x.r.shows });
@@ -406,8 +437,46 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     }
     // Rated runners-up (licensed sources only) stand by in case the chosen clip fails on the full frame.
     for (const n of pending) stock.set(n.shot.id, good.filter((x) => x.n === n && x.c.src !== "press" && !takenKeys.has(x.key)).map((x) => x.c));
+    for (const x of good) if (x.c.src !== "press" && !takenKeys.has(x.key) && !spares.some((sp) => sp.key === x.key)) spares.push({ c: x.c, key: x.key, thumb: x.thumb, shows: x.r.shows });
     const src = (k: Cand["src"]) => pending.filter((n) => chosen.get(n.shot.id)?.src === k).length;
     log(`  resolver: ${pending.filter((n) => chosen.has(n.shot.id)).length}/${pending.length} shot(s) placed by eye — ${src("local")} library, ${src("stock")} stock/archive, ${src("press")} real footage`);
+    await saveDisk();
+    const silent = [...yieldBy.entries()].filter(([, y]) => y.asked >= 6 && y.got === 0).map(([k, y]) => `${k} (${y.asked} searches)`);
+    if (refused.size) log(`  ! resolver: searches refused by rate limit — ${[...refused.entries()].map(([h, n]) => `${h} ${n}`).join(", ")}; coverage below is understated`);
+    if (silent.length) log(`  ! resolver: no results at all from ${silent.join(", ")} — rate limit or outage; coverage below is understated`);
+  };
+  await sourceRound(pending);
+
+  // The re-plan: a real production cuts to the footage it has. Every shot the first search could not fill goes
+  // back to the director with what the sources actually returned; it is given a spare approved picture, a
+  // different findable picture that tells the same line, or becomes a designed scene. Then one more search.
+  {
+    const missing = pending.filter((n) => !chosen.has(n.shot.id));
+    if (missing.length) {
+      const usedKeys = new Set([...chosen.values()].map(refOf));
+      const free = spares.filter((sp) => !usedKeys.has(sp.key));
+      const placed = [...chosen.entries()].map(([id, c]) => ratedSeen.get(`${id}|${refOf(c)}`)?.note ?? (c.src === "press" ? c.p.depicts : "")).filter(Boolean);
+      const plans = await replanShots({ shots: missing.map((n) => ({ id: n.shot.id, line: `${n.line}${briefOf(n).when ? ` [set in ${briefOf(n).when}]` : ""}`, need: briefOf(n).need, must: briefOf(n).must, seen: (looked.get(n.shot.id) ?? []).sort((a, b) => b.fit - a.fit).map((c) => ({ fit: c.fit, shows: c.shows })) })), spares: free.map((sp) => sp.shows), placed, subjects, era: eraLabel });
+      const extra = new Map<string, Array<{ c: Cand; thumb: string }>>();
+      const again: Need[] = [];
+      for (const r of plans) {
+        const n = missing.find((x) => x.shot.id === r.shot);
+        if (!n) continue;
+        replans.set(n.shot.id, { asked: briefOf(n).must, action: r.action, why: r.why });
+        if (r.action === "design") {
+          plan.briefs.set(n.shot.id, { ...briefOf(n), need: "none", must: r.must || briefOf(n).must });
+          continue;
+        }
+        const sp = r.action === "spare" ? free[r.spare] : undefined;
+        if (sp) extra.set(n.shot.id, [{ c: sp.c, thumb: sp.thumb }]);
+        plan.briefs.set(n.shot.id, { shot: n.shot.id, need: r.need === "none" ? "object" : r.need, must: r.must, stock: r.stock, archive: r.archive, youtube: r.youtube, ...(briefOf(n).when ? { when: briefOf(n).when } : {}) });
+        if (r.stock[0]) n.query = r.stock[0];
+        again.push(n);
+      }
+      const c = (k: string) => plans.filter((r) => r.action === k).length;
+      log(`  resolver: re-plan — ${missing.length} shot(s) without a picture went back to the director: ${c("search")} given a different findable picture, ${c("spare")} a spare approved picture, ${c("design")} a designed scene`);
+      await sourceRound(again, extra);
+    }
   }
 
   // Materialize, screening each clip for black frames and falling back to the next candidate.
@@ -473,7 +542,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         const r = reviews[k]!;
         x.m.seen = { fit: r.fit, face: r.face, banner: r.banner, note: r.shows };
         if (!x.m.depicts) x.m.depicts = r.shows;
-        const why = r.fit < 4 ? `poor fit (${r.fit}/10): shows ${r.shows}` : r.banner ? "burned-in graphics" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
+        const why = r.fit < 4 ? `poor fit (${r.fit}/10): shows ${r.shows}` : r.banner ? "burned-in graphics" : r.synthetic ? "looks generated, not photographed" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
         if (!why) continue;
         rejected++;
         media.splice(media.indexOf(x.m), 1);
@@ -645,7 +714,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const usedPic = new Set<string>();
     const usedShot = new Set<string>();
     let n = 0;
-    for (const y of rated.filter((z) => z.r && z.r.shows !== "not reviewed" && z.r.fit >= 6 && !z.r.banner && !z.r.wrongEra).sort((a, b) => b.r!.fit + (hasPrimary.has(b.x.sh.id) ? 0 : 1) - (a.r!.fit + (hasPrimary.has(a.x.sh.id) ? 0 : 1)))) {
+    for (const y of rated.filter((z) => z.r && z.r.shows !== "not reviewed" && z.r.fit >= 6 && !z.r.banner && !z.r.wrongEra && !z.r.synthetic).sort((a, b) => b.r!.fit + (hasPrimary.has(b.x.sh.id) ? 0 : 1) - (a.r!.fit + (hasPrimary.has(a.x.sh.id) ? 0 : 1)))) {
       if (n >= 10 || usedPic.has(y.pic.url) || usedShot.has(y.x.sh.id) || isBlocked(o.blocked, `web:${y.pic.url}`)) continue;
       const file = `layer_${y.x.sh.id}_7_${path.basename(y.pic.file)}`;
       try {
@@ -667,11 +736,11 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       const b = briefOf(n);
       const pm = media.find((m) => m.shotId === n.shot.id && m.role === "primary");
       const layers = media.filter((m) => m.shotId === n.shot.id && m.role === "layer").length;
-      return { shotId: n.shot.id, line: n.line, need: b.need, must: b.must, searches: { stock: b.stock, archive: b.archive, youtube: b.youtube }, candidatesSeen: offered.get(n.shot.id)?.n ?? 0, bestFit: offered.get(n.shot.id)?.best ?? null, footage: pm ? { ref: pm.ref, origin: pm.origin, provider: pm.provider, fit: pm.seen?.fit ?? Math.round(pm.score * 10), shows: pm.depicts ?? "" } : null, scenePictures: layers, missing: b.need !== "none" && !pm && !layers, candidates: (looked.get(n.shot.id) ?? []).sort((a, b) => b.fit - a.fit) };
+      return { shotId: n.shot.id, line: n.line, need: b.need, must: b.must, searches: { stock: b.stock, archive: b.archive, youtube: b.youtube }, candidatesSeen: offered.get(n.shot.id)?.n ?? 0, bestFit: offered.get(n.shot.id)?.best ?? null, footage: pm ? { ref: pm.ref, origin: pm.origin, provider: pm.provider, fit: pm.seen?.fit ?? Math.round(pm.score * 10), shows: pm.depicts ?? "" } : null, scenePictures: layers, missing: b.need !== "none" && !pm && !layers, ...(replans.has(n.shot.id) ? { replanned: replans.get(n.shot.id) } : {}), candidates: (looked.get(n.shot.id) ?? []).sort((a, b) => b.fit - a.fit) };
     });
     const wanted = rows.filter((r) => r.need !== "none");
     const real = rows.filter((r) => r.need === "real");
-    const report = { kit: plan.kit, shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
+    const report = { kit: plan.kit, refusedByRateLimit: Object.fromEntries(refused), sources: Object.fromEntries([...yieldBy.entries()].map(([k, y]) => [k, { searches: y.asked, results: y.got }])), shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
     const file = path.join(o.jobDir, "sourcing.json");
     await writeFile(`${file}.tmp`, JSON.stringify(report, null, 2));
     await rename(`${file}.tmp`, file);

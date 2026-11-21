@@ -195,7 +195,7 @@ async function produceStages(o: ProduceOptions) {
     const cool = await cooldownRefs(o.data, jobId);
     const blocked = new Set([...blockedRefs(memory), ...cool.pictures]);
     log(`  cooldown: ${cool.pictures.size} picture ref(s) used by recent films are off limits`);
-    return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), log });
+    return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), log });
   }, log);
   await recordUsage(o.data, jobId, resolution, board);
   if (stop("resolve")) return { jobDir };

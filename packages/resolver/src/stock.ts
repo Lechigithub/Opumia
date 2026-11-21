@@ -33,9 +33,19 @@ export interface SearchOpts {
 }
 
 const UA = "Opumia/0.1 (documentary pipeline)";
+/** Searches a source refused (HTTP 429: rate limit), by host — reported, never silently counted as "nothing found". */
+export const refused = new Map<string, number>();
 const get = async <T>(url: string, headers: Record<string, string> = {}): Promise<T | null> => {
   try {
-    const r = await fetch(url, { headers: { "user-agent": UA, ...headers }, signal: AbortSignal.timeout(20_000) });
+    let r = await fetch(url, { headers: { "user-agent": UA, ...headers }, signal: AbortSignal.timeout(20_000) });
+    if (r.status === 429) {
+      await new Promise((res) => setTimeout(res, 2000));
+      r = await fetch(url, { headers: { "user-agent": UA, ...headers }, signal: AbortSignal.timeout(20_000) });
+      if (r.status === 429) {
+        const h = new URL(url).hostname;
+        refused.set(h, (refused.get(h) ?? 0) + 1);
+      }
+    }
     return r.ok ? ((await r.json()) as T) : null;
   } catch {
     return null;
@@ -168,16 +178,18 @@ async function openverse(q: string, o: SearchOpts): Promise<StockCandidate[]> {
 /* ---------------- Internet Archive (public-domain / CC films, newsreels, adverts) ---------------- */
 async function archive(q: string, o: SearchOpts): Promise<StockCandidate[]> {
   if (o.kind !== "video") return [];
-  const query = `(${q}) AND mediatype:movies AND (licenseurl:*publicdomain* OR licenseurl:*creativecommons.org/licenses/by/* OR collection:prelinger OR collection:newsandpublicaffairs)`;
+  // Public-domain collections only (Prelinger Archives, US government films). Wildcard licence terms make the
+  // archive's search backend fail, so the collections are named outright.
+  const query = `(${q.replace(/[^\p{L}\p{N}\s]/gu, " ")}) AND mediatype:movies AND (collection:prelinger OR collection:fedflix)`;
   const j = await get<{ response?: { docs?: Array<{ identifier: string; title?: string; licenseurl?: string; collection?: string[]; year?: string | number; subject?: string | string[] }> } }>(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier&fl[]=title&fl[]=licenseurl&fl[]=collection&fl[]=year&fl[]=subject&rows=${o.perPage}&output=json`);
   const out: StockCandidate[] = [];
   for (const d of (j?.response?.docs ?? []).slice(0, o.perPage)) {
     // One small H.264 derivative per item (the files list is a second request).
-    const meta = await get<{ files?: Array<{ name: string; format?: string; size?: string; length?: string; width?: string; height?: string }> }>(`https://archive.org/metadata/${encodeURIComponent(d.identifier)}/files`);
-    const f = (meta?.files ?? []).filter((x) => /\.mp4$/i.test(x.name) && /h\.264|MPEG4/i.test(x.format ?? "")).sort((a, b) => Number(a.size ?? 0) - Number(b.size ?? 0))[0];
+    const meta = await get<{ files?: Array<{ name: string; format?: string; size?: string; length?: string; width?: string; height?: string }>; result?: Array<{ name: string; format?: string; size?: string; length?: string; width?: string; height?: string }> }>(`https://archive.org/metadata/${encodeURIComponent(d.identifier)}/files`);
+    const f = (meta?.result ?? meta?.files ?? []).filter((x) => /\.mp4$/i.test(x.name) && /h\.264|MPEG4/i.test(x.format ?? "")).sort((a, b) => Number(a.size ?? 0) - Number(b.size ?? 0))[0];
     if (!f) continue;
-    const pd = /publicdomain/.test(d.licenseurl ?? "") || (d.collection ?? []).includes("prelinger");
-    out.push({ provider: "archive" as const, externalId: `${d.identifier}/${f.name}`, kind: "video" as const, title: d.title ?? d.identifier, tags: [String(d.year ?? ""), ...(Array.isArray(d.subject) ? d.subject : d.subject ? [d.subject] : [])].filter(Boolean).slice(0, 8), pageUrl: `https://archive.org/details/${d.identifier}`, fileUrl: `https://archive.org/download/${d.identifier}/${encodeURIComponent(f.name)}`, thumbUrl: `https://archive.org/services/img/${d.identifier}`, ...(f.width ? { width: Number(f.width), height: Number(f.height) } : {}), ...(f.length ? { durationS: Number(f.length) } : {}), license: pd ? "Public domain (Internet Archive)" : "CC BY (Internet Archive)", attributionRequired: !pd, attributionText: `${d.title ?? d.identifier} — Internet Archive`, aiGenerated: false, archival: true });
+    const pd = /publicdomain/.test(d.licenseurl ?? "") || (d.collection ?? []).some((c) => c === "prelinger" || c === "fedflix");
+    out.push({ provider: "archive" as const, externalId: `${d.identifier}/${f.name}`, kind: "video" as const, title: d.title ?? d.identifier, tags: [String(d.year ?? ""), ...(Array.isArray(d.subject) ? d.subject : d.subject ? [d.subject] : [])].filter(Boolean).slice(0, 8), pageUrl: `https://archive.org/details/${d.identifier}`, fileUrl: `https://archive.org/download/${d.identifier}/${encodeURIComponent(f.name)}`, thumbUrl: `https://archive.org/services/img/${d.identifier}`, ...(f.width ? { width: Number(f.width), height: Number(f.height) } : {}), ...(f.length ? { durationS: f.length.includes(":") ? f.length.split(":").reduce((t, x) => t * 60 + Number(x), 0) : Number(f.length) } : {}), license: pd ? "Public domain (Internet Archive)" : "CC BY (Internet Archive)", attributionRequired: !pd, attributionText: `${d.title ?? d.identifier} — Internet Archive`, aiGenerated: false, archival: true });
   }
   return out;
 }
@@ -201,6 +213,9 @@ export async function searchStock(q: string, o: SearchOpts & { providers: string
   return res.flat().filter((c) => !c.aiGenerated);
 }
 
+/** Where in a whole archive film the 20 s stretch is taken (the preview frame is taken from the same place). */
+export const archiveAt = (c: { durationS?: number }) => Math.max(5, Math.min((c.durationS ?? 120) * 0.4, (c.durationS ?? 120) - 25));
+
 /** Download a candidate's file (never into Library/). Vecteezy URLs are requested on demand. */
 export async function downloadCandidate(c: StockCandidate, destDir: string): Promise<string> {
   let url = c.fileUrl;
@@ -222,7 +237,7 @@ export async function downloadCandidate(c: StockCandidate, destDir: string): Pro
   if (c.provider === "archive") {
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
-    const at = Math.max(5, Math.min((c.durationS ?? 120) * 0.4, (c.durationS ?? 120) - 25));
+    const at = archiveAt(c);
     await promisify(execFile)("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", at.toFixed(1), "-t", "20", "-i", url, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", `${dest}.part.mp4`], { timeout: 150_000 });
     await rename(`${dest}.part.mp4`, dest);
     return dest;

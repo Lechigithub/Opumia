@@ -47,6 +47,8 @@ export interface ShotBrief {
   stock: string[];
   archive: string;
   youtube: string;
+  /** The year or decade this line is set in (e.g. "1975", "1990s"), so a picture is judged against its own time. */
+  when?: string;
 }
 
 const Plan = z.object({
@@ -56,6 +58,7 @@ const Plan = z.object({
       shot: z.string(),
       need: z.enum(["real", "period", "staged", "object", "none"]),
       must: z.string().describe("what the viewer must see, in one plain phrase"),
+      when: z.string().describe("the year or decade this line is set in, from the narration and the story (e.g. '1975', '1990s', '2012')"),
       stock: z.array(z.string()).describe("2 stock-library searches, 2–4 plain visual words each, no years, no names of people"),
       archive: z.string().describe("one archive search (subject + thing, e.g. 'Kodak factory Rochester'), or empty"),
       youtube: z.string().describe("one YouTube search for real footage of the film's named subject doing/showing this (news report, company film, advert, product demo, keynote, interview), or empty"),
@@ -100,6 +103,76 @@ export async function planSourcing(o: { shots: Array<{ id: string; line: string;
   // A shot the planner missed keeps the director's search.
   for (const s of o.shots) if (!briefs.has(s.id)) briefs.set(s.id, { shot: s.id, need: "staged", must: s.intent, stock: [s.query.split(/\s+/).slice(0, 4).join(" ")], archive: "", youtube: "" });
   return { briefs, kit };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// The re-plan: cutting to the footage that exists
+
+export interface Replan {
+  shot: string;
+  action: "spare" | "search" | "design";
+  spare: number;
+  need: PictureNeed;
+  must: string;
+  stock: string[];
+  archive: string;
+  youtube: string;
+  why: string;
+}
+
+const ReplanSchema = z.object({
+  shots: z.array(
+    z.object({
+      shot: z.string(),
+      action: z.enum(["spare", "search", "design"]),
+      spare: z.number().describe("index of the spare picture to use, else -1"),
+      need: z.enum(["real", "period", "staged", "object", "none"]),
+      must: z.string().describe("the NEW picture, in one plain phrase"),
+      stock: z.array(z.string()).describe("2 stock searches for the new picture, 2–4 plain visual words each"),
+      archive: z.string(),
+      youtube: z.string(),
+      why: z.string().describe("how the new picture tells the same line, in a few words"),
+    }),
+  ),
+});
+
+const REPLAN_SYSTEM = `You are the director of a documentary, re-cutting to the footage you actually have. The narration is recorded and fixed. For the shots below, the first picture you asked for does not exist in any source: you are shown what the searches returned and how badly it fitted.
+
+For each shot choose ONE:
+- "spare": a spare picture (already found and approved for another line, unused) tells this line. Give its index.
+- "search": a DIFFERENT picture that tells the same line and that libraries really hold. Think like an editor with no budget for a shoot: a hand, an object, a place, a screen, a simple action, a telling detail, a symbol the viewer reads at once. What the failed searches returned shows what exists — move toward it. Avoid what cannot be found: specific period group scenes ("1970s executives arguing"), exact reenactments, anything needing named people.
+- "design": nothing filmable tells this line honestly — it becomes a designed scene with no picture.
+
+Rules:
+- The new picture must still be TRUE to the line. Never suggest something that would mislead (a different company's product, a different person, the wrong decade's technology).
+- Do not repeat a picture the film already uses (listed), and give every shot a different picture.
+- stock searches: concrete, visual, 2–4 words, no names of people, no years. archive / youtube only when the new picture is a real named thing; otherwise empty.
+- Each line is set in a stated time: the new picture must not show anything later than it (no laptops, flat screens or modern offices under a 1975 line). Timeless close-ups — hands, paper, objects, light, a door, a clock — are the safest.
+- At most a third of these shots may be "design".`;
+
+/** One Sonnet call: every shot the first search could not fill is re-planned around what the sources hold. */
+export async function replanShots(o: { shots: Array<{ id: string; line: string; need: PictureNeed; must: string; seen: Array<{ fit: number; shows: string }> }>; spares: string[]; placed: string[]; subjects: string[]; era: string }): Promise<Replan[]> {
+  if (!o.shots.length) return [];
+  const res = await structured({
+    stage: "resolve.replan",
+    model: MODELS.sonnet,
+    system: [plain(REPLAN_SYSTEM)],
+    user: `Story period: ${o.era}. Named subjects: ${o.subjects.slice(0, 12).join("; ") || "none"}.
+
+Pictures the film already uses:
+${o.placed.map((x) => `- ${x}`).join("\n") || "- none yet"}
+
+Spare pictures (found, approved by eye, unused):
+${o.spares.map((x, i) => `[${i}] ${x}`).join("\n") || "none"}
+
+Shots to re-plan:
+${o.shots.map((sh) => `SHOT ${sh.id} | narration: "${sh.line.slice(0, 260)}" | asked for (${sh.need}): ${sh.must}\n  the searches returned: ${sh.seen.slice(0, 6).map((c) => `${c.shows.slice(0, 90)} (${c.fit}/10)`).join("; ") || "nothing"}`).join("\n")}`,
+    schema: ReplanSchema,
+    effort: "medium",
+    maxTokens: 6000,
+  }).catch(() => null);
+  const ids = new Set(o.shots.map((x) => x.id));
+  return (res?.data.shots ?? []).filter((r) => ids.has(r.shot)).map((r) => ({ ...r, stock: r.stock.map((q) => q.trim()).filter((q) => q.length > 3).slice(0, 2), archive: r.archive.trim(), youtube: r.youtube.trim() }));
 }
 
 // ---------------------------------------------------------------------------------------------------------

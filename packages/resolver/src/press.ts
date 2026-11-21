@@ -414,11 +414,12 @@ const Review = z.object({
       face: z.boolean().describe("true if one identifiable person's face is prominent (a close-up or medium shot a viewer would take to be a specific person)"),
       banner: z.boolean().describe("true if burned-in text, captions, watermarks, title cards or broadcaster graphics are visible"),
       wrongEra: z.boolean().describe("true if clothing, cars, devices or film stock clearly belong to a different period than stated"),
+      synthetic: z.boolean().describe("true if the picture looks AI-generated, a 3D render, an illustration or an animation rather than a photograph or filmed footage"),
       shows: z.string().describe("5–10 words: what the picture literally shows"),
     }),
   ),
 });
-export interface PictureReview { fit: number; face: boolean; banner: boolean; wrongEra: boolean; shows: string }
+export interface PictureReview { fit: number; face: boolean; banner: boolean; wrongEra: boolean; synthetic: boolean; shows: string }
 
 export async function reviewPictures(items: Array<{ frameFile: string; intent: string; line: string; era: string }>): Promise<PictureReview[]> {
   const out: PictureReview[] = [];
@@ -435,7 +436,7 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
     const res = await structured({
       stage: "resolve.review",
       model: MODELS.haiku,
-      system: [plain("You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible. A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
+      system: [plain("You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible. A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. Legible text that names a different company, person, product or subject than the line (a document, sign or screen about something else) is misleading: fit at most 3. Be alert to AI-generated imagery (too-perfect, hyper-detailed, impossible objects, melted details): synthetic=true. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
       user: blocks,
       schema: Review,
       effort: "low",
@@ -443,7 +444,7 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
     }).catch(() => null);
     for (let k = 0; k < part.length; k++) {
       const v = res?.data.verdicts.find((x) => x.index === k);
-      out.push(v ? { fit: v.fit, face: v.face, banner: v.banner, wrongEra: v.wrongEra, shows: v.shows } : { fit: 5, face: false, banner: false, wrongEra: false, shows: "not reviewed" });
+      out.push(v ? { fit: v.fit, face: v.face, banner: v.banner, wrongEra: v.wrongEra, synthetic: v.synthetic, shows: v.shows } : { fit: 5, face: false, banner: false, wrongEra: false, synthetic: false, shows: "not reviewed" });
     }
   }
   return out;
