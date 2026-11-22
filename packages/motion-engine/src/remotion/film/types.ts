@@ -1,0 +1,23 @@
+import type React from "react";
+
+/** Props every film component receives, besides its own: its box in pixels, the shot's picture slots and the film's tokens. */
+export interface FilmComponentProps {
+  /** The component's own props, as the scene designer wrote them (text, numbers, slot indexes…). */
+  [key: string]: unknown;
+}
+
+/**
+ * A film's own motion-design kit (build list 2, step 5): written for ONE film by its art director, from a blank slate —
+ * its typefaces, its cards, labels, picture frames, number treatments and the transition that bridges its cuts.
+ * Nothing in it is shared with another film; only the channel's editing and visual grammar is.
+ */
+export interface FilmKit {
+  /** Named components the scene designer can place (`{ type: "component", name, props }`). */
+  components: Record<string, React.FC<FilmComponentProps>>;
+  /** Named transitions drawn across a cut; `progress` runs 0 → 1 over the transition, the cut at 0.5. */
+  transitions: Record<string, React.FC<{ progress: number }>>;
+  /** The transition used where a shot asks for the film's own ("film"). */
+  transition?: string;
+  /** Frames the transition spans (centred on the cut). */
+  transitionFrames?: number;
+}

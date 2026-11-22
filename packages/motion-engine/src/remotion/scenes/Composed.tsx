@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, Easing, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { FILM } from "@film";
 import { FONT, FONT_BODY, PALETTE, TREATMENT, TYPO, type TextStyleName } from "../types";
 import { Card3D, Text3D } from "./Three";
 
@@ -77,7 +78,8 @@ type El =
   | (Box & { type: "steps"; direction?: "row" | "column"; items: Array<{ label: string; slot?: number }>; color?: Token })
   | (Box & { type: "icongrid"; items: Array<{ slot: number; label: string }>; cols?: number })
   | (Box & { type: "newspaper"; headline: string; date?: string; slot?: number })
-  | (Box & { type: "screen"; slot: number; device?: "browser" | "phone" | "monitor"; scroll?: number });
+  | (Box & { type: "screen"; slot: number; device?: "browser" | "phone" | "monitor"; scroll?: number })
+  | (Box & { type: "component"; name: string; props?: Record<string, unknown>; h?: number });
 
 export interface ComposedProps {
   spec: { backdrop?: "footage" | "surface" | "paper" | "split" | "world"; wash?: { color: Token; strength: number; mode: "tint" | "duotone" }; camera: { fromScale: number; toScale: number; fromX: number; toX: number; fromY: number; toY: number }; elements: El[] };
@@ -392,6 +394,19 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       <div style={{ textAlign: el.align ?? "left", lineHeight: display ? (el.letter === "label_box" || (!el.letter && (TREATMENT.headline === "boxed" || TREATMENT.headline === "paper_cut")) ? 1.3 : 1.0) : 1.2 }}>
         <span style={{ display: "inline", fontFamily: el.fontFamily ?? (display ? FONT : FONT_BODY), fontWeight: display ? 900 : el.role === "label" || el.role === "kicker" ? 800 : 600, fontStyle: el.italic ? "italic" : "normal", fontSize: size, letterSpacing: el.fontFamily ? 0 : display ? TYPO.tracking : el.role === "kicker" ? 4 : 0.5, ...css }}>{content}</span>
       </div>,
+    );
+  }
+  // ---- Step 5: one of this film's own components, in its box, starting at its `at` (its own frame 0).
+  if (el.type === "component") {
+    const C = FILM.components[el.name];
+    if (!C) return null;
+    const boxH = el.h ? el.h * height : undefined;
+    return (
+      <div style={{ position: "absolute", left: el.x * width, top: el.y * height, width: el.w * width, ...(boxH ? { height: boxH } : {}) }}>
+        <Sequence from={Math.round(at * fps)} layout="none">
+          <C {...(el.props ?? {})} slots={slots} boxW={el.w * width} boxH={boxH ?? null} />
+        </Sequence>
+      </div>
     );
   }
   // ---- G24 vocabulary: counters, step flows, icon infographics, newspaper layouts, screens.

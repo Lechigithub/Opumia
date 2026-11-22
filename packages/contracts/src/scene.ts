@@ -19,6 +19,8 @@ export const SceneElementG24 = [
   z.object({ type: z.literal("icongrid"), ...Box, items: z.array(z.object({ slot: z.number().int().min(0), label: z.string().max(28) })).min(2).max(6), cols: z.number().int().min(1).max(6).optional() }),
   // A newspaper-style layout (no real masthead): a headline the narration speaks, an optional date and photo.
   z.object({ type: z.literal("newspaper"), ...Box, headline: z.string().max(80), date: z.string().max(30).optional(), slot: z.number().int().min(0).optional() }),
+  // Step 5: one of THIS film's own components (written by its art director, design/film/), with its props.
+  z.object({ type: z.literal("component"), ...Box, h: z.number().optional(), name: z.string(), props: z.record(z.string(), z.unknown()).default({}) }),
   // A screen: a picture (a real page screenshot, an app) in a browser, phone or monitor frame, scrolling slowly.
   z.object({ type: z.literal("screen"), ...Box, slot: z.number().int().min(0), device: z.enum(["browser", "phone", "monitor"]).default("browser"), scroll: z.number().min(0).max(1).default(0.25) }),
 ] as const;

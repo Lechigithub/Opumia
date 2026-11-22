@@ -9,7 +9,9 @@
     "composite": false,
     "declaration": false,
     "lib": ["ES2022", "DOM"],
-    "types": []
+    "types": [],
+    "baseUrl": ".",
+    "paths": { "@film": ["./film/stub.tsx"] }
   },
   "include": ["./**/*.ts", "./**/*.tsx"]
 }

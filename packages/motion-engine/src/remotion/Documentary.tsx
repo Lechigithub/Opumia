@@ -13,6 +13,7 @@ import { interpolate, useCurrentFrame } from "remotion";
 import { MapRoute, type MapProps } from "./scenes/MapRoute";
 import { MediaLayer, OverlayLayer } from "./scenes/Media";
 import type { CaptionGroup, DocProps, Layer } from "./types";
+import { FILM } from "@film";
 
 const Designed: React.FC<{ layer: Layer; accent: string }> = ({ layer, accent }) => {
   const p = (layer.props ?? {}) as Record<string, unknown>;
@@ -68,6 +69,11 @@ const Grade: React.FC<{ act?: DesignTokens["acts"][number] }> = ({ act }) => (
   </>
 );
 
+const TransitionAt: React.FC<{ span: number; T: React.FC<{ progress: number }> }> = ({ span, T }) => {
+  const f = useCurrentFrame();
+  return <T progress={Math.max(0, Math.min(1, f / Math.max(1, span - 1)))} />;
+};
+
 const FULL_FRAME = new Set(["scene", "captions", "name_label", "map", "versus", "atmosphere", "hero_face", "cutout_collage", "chapter_card", "screen", "money_figure"]);
 
 export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
@@ -121,6 +127,18 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
       <AbsoluteFill style={{ filter: `saturate(${sat.toFixed(3)}) contrast(${Math.min(con, 1.14).toFixed(3)}) brightness(1.0)` }}>{below.map(render)}</AbsoluteFill>
       <Grade {...(act ? { act } : {})} />
       {above.map(render)}
+      {/* Step 5: the film's own transition across every cut a shot asks to bridge ("film"), centred on the cut. */}
+      {(() => {
+        const T = FILM.transitions[FILM.transition ?? ""];
+        if (!T) return null;
+        const span = FILM.transitionFrames ?? 10;
+        const cuts = [...new Set(manifest.video.filter((l) => (l.props as { transitionIn?: string } | undefined)?.transitionIn === "film" && l.startFrame > 0).map((l) => l.startFrame))];
+        return cuts.map((c) => (
+          <Sequence key={`tr${c}`} from={Math.max(0, c - Math.floor(span / 2))} durationInFrames={span} layout="absolute-fill">
+            <TransitionAt span={span} T={T} />
+          </Sequence>
+        ));
+      })()}
     </AbsoluteFill>
   );
 };

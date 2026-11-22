@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { unlink, writeFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { promisify } from "node:util";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
@@ -11,6 +12,7 @@ import type { FilmDesignSystem, RenderManifest } from "@opumia/contracts";
 const run = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.join(here, "remotion", "index.tsx");
+const FILM_STUB = path.join(here, "remotion", "film", "stub.tsx");
 
 export interface Look {
   accent: string;
@@ -31,8 +33,18 @@ const bundles = new Map<string, string>();
 async function serveUrl(publicDir: string, log: (s: string) => void, fresh = false) {
   const hit = bundles.get(publicDir);
   if (hit && !fresh) return hit;
-  log("  render: bundling Remotion project…");
-  const url = await bundle({ entryPoint: ENTRY, publicDir, onProgress: () => {} });
+  // Step 5: a job's own motion-design kit (design/film/index.tsx beside its public/ folder) is bundled as "@film";
+  // without one, the empty stub is.
+  const jobFilm = path.join(path.dirname(publicDir), "design", "film", "index.tsx");
+  const film = existsSync(jobFilm) ? jobFilm : FILM_STUB;
+  log(`  render: bundling Remotion project${film === jobFilm ? " with the film's own design kit" : ""}…`);
+  const url = await bundle({
+    entryPoint: ENTRY,
+    publicDir,
+    onProgress: () => {},
+    // the kit lives in the job folder: it resolves react, remotion and the Google fonts from the engine's own packages
+    webpackOverride: (cfg) => ({ ...cfg, resolve: { ...(cfg.resolve ?? {}), modules: [...((cfg.resolve?.modules as string[]) ?? ["node_modules"]), path.join(here, "..", "node_modules"), path.join(here, "..", "..", "..", "node_modules")], alias: { ...((cfg.resolve?.alias as Record<string, string>) ?? {}), "@film": film } } }),
+  });
   bundles.set(publicDir, url);
   return url;
 }

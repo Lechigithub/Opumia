@@ -154,6 +154,8 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     if (designed) {
       let props: Record<string, unknown> = { ...designed.props };
       delete props.background;
+      // step 5: a cut the shot asks the film's own transition to bridge
+      if (s.transitionIn === "film") props.transitionIn = "film";
       if (designed.designed === "map") {
         const pts = (Array.isArray(props.points) ? props.points : []) as MapPoint[];
         props = { title: props.title, route: props.route ?? true, ...(await projectMap(o.libraryRoot, pts)) };
@@ -291,6 +293,9 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     .filter((m) => (seen.has(m.ref) ? false : (seen.add(m.ref), true)))
     .map((m) => ({ ref: m.ref, text: m.attributionText ?? `${m.provider} ${m.ref}`, license: m.license, ...(m.sourceUrl ? { url: m.sourceUrl } : {}) }));
 
+  // Step 5: every layer of a shot that asks for the film's own transition carries the mark (scene layers rebuild their
+  // props, so the mark is set once the timeline is complete).
+  for (const sh of o.storyboard.shots) if (sh.transitionIn === "film") for (const l of video) if (l.shotId === sh.id) l.props = { ...(l.props ?? {}), transitionIn: "film" };
   return RenderManifest.parse({
     schemaVersion: 1,
     id: `rm_${o.storyboard.id.slice(3)}_${o.storyboard.aspect.replace(":", "x")}`,
