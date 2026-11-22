@@ -21,7 +21,7 @@ import { MODELS, plain, structured } from "./llm.js";
 const ENTER = ["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"] as const;
 const COLORS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"] as const;
 const El = z.object({
-  type: z.enum(["phrase", "text", "photo", "cutout", "card3d", "text3d", "shape", "texture"]),
+  type: z.enum(["phrase", "text", "photo", "cutout", "card3d", "text3d", "shape", "texture", "counter", "steps", "icongrid", "newspaper", "screen"]),
   slot: z.number().describe("picture slot index for photo/cutout/card3d, else -1"),
   text: z.string().describe("words for phrase/text/text3d, else empty"),
   role: z.enum(["display", "headline", "body", "label", "stamp", "kicker"]).describe("for text"),
@@ -43,6 +43,11 @@ const El = z.object({
   word: z.string().describe("one word to emphasise in the accent colour (phrase/text), or empty"),
   outline: z.boolean().describe("white sticker outline for cutouts"),
   spin: z.number().describe("degrees the 3D element turns over the shot (card3d/text3d), else 0"),
+  count: z.number().describe("counter: how many icons/pictures (a figure SPOKEN in the shot), else 0"),
+  highlight: z.number().describe("counter: how many of them are marked, else 0"),
+  items: z.array(z.object({ label: z.string(), slot: z.number() })).describe("steps: 2–5 steps (label ≤ 4 words, slot or -1); icongrid: 2–6 icons (slot + label ≤ 3 words); else []"),
+  device: z.enum(["browser", "phone", "monitor"]).describe("screen: the frame around the picture"),
+  date: z.string().describe("newspaper: a date line spoken or verified, else empty"),
 });
 const Plan = z.object({
   scenes: z.array(
@@ -141,6 +146,7 @@ LAYOUT RULES:
 - Coordinates are fractions of the ${portrait ? "1080×1920 vertical" : "1920×1080"} frame; x,y = top-left corner, w = width. Keep everything inside 0.04–0.96${portrait ? "; important content in the top two-thirds" : ""}. Text height ≈ size × number of lines: make sure elements do not overlap each other (leave ≥ 0.03 between boxes) and do not cover a face or the main subject of the footage.
 - One focal idea per shot, 1–4 elements. Sizes with intent: a slam is big (0.12–0.2), a phrase medium (0.055–0.09), a label small (0.03–0.045).
 - Entrances: "at" in seconds, timed to when the word or thing is spoken, staggered ≥ 0.15 s; vary the enter type.
+- Infographic kinds (use them where the channel would, never as decoration): "counter" — a figure the narrator says, made visible as that many icons or pictures (count = the spoken number; highlight = how many are marked; slot = an icon or cut-out object, or -1 for a person figure); "steps" — a process of 2–5 steps (labels ≤ 4 words, slot per step or -1); "icongrid" — 2–6 icons with short labels (each needs a picture slot); "newspaper" — a newspaper-style layout whose headline is words the narrator says in this shot (no real paper's name; optional date and photo slot); "screen" — a picture slot (a real page screenshot, an app) shown in a browser, phone or monitor frame that scrolls.
 - Camera: a clear move across the whole scene (scale travels at least 0.08 between 1.0 and 1.2; focus 0.4–0.6), direction alternating shot to shot — the picture is never static.
 - No two consecutive shots share a layout. Across the batch use at least 5 clearly different layouts, and at most HALF of the shots may be "phrase over footage" — the rest are picture compositions, headlines, labels on real footage, shapes that point at things, or 3D moments. Vary phrase colour (text, primary, primarySoft) and size too.
 ${o.avoidLayouts ? `- Recent films leaned on these placements — this film must NOT: ${o.avoidLayouts}. Build this film's layouts around other parts of the frame.\n` : ""}- On-screen words are words the narrator says (or the name of what a slot shows). Never a number unless that exact figure is spoken in the shot. Never invent facts.
@@ -227,6 +233,30 @@ ${o.avoidLayouts ? `- Recent films leaned on these placements — this film must
         els.push({ type: "text", text: t.slice(0, 90), role: e.role, ...box, size: clamp(e.size, 0.022, 0.22), align: e.align, color: e.color, ...(e.word.trim() ? { highlightWord: e.word.trim() } : {}) });
       } else if (e.type === "shape" && e.shape !== "none") els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h || 0.008, 0.003, 0.9), color: e.color, ...(e.shape === "arrow" || e.shape === "line" ? { x2: clamp(e.x2, 0.02, 0.98), y2: clamp(e.y2, 0.02, 0.98) } : {}) });
       else if (e.type === "texture" && e.texture !== "none") els.push({ type: "texture", texture: e.texture, opacity: 0.28, at: 0 });
+      // G24 vocabulary — every word and figure on them comes from the narration.
+      else if (e.type === "counter") {
+        const n = Math.round(e.count);
+        const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
+        if (n < 1 || n > 60 || !(around.includes(String(n)) || (WORDS[n] && new RegExp(`\\b${WORDS[n]}\\b`).test(around))) || (t && !numsOk(t))) { dropped++; continue; }
+        els.push({ type: "counter", ...box, count: n, ...(e.highlight > 0 ? { highlight: Math.min(n, Math.round(e.highlight)) } : {}), ...(slots.has(e.slot) ? { slot: e.slot } : {}), color: e.color, ...(t ? { label: t.slice(0, 40) } : {}) });
+      } else if (e.type === "steps") {
+        const items = e.items.filter((x) => x.label.trim() && x.label.trim().split(/\s+/).length <= 4 && numsOk(x.label)).slice(0, 5).map((x) => ({ label: x.label.trim().slice(0, 32), ...(slots.has(x.slot) ? { slot: x.slot } : {}) }));
+        if (items.length < 2) { dropped++; continue; }
+        els.push({ type: "steps", ...box, direction: portrait ? "column" : "row", items, color: e.color });
+      } else if (e.type === "icongrid") {
+        const items = e.items.filter((x) => slots.has(x.slot) && x.label.trim() && numsOk(x.label)).slice(0, 6).map((x) => ({ slot: x.slot, label: x.label.trim().slice(0, 28) }));
+        if (items.length < 2) { dropped++; continue; }
+        els.push({ type: "icongrid", ...box, items });
+      } else if (e.type === "newspaper") {
+        // A headline the narration speaks (never an invented quote from a real paper; no masthead is drawn).
+        const hw = norm(t).split(" ").filter((x) => x.length > 2);
+        const said = new Set(around.split(" "));
+        if (!t || hw.length < 2 || hw.filter((x) => said.has(x)).length / hw.length < 0.8 || !numsOk(e.date)) { dropped++; continue; }
+        els.push({ type: "newspaper", ...box, headline: t.slice(0, 80), ...(e.date.trim() ? { date: e.date.trim().slice(0, 30) } : {}), ...(slots.has(e.slot) ? { slot: e.slot } : {}) });
+      } else if (e.type === "screen") {
+        if (!slots.has(e.slot)) { dropped++; continue; }
+        els.push({ type: "screen", ...box, slot: e.slot, device: e.device, scroll: 0.3 });
+      }
     }
     // A headline or label must carry meaning: text made only of filler words ("THE", "AT ALL", "A") is dropped.
     const FILLER = /^(the|a|an|of|and|to|in|on|at|all|for|by|with|was|is|it|its|his|her|their|this|that|as|from|but|so|then|they|he|she|we|i|that's|it's)$/i;

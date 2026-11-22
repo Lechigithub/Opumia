@@ -71,7 +71,13 @@ type El =
   | (Box & { type: "text3d"; text: string; color?: Token; spin?: number })
   | (Box & { type: "card3d"; slot: number; tilt?: number; spin?: number })
   | (Box & { type: "shape"; shape: "underline" | "circle" | "arrow" | "bar" | "line" | "rect" | "bracket" | "cross"; h?: number; color?: Token; x2?: number; y2?: number })
-  | { type: "texture"; texture: "paper" | "halftone" | "grid" | "scanlines" | "noise" | "stripes"; opacity?: number; at?: number };
+  | { type: "texture"; texture: "paper" | "halftone" | "grid" | "scanlines" | "noise" | "stripes"; opacity?: number; at?: number }
+  // G24 vocabulary
+  | (Box & { type: "counter"; count: number; highlight?: number; slot?: number; cols?: number; color?: Token; label?: string })
+  | (Box & { type: "steps"; direction?: "row" | "column"; items: Array<{ label: string; slot?: number }>; color?: Token })
+  | (Box & { type: "icongrid"; items: Array<{ slot: number; label: string }>; cols?: number })
+  | (Box & { type: "newspaper"; headline: string; date?: string; slot?: number })
+  | (Box & { type: "screen"; slot: number; device?: "browser" | "phone" | "monitor"; scroll?: number });
 
 export interface ComposedProps {
   spec: { backdrop?: "footage" | "surface" | "paper" | "split" | "world"; wash?: { color: Token; strength: number; mode: "tint" | "duotone" }; camera: { fromScale: number; toScale: number; fromX: number; toX: number; fromY: number; toY: number }; elements: El[] };
@@ -388,7 +394,107 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       </div>,
     );
   }
+  // ---- G24 vocabulary: counters, step flows, icon infographics, newspaper layouts, screens.
+  const startF = at * fps;
+  const label = (t: string, size: number, color = PALETTE.text) => <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: size, color, textAlign: "center", lineHeight: 1.05, letterSpacing: TYPO.tracking, textShadow: "0 2px 10px rgba(0,0,0,0.85)" }}>{t}</div>;
+  if (el.type === "counter") {
+    const n = Math.max(1, Math.min(60, el.count));
+    const cols = el.cols ?? Math.min(n, n > 24 ? 12 : 10);
+    const cell = w / cols;
+    const hi = Math.min(n, el.highlight ?? 0);
+    const src = el.slot !== undefined ? slots[String(el.slot)] : undefined;
+    const c = tok(el.color, PALETTE.crimson);
+    const items = Array.from({ length: n }, (_, k) => {
+      const shown = f >= startF + k * 2;
+      const p = shown ? spring({ frame: f - startF - k * 2, fps, config: { damping: 14 } }) : 0;
+      const on = k < hi || hi === 0;
+      const glyph = src
+        ? <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "contain", filter: on ? "none" : "grayscale(1) brightness(0.55)" }} />
+        : <svg viewBox="0 0 24 32" style={{ width: "100%", height: "100%" }}><circle cx="12" cy="7" r="6" fill={on ? c : PALETTE.textMuted} /><path d="M2 32 C2 18 22 18 22 32 Z" fill={on ? c : PALETTE.textMuted} /></svg>;
+      return <div key={k} style={{ width: cell * 0.86, height: cell * (src ? 0.86 : 1.15), margin: cell * 0.07, transform: `scale(${p})`, opacity: on ? 1 : 0.45 }}>{glyph}</div>;
+    });
+    return wrap(<div><div style={{ display: "flex", flexWrap: "wrap", width: w }}>{items}</div>{el.label ? <div style={{ marginTop: cell * 0.2 }}>{label(el.label, Math.max(28, cell * 0.55))}</div> : null}</div>);
+  }
+  if (el.type === "steps") {
+    const n = el.items.length;
+    const row = (el.direction ?? "row") === "row";
+    const c = tok(el.color, PALETTE.gold);
+    const size = row ? Math.max(24, (w / n) * 0.13) : Math.max(26, w * 0.07);
+    const boxes = el.items.map((it, k) => {
+      const t0 = startF + k * fps * 0.45;
+      const p = f >= t0 ? spring({ frame: f - t0, fps, config: { damping: 16 } }) : 0;
+      const src = it.slot !== undefined ? slots[String(it.slot)] : undefined;
+      return (
+        <React.Fragment key={k}>
+          {k > 0 ? <div style={{ alignSelf: "center", fontFamily: FONT, fontWeight: 900, fontSize: size * 1.4, color: c, opacity: p, margin: row ? `0 ${size * 0.3}px` : `${size * 0.1}px 0`, transform: row ? undefined : "rotate(90deg)" }}>→</div> : null}
+          <div style={{ flex: 1, opacity: p, transform: `translateY(${(1 - p) * 30}px)`, background: `${PALETTE.ink}e6`, border: `3px solid ${c}`, borderRadius: 14, padding: size * 0.45, display: "flex", flexDirection: "column", alignItems: "center", gap: size * 0.3, boxShadow: "0 18px 40px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: size * 0.8, color: c }}>{k + 1}</div>
+            {src ? <Img src={staticFile(src)} style={{ width: "70%", maxHeight: size * 4, objectFit: "contain" }} /> : null}
+            {label(it.label, size)}
+          </div>
+        </React.Fragment>
+      );
+    });
+    return wrap(<div style={{ display: "flex", flexDirection: row ? "row" : "column", width: w, alignItems: "stretch" }}>{boxes}</div>);
+  }
+  if (el.type === "icongrid") {
+    const n = el.items.length;
+    const cols = el.cols ?? Math.min(n, 3);
+    const cell = w / cols;
+    const cells = el.items.map((it, k) => {
+      const src = slots[String(it.slot)];
+      const t0 = startF + k * fps * 0.25;
+      const p = f >= t0 ? spring({ frame: f - t0, fps, config: { damping: 15 } }) : 0;
+      return (
+        <div key={k} style={{ width: cell, padding: cell * 0.08, display: "flex", flexDirection: "column", alignItems: "center", gap: cell * 0.06, opacity: p, transform: `scale(${0.7 + 0.3 * p})` }}>
+          <div style={{ width: cell * 0.55, height: cell * 0.55, borderRadius: "50%", background: `${PALETTE.ink}cc`, border: `3px solid ${PALETTE.gold}`, display: "flex", alignItems: "center", justifyContent: "center" }}>{src ? <Img src={staticFile(src)} style={{ width: "62%", height: "62%", objectFit: "contain" }} /> : null}</div>
+          {label(it.label, Math.max(22, cell * 0.11))}
+        </div>
+      );
+    });
+    return wrap(<div style={{ display: "flex", flexWrap: "wrap", width: w, justifyContent: "center" }}>{cells}</div>);
+  }
+  if (el.type === "newspaper") {
+    const src = el.slot !== undefined ? slots[String(el.slot)] : undefined;
+    const H = w * 1.18;
+    const serif = "'Playfair Display', 'Times New Roman', Georgia, serif";
+    const bars = (rows: number) => <div style={{ flex: 1, backgroundImage: "repeating-linear-gradient(180deg, rgba(40,35,30,0.35) 0 5px, transparent 5px 14px)", minHeight: rows * 14 }} />;
+    return wrap(
+      <div style={{ width: w, height: H, background: "#efe7d4", padding: w * 0.05, boxShadow: "0 30px 70px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", gap: w * 0.02, position: "relative", overflow: "hidden" }}>
+        <div style={{ borderTop: "4px solid #222", borderBottom: "1px solid #222", height: w * 0.012 }} />
+        {el.date ? <div style={{ fontFamily: serif, fontSize: w * 0.03, color: "#333", textTransform: "uppercase", letterSpacing: 2 }}>{el.date}</div> : null}
+        <div style={{ fontFamily: serif, fontWeight: 900, fontSize: w * (el.headline.length > 40 ? 0.07 : 0.09), lineHeight: 1.02, color: "#151311" }}>{el.headline}</div>
+        <div style={{ display: "flex", gap: w * 0.03, flex: 1 }}>
+          {src ? <div style={{ width: "55%", display: "flex", flexDirection: "column", gap: 8 }}><Img src={staticFile(src)} style={{ width: "100%", height: H * 0.42, objectFit: "cover", filter: "grayscale(1) contrast(1.15)" }} />{bars(4)}</div> : bars(10)}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>{bars(12)}</div>
+        </div>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 30% 20%, rgba(255,250,235,0.3), transparent 60%), radial-gradient(ellipse at 80% 90%, rgba(120,90,50,0.25), transparent 55%)", mixBlendMode: "multiply", pointerEvents: "none" }} />
+      </div>,
+      H,
+    );
+  }
+  if (el.type === "screen") {
+    const src = slots[String(el.slot)];
+    if (!src) return null;
+    const dev = el.device ?? "browser";
+    const H = dev === "phone" ? w * 2.05 : w * 0.62;
+    const p = interpolate(f, [startF + fps * 0.6, startF + fps * 6], [0, el.scroll ?? 0.25], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.quad) });
+    const view = <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `50% ${p * 100}%`, display: "block" }} />;
+    if (dev === "phone")
+      return wrap(<div style={{ width: w, height: H, borderRadius: w * 0.14, background: "#0c0c0e", padding: w * 0.045, boxShadow: "0 30px 70px rgba(0,0,0,0.65)" }}><div style={{ width: "100%", height: "100%", borderRadius: w * 0.1, overflow: "hidden", position: "relative" }}>{view}<div style={{ position: "absolute", top: w * 0.03, left: "35%", width: "30%", height: w * 0.06, borderRadius: w, background: "#0c0c0e" }} /></div></div>, H);
+    const bar = w * 0.045;
+    return wrap(
+      <div style={{ width: w }}>
+        <div style={{ width: w, height: H, borderRadius: 12, overflow: "hidden", background: "#1b1d22", boxShadow: "0 30px 70px rgba(0,0,0,0.65)", border: dev === "monitor" ? `${w * 0.02}px solid #111` : "1px solid #333" }}>
+          {dev === "browser" ? <div style={{ height: bar, display: "flex", alignItems: "center", gap: bar * 0.25, padding: `0 ${bar * 0.4}px`, background: "#2a2d34" }}>{["#ff5f57", "#febc2e", "#28c840"].map((c) => <div key={c} style={{ width: bar * 0.32, height: bar * 0.32, borderRadius: "50%", background: c }} />)}<div style={{ flex: 1, height: bar * 0.5, borderRadius: bar, background: "#3a3e47", marginLeft: bar * 0.4 }} /></div> : null}
+          <div style={{ width: "100%", height: dev === "browser" ? H - bar : H }}>{view}</div>
+        </div>
+        {dev === "monitor" ? <div style={{ width: w * 0.18, height: w * 0.08, margin: "0 auto", background: "linear-gradient(#222, #111)" }} /> : null}
+      </div>,
+    );
+  }
   // Shapes.
+  if (el.type !== "shape") return null;
   const color = tok(el.color, PALETTE.crimson);
   const sw = Math.max(4, (el.h ?? 0.008) * height);
   const x1 = el.x * width + par;

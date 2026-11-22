@@ -78,3 +78,13 @@ what it did for a moment like this, not from a general idea of the style.
 - **Motion leads the eye** in the order the viewer should read: the subject enters, then the words, then the detail.
 - **Readable on a phone.** Text large enough to read at a glance, high contrast, inside the safe area, never over a
   face or the subject.
+
+## Infographic kinds (the channel uses them; so can you)
+
+- `counter` — a spoken figure made visible: 13 staff → 13 figures; 3 of 10 → 10 with 3 marked.
+- `steps` — a process or a chain of cause: film → prints → digital.
+- `icongrid` — two to six things side by side, each an icon or picture with a word.
+- `newspaper` — a moment the press reported: the headline is the narrator's own words for it; no real paper's name.
+- `screen` — a real page screenshot or app in a browser, phone or monitor frame that scrolls.
+A shot with no footage is built around one of these, a picture, or a document — not a lone word on a colour.
+

@@ -84,6 +84,10 @@ export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "scrip
       else if (el.type === "text" && (el.role === "display" || el.role === "headline")) events.push({ atS: at + (el.enter === "stamp" ? 0.1 : 0.14), family: el.size >= 0.13 ? "sub_boom" : "thud", prio: el.size >= 0.13 ? 4 : 3, strong: true, why: `headline "${el.text}"` });
       else if (el.type === "cutout" || el.type === "photo") events.push({ atS: at + 0.12, family: "thud", prio: 2.2, strong: true, why: `${el.type} lands` });
       else if (el.type === "text" && el.enter === "type") events.push({ atS: at + 0.05, family: "typing", prio: 1.5, strong: false, why: "typed label" });
+      else if (el.type === "counter") events.push({ atS: at + 0.1, family: "thud", prio: 3.4, strong: true, why: `counter ${el.count}` });
+      else if (el.type === "steps") el.items.forEach((_, k) => k && events.push({ atS: at + k * 0.45 + 0.05, family: "click", prio: 1.4, strong: false, why: `step ${k + 1}` }));
+      else if (el.type === "newspaper") events.push({ atS: at + 0.1, family: "paper", prio: 2.6, strong: false, why: "newspaper lands" });
+      else if (el.type === "icongrid") events.push({ atS: at + 0.12, family: "thud", prio: 2.4, strong: true, why: "icon grid" });
       else if (el.type === "shape" && el.enter === "draw" && (el.shape === "circle" || el.shape === "cross" || el.shape === "arrow")) events.push({ atS: at + 0.2, family: "click", prio: 1.2, strong: false, why: `${el.shape} drawn` });
     }
   }

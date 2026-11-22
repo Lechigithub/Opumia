@@ -9,6 +9,20 @@ export const SceneEnter = z.enum(["fade", "slide_left", "slide_right", "slide_up
 const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade") };
 export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"]);
 
+/** G24 vocabulary: the channel's infographic kinds. All words on them come from the narration. */
+export const SceneElementG24 = [
+  // A quantity made visible: `count` icons or pictures, `highlight` of them marked (13 staff → 13 figures).
+  z.object({ type: z.literal("counter"), ...Box, count: z.number().int().min(1).max(60), highlight: z.number().int().min(0).max(60).optional(), slot: z.number().int().min(0).optional(), cols: z.number().int().min(1).max(15).optional(), color: ColorToken.optional(), label: z.string().max(40).optional() }),
+  // A step flow: 2–5 steps (≤ 4 words each, optionally a picture slot each), connected and revealed in order.
+  z.object({ type: z.literal("steps"), ...Box, direction: z.enum(["row", "column"]).default("row"), items: z.array(z.object({ label: z.string().max(32), slot: z.number().int().min(0).optional() })).min(2).max(5), color: ColorToken.optional() }),
+  // An icon infographic: 2–6 icons or pictures with a short label each, in a grid.
+  z.object({ type: z.literal("icongrid"), ...Box, items: z.array(z.object({ slot: z.number().int().min(0), label: z.string().max(28) })).min(2).max(6), cols: z.number().int().min(1).max(6).optional() }),
+  // A newspaper-style layout (no real masthead): a headline the narration speaks, an optional date and photo.
+  z.object({ type: z.literal("newspaper"), ...Box, headline: z.string().max(80), date: z.string().max(30).optional(), slot: z.number().int().min(0).optional() }),
+  // A screen: a picture (a real page screenshot, an app) in a browser, phone or monitor frame, scrolling slowly.
+  z.object({ type: z.literal("screen"), ...Box, slot: z.number().int().min(0), device: z.enum(["browser", "phone", "monitor"]).default("browser"), scroll: z.number().min(0).max(1).default(0.25) }),
+] as const;
+
 export const SceneElement = z.discriminatedUnion("type", [
   z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, frame: z.enum(["none", "print", "torn", "circle", "tv", "polaroid"]).default("print"), grade: z.enum(["natural", "mono", "duotone"]).default("natural"), h: z.number().optional() }),
   z.object({
@@ -35,8 +49,11 @@ export const SceneElement = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string().min(1).max(90), role: z.enum(["display", "headline", "body", "label", "stamp", "kicker"]), ...Box, size: z.number().min(0.015).max(0.3), align: z.enum(["left", "center", "right"]).default("left"), color: ColorToken.default("text"), box: ColorToken.optional(), highlightWord: z.string().optional() }),
   z.object({ type: z.literal("shape"), shape: z.enum(["underline", "circle", "arrow", "bar", "line", "rect", "bracket", "cross"]), ...Box, h: z.number().default(0.01), color: ColorToken.default("accent"), x2: z.number().optional(), y2: z.number().optional() }),
   z.object({ type: z.literal("texture"), texture: z.enum(["paper", "halftone", "grid", "scanlines", "noise", "stripes"]), opacity: z.number().min(0).max(1).default(0.4), at: z.number().min(0).default(0) }),
+  ...SceneElementG24,
 ]);
 export type SceneElement = z.infer<typeof SceneElement>;
+
+
 
 export const SceneSpec = z.object({
   shotId: z.string(),
