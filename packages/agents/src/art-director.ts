@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { producedJobs } from "./produced.js";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { FilmDesignSystem, type FactSheet } from "@opumia/contracts";
@@ -36,7 +37,8 @@ export interface TreatmentRecord { job: string; channel: string; headline: strin
 const treatmentsFile = (dataDir: string) => path.join(dataDir, "treatments.json");
 export async function recentTreatments(dataDir: string, n = 8): Promise<TreatmentRecord[]> {
   try {
-    return (JSON.parse(await readFile(treatmentsFile(dataDir), "utf8")) as TreatmentRecord[]).slice(-n);
+    const made = await producedJobs(dataDir);
+    return (JSON.parse(await readFile(treatmentsFile(dataDir), "utf8")) as TreatmentRecord[]).filter((t) => made.has(t.job)).slice(-n);
   } catch {
     return [];
   }

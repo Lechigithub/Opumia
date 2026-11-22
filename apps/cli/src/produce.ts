@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -58,7 +58,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.6, B1: 0.45, B2: 0.2, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.9, C4: 0.2 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.6, A2: 0.4, A3: 0.9, B1: 0.6, B2: 0.2, B2s: 0.15, B3: 0.45, B4: 0.3, B4e: 0.12, B4c: 0.1, B5: 0.15, B5s: 0.45, B6: 0.35, C1: 0.02, C2: 0.05, C3: 0.9, C4: 0.2, C4v: 0.15 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -76,7 +76,7 @@ export async function produce(o: ProduceOptions) {
     const cur = open;
     open = null;
     const usd = Math.round(usageLedger().slice(cur.n).reduce((t, r) => t + r.usd, 0) * 1e4) / 1e4;
-    const code = /^\[([A-Z]\d)/.exec(cur.stage)?.[1] ?? "";
+    const code = /^\[([A-Z]\d+[a-z]?)\]/.exec(cur.stage)?.[1] ?? "";
     const b = STAGE_BUDGET_USD[code];
     const budgetUsd = b === undefined ? null : Math.round(b * k * 100) / 100;
     const over = budgetUsd !== null && usd > budgetUsd;
@@ -138,6 +138,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
   log("\n[A1b] art direction (runs alongside the script)");
   // Uniqueness: what the recent films did, so every planning stage can do something else.
+  const producedSet = await producedJobs(o.data);
   const recentFps = (await loadFingerprints(o.data)).filter((f) => f.job !== jobId).slice(-6);
   const habits = habitsOf(recentFps);
   // Art direction and the script need only the facts, so they run side by side; the design is awaited after the script.
@@ -179,7 +180,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const askResearcher = (questions: string[]) => researchAgent({ topic: o.topic, format: "", want: 0, questions, idStart: facts.claims.length, browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log }).then((r) => r.claims);
   const storyFile = path.join(jobDir, "script.story.json");
   const onStory = (r: StoryReport) => void writeFile(storyFile, JSON.stringify(r, null, 2) + "\n");
-  let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ ...(o.writerBrief ? { brief: o.writerBrief } : {}), pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
+  let draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, redo("script"), () => writeScript({ ...(o.writerBrief ? { brief: o.writerBrief } : {}), pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm, recent: recentBlueprints(memory, channel, 4, producedSet), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
   if (draft.blueprint) await updateMemory(o.data, (m) => recordBlueprint(m, channel, { job: jobId, hook: draft.blueprint!.hook, ending: draft.blueprint!.ending, spine: draft.blueprint!.spine, ...(draft.blueprint!.beats?.length ? { beats: draft.blueprint!.beats } : {}) }));
   {
@@ -793,6 +794,11 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     log(`  master: ${loud.integratedLufs} LUFS, TP ${loud.truePeakDb} dBTP`);
     await muxFinal(silent, master, finalPath);
   } else log(`  ✓ ${finalName} (cached)`);
+  // The job is a film now: its usage, look and fingerprint count for later films' cooldown and sameness checks.
+  if (existsSync(finalPath)) {
+    await markProduced(o.data, jobId, path.basename(finalPath));
+    await recordUsage(o.data, jobId, resolution, board);
+  }
   if (stop("render")) return { jobDir };
 
   log("\n[C3] publishing package (thumbnail, title, description, tags, hashtags, pinned comment)");

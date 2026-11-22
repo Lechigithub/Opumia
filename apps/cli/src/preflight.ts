@@ -157,21 +157,25 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
   const pics = o.resolution.media.filter((m) => m.role === "primary" || m.role === "layer");
 
   // --- Pictures: nothing repeated inside the film, nothing a recent film used.
+  // The editor splits a shot into punch-ins of the same clip ("sh008" → "sh008_2", "sh008_2_2"): the halves are one
+  // shot and one continuous clip, never a repeat or a second clip from the same source.
+  const rootOf = (id: string) => id.replace(/(_\d+)+$/, "");
   {
     const seen = new Map<string, string>();
-    const wikiSeen = new Map<string, number>();
+    const wikiSeen = new Map<string, Set<string>>();
     const dupShots: string[] = [];
     for (const m of [...pics].sort((a, b) => a.shotId.localeCompare(b.shotId))) {
       // The same logo or portrait may anchor several scenes as a small picture; footage and web photos may not repeat.
       const k = baseRef(m.ref);
       // A logo or portrait may anchor two scenes as a small picture; a third time reads as a template.
       if (m.role === "layer" && m.provider === "wikipedia") {
-        const n = (wikiSeen.get(k) ?? 0) + 1;
-        wikiSeen.set(k, n);
-        if (n > 2) dupShots.push(m.shotId);
+        const roots = wikiSeen.get(k) ?? new Set<string>();
+        roots.add(rootOf(m.shotId));
+        wikiSeen.set(k, roots);
+        if (roots.size > 2) dupShots.push(m.shotId);
         continue;
       }
-      if (seen.has(k) && seen.get(k) !== m.shotId) dupShots.push(m.shotId);
+      if (seen.has(k) && rootOf(seen.get(k)!) !== rootOf(m.shotId)) dupShots.push(m.shotId);
       else seen.set(k, m.shotId);
     }
     add({ id: "repeat_in_film", label: "Pictures used more than once in the film", value: dupShots.length, target: "0", pass: dupShots.length === 0, level: "blocker", repair: "drop_picture", shots: dupShots });
@@ -184,13 +188,20 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const clips = o.resolution.media.filter((m) => m.role === "primary" && m.origin === "press" && m.kind === "video");
     const byVideo = new Map<string, string[]>();
     for (const c of clips) byVideo.set(baseRef(c.ref), [...(byVideo.get(baseRef(c.ref)) ?? []), c.shotId]);
-    const extra = [...byVideo.values()].flatMap((v) => v.sort().slice(1));
+    // one clip per source video: halves of an editor split are the same clip
+    const extra = [...byVideo.values()].flatMap((v) => { const first = rootOf([...v].sort()[0]!); return v.filter((id) => rootOf(id) !== first); });
     add({ id: "fair_use_one_clip", label: "Extra clips taken from one source video", value: extra.length, target: "0", pass: extra.length === 0, level: "blocker", repair: "drop_picture", shots: extra });
     const dur = (id: string) => {
       const sh = shots.find((x) => x.id === id);
       return sh ? sh.endS - sh.startS : 0;
     };
-    const long = clips.filter((c) => (c.fairUse?.usedS ?? dur(c.shotId)) > 7.5).map((c) => c.shotId);
+    // a split clip's length is its halves together (one continuous excerpt)
+    const fam = new Map<string, typeof clips>();
+    for (const c of clips) fam.set(`${rootOf(c.shotId)}|${baseRef(c.ref)}`, [...(fam.get(`${rootOf(c.shotId)}|${baseRef(c.ref)}`) ?? []), c]);
+    // unsplit: the excerpt recorded at download; split: the halves' shot lengths added (the stored figure is the
+    // whole clip from before the split, so adding to it would count twice)
+    const used = new Map([...fam].map(([k, cs]) => [k, cs.length === 1 ? (cs[0]!.fairUse?.usedS ?? dur(cs[0]!.shotId)) : cs.reduce((t, c) => t + dur(c.shotId), 0) + 0.8] as [string, number]));
+    const long = clips.filter((c) => (used.get(`${rootOf(c.shotId)}|${baseRef(c.ref)}`) ?? 0) > 7.5).map((c) => c.shotId);
     add({ id: "fair_use_clip_length", label: "Press clips longer than 7.5 s", value: long.length, target: "0", pass: long.length === 0, level: "blocker", repair: "drop_picture", shots: long });
     const share = clips.reduce((t, c) => t + dur(c.shotId), 0) / Math.max(1, o.timed.durationS);
     add({ id: "fair_use_share", label: "Share of the runtime on press footage", value: share, target: "≤ 0.45", pass: share <= 0.45, level: "blocker", repair: "drop_picture", shots: share > 0.45 ? clips.sort((a, b) => dur(b.shotId) - dur(a.shotId)).slice(0, 1).map((c) => c.shotId) : [] });

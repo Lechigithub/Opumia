@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { checkPackage, withoutClaims, designThumbnail, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
+import { producedJobs, checkPackage, withoutClaims, designThumbnail, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
 import type { FactSheet, FilmDesignSystem, LibraryIndex, ResolutionReport, Storyboard, TimedScript } from "@opumia/contracts";
 import { renderThumbnailScene } from "@opumia/motion-engine";
 import { closeBrowser, makeThumbnailTools, visionCheck, wikipediaImages, type ThumbCredit, type ThumbPicture } from "@opumia/resolver";
@@ -104,7 +104,8 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
   const tools = makeThumbnailTools({ jobDir: o.jobDir, dataDir: o.data, libraryRoot: o.library, index: o.index, resolution: o.resolution, facts: o.facts, board: o.board, log });
   await tools.gather();
   log(`  packaging agent: ${tools.pics.length} real picture(s) to start — ${tools.pics.map((p) => p.depicts.slice(0, 26)).join("; ")}`);
-  const concepts = (await readJson<Array<{ job: string; concept: string }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? [];
+  const made = await producedJobs(o.data);
+  const concepts = ((await readJson<Array<{ job: string; concept: string }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? []).filter((c) => made.has(c.job));
   const before = await import("@opumia/agents").then((m) => m.usageLedger().reduce((t, r) => t + r.usd, 0));
   const report: PackagingReport = await packagingAgent({
     channel: o.channel,
@@ -317,7 +318,8 @@ async function legacyPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string
   log(`  title: "${text.title}" (${text.titleCandidates.length} candidates) · ${text.tags.length} tags · ${text.hashtags.join(" ")}`);
 
   // ---- Thumbnail: design → render → imposter test against real thumbnails → one revision.
-  const concepts = (await readJson<Array<{ job: string; concept: string }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? [];
+  const made = await producedJobs(o.data);
+  const concepts = ((await readJson<Array<{ job: string; concept: string }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? []).filter((c) => made.has(c.job));
   const exemplarThumbs = refThumbs.slice(0, 6).map((t) => t.path);
   const realForTest = refThumbs.slice(6, 14).map((t) => t.path);
   const band = ex.thumbs.map((t) => t.look.colourfulness).sort((a, b) => a - b);

@@ -48,10 +48,11 @@ export const blockedRefs = (m: ProductionMemory) => new Set(Object.keys(m.blocke
 export const badQueries = (m: ProductionMemory, min = 2) => Object.entries(m.badQueries).filter(([, n]) => n >= min).sort((a, b) => b[1] - a[1]).map(([q]) => q).slice(0, 30);
 
 /** Recent blueprints: this channel's last `n` plus every other channel's last 2 (no two films share a cadence). */
-export const recentBlueprints = (m: ProductionMemory, channel: string, n = 4) => [
-  ...Object.entries(m.blueprints).filter(([c]) => c !== channel).flatMap(([, list]) => list.slice(-2)),
-  ...(m.blueprints[channel] ?? []).slice(-n),
-];
+/** Blueprints of produced films only (`produced`, from produced.ts) — a test plan never set a channel habit. */
+export const recentBlueprints = (m: ProductionMemory, channel: string, n = 4, produced?: Set<string>) => {
+  const ok = (b: { job?: string }) => !produced || (b.job !== undefined && produced.has(b.job));
+  return [...Object.entries(m.blueprints).filter(([c]) => c !== channel).flatMap(([, list]) => list.filter(ok).slice(-2)), ...(m.blueprints[channel] ?? []).filter(ok).slice(-n)];
+};
 
 export const recordBlueprint = (m: ProductionMemory, channel: string, b: { job: string; hook: string; ending: string; spine: string; beats?: string[] }) => {
   m.blueprints[channel] = [...(m.blueprints[channel] ?? []).filter((x) => x.job !== b.job), b].slice(-20);

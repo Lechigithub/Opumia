@@ -109,17 +109,74 @@ function spokenForms(w: string): string[] {
 }
 
 /** Align script words to heard words (edit distance) and list what differs. Figures and unit words are lenient. */
+/**
+ * Spoken numbers and written figures in one canonical form, so "twenty three" (script) and "23" (recogniser), or
+ * "sixteen billion dollars" and "$16 billion", compare as the same words:
+ *  - runs of number words become one number ("twenty three" → 23, "one hundred and five" → 105);
+ *  - "$16" → 16 dollars, "$16 billion" → 16 billion dollars, "40%" → 40 percent, "1,000" → 1000.
+ * Each output token keeps the time and the raw text of the word it came from.
+ */
+const UNITS: Record<string, number> = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
+const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const SCALE = /^(thousand|million|billion|trillion)$/;
+const CUR: Record<string, string> = { $: "dollars", "€": "euros", "£": "pounds" };
+export function canonicalWords<T extends { word: string; t: number }>(ws: T[]): Array<{ n: string; raw: string; t: number }> {
+  const out: Array<{ n: string; raw: string; t: number }> = [];
+  const low = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}$%€£.,-]/gu, "").replace(/[.,]+$/, "");
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i]!;
+    const x = low(w.word);
+    // a run of number words: units, tens, "hundred", "and" between them
+    if (x in UNITS || x in TENS) {
+      let total = 0, cur = 0, k = i;
+      for (; k < ws.length; k++) {
+        const y = low(ws[k]!.word);
+        if (y in UNITS) cur += UNITS[y]!;
+        else if (y in TENS) cur += TENS[y]!;
+        else if (y === "hundred" && cur) cur *= 100;
+        else if (y === "and" && k > i && k + 1 < ws.length && (low(ws[k + 1]!.word) in UNITS || low(ws[k + 1]!.word) in TENS)) continue;
+        else break;
+        // "twenty twenty" (a year said in pairs) — stop at a second tens word after a unit or ten
+        const nx = k + 1 < ws.length ? low(ws[k + 1]!.word) : "";
+        if (cur % 10 !== 0 && nx in TENS) { k++; break; }
+        if ((y in TENS) && nx in TENS) { k++; break; }
+      }
+      total += cur;
+      out.push({ n: String(total), raw: ws.slice(i, k).map((z) => z.word).join(" "), t: w.t });
+      i = k - 1;
+      continue;
+    }
+    const m = /^([$€£])?(\d[\d,]*(?:\.\d+)?)(%)?([a-z]+)?$/i.exec(x);
+    if (m) {
+      const num = m[2]!.replace(/,/g, "");
+      out.push({ n: num, raw: w.word, t: w.t });
+      if (m[4]) out.push({ n: m[4].toLowerCase() === "bn" ? "billion" : m[4].toLowerCase() === "m" ? "million" : m[4].toLowerCase(), raw: w.word, t: w.t });
+      if (m[3]) out.push({ n: "percent", raw: w.word, t: w.t });
+      if (m[1]) {
+        // "$16 billion" is spoken "16 billion dollars": the currency word follows the scale word
+        const nx = i + 1 < ws.length ? low(ws[i + 1]!.word) : "";
+        if (SCALE.test(nx)) { out.push({ n: nx, raw: ws[i + 1]!.word, t: ws[i + 1]!.t }); i++; }
+        out.push({ n: CUR[m[1]]!, raw: w.word, t: w.t });
+      }
+      continue;
+    }
+    const n = normWord(w.word).replace(/\./g, "");
+    if (n) out.push({ n: n === "percentage" ? "percent" : n, raw: w.word, t: w.t });
+  }
+  return out;
+}
+
 export function diffSpeech(script: Array<{ word: string; startS: number }>, heard: AsrWord[]): SpeechDiff {
   // Hyphenated compounds are heard as separate words; dotted abbreviations lose their dots.
   const split = <T extends { word: string }>(ws: T[]) => ws.flatMap((w) => w.word.split(/[-–—/]/).filter(Boolean).map((part) => ({ ...w, word: part })));
-  const B = split(heard).map((w) => ({ n: normWord(w.word).replace(/\./g, ""), raw: w.word, t: w.start })).filter((w) => w.n);
+  const B = canonicalWords(split(heard).map((w) => ({ ...w, t: w.start })));
   // A compound the recogniser writes as one word ("Film-less" heard as "filmless") is compared as one word.
   const heardSet = new Set(B.map((w) => w.n));
   const joined = (w: string) => normWord(w.replace(/[-–—/]/g, "")).replace(/\./g, "");
-  const A = script
+  const A0 = script
     .flatMap((w) => (/[-–—/]/.test(w.word) && heardSet.has(joined(w.word)) ? [{ ...w, word: w.word.replace(/[-–—/]/g, "") }] : split([w])))
-    .map((w) => ({ n: normWord(w.word).replace(/\./g, ""), forms: spokenForms(w.word), raw: w.word, t: w.startS }))
-    .filter((w) => w.n);
+    .map((w) => ({ ...w, t: w.startS }));
+  const A = canonicalWords(A0).map((w) => ({ ...w, forms: [w.n] }));
   // Same word in another spelling (Shultz/Schultz, Walgreen/Walgreens, Aug/August): close enough for the
   // recogniser — whether it SOUNDS right is the phoneme checker's job.
   const close = (x: string, y: string) => {

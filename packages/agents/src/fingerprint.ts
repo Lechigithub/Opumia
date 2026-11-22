@@ -1,4 +1,5 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { producedJobs } from "./produced.js";
 import path from "node:path";
 import type { FilmDesignSystem, ScenePlan, ScriptDraft, Storyboard } from "@opumia/contracts";
 
@@ -29,15 +30,18 @@ export interface FilmFingerprint {
 }
 
 const file = (dataDir: string) => path.join(dataDir, "fingerprints.json");
-export async function loadFingerprints(dataDir: string): Promise<FilmFingerprint[]> {
+export async function loadFingerprints(dataDir: string, o: { all?: boolean } = {}): Promise<FilmFingerprint[]> {
   try {
-    return JSON.parse(await readFile(file(dataDir), "utf8")) as FilmFingerprint[];
+    const fps = JSON.parse(await readFile(file(dataDir), "utf8")) as FilmFingerprint[];
+    if (o.all) return fps;
+    const made = await producedJobs(dataDir);
+    return fps.filter((f) => made.has(f.job));
   } catch {
     return [];
   }
 }
 export async function saveFingerprint(dataDir: string, fp: FilmFingerprint): Promise<void> {
-  const all = [...(await loadFingerprints(dataDir)).filter((x) => x.job !== fp.job), fp].slice(-80);
+  const all = [...(await loadFingerprints(dataDir, { all: true })).filter((x) => x.job !== fp.job), fp].slice(-80);
   await mkdir(dataDir, { recursive: true });
   await writeFile(`${file(dataDir)}.tmp`, JSON.stringify(all, null, 1) + "\n");
   await rename(`${file(dataDir)}.tmp`, file(dataDir));

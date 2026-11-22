@@ -13,6 +13,7 @@
  * idea, whole-film score, the showrunner's summary, what stayed below the channel). `readMemory` returns an agent's
  * own lessons (filtered) and its log, plus the last films' memory.
  */
+import { producedJobs } from "./produced.js";
 import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -99,7 +100,8 @@ export async function recordFilm(data: string, channel: string, f: FilmMemory) {
 
 export async function recentFilmsText(data: string, channel: string, n = 5): Promise<string> {
   const t = await readFile(path.join(data, "films", `${channel}.jsonl`), "utf8").catch(() => "");
-  const rows = t.split("\n").filter(Boolean).map((l) => JSON.parse(l) as FilmMemory);
+  const made = await producedJobs(data);
+  const rows = t.split("\n").filter(Boolean).map((l) => JSON.parse(l) as FilmMemory).filter((r) => made.has(r.job));
   const last = new Map<string, FilmMemory>();
   for (const r of rows) last.set(r.job, r);
   return [...last.values()].slice(-n).map((r) => `- "${r.title}" (${r.at.slice(0, 10)}): score ${r.score}; idea: ${r.idea.slice(0, 160)}; ${r.summary.slice(0, 220)}${r.belowChannel.length ? `; still below the channel: ${r.belowChannel.slice(0, 4).join("; ")}` : ""}`).join("\n");

@@ -171,7 +171,8 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
       for (const e of sc.elements) {
         if (e.type !== "photo" && e.type !== "cutout" && e.type !== "card3d") continue;
         const ref = o.resolution.media.find((m) => m.shotId === sc.shotId && m.role === "layer" && m.slot === e.slot)?.ref;
-        if (ref) placed.set(ref, [...new Set([...(placed.get(ref) ?? []), sc.shotId])]);
+        // an editor split's halves ("sh008_2") are one shot
+        if (ref) placed.set(ref, [...new Set([...(placed.get(ref) ?? []), sc.shotId.replace(/(_\d+)+$/, "")])]);
       }
     const overused = [...placed.entries()].filter(([, v]) => v.length > 2);
     if (overused.length) issues.push({ kind: "same_picture_repeated", detail: `the same picture is placed in more than two shots: ${overused.map(([, v]) => v.join(", ")).join(" | ")}. Show it at most twice; give the other shots a different picture or let their footage play.` });

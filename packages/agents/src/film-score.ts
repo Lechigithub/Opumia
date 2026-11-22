@@ -9,6 +9,7 @@
  * overall and by position in the film, plus the trained taste of the scene previews when the taste model exists.
  * Every gap is listed with the channel's range and ours, so the showrunner can send it to the agent that owns it.
  */
+import { producedJobs } from "./produced.js";
 import { PLATFORM_FPS } from "@opumia/contracts";
 import { existsSync } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
@@ -30,11 +31,14 @@ async function lookOf(o: { root: string; data: string; files: string[]; log?: (s
 const cosDist = (a: Float32Array | number[], b: Float32Array | number[]) => { let s = 0; for (let d = 0; d < DIM; d++) s += a[d]! * b[d]!; return 1 - s; };
 
 /** Looks of our earlier films (data/looks/<channel>.json: job → rounded centroid). */
-async function ourLooks(data: string, channel: string): Promise<Record<string, number[]>> {
-  return readFile(path.join(data, "looks", `${channel}.json`), "utf8").then((t) => JSON.parse(t) as Record<string, number[]>, () => ({}));
+async function ourLooks(data: string, channel: string, o: { all?: boolean } = {}): Promise<Record<string, number[]>> {
+  const looks = await readFile(path.join(data, "looks", `${channel}.json`), "utf8").then((t) => JSON.parse(t) as Record<string, number[]>, () => ({}) as Record<string, number[]>);
+  if (o.all) return looks;
+  const made = await producedJobs(data);
+  return Object.fromEntries(Object.entries(looks).filter(([j]) => made.has(j)));
 }
 async function saveLook(data: string, channel: string, job: string, v: Float32Array) {
-  const all = await ourLooks(data, channel);
+  const all = await ourLooks(data, channel, { all: true });
   all[job] = Array.from(v, (x) => Math.round(x * 1e4) / 1e4);
   const { mkdir } = await import("node:fs/promises");
   await mkdir(path.join(data, "looks"), { recursive: true });

@@ -1,4 +1,5 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { producedJobs } from "@opumia/agents";
 import path from "node:path";
 import type { FactSheet, ResolutionReport, Storyboard } from "@opumia/contracts";
 
@@ -21,7 +22,8 @@ async function load(data: string): Promise<Usage[]> {
 
 /** Refs on cooldown for a new film (everything the last films used, except this job's own earlier runs). */
 export async function cooldownRefs(data: string, job: string): Promise<{ pictures: Set<string>; sfx: Set<string>; music: Set<string> }> {
-  const recent = (await load(data)).filter((u) => u.job !== job).slice(-COOLDOWN_FILMS);
+  const made = await producedJobs(data);
+  const recent = (await load(data)).filter((u) => u.job !== job && made.has(u.job)).slice(-COOLDOWN_FILMS);
   return { pictures: new Set(recent.flatMap((u) => u.pictures)), sfx: new Set(recent.flatMap((u) => u.sfx)), music: new Set(recent.flatMap((u) => u.music)) };
 }
 
