@@ -58,6 +58,8 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
   let rewrite: ShowrunnerDecision["rewrite"] = null;
   let noteSaved = false;
   const sendBacks = () => rounds.length;
+  // after a send-back the film changed: the next approval needs a fresh look at it
+  let unchecked: string | null = null;
   const seen = (from: number, to: number) => watched.some(([a, b]) => a <= from + 1 && b >= to - 1);
   const tools: AgentTool[] = [
     {
@@ -73,7 +75,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       run: (async (i: { fromS: number; toS: number }) => {
         const from = Math.max(0, i.fromS), to = Math.min(o.durationS, Math.min(i.toS, from + 15));
         const w = await o.watch(from, to).catch((e: Error) => ({ strip: "", text: `could not render: ${e.message.slice(0, 200)}` }));
-        if (w.strip) watched.push([from, to]);
+        if (w.strip) { watched.push([from, to]); unchecked = null; }
         return w.strip ? [{ type: "text" as const, text: w.text }, await img(w.strip)] : w.text;
       }) as AgentTool["run"],
     },
@@ -84,6 +86,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       run: (async (i: { shots: Array<{ shotId: string; note: string }> }) => {
         if (sendBacks() >= 6) return "refused: six send-backs already — decide and approve, or say what is still wrong";
         const r = await o.redesign(i.shots);
+        unchecked = "scene designer";
         rounds.push({ to: "scene designer", what: i.shots.map((s) => `${s.shotId}: ${s.note}`).join(" | ").slice(0, 600), result: r.slice(0, 400) });
         return r;
       }) as AgentTool["run"],
@@ -95,6 +98,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       run: (async (i: { note: string }) => {
         if (sendBacks() >= 6) return "refused: six send-backs already";
         const r = await o.reEdit(i.note);
+        unchecked = "editor";
         rounds.push({ to: "editor", what: i.note.slice(0, 400), result: r.slice(0, 400) });
         return r;
       }) as AgentTool["run"],
@@ -106,6 +110,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       run: (async (i: { note: string }) => {
         if (sendBacks() >= 6) return "refused: six send-backs already";
         const r = await o.redoSound(i.note);
+        unchecked = "sound designer";
         rounds.push({ to: "sound designer", what: i.note.slice(0, 400), result: r.slice(0, 400) });
         return r;
       }) as AgentTool["run"],
@@ -128,6 +133,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       description: "Approve the film (nothing more can be fixed by sending it back) with a summary and anything still below the channel's level. Refused until you have watched the opening and the ending.",
       schema: z.object({ summary: z.string(), stillBelowChannel: z.array(z.string()).default([]) }),
       run: (async (i: { summary: string; stillBelowChannel: string[] }) => {
+        if (unchecked) return `refused: the ${unchecked} changed the film since you last watched — watch the stretch it changed (and call film_report) before approving`;
         if (!seen(0, Math.min(12, o.durationS))) return "refused: watch the opening first";
         if (!seen(Math.max(0, o.durationS - 12), o.durationS)) return "refused: watch the ending first";
         decision = { approved: true, summary: `${i.summary}${i.stillBelowChannel.length ? ` Still below the channel: ${i.stillBelowChannel.join("; ")}` : ""}` };

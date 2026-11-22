@@ -34,7 +34,7 @@ The reference channel is the standard. "Good enough for us" is not.
 1. `film_report` — the film score against the channel (every gap with its owner) and what each agent reported.
 2. `watch` the cold open (first 15 s), the turn in the middle and the ending, at least. Look and listen.
 3. Send back what is wrong, each to its owner, with specific shots/lines and a reason. Then `film_report` and `watch`
-   again to check the fix.
+   again to check the fix. `approve` is refused until you have watched again after your last send-back.
 4. `approve` with a short summary of the film and anything still not at the channel's level. Approving is not
    saying it is perfect; it is saying nothing more can be fixed by sending it back.
 
