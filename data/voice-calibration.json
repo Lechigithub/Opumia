@@ -100,6 +100,10 @@
     "wpm": 143.3,
     "samples": 3
   },
+  "RolvCZ4e0AkAR2dzyTx0|eleven_v4|1|s0.28|st0.55": {
+    "wpm": 175.2,
+    "samples": 6
+  },
   "VMCgCMbBs53ElBxVD4VB|eleven_multilingual_v2|1.12": {
     "wpm": 148,
     "samples": 5
@@ -122,6 +126,20 @@
       "characters": 463,
       "measuredAt": "2026-11-21",
       "source": "measured"
+    },
+    "RolvCZ4e0AkAR2dzyTx0|eleven_v4|passage": {
+      "wpm": 191.5,
+      "pitchTravelSt": 12.888,
+      "melodySt": 3.059,
+      "dynamicsDb": 6.085,
+      "characters": 468,
+      "measuredAt": "2026-11-22",
+      "source": "measured",
+      "observed": [
+        171.7,
+        166.8
+      ],
+      "observedWpm": 169.3
     }
   },
   "cjVigY5qzO86Huf0OWal|eleven_multilingual_v2|1.08|s0.45|st0.25": {
