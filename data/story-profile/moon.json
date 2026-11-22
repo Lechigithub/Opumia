@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "channel": "moon",
+  "films": 23,
+  "kinds": {
+    "scene": {
+      "p10": 0.022,
+      "p50": 0.033,
+      "p90": 0.067
+    },
+    "story": {
+      "p10": 0.1,
+      "p50": 0.233,
+      "p90": 0.311
+    },
+    "fact": {
+      "p10": 0.067,
+      "p50": 0.1,
+      "p90": 0.244
+    },
+    "explain": {
+      "p10": 0.244,
+      "p50": 0.344,
+      "p90": 0.4
+    },
+    "motive": {
+      "p10": 0.011,
+      "p50": 0.033,
+      "p90": 0.056
+    },
+    "quote": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.1
+    },
+    "question": {
+      "p10": 0.011,
+      "p50": 0.044,
+      "p90": 0.089
+    },
+    "address": {
+      "p10": 0.011,
+      "p50": 0.044,
+      "p90": 0.089
+    },
+    "tease": {
+      "p10": 0.033,
+      "p50": 0.078,
+      "p90": 0.133
+    },
+    "maxim": {
+      "p10": 0.011,
+      "p50": 0.022,
+      "p90": 0.044
+    }
+  },
+  "viewer": {
+    "p10": 0.078,
+    "p50": 0.178,
+    "p90": 0.322
+  },
+  "structures": [
+    "\"Creepy Deep Fakes That Changed The Internet Forever\": Hook: dangerous war deepfake → Origin on Reddit → Nicolas Cage memes → BuzzFeed Obama deepfake → Jordan Peterson German government deepfake → State use: Volkov and Zelensky → Joe Rogan scam → Consent and Twitch streamer scandal → Spotting deepfakes and AI arms race",
+    "\"How Apple's Vision Pro Will Change Society Forever\": Hook: terrifying launch and hype → What problem does it solve? → Escape from a bleak reality → Too expensive? Apple's plan → How Vision Pro was developed → New economy → Real world web and societal changes → Attention, eye-tracking, experience machine → Short-form content and delusions",
+    "\"The Coming Events That Will Destroy Humanity By 2090.\": Fertility and sperm counts → Collapse of the family and dating → New dark technologies → AI singularity and job loss → Water shortages → Oceans and jellyfish → Climate disasters → Engineered viruses and superbugs → Nuclear war",
+    "\"TikTok Is About To Be Banned. Here's Why.\": Hook: TikTok stars and a conspiracy → TikTok drives Western pop culture → ByteDance and Musical.ly origin → The CCP, Mao and propaganda control → China buys cultural influence: Tencent, Huawei → China's soft power turns aggressive → War preparation and Taiwan → Why TikTok matters to the CCP → Role models: Douyin vs TikTok → Trojan horse and wartime scenarios → US bans, data risks, Trump and Biden",
+    "\"Why Elon Musk Is A Fraud\": Hook: Tesla's fall → Founding by Eberhard and Tarpenning, Musk joins → Sports car strategy and Roadster → Founders pushed out, Musk takes control → Model S, near bankruptcy, Model 3 → Gigafactories and stock boom → Musk's online persona, Twitter posts, Dogecoin → The 2022 stock collapse → Market share, tech edge, quality → Workers, Twitter takeover → Competitors' advantages and Tesla's future",
+    "\"Why Kick Will Change the Internet Forever\": Hook: Kick and XQC's $100M deal → Why is everyone leaving Twitch? → XQC's reasons and Twitch censorship → Kick's revenue split and hourly pay → How can Kick afford it? → Stake.com founders, gambling, Trainwreck → Drake and the streamer push → Twitch's shaky finances and sponsor policy"
+  ]
+}

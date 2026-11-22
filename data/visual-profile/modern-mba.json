@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "channel": "modern-mba",
+  "films": 10,
+  "shots": 310,
+  "mix": {
+    "plain_footage": 0.413,
+    "words_over_footage": 0.065,
+    "caption_on_footage": 0.1,
+    "title_card": 0.039,
+    "picture_composition": 0.065,
+    "logo": 0.052,
+    "number_stat": 0.006,
+    "chart": 0.09,
+    "document_or_screen": 0.084,
+    "map": 0.01,
+    "comparison": 0.026,
+    "infographic": 0.029,
+    "quote_card": 0.023
+  },
+  "distinctKinds": {
+    "p10": 5,
+    "p50": 7,
+    "p90": 9
+  },
+  "topShare": {
+    "p10": 0.25,
+    "p50": 0.5,
+    "p90": 0.75
+  },
+  "textShare": {
+    "p10": 0.385,
+    "p50": 0.625,
+    "p90": 0.857
+  },
+  "pictureShare": {
+    "p10": 0,
+    "p50": 0.15,
+    "p90": 0.214
+  },
+  "wordsMedian": {
+    "p10": 4,
+    "p50": 12,
+    "p90": 70
+  },
+  "plainFootage": {
+    "p10": 0.25,
+    "p50": 0.5,
+    "p90": 0.75
+  },
+  "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.053,
+    "p90": 0.167
+  },
+  "titleCard": {
+    "p10": 0,
+    "p50": 0.071,
+    "p90": 0.125
+  }
+}

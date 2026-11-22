@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "channel": "logically-answered",
+  "films": 30,
+  "kinds": {
+    "scene": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.067
+    },
+    "story": {
+      "p10": 0.056,
+      "p50": 0.122,
+      "p90": 0.222
+    },
+    "fact": {
+      "p10": 0.111,
+      "p50": 0.211,
+      "p90": 0.3
+    },
+    "explain": {
+      "p10": 0.256,
+      "p50": 0.4,
+      "p90": 0.5
+    },
+    "motive": {
+      "p10": 0,
+      "p50": 0.033,
+      "p90": 0.089
+    },
+    "quote": {
+      "p10": 0,
+      "p50": 0.011,
+      "p90": 0.056
+    },
+    "question": {
+      "p10": 0.022,
+      "p50": 0.044,
+      "p90": 0.078
+    },
+    "address": {
+      "p10": 0.022,
+      "p50": 0.044,
+      "p90": 0.1
+    },
+    "tease": {
+      "p10": 0.033,
+      "p50": 0.056,
+      "p90": 0.078
+    },
+    "maxim": {
+      "p10": 0.011,
+      "p50": 0.022,
+      "p90": 0.056
+    }
+  },
+  "viewer": {
+    "p10": 0.133,
+    "p50": 0.189,
+    "p90": 0.311
+  },
+  "structures": [
+    "\"Are Layoffs Even Worth It?\": Severance and the cost question → What layoffs save → Natural attrition and hiring freezes → Other alternatives: bonuses, early retirement → Who really wants layoffs → Christopher Hohn and TCI",
+    "\"Food Delivery - The $432B Industry That Benefits No One\": Delivery apps are a scam → The cost to consumers → Hidden menu markups → Delivery drivers' real pay → Restaurants squeezed by fees → The apps lose money too → Logistical nightmare conclusion",
+    "\"How Generosity Became A Burden - The American Tipping Crisis\": The tipping burden today → How tipping reached America → After the Civil War: tips replace wages → Bans, minimum wage exclusions and the $2.13 wage → Why workers and public accept tipping → Psychology and iPad terminals → Anti-tipping movement",
+    "\"People Love Mocking The Metaverse. Mark Is Getting The Last Laugh.\": Cold open: Zuckerberg gives up the metaverse → Oculus and why Facebook bet on VR → Quest 2 and the headset nobody used → Pulling back: layoffs and AI → Past pivots: drones and satellites → Zuckerberg's next swings",
+    "\"The Man Who Nearly Bought Netflix Is Now Wanted For Running A Ponzi\": Cold open: Icahn, Netflix and the Ponzi accusation → Icahn's background and arbitrage → Corporate raiding in the 70s and 80s: Tappan, Saxon → TWA takeover and collapse → T. Boone Pickens, Gulf Oil and mega takeovers → Companies fight back: poison pill, golden parachutes, white knights → Why corporate raiding died → Hindenburg accusation and wrap-up",
+    "\"This Guy Stole $120M From Google & Meta\": Summary of the heist and its end → From Lithuanian car theft to a new plan → Finding the payroll weak point → Posing as Quanta Computer → Tens of millions wired to random accounts → Spreading the money and staying in Lithuania → FBI arrest and sentence → Aftermath and companies' indifference → Lessons and reflection",
+    "\"TikTokers Are Getting A Harsh Reality Check\": Pay gap and creator exodus → Advertisers won't come → Short-form is harder to monetize → YouTube and Instagram face it too → What TikTok can do → Silver lining: ByteDance and the CCP",
+    "\"YouTube Should Feel Stupid For Banning AdBlock\": Claim and counterargument → Reputation: backlash and Netflix → Bans don't work: prohibition and workarounds → Competition risk → The alternative: Google's own playbook → The right strategy and slippery slope"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "channel": "logically-answered",
+  "films": 7,
+  "shots": 317,
+  "mix": {
+    "plain_footage": 0.284,
+    "words_over_footage": 0.268,
+    "caption_on_footage": 0.063,
+    "title_card": 0.035,
+    "picture_composition": 0.022,
+    "logo": 0.082,
+    "number_stat": 0.016,
+    "chart": 0.041,
+    "document_or_screen": 0.167,
+    "map": 0,
+    "comparison": 0.003,
+    "infographic": 0.016,
+    "quote_card": 0.003
+  },
+  "distinctKinds": {
+    "p10": 5,
+    "p50": 7,
+    "p90": 8
+  },
+  "topShare": {
+    "p10": 0.278,
+    "p50": 0.368,
+    "p90": 0.526
+  },
+  "textShare": {
+    "p10": 0.421,
+    "p50": 0.733,
+    "p90": 0.889
+  },
+  "pictureShare": {
+    "p10": 0,
+    "p50": 0.053,
+    "p90": 0.067
+  },
+  "wordsMedian": {
+    "p10": 2,
+    "p50": 5,
+    "p90": 17
+  },
+  "plainFootage": {
+    "p10": 0.105,
+    "p50": 0.278,
+    "p90": 0.467
+  },
+  "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.133,
+    "p90": 0.526
+  },
+  "titleCard": {
+    "p10": 0,
+    "p50": 0,
+    "p90": 0.056
+  }
+}

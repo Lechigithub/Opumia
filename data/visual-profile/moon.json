@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "channel": "moon",
+  "films": 10,
+  "shots": 260,
+  "mix": {
+    "plain_footage": 0.373,
+    "words_over_footage": 0.073,
+    "caption_on_footage": 0.123,
+    "title_card": 0.027,
+    "picture_composition": 0.054,
+    "logo": 0.05,
+    "number_stat": 0.027,
+    "chart": 0.015,
+    "document_or_screen": 0.2,
+    "map": 0.019,
+    "comparison": 0.004,
+    "infographic": 0.027,
+    "quote_card": 0.008
+  },
+  "distinctKinds": {
+    "p10": 5,
+    "p50": 6,
+    "p90": 8
+  },
+  "topShare": {
+    "p10": 0.267,
+    "p50": 0.429,
+    "p90": 0.667
+  },
+  "textShare": {
+    "p10": 0.357,
+    "p50": 0.643,
+    "p90": 0.917
+  },
+  "pictureShare": {
+    "p10": 0,
+    "p50": 0.083,
+    "p90": 0.214
+  },
+  "wordsMedian": {
+    "p10": 4,
+    "p50": 6,
+    "p90": 35
+  },
+  "plainFootage": {
+    "p10": 0.2,
+    "p50": 0.385,
+    "p90": 0.643
+  },
+  "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.071,
+    "p90": 0.214
+  },
+  "titleCard": {
+    "p10": 0,
+    "p50": 0,
+    "p90": 0.13
+  }
+}

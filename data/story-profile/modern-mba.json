@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "channel": "modern-mba",
+  "films": 27,
+  "kinds": {
+    "scene": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.044
+    },
+    "story": {
+      "p10": 0.067,
+      "p50": 0.144,
+      "p90": 0.2
+    },
+    "fact": {
+      "p10": 0.156,
+      "p50": 0.211,
+      "p90": 0.433
+    },
+    "explain": {
+      "p10": 0.289,
+      "p50": 0.411,
+      "p90": 0.5
+    },
+    "motive": {
+      "p10": 0.011,
+      "p50": 0.022,
+      "p90": 0.056
+    },
+    "quote": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.222
+    },
+    "question": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.044
+    },
+    "address": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.067
+    },
+    "tease": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.044
+    },
+    "maxim": {
+      "p10": 0.011,
+      "p50": 0.033,
+      "p90": 0.078
+    }
+  },
+  "viewer": {
+    "p10": 0.056,
+    "p50": 0.178,
+    "p90": 0.378
+  },
+  "structures": [
+    "\"How Burger King Lost to Wendy’s\": McDonald's dominance and the fight for second → John Chidsey era: barbell, value and broilers → Wendy's overtakes; 3G buys Burger King → Daniel Schwartz: franchisor model and balance → Jose Sill: discounting and reclaim the flame → Analysis: pricing not product, peanut butter approach → Wendy's rise through values and product",
+    "\"How Casper Failed & Why DTC Startups Lose Money\": Casper everywhere online → The D2C model and investor hype → Unicorn valuation, Target offer → Embarrassing IPO and collapse → The numbers: losses and ad spend → Slow growth and slow mattress cycle → Retail becomes the growth channel → Europe shut down, bleak outlook",
+    "\"How Dollar Tree Conquered Low Income America\": Bigger is better, inflation hits → Dollar Tree's conquest of low-income America → What Dollar Tree is: products and store count → Small stores and treasure hunt → Family Dollar → Sales and margins versus Target and Walmart → Expansion: mammoths versus hare",
+    "\"The Dreadful Business of Balding & Hair Loss\": Balding facts and narrator's story → Three options: nothing, shave, fight back → Prosthesis: wigs and toupees → Medication: finasteride and Merck → Minoxidil → Hair transplant surgery → Choosing Korea and Dr. Kim → The surgery and cost",
+    "\"Tree to Box: The Billion Dollar Cardboard Business\": The world runs on cardboard → Types of cardboard and how it's made → Forests, fiber and supply chain → Local business and vertical integration → Name of the game is volume → International Paper's streamlining → International Paper's pedestrian results → Westrock's innovation strategy → Comparison and hidden empires",
+    "\"Why Football Is Bad Business\": Football's success versus its finances → Premier League and Manchester United's flywheel → Player salaries erase the profit → Juventus and the Ronaldo bet → Barcelona on the edge of collapse → Super League and billionaire owners",
+    "\"Why Starbucks Must Crush Unions to Survive\": Starbucks' image: CSR montage and Schultz clips → The irony of Starbucks versus its unions → Three waves of coffee and beverage economics → Howard Schultz and why he can crush unions → Post-2000 decline and Schultz's 2008 return → Licensing model and the 2008 to 2017 boom → China, Europe and Schultz's exit in 2017 → Schultz returns in 2022; union cost math → Pressure on margins and conclusion"
+  ]
+}

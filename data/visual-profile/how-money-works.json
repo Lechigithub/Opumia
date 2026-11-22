@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "channel": "how-money-works",
+  "films": 10,
+  "shots": 296,
+  "mix": {
+    "plain_footage": 0.402,
+    "words_over_footage": 0.098,
+    "caption_on_footage": 0.068,
+    "title_card": 0.044,
+    "picture_composition": 0.051,
+    "logo": 0.034,
+    "number_stat": 0.01,
+    "chart": 0.047,
+    "document_or_screen": 0.203,
+    "map": 0.003,
+    "comparison": 0.003,
+    "infographic": 0.017,
+    "quote_card": 0.02
+  },
+  "distinctKinds": {
+    "p10": 4,
+    "p50": 7,
+    "p90": 8
+  },
+  "topShare": {
+    "p10": 0.267,
+    "p50": 0.385,
+    "p90": 0.6
+  },
+  "textShare": {
+    "p10": 0.438,
+    "p50": 0.615,
+    "p90": 0.714
+  },
+  "pictureShare": {
+    "p10": 0,
+    "p50": 0.067,
+    "p90": 0.154
+  },
+  "wordsMedian": {
+    "p10": 5,
+    "p50": 12,
+    "p90": 60
+  },
+  "plainFootage": {
+    "p10": 0.25,
+    "p50": 0.385,
+    "p90": 0.6
+  },
+  "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.118,
+    "p90": 0.286
+  },
+  "titleCard": {
+    "p10": 0,
+    "p50": 0.059,
+    "p90": 0.167
+  }
+}

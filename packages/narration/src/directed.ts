@@ -4,9 +4,9 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { directVoice, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
+import { directVoice, voiceAgent, type LineMeasure, type VoiceAgentReport, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
 import { TimedScript, type FactSheet, type ScriptDraft } from "@opumia/contracts";
-import { asrBackend, diffSpeech, espeakIpa, pcm, phonemeMatch, phonemeTokens, spokenPhonemes, transcribe, type PronunciationCheck } from "@opumia/senses";
+import { asrBackend, diffSpeech, espeakIpa, measureProsody, pcm, phonemeMatch, phonemeTokens, spokenPhonemes, transcribe, type PronunciationCheck } from "@opumia/senses";
 import { alignWords, tokensFromAlignment } from "./align.js";
 import { remainingCharacters, ttsWithTimestamps, type CharAlignment } from "./elevenlabs.js";
 import { ttsModel, type ChannelVoice } from "./voice.js";
@@ -37,8 +37,10 @@ export interface DirectedOptions {
   channel: string;
   voice: ChannelVoice;
   modelId?: string;
-  /** Reference narrator band (data/exemplars): target pace and pauses. */
-  narrator?: { wpm: number; wpmLow: number };
+  /** Reference narrator band (data/exemplars): target pace and pauses, and its expressiveness. */
+  narrator?: { wpm: number; wpmLow: number; f0RangeSt?: number; melodySt?: number };
+  /** B7: the listening voice director (default on; OPUMIA_VOICE_AGENT=off skips it). */
+  voiceAgent?: boolean;
   log?: (s: string) => void;
 }
 
@@ -55,6 +57,8 @@ export interface NarrationReport {
   pronunciation: Array<PronunciationCheck & { form: "plain" | "respelling" }>;
   unresolved: string[];
   directorUsd: number;
+  /** B7: what the listening voice director changed. */
+  delivery?: VoiceAgentReport;
 }
 
 interface Unit { seg: number; text: string; words: string[]; dir: LineDirection }
@@ -216,6 +220,70 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   log(`  narration: ${units.length} line takes → ElevenLabs ${modelId}, voice ${voice.name}, speed ${speedOf("slow").toFixed(2)}–${speedOf("fast").toFixed(2)} (quota left ${remaining ?? "?"})`);
   const takes = await pool(3, units.map((_, i) => () => takeOf(i, 0, new Set())));
 
+  // 2b. B7: the voice director listens to every take (measured) and retakes lines that sound flat or wrong.
+  let delivery: VoiceAgentReport | undefined;
+  if (o.voiceAgent !== false && process.env.OPUMIA_VOICE_AGENT !== "off" && units.length >= 3) {
+    const lineFile = async (t: Take) => {
+      const f = path.join(o.outDir, "takes", `${t.key}.tight.mp3`);
+      if (!existsSync(f)) await writeMp3(t.audio, f);
+      return f;
+    };
+    const measureTake = async (i: number, t: Take): Promise<LineMeasure> => {
+      const f = await lineFile(t);
+      const whole = await measureProsody(f).catch(() => null);
+      const lineHz = whole?.f0Hz || 0;
+      const levelOf = (a: number, b: number) => {
+        const x = t.audio.subarray(Math.max(0, Math.floor(a * SR)), Math.min(t.audio.length, Math.ceil(b * SR)));
+        let e = 0;
+        for (let k = 0; k < x.length; k++) e += x[k]! * x[k]!;
+        return 10 * Math.log10(e / Math.max(1, x.length) + 1e-12);
+      };
+      const lineDb = levelOf(t.words[0]?.startS ?? 0, t.words.at(-1)?.endS ?? t.audio.length / SR);
+      const contour: Array<[string, number, number]> = [];
+      for (const w of t.words) {
+        const p = w.endS - w.startS >= 0.08 ? await measureProsody(f, { ss: w.startS, t: Math.max(0.08, w.endS - w.startS) }).catch(() => null) : null;
+        const st = p?.f0Hz && lineHz ? 12 * Math.log2(p.f0Hz / lineHz) : 0;
+        contour.push([w.word, Math.round(st * 10) / 10, Math.round((levelOf(w.startS, w.endS) - lineDb) * 10) / 10]);
+      }
+      const em = units[i]!.dir.emphasis.toLowerCase().replace(/[^\p{L}'-]/gu, "");
+      const k = em ? contour.findIndex(([w]) => w.toLowerCase().replace(/[^\p{L}'-]/gu, "") === em) : -1;
+      const rest = contour.filter((_, q) => q !== k);
+      const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+      const voicedEnd = [...contour].reverse().find(([, st]) => st !== 0);
+      const secs = (t.words.at(-1)?.endS ?? 0) - (t.words[0]?.startS ?? 0);
+      return {
+        seconds: Math.round(secs * 100) / 100, wpm: secs > 0 ? (t.words.length / secs) * 60 : 0,
+        rangeSt: whole?.f0RangeSt ?? 0, melodySt: whole?.melodySt ?? 0, dynamicsDb: whole?.energyStdDb ?? 0,
+        emphasis: k >= 0 ? { word: contour[k]![0], liftDb: Math.round((contour[k]![2] - mean(rest.map((x) => x[2]))) * 10) / 10, liftSt: Math.round((contour[k]![1] - mean(rest.map((x) => x[1]))) * 10) / 10 } : null,
+        endingSt: voicedEnd?.[1] ?? 0, contour,
+      };
+    };
+    const candidates = new Map<string, { i: number; take: Take; dir: LineDirection }>();
+    let nCand = 0;
+    delivery = await voiceAgent({
+      channel: o.channel, title: o.draft.title,
+      lines: units.map((u) => ({ text: u.text, role: raw[units.indexOf(u)]!.role, pace: u.dir.pace, emphasis: u.dir.emphasis, question: /\?\s*$/.test(u.text) })),
+      narrator: o.narrator ?? null,
+      measure: (i) => measureTake(i, takes[i]!),
+      retake: async (i, r) => {
+        const u = units[i]!;
+        const keep = u.dir;
+        if (r.emphasis) u.dir = { ...u.dir, emphasis: r.emphasis };
+        const t = await takeOf(i, 20 + ++nCand, new Set()).finally(() => { u.dir = keep; });
+        const id = `c${nCand}`;
+        candidates.set(id, { i, take: t, dir: r.emphasis ? { ...keep, emphasis: r.emphasis } : keep });
+        return { id, m: await measureTake(i, t) };
+      },
+      choose: async (i, id) => {
+        const c = candidates.get(id);
+        if (!c || c.i !== i) return;
+        takes[i] = c.take;
+        units[i]!.dir = c.dir;
+      },
+      memoryDir: path.join(o.dataDir, "agents", "voice"), log,
+    }).catch((e: Error) => { log(`  ! voice director (listening) failed: ${e.message.slice(0, 200)} — the first takes are kept`); return undefined; });
+  }
+
   // 3. Assemble with directed gaps.
   const audioPath = path.join(o.outDir, "narration.mp3");
   const assemble = async () => {
@@ -236,7 +304,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
 
   // 4–5. Listen back, check the sounds of risky words, regenerate only what failed.
   const asr = await asrBackend(o.dataDir);
-  const report: NarrationReport = { lines: units.length, takes: 0, retakes: 0, characters: 0, wpm: 0, tempo: 1, asr, wer: null, speechIssues: [], pronunciation: [], unresolved: [], directorUsd: dv.usd };
+  const report: NarrationReport = { lines: units.length, takes: 0, retakes: 0, characters: 0, wpm: 0, tempo: 1, asr, wer: null, speechIssues: [], pronunciation: [], unresolved: [], directorUsd: dv.usd, ...(delivery ? { delivery } : {}) };
   const phonemeTerms = Object.entries(lex).filter(([, e]) => ["name", "place", "brand", "foreign", "rare"].includes(e.kind) && (e.ipa || e.respelling));
   const respellFor = new Map<number, Set<string>>();
   /** Best take seen per line (fewest problems), so a retake can never make a line worse. */

@@ -13,7 +13,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ B4 Editor agent (`editor-agent.ts`, skill `editor.md`, stage B4e in produce, `dev/editor-score.ts`): Kodak editor measures 68 → 83, film 80 → 85, 66 s, $0.07. Limit: designed stage shots cannot be split (no footage), so shot-length variety stays under the band.
 - ☑ B5 Sound designer agent (`sound-agent.ts`, skill `sound.md`, stage B5 in produce, `dev/sound-score.ts`; `OPUMIA_SOUND=legacy` = timeline only): starts from the timeline kit, measures hits/min overall and by position, hits on cuts, hit mix, hits on text, drop-outs; studies real passages, listens, revises; the showrunner's sound send-back goes to it with a brief. Kodak: 98 → 98 (the timeline already sat in band), 18 placement changes, 57 s, $0.10.
 - ☑ B6 Music editor (`music-edit.ts`, tools of the sound agent): cue changes snapped to bar lines with the next bed on its downbeat, the last bed placed so its own ending lands with the film, the bed energy arc measured against the channel's. Kodak: sound 86 → 97 (ending gap 28 s → 0, arc 4.6 → 2.8 dB). Bar snapping untested on a film with more than one cue.
-- ☐ B7 Voice director as an agent that hears its own takes.
+- ☑ B7 Voice director that hears its own takes (`voice-agent.ts`, skill `voice.md`, inside directed narration; `OPUMIA_VOICE_AGENT=off` skips): every line measured (pitch travel, melody, emphasis lift, falling ending, word contour, same-shape runs), retakes only lines it has heard, keeps the better take, budget a quarter of the lines. Kodak: notices 10 → 7, 3 lines replaced, melody 3.60 (narrator ≥ 3.53), 849 characters, $0.04.
 - ☐ B8 Sourcing as an agent.
 - ☐ B9 Colourist (new): grade per act, fixes tinted shots.
 - ☐ B10 Final QA as an agent that watches the film like a viewer.
@@ -36,7 +36,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ D39 Real technique frequencies counted from every reference shot (the old profile's counts were example-clip counts).
 - ☑ D40 Short-form: the reference has 1 film under 3 min and no real shorts — recorded in the profile; shorts follow the cold-open segment until real shorts are added (owner decision needed to source them).
 - ☑ D41 Weighting by views: rank correlations, top-quartile band, permutation test (p < 0.05) — MagnatesMedia: only length goes with views beyond noise; Moon: less designed, more staged stock. A tie-breaker directive, not a target. Our own click-through: needs published films.
-- ◐ D42 Other channels: unified profiles built for four (Big Company has no shot analysis); story/visual/thumbnail bands still MagnatesMedia only.
+- ☑ D42 Other channels: exemplars, story, visual, thumbnail and quality bands and the unified profile for How Money Works, Logically Answered, Modern MBA and Moon ($0.16 each). Big Company has no shot analysis. Taste models: MagnatesMedia only so far.
 - ☑ D43 Profile version tied to evaluation: eval history, the lesson ledger and agent score histories record the channel-profile version; trends and lesson trials only compare runs on the same profile (a new profile is a new baseline).
 
 ## E. Craft written down

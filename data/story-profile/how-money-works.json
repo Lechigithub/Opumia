@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "channel": "how-money-works",
+  "films": 30,
+  "kinds": {
+    "scene": {
+      "p10": 0,
+      "p50": 0.011,
+      "p90": 0.033
+    },
+    "story": {
+      "p10": 0.038,
+      "p50": 0.089,
+      "p90": 0.178
+    },
+    "fact": {
+      "p10": 0.078,
+      "p50": 0.156,
+      "p90": 0.256
+    },
+    "explain": {
+      "p10": 0.378,
+      "p50": 0.467,
+      "p90": 0.5
+    },
+    "motive": {
+      "p10": 0.011,
+      "p50": 0.022,
+      "p90": 0.044
+    },
+    "quote": {
+      "p10": 0.011,
+      "p50": 0.044,
+      "p90": 0.144
+    },
+    "question": {
+      "p10": 0,
+      "p50": 0.022,
+      "p90": 0.056
+    },
+    "address": {
+      "p10": 0.036,
+      "p50": 0.089,
+      "p90": 0.144
+    },
+    "tease": {
+      "p10": 0.022,
+      "p50": 0.044,
+      "p90": 0.08
+    },
+    "maxim": {
+      "p10": 0.022,
+      "p50": 0.044,
+      "p90": 0.111
+    }
+  },
+  "viewer": {
+    "p10": 0.1,
+    "p50": 0.244,
+    "p90": 0.4
+  },
+  "structures": [
+    "\"Being Single Is Now An Unaffordable Luxury\": Holiday hook and premise → Couples share expenses → Marriage earnings premium (NLSY) → Married women earn less → Dating costs lock out singles",
+    "\"Has LinkedIn Ruined Your Career?\": Strange platform, ruined career? → LinkedIn vs Twitter acquisition value → Way 1: marketplace that hands hiring power to employers → Way 2: information imbalance → Way 3: forced self-comparison → Way 4: corporate worship",
+    "\"Most People Alive Today Will Work Until They Die\": Retirement savings crisis → Reason 1: cost of living and debt → Reason 2: nobody wants to think about it → Reason 3: investors mess it up → What realistic returns do to the math",
+    "\"The 40 Year Career Is Dead... And That's a Good Thing\": The old career model is ending → Workers are less ambitious → Remote work and bullshit jobs → Reason 1: no financial payoff for promotion → Reason 2: entrepreneurial ambitions → Reason 3: promotions slow your pay → Reason 4: they just do not want them → Problems for companies",
+    "\"The Real Reason Companies Have Become Obsessed With Your Data\": Data as a trillion-dollar account → Big data as an asset → Cheap storage and the data bet → Data moats → Cheaper to analyze: off-the-shelf tools → Hedge funds buying card data",
+    "\"What You Need To Know About SVB, Silvergate & Signature Bank Collapses\": Second-largest bank collapse → Silvergate: the crypto bank → Bitcoin crash and Silvergate liquidation → SVB: the startup bank → Rising rates and the bond losses → Bank run and government backstop",
+    "\"Why Corporate America Is Obsessed With \"Company Culture\"\": Culture obsession and its cost → Reason 1: a company cult → Reason 2: workplace pushback and PR → Reason 3: everyone else is doing it → How culture hurts careers",
+    "\"Why Do Tech Companies Hire and Fire So Much?\": Tech layoff wave → Hire reason 1: diversification and growth → Fire reason 1: because they can → Hire reason 2: monopoly and non-competes → Fire reason 2: no startup threat → Fire reason 3 and hire reason 3: cheap talent, bad management"
+  ]
+}

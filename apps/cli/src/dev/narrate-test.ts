@@ -20,7 +20,7 @@ if (process.env.TEST_STABILITY) voice.settings.stability = Number(process.env.TE
 if (process.env.TEST_STYLE) voice.settings.style = Number(process.env.TEST_STYLE);
 if (process.env.TEST_SPEED) voice.settings.speed = Number(process.env.TEST_SPEED);
 const t0 = Date.now();
-const r = await narrateDirected({ draft, facts, outDir: out, dataDir: "data", channel, voice, ...(ex ? { narrator: { wpm: ex.narrator.wpm.p50, wpmLow: ex.narrator.wpm.p25 } } : {}), log: console.log });
+const r = await narrateDirected({ draft, facts, outDir: out, dataDir: "data", channel, voice, ...(ex ? { narrator: { wpm: ex.narrator.wpm.p50, wpmLow: ex.narrator.wpm.p25, f0RangeSt: ex.narrator.prosody.f0RangeSt.p50, melodySt: ex.narrator.prosody.melodySt.p50 } } : {}), log: console.log });
 console.log(`done in ${Math.round((Date.now() - t0) / 1000)} s — ${r.report.characters} chars billed, director $${r.report.directorUsd.toFixed(3)}`);
 writeFileSync(path.join(out, "timed-script.json"), JSON.stringify(r.script, null, 2));
 const words = r.script.segments.flatMap((s) => s.words.map((w) => ({ word: w.word, start: w.startS, end: w.endS })));

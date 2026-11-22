@@ -2087,10 +2087,1204 @@
   "note": "the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/"
  },
  "bands": {
-  "story": null,
-  "visual": null,
-  "thumbnail": null,
-  "quality": null,
+  "story": {
+   "schemaVersion": 1,
+   "channel": "logically-answered",
+   "films": 30,
+   "kinds": {
+    "scene": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.067
+    },
+    "story": {
+     "p10": 0.056,
+     "p50": 0.122,
+     "p90": 0.222
+    },
+    "fact": {
+     "p10": 0.111,
+     "p50": 0.211,
+     "p90": 0.3
+    },
+    "explain": {
+     "p10": 0.256,
+     "p50": 0.4,
+     "p90": 0.5
+    },
+    "motive": {
+     "p10": 0,
+     "p50": 0.033,
+     "p90": 0.089
+    },
+    "quote": {
+     "p10": 0,
+     "p50": 0.011,
+     "p90": 0.056
+    },
+    "question": {
+     "p10": 0.022,
+     "p50": 0.044,
+     "p90": 0.078
+    },
+    "address": {
+     "p10": 0.022,
+     "p50": 0.044,
+     "p90": 0.1
+    },
+    "tease": {
+     "p10": 0.033,
+     "p50": 0.056,
+     "p90": 0.078
+    },
+    "maxim": {
+     "p10": 0.011,
+     "p50": 0.022,
+     "p90": 0.056
+    }
+   },
+   "viewer": {
+    "p10": 0.133,
+    "p50": 0.189,
+    "p90": 0.311
+   },
+   "structures": [
+    "\"Are Layoffs Even Worth It?\": Severance and the cost question → What layoffs save → Natural attrition and hiring freezes → Other alternatives: bonuses, early retirement → Who really wants layoffs → Christopher Hohn and TCI",
+    "\"Food Delivery - The $432B Industry That Benefits No One\": Delivery apps are a scam → The cost to consumers → Hidden menu markups → Delivery drivers' real pay → Restaurants squeezed by fees → The apps lose money too → Logistical nightmare conclusion",
+    "\"How Generosity Became A Burden - The American Tipping Crisis\": The tipping burden today → How tipping reached America → After the Civil War: tips replace wages → Bans, minimum wage exclusions and the $2.13 wage → Why workers and public accept tipping → Psychology and iPad terminals → Anti-tipping movement",
+    "\"People Love Mocking The Metaverse. Mark Is Getting The Last Laugh.\": Cold open: Zuckerberg gives up the metaverse → Oculus and why Facebook bet on VR → Quest 2 and the headset nobody used → Pulling back: layoffs and AI → Past pivots: drones and satellites → Zuckerberg's next swings",
+    "\"The Man Who Nearly Bought Netflix Is Now Wanted For Running A Ponzi\": Cold open: Icahn, Netflix and the Ponzi accusation → Icahn's background and arbitrage → Corporate raiding in the 70s and 80s: Tappan, Saxon → TWA takeover and collapse → T. Boone Pickens, Gulf Oil and mega takeovers → Companies fight back: poison pill, golden parachutes, white knights → Why corporate raiding died → Hindenburg accusation and wrap-up",
+    "\"This Guy Stole $120M From Google & Meta\": Summary of the heist and its end → From Lithuanian car theft to a new plan → Finding the payroll weak point → Posing as Quanta Computer → Tens of millions wired to random accounts → Spreading the money and staying in Lithuania → FBI arrest and sentence → Aftermath and companies' indifference → Lessons and reflection",
+    "\"TikTokers Are Getting A Harsh Reality Check\": Pay gap and creator exodus → Advertisers won't come → Short-form is harder to monetize → YouTube and Instagram face it too → What TikTok can do → Silver lining: ByteDance and the CCP",
+    "\"YouTube Should Feel Stupid For Banning AdBlock\": Claim and counterargument → Reputation: backlash and Netflix → Bans don't work: prohibition and workarounds → Competition risk → The alternative: Google's own playbook → The right strategy and slippery slope"
+   ]
+  },
+  "visual": {
+   "schemaVersion": 1,
+   "channel": "logically-answered",
+   "films": 7,
+   "shots": 317,
+   "mix": {
+    "plain_footage": 0.284,
+    "words_over_footage": 0.268,
+    "caption_on_footage": 0.063,
+    "title_card": 0.035,
+    "picture_composition": 0.022,
+    "logo": 0.082,
+    "number_stat": 0.016,
+    "chart": 0.041,
+    "document_or_screen": 0.167,
+    "map": 0,
+    "comparison": 0.003,
+    "infographic": 0.016,
+    "quote_card": 0.003
+   },
+   "distinctKinds": {
+    "p10": 5,
+    "p50": 7,
+    "p90": 8
+   },
+   "topShare": {
+    "p10": 0.278,
+    "p50": 0.368,
+    "p90": 0.526
+   },
+   "textShare": {
+    "p10": 0.421,
+    "p50": 0.733,
+    "p90": 0.889
+   },
+   "pictureShare": {
+    "p10": 0,
+    "p50": 0.053,
+    "p90": 0.067
+   },
+   "wordsMedian": {
+    "p10": 2,
+    "p50": 5,
+    "p90": 17
+   },
+   "plainFootage": {
+    "p10": 0.105,
+    "p50": 0.278,
+    "p90": 0.467
+   },
+   "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.133,
+    "p90": 0.526
+   },
+   "titleCard": {
+    "p10": 0,
+    "p50": 0,
+    "p90": 0.056
+   }
+  },
+  "thumbnail": {
+   "channel": "logically-answered",
+   "count": 30,
+   "hero": {
+    "person": 0.7,
+    "product": 0,
+    "logo": 0.167,
+    "object": 0.1,
+    "building": 0,
+    "place": 0,
+    "text": 0.033,
+    "none": 0
+   },
+   "background": {
+    "colour_field": 0.067,
+    "gradient": 0.333,
+    "photo_scene": 0.4,
+    "split_colour": 0.033,
+    "pattern": 0,
+    "texture": 0.167
+   },
+   "makeable": {
+    "real_pictures": 0.633,
+    "needs_retouch": 0.267,
+    "needs_invention": 0.067,
+    "illustration": 0.033
+   },
+   "reach": {
+    "reachable": 0.833,
+    "face_alteration": 0.133,
+    "new_painting": 0.033
+   },
+   "marks": {
+    "arrow": 0.133,
+    "circle": 0.067,
+    "cross": 0.133,
+    "strike": 0,
+    "box": 0.267,
+    "burst": 0,
+    "money": 0.2,
+    "fire": 0.267,
+    "glow": 0.667,
+    "outline": 0.033
+   },
+   "heroShare": {
+    "p10": 0.3,
+    "median": 0.4,
+    "p90": 0.55
+   },
+   "cutoutShare": 0.8666666666666667,
+   "faceShare": 0.6666666666666666,
+   "strongExpressionShare": 0.3,
+   "words": {
+    "median": 2,
+    "p90": 3,
+    "max": 7,
+    "noTextShare": 0.2
+   },
+   "textHeight": {
+    "p10": 0.07,
+    "median": 0.12
+   },
+   "textStyle": {
+    "none": 0,
+    "label_box": 0.333,
+    "outlined": 0.083,
+    "plain": 0.5,
+    "gradient": 0.083,
+    "glow": 0
+   },
+   "textLooks": [
+    "black heavy sans-serif on yellow brush-stroke box",
+    "dark grey heavy sans-serif on white paper",
+    "white heavy sans-serif logotype",
+    "white distressed heavy condensed sans-serif",
+    "black heavy sans-serif on cyan brush-stroke box",
+    "yellow-to-orange flame-filled heavy sans-serif with black outline",
+    "white thin sans-serif above red heavy sans-serif",
+    "black heavy sans-serif on white phone screen with black boxes with green, yellow and red numbers",
+    "neon green heavy sans-serif on a black brush-stroke bar",
+    "red heavy sans-serif with white outline",
+    "red heavy sans-serif, no box",
+    "red and white distressed heavy condensed sans-serif",
+    "dark maroon heavy sans-serif on torn paper strips",
+    "red heavy sans-serif, no box",
+    "red gradient heavy sans-serif with water splashes",
+    "white and red heavy sans-serif with dark outline",
+    "black heavy sans-serif on yellow box; white Walmart wordmark",
+    "black heavy sans-serif on white signs",
+    "grey and white rounded sans-serif lowercase",
+    "distressed red heavy sans-serif numerals",
+    "black heavy sans-serif on light grey rounded box",
+    "white condensed heavy sans-serif on red box; black on yellow box",
+    "black heavy sans-serif on a pale box; white small caps heading",
+    "black sans-serif on white rounded box"
+   ],
+   "elements": {
+    "median": 4,
+    "max": 9
+   },
+   "colourfulness": {
+    "p25": 69.3,
+    "median": 77.8,
+    "p90": 115.6
+   },
+   "luma": {
+    "p10": 0.218,
+    "p90": 0.546
+   },
+   "items": [
+    {
+     "file": "data/exemplars/logically-answered/thumbs/5zGlCztmBVk.jpg",
+     "title": "Food Delivery - The $432B Industry That Benefits No One",
+     "views": 144032,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "texture",
+      "elements": 4,
+      "words": 1,
+      "textHeight": 0.1,
+      "textStyle": "label_box",
+      "textLook": "black heavy sans-serif on yellow brush-stroke box",
+      "marks": [
+       "money",
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "App logos, cash photo and a text box can all be composited from real assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 115.6,
+     "luma": 0.469
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/yJU6ZB0AJ2g.jpg",
+     "title": "Why Amazon Wants Their Employees To Resign",
+     "views": 970772,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.07,
+      "textStyle": "plain",
+      "textLook": "dark grey heavy sans-serif on white paper",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Blood handprint, pixelated bottle and red glow rim need editing beyond simple compositing, though the laughing face is a real photo.",
+      "reach": "reachable"
+     },
+     "colourfulness": 76.2,
+     "luma": 0.546
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/ZfPgTaGWuDE.jpg",
+     "title": "Nvidia - The World's Next Largest Company",
+     "views": 133785,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 6,
+      "words": 1,
+      "textHeight": 0.1,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif logotype",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Glowing green eyes and puppet strings on the hands are visible alterations to the real person.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 75.9,
+     "luma": 0.356
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/p9zTl-uJZCI.jpg",
+     "title": "Platforms Are Already Giving Up On Short Form Content",
+     "views": 491780,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 4,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 5,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "",
+      "marks": [
+       "cross",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out real photos, a no-sign shape and app logos are composited on a gradient.",
+      "reach": "reachable"
+     },
+     "colourfulness": 77.8,
+     "luma": 0.296
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/1V0j_FG-I5U.jpg",
+     "title": "This Guy Stole $120M From Google & Meta (& Nearly Got Away)",
+     "views": 48631,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.45,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 3,
+      "textHeight": 0.17,
+      "textStyle": "plain",
+      "textLook": "white distressed heavy condensed sans-serif",
+      "marks": [
+       "fire",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "A hooded stock figure, laptop, logos, fire texture and cracked text can be layered from real assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 55.3,
+     "luma": 0.27
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/_JHW6FNdJlg.jpg",
+     "title": "Cisco's Founders Stole From Stanford. Ended Up Losing Everything.",
+     "views": 73374,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 2,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 5,
+      "words": 2,
+      "textHeight": 0.1,
+      "textStyle": "label_box",
+      "textLook": "black heavy sans-serif on cyan brush-stroke box",
+      "marks": [
+       "cross",
+       "box"
+      ],
+      "makeable": "needs_retouch",
+      "why": "One face is erased and a knife hand is merged in, which alters a real person's photo.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 78.9,
+     "luma": 0.285
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/caOn_nOvdQc.jpg",
+     "title": "8 Traitors Created Silicon Valley",
+     "views": 43926,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.17,
+      "textStyle": "gradient",
+      "textLook": "yellow-to-orange flame-filled heavy sans-serif with black outline",
+      "marks": [
+       "fire",
+       "money",
+       "glow",
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out archival portrait, silhouettes, logos, money and fire footage can all be composited from real assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 63.2,
+     "luma": 0.289
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/EXx9aKsEkyA.jpg",
+     "title": "When Kindness Backfires - The Tragic Tale Of Sun Microsystems",
+     "views": 141583,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.2,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "gradient",
+      "elements": 6,
+      "words": 7,
+      "textHeight": 0.12,
+      "textStyle": "plain",
+      "textLook": "white thin sans-serif above red heavy sans-serif",
+      "marks": [
+       "glow",
+       "arrow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Logos, icons, curved lines and a space image are all simple graphics and photos composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 104.4,
+     "luma": 0.218
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/lGb5jNFmj-w.jpg",
+     "title": "How Generosity Became A Burden - The American Tipping Crisis",
+     "views": 122989,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": false,
+      "faces": 2,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 4,
+      "textHeight": 0.07,
+      "textStyle": "label_box",
+      "textLook": "black heavy sans-serif on white phone screen with black boxes with green, yellow and red numbers",
+      "marks": [
+       "arrow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "The ATM is merged into the drive-thru window so it reads as one photo scene, and the screen content is edited in.",
+      "reach": "reachable"
+     },
+     "colourfulness": 49.4,
+     "luma": 0.381
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/C6buyz_MCfo.jpg",
+     "title": "The $5 Trillion Shadow Company That Owns Silicon Valley - Sequoia Capital",
+     "views": 101077,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.07,
+      "textStyle": "plain",
+      "textLook": "neon green heavy sans-serif on a black brush-stroke bar",
+      "marks": [
+       "glow",
+       "cross"
+      ],
+      "makeable": "real_pictures",
+      "why": "A cut-out portrait with hands, app logos and a brush-stroke bar can be composited from real photos and logos.",
+      "reach": "reachable"
+     },
+     "colourfulness": 74.4,
+     "luma": 0.376
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/qAQyfGrspw4.jpg",
+     "title": "Podcasts Are Taking Over YouTube. But Not For Long.",
+     "views": 123978,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 7,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 9,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "circle",
+       "cross",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out portraits of real people with drawn circles, a check, a cross and a heartbeat line are composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 68.2,
+     "luma": 0.291
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/EpAIbiHiaG4.jpg",
+     "title": "Why Companies Are Blowing Their Cash Reserves",
+     "views": 301696,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 7,
+      "words": 3,
+      "textHeight": 0.09,
+      "textStyle": "outlined",
+      "textLook": "red heavy sans-serif with white outline",
+      "marks": [
+       "arrow",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out portraits with tape textures, red arrows, a chart and text are compositing work from real photos.",
+      "reach": "reachable"
+     },
+     "colourfulness": 69.3,
+     "luma": 0.256
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/s1uVGILeB-0.jpg",
+     "title": "People Love Mocking The Metaverse. Mark Is Getting The Last Laugh.",
+     "views": 91057,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 5,
+      "expression": "strong",
+      "background": "gradient",
+      "elements": 5,
+      "words": 2,
+      "textHeight": 0.12,
+      "textStyle": "plain",
+      "textLook": "red heavy sans-serif, no box",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "A cut-out portrait, app logos, a trash can and meme photos can all be composed from real pictures.",
+      "reach": "reachable"
+     },
+     "colourfulness": 89.5,
+     "luma": 0.317
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/bsjijeUqtKQ.jpg",
+     "title": "How Founders Became Tyrants",
+     "views": 76240,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 4,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 5,
+      "words": 2,
+      "textHeight": 0.25,
+      "textStyle": "plain",
+      "textLook": "red and white distressed heavy condensed sans-serif",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Four real portraits overlapped on a smoky dark texture with distressed type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 74.5,
+     "luma": 0.337
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/hT271L05xGA.jpg",
+     "title": "Apple’s $573 Billion Bet (& Are They Going Private)",
+     "views": 125602,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.15,
+      "textStyle": "plain",
+      "textLook": "dark maroon heavy sans-serif on torn paper strips",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "A cut-out portrait over a tinted Apple Park photo with torn paper strips and embers.",
+      "reach": "reachable"
+     },
+     "colourfulness": 34.6,
+     "luma": 0.354
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/SNLLC9NFALk.jpg",
+     "title": "Why Microsoft Has Willingly Given Up On Trying To Innovate",
+     "views": 140052,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.55,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 1,
+      "textHeight": 0.13,
+      "textStyle": "plain",
+      "textLook": "red heavy sans-serif, no box",
+      "marks": [
+       "fire"
+      ],
+      "makeable": "real_pictures",
+      "why": "A real distressed portrait, a phone with a blue error screen and fire footage overlays can be composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 114.6,
+     "luma": 0.358
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/vGOsfUmBjLE.jpg",
+     "title": "The Man Who Nearly Bought Netflix Is Now Wanted For Running A Ponzi",
+     "views": 101841,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "gradient",
+      "elements": 4,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "money",
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "The face is visibly distorted with a stretched grin and glowing green eyes.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 49.2,
+     "luma": 0.174
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/yyQqbXphrtw.jpg",
+     "title": "Bottled Water Is Literally A Scam",
+     "views": 100477,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 1,
+      "textHeight": 0.4,
+      "textStyle": "gradient",
+      "textLook": "red gradient heavy sans-serif with water splashes",
+      "marks": [],
+      "makeable": "needs_invention",
+      "why": "A giant sea of plastic bottles with a splashing wave is an impossible scene that no photo could capture.",
+      "reach": "reachable"
+     },
+     "colourfulness": 144,
+     "luma": 0.586
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/V2YRZSl8jtQ.jpg",
+     "title": "YouTube Has Become Pay To Win",
+     "views": 126725,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "gradient",
+      "elements": 4,
+      "words": 3,
+      "textHeight": 0.2,
+      "textStyle": "outlined",
+      "textLook": "white and red heavy sans-serif with dark outline",
+      "marks": [
+       "money",
+       "glow",
+       "fire"
+      ],
+      "makeable": "real_pictures",
+      "why": "A cut-out photo of a person with real hands, a bill and sparks composited and given text.",
+      "reach": "reachable"
+     },
+     "colourfulness": 92.5,
+     "luma": 0.31
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/Ns63u7AeFms.jpg",
+     "title": "Why Does Walmart Pay So Much?",
+     "views": 305620,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.25,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.12,
+      "textStyle": "label_box",
+      "textLook": "black heavy sans-serif on yellow box; white Walmart wordmark",
+      "marks": [
+       "glow",
+       "arrow"
+      ],
+      "makeable": "real_pictures",
+      "why": "All logos and text are real assets composited on a dark grid background.",
+      "reach": "reachable"
+     },
+     "colourfulness": 73,
+     "luma": 0.248
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/gKI5aFt0Eh8.jpg",
+     "title": "YouTube Should Feel Stupid For Banning AdBlock",
+     "views": 400039,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.08,
+      "textStyle": "plain",
+      "textLook": "black heavy sans-serif on white signs",
+      "marks": [
+       "fire",
+       "circle",
+       "glow"
+      ],
+      "makeable": "needs_invention",
+      "why": "A cracked YouTube logo replaces a person's head in a surreal photo-real composite.",
+      "reach": "reachable"
+     },
+     "colourfulness": 115.6,
+     "luma": 0.278
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/BZ_vsOKeD6A.jpg",
+     "title": "How To Make $300,000,000,000 By Getting The CCP Drunk",
+     "views": 54880,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.55,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "money",
+       "fire",
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "The face is heavily stylised and painterly with coins floating in a glass, beyond simple compositing.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 132.3,
+     "luma": 0.558
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/lgjxhhq61K0.jpg",
+     "title": "Goodwill? More Like Ill Will - The Ugly Truth",
+     "views": 111517,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 3,
+      "words": 2,
+      "textHeight": 0.08,
+      "textStyle": "plain",
+      "textLook": "grey and white rounded sans-serif lowercase",
+      "marks": [
+       "box",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "A modified logo over split coloured wood textures with a silhouette, all achievable with real assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 87.2,
+     "luma": 0.16
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/7uCYPPU9NJw.jpg",
+     "title": "171,849 \"Self Offings\" - Is Eli Lilly Involved? (Allegedly)",
+     "views": 26521,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.3,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 3,
+      "textHeight": 0.28,
+      "textStyle": "plain",
+      "textLook": "distressed red heavy sans-serif numerals",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Red-toned dark room with a noose, knife and numbers can be composited from real photos and type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 86.8,
+     "luma": 0.079
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/CE-SnJGAJRg.jpg",
+     "title": "TikTokers Are Getting A Harsh Reality Check",
+     "views": 459346,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 5,
+      "words": 6,
+      "textHeight": 0.07,
+      "textStyle": "label_box",
+      "textLook": "black heavy sans-serif on light grey rounded box",
+      "marks": [
+       "box",
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "TikTok logos are placed over the eyes and the faces are heavily relit and retouched in red.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 73.8,
+     "luma": 0.299
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/3FjFg_5st8w.jpg",
+     "title": "Schools Have Had It With Google",
+     "views": 821343,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Google and Microsoft logos with a graduation cap and a less-than sign, all composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 76.9,
+     "luma": 0.781
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/RfOEW3Cgrek.jpg",
+     "title": "The Demise of Big Tech - Is The End Near?",
+     "views": 103324,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 2,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 6,
+      "words": 3,
+      "textHeight": 0.13,
+      "textStyle": "label_box",
+      "textLook": "white condensed heavy sans-serif on red box; black on yellow box",
+      "marks": [
+       "box",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out photos of two people, company logos, a chart line and text boxes, all composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 89.7,
+     "luma": 0.323
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/JHDrK2E62SA.jpg",
+     "title": "The Reddit Protest Explained (From Reddit’s Perspective)",
+     "views": 37272,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 1,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "fire"
+      ],
+      "makeable": "illustration",
+      "why": "The Reddit mascot is a cartoon character drawn as a vector on a flame backdrop.",
+      "reach": "reachable"
+     },
+     "colourfulness": 102.4,
+     "luma": 0.346
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/FNmQjDTRfjM.jpg",
+     "title": "Are Layoffs Even Worth It?",
+     "views": 96940,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.17,
+      "textStyle": "label_box",
+      "textLook": "black heavy sans-serif on a pale box; white small caps heading",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "A cut-out photo, faceless silhouettes with red lines and a text box, all composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 39,
+     "luma": 0.36
+    },
+    {
+     "file": "data/exemplars/logically-answered/thumbs/iy2fwqfTEJQ.jpg",
+     "title": "The 1.2 Billion Sub YouTuber That’s Losing It All",
+     "views": 60165,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 1,
+      "textHeight": 0.07,
+      "textStyle": "label_box",
+      "textLook": "black sans-serif on white rounded box",
+      "marks": [
+       "fire",
+       "money",
+       "glow",
+       "box"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Dollar signs are placed on the sunglasses lenses and the portrait has a yellow glow with fire.",
+      "reach": "reachable"
+     },
+     "colourfulness": 124.8,
+     "luma": 0.459
+    }
+   ],
+   "generatedAt": "2026-11-22T13:23:31.065Z"
+  },
+  "quality": {
+   "channel": "logically-answered",
+   "thumbs": {
+    "count": 30,
+    "sharpTop": {
+     "p10": 1521.2,
+     "median": 3171.7
+    },
+    "sharpMedian": {
+     "p10": 105.5,
+     "median": 500.6
+    },
+    "contrast": {
+     "p10": 179,
+     "median": 208
+    },
+    "grain": {
+     "p10": 1.5,
+     "median": 7.3,
+     "p90": 14.7
+    }
+   },
+   "frames": {
+    "count": 317,
+    "sharpTop": {
+     "p10": 96.6,
+     "median": 974.5
+    },
+    "sharpMedian": {
+     "p10": 3.5,
+     "median": 46.7
+    },
+    "contrast": {
+     "p10": 93,
+     "median": 168
+    },
+    "grain": {
+     "p10": 0.5,
+     "median": 1.9,
+     "p90": 9.4
+    }
+   },
+   "design": {
+    "thumbs": {
+     "count": 30,
+     "focus": {
+      "p10": 0.201,
+      "median": 0.269,
+      "p90": 0.324
+     },
+     "focusX": {
+      "p10": 0.477,
+      "median": 0.503,
+      "p90": 0.553
+     },
+     "focusY": {
+      "p10": 0.443,
+      "median": 0.494,
+      "p90": 0.593
+     },
+     "depth": {
+      "p10": 3.128,
+      "median": 7.813,
+      "p90": 18.83
+     },
+     "separation": {
+      "p10": 0.086,
+      "median": 0.206,
+      "p90": 0.297
+     },
+     "hueContrast": {
+      "p10": 0.029,
+      "median": 0.128,
+      "p90": 0.403
+     },
+     "oneColour": {
+      "p10": 0.347,
+      "median": 0.559,
+      "p90": 0.732
+     },
+     "light": {
+      "p10": 0.14,
+      "median": 0.32,
+      "p90": 0.646
+     },
+     "lightDeg": {
+      "p10": 81,
+      "median": 217,
+      "p90": 298
+     },
+     "keyRatio": {
+      "p10": 1.891,
+      "median": 4.447,
+      "p90": 7.526
+     }
+    },
+    "frames": {
+     "count": 317,
+     "focus": {
+      "p10": 0.198,
+      "median": 0.281,
+      "p90": 0.431
+     },
+     "focusX": {
+      "p10": 0.446,
+      "median": 0.496,
+      "p90": 0.551
+     },
+     "focusY": {
+      "p10": 0.435,
+      "median": 0.502,
+      "p90": 0.563
+     },
+     "depth": {
+      "p10": 3.369,
+      "median": 13.121,
+      "p90": 50
+     },
+     "separation": {
+      "p10": 0.022,
+      "median": 0.096,
+      "p90": 0.229
+     },
+     "hueContrast": {
+      "p10": 0,
+      "median": 0.024,
+      "p90": 0.191
+     },
+     "oneColour": {
+      "p10": 0.341,
+      "median": 0.581,
+      "p90": 0.953
+     },
+     "light": {
+      "p10": 0.071,
+      "median": 0.345,
+      "p90": 0.904
+     },
+     "lightDeg": {
+      "p10": 35,
+      "median": 124,
+      "p90": 284
+     },
+     "keyRatio": {
+      "p10": 1.012,
+      "median": 1.651,
+      "p90": 3.615
+     }
+    }
+   },
+   "generatedAt": "2026-11-22T13:24:01.583Z"
+  },
   "voice": {
    "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
     "wpm": 171.1,
@@ -2112,7 +3306,7 @@
    }
   }
  },
- "version": "b6d508d5d8da",
+ "version": "da97fe6ce5e2",
  "directives": [
   "Pace: 12.51–19.19 cuts a minute across the channel's films (median 15.97); median shot 3.067 s; shot lengths vary a lot (CV 0.801).",
   "By position: cold open 13.89 cuts/min with text on 64% of shots; chapter openings 15.9; middle 16.5; ending 14.34.",
@@ -2127,5 +3321,5 @@
   "Views (a weak, observational tie-breaker inside the band, not a target): the channel's more-watched films have more picture.stock_actor (top quartile 0.481 vs median 0.351).",
   "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T13:02:34.532Z"
+ "generatedAt": "2026-11-22T13:24:03.315Z"
 }

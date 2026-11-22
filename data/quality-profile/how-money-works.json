@@ -1,0 +1,152 @@
+{
+ "channel": "how-money-works",
+ "thumbs": {
+  "count": 30,
+  "sharpTop": {
+   "p10": 3557.2,
+   "median": 5045.3
+  },
+  "sharpMedian": {
+   "p10": 252.3,
+   "median": 1360.1
+  },
+  "contrast": {
+   "p10": 225,
+   "median": 245
+  },
+  "grain": {
+   "p10": 3.6,
+   "median": 14.1,
+   "p90": 28.4
+  }
+ },
+ "frames": {
+  "count": 296,
+  "sharpTop": {
+   "p10": 138.7,
+   "median": 1761.1
+  },
+  "sharpMedian": {
+   "p10": 4.1,
+   "median": 98.5
+  },
+  "contrast": {
+   "p10": 107,
+   "median": 178
+  },
+  "grain": {
+   "p10": 0.3,
+   "median": 2,
+   "p90": 8.1
+  }
+ },
+ "design": {
+  "thumbs": {
+   "count": 30,
+   "focus": {
+    "p10": 0.187,
+    "median": 0.248,
+    "p90": 0.302
+   },
+   "focusX": {
+    "p10": 0.453,
+    "median": 0.494,
+    "p90": 0.527
+   },
+   "focusY": {
+    "p10": 0.367,
+    "median": 0.489,
+    "p90": 0.573
+   },
+   "depth": {
+    "p10": 2.534,
+    "median": 5.399,
+    "p90": 17.95
+   },
+   "separation": {
+    "p10": 0.043,
+    "median": 0.1,
+    "p90": 0.235
+   },
+   "hueContrast": {
+    "p10": 0.014,
+    "median": 0.106,
+    "p90": 0.403
+   },
+   "oneColour": {
+    "p10": 0.379,
+    "median": 0.512,
+    "p90": 0.915
+   },
+   "light": {
+    "p10": 0.157,
+    "median": 0.384,
+    "p90": 0.851
+   },
+   "lightDeg": {
+    "p10": 58,
+    "median": 99,
+    "p90": 260
+   },
+   "keyRatio": {
+    "p10": 2.087,
+    "median": 2.585,
+    "p90": 5.756
+   }
+  },
+  "frames": {
+   "count": 296,
+   "focus": {
+    "p10": 0.218,
+    "median": 0.285,
+    "p90": 0.411
+   },
+   "focusX": {
+    "p10": 0.426,
+    "median": 0.492,
+    "p90": 0.55
+   },
+   "focusY": {
+    "p10": 0.433,
+    "median": 0.51,
+    "p90": 0.576
+   },
+   "depth": {
+    "p10": 3.858,
+    "median": 11.517,
+    "p90": 50
+   },
+   "separation": {
+    "p10": 0.029,
+    "median": 0.112,
+    "p90": 0.256
+   },
+   "hueContrast": {
+    "p10": 0,
+    "median": 0.024,
+    "p90": 0.212
+   },
+   "oneColour": {
+    "p10": 0.401,
+    "median": 0.642,
+    "p90": 0.937
+   },
+   "light": {
+    "p10": 0.111,
+    "median": 0.358,
+    "p90": 0.921
+   },
+   "lightDeg": {
+    "p10": 39,
+    "median": 131,
+    "p90": 298
+   },
+   "keyRatio": {
+    "p10": 1.211,
+    "median": 2.368,
+    "p90": 6.26
+   }
+  }
+ },
+ "generatedAt": "2026-11-22T13:10:34.385Z"
+}

@@ -40,3 +40,4 @@ export * from "./showrunner-agent.js";
 export * from "./lessons.js";
 export * from "./sound-agent.js";
 export * from "./music-edit.js";
+export * from "./voice-agent.js";

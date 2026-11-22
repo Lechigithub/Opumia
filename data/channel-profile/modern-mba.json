@@ -1991,10 +1991,1082 @@
   "note": "the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/"
  },
  "bands": {
-  "story": null,
-  "visual": null,
-  "thumbnail": null,
-  "quality": null,
+  "story": {
+   "schemaVersion": 1,
+   "channel": "modern-mba",
+   "films": 27,
+   "kinds": {
+    "scene": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.044
+    },
+    "story": {
+     "p10": 0.067,
+     "p50": 0.144,
+     "p90": 0.2
+    },
+    "fact": {
+     "p10": 0.156,
+     "p50": 0.211,
+     "p90": 0.433
+    },
+    "explain": {
+     "p10": 0.289,
+     "p50": 0.411,
+     "p90": 0.5
+    },
+    "motive": {
+     "p10": 0.011,
+     "p50": 0.022,
+     "p90": 0.056
+    },
+    "quote": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.222
+    },
+    "question": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.044
+    },
+    "address": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.067
+    },
+    "tease": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.044
+    },
+    "maxim": {
+     "p10": 0.011,
+     "p50": 0.033,
+     "p90": 0.078
+    }
+   },
+   "viewer": {
+    "p10": 0.056,
+    "p50": 0.178,
+    "p90": 0.378
+   },
+   "structures": [
+    "\"How Burger King Lost to Wendy’s\": McDonald's dominance and the fight for second → John Chidsey era: barbell, value and broilers → Wendy's overtakes; 3G buys Burger King → Daniel Schwartz: franchisor model and balance → Jose Sill: discounting and reclaim the flame → Analysis: pricing not product, peanut butter approach → Wendy's rise through values and product",
+    "\"How Casper Failed & Why DTC Startups Lose Money\": Casper everywhere online → The D2C model and investor hype → Unicorn valuation, Target offer → Embarrassing IPO and collapse → The numbers: losses and ad spend → Slow growth and slow mattress cycle → Retail becomes the growth channel → Europe shut down, bleak outlook",
+    "\"How Dollar Tree Conquered Low Income America\": Bigger is better, inflation hits → Dollar Tree's conquest of low-income America → What Dollar Tree is: products and store count → Small stores and treasure hunt → Family Dollar → Sales and margins versus Target and Walmart → Expansion: mammoths versus hare",
+    "\"The Dreadful Business of Balding & Hair Loss\": Balding facts and narrator's story → Three options: nothing, shave, fight back → Prosthesis: wigs and toupees → Medication: finasteride and Merck → Minoxidil → Hair transplant surgery → Choosing Korea and Dr. Kim → The surgery and cost",
+    "\"Tree to Box: The Billion Dollar Cardboard Business\": The world runs on cardboard → Types of cardboard and how it's made → Forests, fiber and supply chain → Local business and vertical integration → Name of the game is volume → International Paper's streamlining → International Paper's pedestrian results → Westrock's innovation strategy → Comparison and hidden empires",
+    "\"Why Football Is Bad Business\": Football's success versus its finances → Premier League and Manchester United's flywheel → Player salaries erase the profit → Juventus and the Ronaldo bet → Barcelona on the edge of collapse → Super League and billionaire owners",
+    "\"Why Starbucks Must Crush Unions to Survive\": Starbucks' image: CSR montage and Schultz clips → The irony of Starbucks versus its unions → Three waves of coffee and beverage economics → Howard Schultz and why he can crush unions → Post-2000 decline and Schultz's 2008 return → Licensing model and the 2008 to 2017 boom → China, Europe and Schultz's exit in 2017 → Schultz returns in 2022; union cost math → Pressure on margins and conclusion"
+   ]
+  },
+  "visual": {
+   "schemaVersion": 1,
+   "channel": "modern-mba",
+   "films": 10,
+   "shots": 310,
+   "mix": {
+    "plain_footage": 0.413,
+    "words_over_footage": 0.065,
+    "caption_on_footage": 0.1,
+    "title_card": 0.039,
+    "picture_composition": 0.065,
+    "logo": 0.052,
+    "number_stat": 0.006,
+    "chart": 0.09,
+    "document_or_screen": 0.084,
+    "map": 0.01,
+    "comparison": 0.026,
+    "infographic": 0.029,
+    "quote_card": 0.023
+   },
+   "distinctKinds": {
+    "p10": 5,
+    "p50": 7,
+    "p90": 9
+   },
+   "topShare": {
+    "p10": 0.25,
+    "p50": 0.5,
+    "p90": 0.75
+   },
+   "textShare": {
+    "p10": 0.385,
+    "p50": 0.625,
+    "p90": 0.857
+   },
+   "pictureShare": {
+    "p10": 0,
+    "p50": 0.15,
+    "p90": 0.214
+   },
+   "wordsMedian": {
+    "p10": 4,
+    "p50": 12,
+    "p90": 70
+   },
+   "plainFootage": {
+    "p10": 0.25,
+    "p50": 0.5,
+    "p90": 0.75
+   },
+   "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.053,
+    "p90": 0.167
+   },
+   "titleCard": {
+    "p10": 0,
+    "p50": 0.071,
+    "p90": 0.125
+   }
+  },
+  "thumbnail": {
+   "channel": "modern-mba",
+   "count": 27,
+   "hero": {
+    "person": 0.222,
+    "product": 0.148,
+    "logo": 0.222,
+    "object": 0.111,
+    "building": 0.074,
+    "place": 0.037,
+    "text": 0.185,
+    "none": 0
+   },
+   "background": {
+    "colour_field": 0.222,
+    "gradient": 0,
+    "photo_scene": 0.333,
+    "split_colour": 0.296,
+    "pattern": 0.037,
+    "texture": 0.111
+   },
+   "makeable": {
+    "real_pictures": 0.852,
+    "needs_retouch": 0.074,
+    "needs_invention": 0,
+    "illustration": 0.074
+   },
+   "reach": {
+    "reachable": 0.926,
+    "face_alteration": 0,
+    "new_painting": 0.074
+   },
+   "marks": {
+    "arrow": 0.111,
+    "circle": 0.037,
+    "cross": 0,
+    "strike": 0,
+    "box": 0.296,
+    "burst": 0.074,
+    "money": 0,
+    "fire": 0.037,
+    "glow": 0,
+    "outline": 0.111
+   },
+   "heroShare": {
+    "p10": 0.2,
+    "median": 0.4,
+    "p90": 0.7
+   },
+   "cutoutShare": 0.4074074074074074,
+   "faceShare": 0.37037037037037035,
+   "strongExpressionShare": 0.1,
+   "words": {
+    "median": 5,
+    "p90": 9,
+    "max": 20,
+    "noTextShare": 0.037037037037037035
+   },
+   "textHeight": {
+    "p10": 0.09,
+    "median": 0.13
+   },
+   "textStyle": {
+    "none": 0,
+    "label_box": 0.115,
+    "outlined": 0.154,
+    "plain": 0.692,
+    "gradient": 0.038,
+    "glow": 0
+   },
+   "textLooks": [
+    "white heavy sans-serif, no box",
+    "white serif capitals",
+    "white condensed sans-serif with black outline",
+    "green heavy italic sans-serif",
+    "white heavy sans-serif on black boxes",
+    "thin black geometric sans-serif, all caps",
+    "yellow-gold gradient heavy sans-serif, all caps",
+    "black sans-serif, light and bold weights",
+    "white rounded geometric sans-serif, lowercase",
+    "white heavy sans-serif, all caps",
+    "white heavy sans-serif caps on red and black boxes",
+    "white heavy rounded sans-serif, no box",
+    "black wide sans-serif caps on pink",
+    "white heavy sans-serif caps with soft shadow",
+    "white heavy sans-serif with dark blue outline; Twitter logo in blue",
+    "white geometric sans-serif caps, soft shadow",
+    "white bold sans-serif caps with soft shadow",
+    "white heavy rounded sans-serif on dark grey",
+    "black heavy sans-serif with white outline and shadow",
+    "white heavy condensed sans-serif on dark bar",
+    "white serif and heavy condensed sans on photo",
+    "white and red on blue banner, small",
+    "white heavy condensed sans on black brush splatter",
+    "white and green heavy sans-serif, no box"
+   ],
+   "elements": {
+    "median": 6,
+    "max": 14
+   },
+   "colourfulness": {
+    "p25": 44.1,
+    "median": 68.7,
+    "p90": 112.7
+   },
+   "luma": {
+    "p10": 0.23,
+    "p90": 0.553
+   },
+   "items": [
+    {
+     "file": "data/exemplars/modern-mba/thumbs/WcNbIm0fRxk.jpg",
+     "title": "How Casper Failed & Why DTC Startups Lose Money",
+     "views": 1690541,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.3,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 6,
+      "words": 6,
+      "textHeight": 0.17,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif, no box",
+      "marks": [
+       "arrow",
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "Product cut-outs, a vector arrow and a crack texture on flat purple can all be composited from real assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 58.9,
+     "luma": 0.358
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/tOzDk704x98.jpg",
+     "title": "How McDonalds Evolved from Boomers to Zoomers",
+     "views": 837462,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.15,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 9,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Logo, cartoon character cut-outs and packaging placed on a flat red field.",
+      "reach": "reachable"
+     },
+     "colourfulness": 152.1,
+     "luma": 0.397
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/0yNjUFEuW18.jpg",
+     "title": "The Extraordinary King of Luxury Fashion",
+     "views": 456704,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.2,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 9,
+      "words": 2,
+      "textHeight": 0.14,
+      "textStyle": "plain",
+      "textLook": "white serif capitals",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Product cut-outs with white price tags around the logo on flat orange.",
+      "reach": "reachable"
+     },
+     "colourfulness": 119.9,
+     "luma": 0.553
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/b8ouRRev2Nc.jpg",
+     "title": "Facebook's Collapse & The Metaverse Crusade",
+     "views": 993101,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 7,
+      "words": 5,
+      "textHeight": 0.2,
+      "textStyle": "outlined",
+      "textLook": "white condensed sans-serif with black outline",
+      "marks": [
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "Enlarged real photo of a face with a blue backdrop, text and app logos and emoji added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 109.2,
+     "luma": 0.479
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/TlAi8R_V3Ac.jpg",
+     "title": "How Dollar Tree Conquered Low Income America",
+     "views": 1223272,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.35,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 5,
+      "words": 10,
+      "textHeight": 0.14,
+      "textStyle": "plain",
+      "textLook": "green heavy italic sans-serif",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Green type and logo plus product cut-outs on black.",
+      "reach": "reachable"
+     },
+     "colourfulness": 69.5,
+     "luma": 0.186
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/-IdQ0sXCbxE.jpg",
+     "title": "Why Airbnb Fails to Disrupt the Hotel Industry",
+     "views": 3472297,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 6,
+      "words": 4,
+      "textHeight": 0.13,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif on black boxes",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Grid of real hotel logos, Airbnb logo and boxed text on flat coral.",
+      "reach": "reachable"
+     },
+     "colourfulness": 115.7,
+     "luma": 0.467
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/Y2BkQVTfv10.jpg",
+     "title": "La Croix's Succession of Coca-Cola & Pepsi",
+     "views": 583108,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 9,
+      "words": 5,
+      "textHeight": 0.09,
+      "textStyle": "plain",
+      "textLook": "thin black geometric sans-serif, all caps",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Cut-out soda can photos lined up over a faded stock photo with plain type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 70.3,
+     "luma": 0.729
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/B71mbSBgZ3E.jpg",
+     "title": "Unfinished & Unstable: How SaaS Changed Video Games",
+     "views": 646594,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.45,
+      "heroCutout": true,
+      "faces": 7,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 12,
+      "words": 5,
+      "textHeight": 0.17,
+      "textStyle": "gradient",
+      "textLook": "yellow-gold gradient heavy sans-serif, all caps",
+      "marks": [
+       "fire",
+       "burst"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out game character renders and score badges composited over a dark and yellow background with type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 71.8,
+     "luma": 0.298
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/KasDwXg_afU.jpg",
+     "title": "Tree to Box: The Billion Dollar Cardboard Business",
+     "views": 613348,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.2,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 5,
+      "words": 4,
+      "textHeight": 0.11,
+      "textStyle": "plain",
+      "textLook": "black sans-serif, light and bold weights",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Cardboard texture and Prime packaging photo split diagonally with icons and plain text.",
+      "reach": "reachable"
+     },
+     "colourfulness": 63.5,
+     "luma": 0.488
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/gwypTAya1jw.jpg",
+     "title": "How Adidas Caught Up to Nike",
+     "views": 630653,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.15,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 14,
+      "words": 3,
+      "textHeight": 0.12,
+      "textStyle": "plain",
+      "textLook": "white rounded geometric sans-serif, lowercase",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Adidas logo and cut-out shoe photos on flat black with white type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 20.1,
+     "luma": 0.116
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/IlZ51zeabhM.jpg",
+     "title": "DoorDash & The Myth of Profitable Food Delivery",
+     "views": 1161204,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.25,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "texture",
+      "elements": 10,
+      "words": 5,
+      "textHeight": 0.09,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif, all caps",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "App icons and food photos placed on a teal textured background with plain type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 97.7,
+     "luma": 0.378
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/nXcz6CHDtwo.jpg",
+     "title": "Real Estate Tech: A Crumbling House of Cards",
+     "views": 937415,
+     "label": {
+      "hero": "building",
+      "heroShare": 0.5,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 9,
+      "textHeight": 0.09,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif caps on red and black boxes",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "A real house photo with an Opendoor sign and text boxes added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 103.4,
+     "luma": 0.501
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/Q65BI_5lul4.jpg",
+     "title": "The Dreadful Business of Balding & Hair Loss",
+     "views": 813588,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 2,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 8,
+      "textHeight": 0.25,
+      "textStyle": "plain",
+      "textLook": "white heavy rounded sans-serif, no box",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Three real photos placed side by side with type; faces are blacked out with boxes.",
+      "reach": "reachable"
+     },
+     "colourfulness": 24.5,
+     "luma": 0.34
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/R1JaMRpcDrQ.jpg",
+     "title": "Buy Now, Pay Later: Echoes of the 2008 Recession",
+     "views": 1131900,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 4,
+      "words": 6,
+      "textHeight": 0.1,
+      "textStyle": "plain",
+      "textLook": "black wide sans-serif caps on pink",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Real app screenshots in phone frames with a cracked texture overlay on a pink texture.",
+      "reach": "reachable"
+     },
+     "colourfulness": 43.4,
+     "luma": 0.714
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/VVNSn7oYnOU.jpg",
+     "title": "Fried Chicken Wars: The Fall of KFC in America",
+     "views": 3523782,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.75,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 5,
+      "words": 9,
+      "textHeight": 0.13,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif caps with soft shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Three real food photos in panels with text on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 68.7,
+     "luma": 0.463
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/DudWfJXHN9g.jpg",
+     "title": "A Tale of Greed: How 4 CEOs and $5B Failed Twitter",
+     "views": 413919,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 2,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 4,
+      "words": 6,
+      "textHeight": 0.1,
+      "textStyle": "outlined",
+      "textLook": "white heavy sans-serif with dark blue outline; Twitter logo in blue",
+      "marks": [],
+      "makeable": "illustration",
+      "why": "Custom comic-style drawn portraits and a cartoon bird.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 112.7,
+     "luma": 0.459
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/s7N-xXGgdE4.jpg",
+     "title": "Why Football Is Bad Business",
+     "views": 694072,
+     "label": {
+      "hero": "place",
+      "heroShare": 0.9,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 13,
+      "words": 14,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "white geometric sans-serif caps, soft shadow",
+      "marks": [
+       "arrow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Stadium photo with real club and brand logos and arrows.",
+      "reach": "reachable"
+     },
+     "colourfulness": 34.9,
+     "luma": 0.23
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/2nXce8d0uN8.jpg",
+     "title": "How Self Storage Thrives Off The American Dream",
+     "views": 1208446,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.25,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 6,
+      "textHeight": 0.12,
+      "textStyle": "plain",
+      "textLook": "white bold sans-serif caps with soft shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Storage unit photo with vintage ads placed on top and text.",
+      "reach": "reachable"
+     },
+     "colourfulness": 51.1,
+     "luma": 0.473
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/ajHg97qx4r0.jpg",
+     "title": "Why Uber Fails to Disrupt",
+     "views": 492948,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 3,
+      "words": 4,
+      "textHeight": 0.14,
+      "textStyle": "plain",
+      "textLook": "white heavy rounded sans-serif on dark grey",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "A phone screenshot in a hand on a dark diagonal split with type; the cracked map is a texture overlay.",
+      "reach": "reachable"
+     },
+     "colourfulness": 20.3,
+     "luma": 0.213
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/Bb3Ndqf3qHk.jpg",
+     "title": "The Timeless Business of Steakhouses",
+     "views": 3472545,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 5,
+      "words": 5,
+      "textHeight": 0.12,
+      "textStyle": "outlined",
+      "textLook": "black heavy sans-serif with white outline and shadow",
+      "marks": [],
+      "makeable": "needs_retouch",
+      "why": "Three steaks are blended into one on a plate, and hands in suits are composed seamlessly into a top-down table scene.",
+      "reach": "reachable"
+     },
+     "colourfulness": 32.7,
+     "luma": 0.683
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/7Q8FkLRT6Eo.jpg",
+     "title": "How Burger King Lost to Wendy’s",
+     "views": 434275,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.8,
+      "heroCutout": false,
+      "faces": 2,
+      "expression": "strong",
+      "background": "split_colour",
+      "elements": 4,
+      "words": 4,
+      "textHeight": 0.08,
+      "textStyle": "plain",
+      "textLook": "white heavy condensed sans-serif on dark bar",
+      "marks": [
+       "burst",
+       "box"
+      ],
+      "makeable": "illustration",
+      "why": "Mascots are drawn as anime-style characters in custom manga artwork.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 81,
+     "luma": 0.503
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/M61u2ogAA1Y.jpg",
+     "title": "The Resurrection of Abercrombie",
+     "views": 141899,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 4,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 7,
+      "words": 8,
+      "textHeight": 0.13,
+      "textStyle": "plain",
+      "textLook": "white serif and heavy condensed sans on photo",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A black-and-white ad photo and a colour ad photo are split, with clothing cut-outs and logos placed on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 44.3,
+     "luma": 0.438
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/0DiLan7Knw4.jpg",
+     "title": "The Bait & Switch of Home Security",
+     "views": 595208,
+     "label": {
+      "hero": "building",
+      "heroShare": 0.7,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 8,
+      "words": 20,
+      "textHeight": 0.05,
+      "textStyle": "label_box",
+      "textLook": "white and red on blue banner, small",
+      "marks": [
+       "box"
+      ],
+      "makeable": "needs_retouch",
+      "why": "A house with a burglar and smashed windows reads as one photo, so it is retouched and merged, with yard signs placed on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 37,
+     "luma": 0.501
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/qRIyaQLiJl4.jpg",
+     "title": "How GameStop Fell Apart",
+     "views": 735550,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.2,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 6,
+      "words": 8,
+      "textHeight": 0.12,
+      "textStyle": "plain",
+      "textLook": "white heavy condensed sans on black brush splatter",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Three collage panels of store shelves, gift cards and NFT art with a logo and hands are composed from real pictures.",
+      "reach": "reachable"
+     },
+     "colourfulness": 62.9,
+     "luma": 0.437
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/__OegYfrSoI.jpg",
+     "title": "Why Starbucks Must Crush Unions to Survive",
+     "views": 589118,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.2,
+      "heroCutout": false,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 5,
+      "words": 4,
+      "textHeight": 0.17,
+      "textStyle": "plain",
+      "textLook": "white and green heavy sans-serif, no box",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Posters, cups and coffee beans are real objects or licensed artwork that can be composited on a wood texture.",
+      "reach": "reachable"
+     },
+     "colourfulness": 44.1,
+     "luma": 0.426
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/QqQtV7wHSV0.jpg",
+     "title": "How Cruises Make More Profits Than Airlines",
+     "views": 1283640,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 4,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 8,
+      "words": 5,
+      "textHeight": 0.17,
+      "textStyle": "outlined",
+      "textLook": "white heavy italic sans-serif with red outline and shadow",
+      "marks": [
+       "arrow",
+       "circle",
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "Aerial ship photos, circular inset photos and text can be composed from real pictures.",
+      "reach": "reachable"
+     },
+     "colourfulness": 73.9,
+     "luma": 0.527
+    },
+    {
+     "file": "data/exemplars/modern-mba/thumbs/Jf-mU-hdHyE.jpg",
+     "title": "How Axon Became Wall Street's Hottest Stock",
+     "views": 150514,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.12,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 6,
+      "textHeight": 0.09,
+      "textStyle": "plain",
+      "textLook": "white and yellow monospace-like bold sans-serif",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Bodycam footage frame with a taser photo and HUD overlay can be composited from real footage.",
+      "reach": "reachable"
+     },
+     "colourfulness": 74.8,
+     "luma": 0.276
+    }
+   ],
+   "generatedAt": "2026-11-22T13:24:55.620Z"
+  },
+  "quality": {
+   "channel": "modern-mba",
+   "thumbs": {
+    "count": 27,
+    "sharpTop": {
+     "p10": 2800.7,
+     "median": 5124.8
+    },
+    "sharpMedian": {
+     "p10": 443.4,
+     "median": 915.1
+    },
+    "contrast": {
+     "p10": 189,
+     "median": 221
+    },
+    "grain": {
+     "p10": 0.6,
+     "median": 10,
+     "p90": 25
+    }
+   },
+   "frames": {
+    "count": 310,
+    "sharpTop": {
+     "p10": 152.7,
+     "median": 1333.5
+    },
+    "sharpMedian": {
+     "p10": 3.5,
+     "median": 82.8
+    },
+    "contrast": {
+     "p10": 98,
+     "median": 177
+    },
+    "grain": {
+     "p10": 0,
+     "median": 2.1,
+     "p90": 10.2
+    }
+   },
+   "design": {
+    "thumbs": {
+     "count": 27,
+     "focus": {
+      "p10": 0.201,
+      "median": 0.248,
+      "p90": 0.328
+     },
+     "focusX": {
+      "p10": 0.438,
+      "median": 0.487,
+      "p90": 0.516
+     },
+     "focusY": {
+      "p10": 0.443,
+      "median": 0.516,
+      "p90": 0.556
+     },
+     "depth": {
+      "p10": 3.064,
+      "median": 5.87,
+      "p90": 11.371
+     },
+     "separation": {
+      "p10": 0.043,
+      "median": 0.102,
+      "p90": 0.203
+     },
+     "hueContrast": {
+      "p10": 0.012,
+      "median": 0.069,
+      "p90": 0.529
+     },
+     "oneColour": {
+      "p10": 0.337,
+      "median": 0.485,
+      "p90": 0.877
+     },
+     "light": {
+      "p10": 0.129,
+      "median": 0.385,
+      "p90": 0.671
+     },
+     "lightDeg": {
+      "p10": 70,
+      "median": 185,
+      "p90": 296
+     },
+     "keyRatio": {
+      "p10": 1.296,
+      "median": 2.349,
+      "p90": 7.031
+     }
+    },
+    "frames": {
+     "count": 310,
+     "focus": {
+      "p10": 0.204,
+      "median": 0.276,
+      "p90": 0.43
+     },
+     "focusX": {
+      "p10": 0.445,
+      "median": 0.499,
+      "p90": 0.553
+     },
+     "focusY": {
+      "p10": 0.449,
+      "median": 0.516,
+      "p90": 0.605
+     },
+     "depth": {
+      "p10": 3.474,
+      "median": 11.818,
+      "p90": 50
+     },
+     "separation": {
+      "p10": 0.02,
+      "median": 0.114,
+      "p90": 0.259
+     },
+     "hueContrast": {
+      "p10": 0,
+      "median": 0.025,
+      "p90": 0.155
+     },
+     "oneColour": {
+      "p10": 0.365,
+      "median": 0.601,
+      "p90": 0.928
+     },
+     "light": {
+      "p10": 0.066,
+      "median": 0.375,
+      "p90": 0.903
+     },
+     "lightDeg": {
+      "p10": 38,
+      "median": 156,
+      "p90": 299
+     },
+     "keyRatio": {
+      "p10": 1.063,
+      "median": 2.164,
+      "p90": 8.236
+     }
+    }
+   },
+   "generatedAt": "2026-11-22T13:25:25.179Z"
+  },
   "voice": {
    "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
     "wpm": 171.1,
@@ -2016,7 +3088,7 @@
    }
   }
  },
- "version": "1cbbcfc05e9e",
+ "version": "a1273fe19718",
  "directives": [
   "Pace: 17.03–32.97 cuts a minute across the channel's films (median 24.65); median shot 1.418 s; shot lengths vary a lot (CV 1.441).",
   "By position: cold open 27.77 cuts/min with text on 43% of shots; chapter openings 27.16; middle 28.37; ending 30.04.",
@@ -2031,5 +3103,5 @@
   "Views (a weak, observational tie-breaker inside the band, not a target): the channel's more-watched films have more picture.stock_broll (top quartile 0.403 vs median 0.305).",
   "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T13:02:37.913Z"
+ "generatedAt": "2026-11-22T13:25:25.670Z"
 }
