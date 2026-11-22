@@ -36,7 +36,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ D39 Real technique frequencies counted from every reference shot (the old profile's counts were example-clip counts).
 - ☑ D40 Short-form: the reference has 1 film under 3 min and no real shorts — recorded in the profile; shorts follow the cold-open segment until real shorts are added (owner decision needed to source them).
 - ☑ D41 Weighting by views: rank correlations, top-quartile band, permutation test (p < 0.05) — MagnatesMedia: only length goes with views beyond noise; Moon: less designed, more staged stock. A tie-breaker directive, not a target. Our own click-through: needs published films.
-- ☑ D42 Other channels: exemplars, story, visual, thumbnail and quality bands and the unified profile for How Money Works, Logically Answered, Modern MBA and Moon ($0.16 each). Big Company has no shot analysis. Taste models: MagnatesMedia only so far.
+- ☑ D42 Other channels: exemplars, story, visual, thumbnail and quality bands and the unified profile for How Money Works, Logically Answered, Modern MBA and Moon ($0.16 each). Big Company has no shot analysis. Taste models trained for all five channels (thumb AUC 0.93, shot AUC 0.89–0.90 on held-out films).
 - ☑ D43 Profile version tied to evaluation: eval history, the lesson ledger and agent score histories record the channel-profile version; trends and lesson trials only compare runs on the same profile (a new profile is a new baseline).
 
 ## E. Craft written down
