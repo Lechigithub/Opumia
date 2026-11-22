@@ -26,6 +26,12 @@ export interface CaptionGroup {
 // Live ES-module bindings: applyDesign() reassigns these per film, every importer sees the new value.
 export let FONT = `"Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif`;
 export let FONT_BODY = `"Helvetica Neue", Helvetica, Arial, sans-serif`;
+/** Step 5: the film kit's own typefaces replace the menu's for every word the shared primitives draw. */
+export function setFilmFonts(f: { display: string; body: string } | undefined) {
+  if (!f) return;
+  FONT = f.display;
+  FONT_BODY = f.body;
+}
 export let FONT_SERIF = `Georgia, "Times New Roman", Times, serif`;
 
 /**

@@ -8,7 +8,7 @@ import { Versus } from "./scenes/Versus";
 import { ComposedScene, type ComposedProps } from "./scenes/Composed";
 import { CutoutCollage, HeroFaceSplit, ScreenMock, SharpOverlayCounter, TitleRollChapter } from "./scenes/Signature";
 import { AccentLight, Atmosphere, CameraPush, FilmGrain, Vignette } from "./scenes/Cinema";
-import { applyDesign, PALETTE, TEXTURE, type DesignTokens } from "./types";
+import { applyDesign, PALETTE, setFilmFonts, TEXTURE, type DesignTokens } from "./types";
 import { interpolate, useCurrentFrame } from "remotion";
 import { MapRoute, type MapProps } from "./scenes/MapRoute";
 import { MediaLayer, OverlayLayer } from "./scenes/Media";
@@ -78,6 +78,7 @@ const FULL_FRAME = new Set(["scene", "captions", "name_label", "map", "versus", 
 
 export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   applyDesign(design);
+  setFilmFonts(FILM.fonts);
   const frame = useCurrentFrame();
   // Act boundaries = chapter opener layers (long-form); one act for shorts.
   const actStarts = [0, ...manifest.video.filter((l) => l.ref === "chapter_card").map((l) => l.startFrame).sort((a, b) => a - b)];

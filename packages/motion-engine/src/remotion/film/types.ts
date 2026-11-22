@@ -20,4 +20,8 @@ export interface FilmKit {
   transition?: string;
   /** Frames the transition spans (centred on the cut). */
   transitionFrames?: number;
+  /** The film's typefaces (CSS font-family stacks, loaded by the kit): every word the shared primitives draw uses them. */
+  fonts?: { display: string; body: string };
+  /** For the scene designer: what each component is for and the props it takes. */
+  meta?: Record<string, { use: string; props: string }>;
 }

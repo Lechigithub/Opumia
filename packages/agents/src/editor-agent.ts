@@ -187,8 +187,8 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
     },
     {
       name: "set_transition",
-      description: "How a shot is entered: cut (default), whip, fade, dip_black, light_leak, match. Accents only — the channel's cuts are about two in three plain cuts, and a soft transition means something (a jump in time, a shock, a punchline).",
-      schema: z.object({ shotId: z.string(), kind: z.enum(["cut", "fade", "whip", "dip_black", "light_leak", "match"]) }),
+      description: "How a shot is entered: cut (default), film (the film's OWN transition from its kit — use it to bridge every change of the same picture and on turns; the channel bridges 4–11 same-picture changes a minute, mostly with light flashes), whip, fade, dip_black, light_leak, match. A same-picture change with no bridge reads as a jump.",
+      schema: z.object({ shotId: z.string(), kind: z.enum(["cut", "film", "fade", "whip", "dip_black", "light_leak", "match"]) }),
       run: (async (i: { shotId: string; kind: Storyboard["shots"][number]["transitionIn"] }) => {
         const k = find(i.shotId);
         if (k < 0) return `no shot ${i.shotId}`;

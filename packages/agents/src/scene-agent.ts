@@ -42,6 +42,8 @@ export interface SceneAgentOptions {
   play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
   /** Step 4: trained taste of rendered frames (0–10, the same heads as the film score), and the channel's real band. */
   taste?: { score: (files: string[]) => Promise<Array<number | null>>; realP10: number; realMedian: number };
+  /** Step 5: this film's own kit (design/film/meta.json). */
+  kit?: { concept: string; components: Record<string, { use: string; props: string }> };
   /** Step 2: watch a stretch at real speed with sound, with the measured detector report (jumps, legibility, seams, taste). */
   watch?: (plan: ScenePlan, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
   /** Sourcing tools (resolver/scene-tools.ts): they add pictures to `resolution` in place. */
@@ -258,7 +260,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         const known = new Set(shots.map((s) => s.id));
         const raw = i.scenes.filter((s) => known.has(s.shotId));
         if (!raw.length) throw new Error("none of those shot ids exist");
-        plan = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), raw, previous: plan, log: (s) => said.push(s.trim()) });
+        plan = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), ...(o.kit ? { kit: o.kit } : {}), raw, previous: plan, log: (s) => said.push(s.trim()) });
         for (const s of raw) (dirty.add(s.shotId), unseen.add(s.shotId));
         const lines = raw.map((r) => {
           const got = plan.scenes.find((x) => x.shotId === r.shotId);
@@ -283,7 +285,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
               const keepFrame = frames.get(i.shotId);
               const cand = [...(base.scenes.some((x) => x.shotId === i.shotId) && keepFrame ? [{ plan: base, mid: keepFrame.mid, sheet: keepFrame.sheet }] : [])];
               for (const d of i.designs) {
-                const p2 = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
+                const p2 = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), ...(o.kit ? { kit: o.kit } : {}), raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
                 if (!p2.scenes.some((x) => x.shotId === i.shotId)) continue;
                 const r = (await o.render(p2, [i.shotId]))[0];
                 if (!r) continue;
@@ -452,7 +454,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const portrait = o.storyboard.aspect === "9:16";
   const system = [
     plain(
-      `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## This film's design language (stay inside it so the film is coherent)\n- concept: ${ds?.concept ?? "—"}\n- colours: primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}, text ${ds?.palette.text}\n- type: ${ds?.typography.display} display, ${ds?.typography.casing} case; headlines drawn "${tr?.headline ?? "solid_stroke"}", narration phrases "${tr?.phrase ?? "neon_glow"}", labels "${tr?.label ?? "tag"}", photos "${tr?.photo ?? "print"}"\n- stage when a shot has no footage: "${tr?.world ?? "smoke"}" in the film's colours\n- motif: ${tr?.motif ?? "—"}\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
+      `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## This film's design language (stay inside it so the film is coherent)\n- concept: ${ds?.concept ?? "—"}\n- colours: primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}, text ${ds?.palette.text}\n- type: ${ds?.typography.display} display, ${ds?.typography.casing} case; headlines drawn "${tr?.headline ?? "solid_stroke"}", narration phrases "${tr?.phrase ?? "neon_glow"}", labels "${tr?.label ?? "tag"}", photos "${tr?.photo ?? "print"}"\n- stage when a shot has no footage: "${tr?.world ?? "smoke"}" in the film's colours\n- motif: ${tr?.motif ?? "—"}${o.kit ? `\n\n## THIS FILM'S OWN KIT (its art director wrote it for this film only — its visual idea: ${o.kit.concept})\nBuild designed shots from these components (element type "component", component = the name, propsJson = its props as JSON). They carry the film's own typefaces, cards, frames and labels; the generic text/phrase/label elements are only for what no component covers.\n${Object.entries(o.kit.components).map(([n, c]) => `- ${n}: ${c.use} — props: ${c.props}`).join("\n")}\nCuts that change the same picture are bridged by the film's own transition (the editor marks them).` : ""}\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${MODELS.sonnet})…`);

@@ -12,6 +12,7 @@ import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
+import { runFilmDesigner } from "./film-kit.js";
 import { run } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, pruneEmptyFrames, referenceHueDominance, safeScene, type PreflightCheck } from "./preflight.js";
@@ -326,6 +327,17 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     }
     return picks;
   })();
+  // [B2d] Art director from a blank slate (build list 2, step 5): the film's own motion-design kit, written as code
+  // (design/film/), rendered on the film's own shots, measured and revised; the scenes are built from it.
+  // OPUMIA_FILM_KIT=off keeps the shared menu.
+  const kitMetaFile = path.join(jobDir, "design", "film", "meta.json");
+  if (process.env.OPUMIA_FILM_KIT !== "off" && (redo("resolve") || !(await exists(kitMetaFile)))) {
+    log("\n[B2d] art director (the film's own kit, from a blank slate)");
+    const treatmentK = await readFile(path.join(jobDir, "treatment.md"), "utf8").catch(() => "");
+    const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, brief: `${draft.title}\n${treatmentK}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, design, look: lookFromProfile(pack.profile.look, design.palette.primarySoft), log });
+    await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(kr, null, 2) + "\n");
+  }
+  const filmKit = await readFile(kitMetaFile, "utf8").then((t) => JSON.parse(t) as { concept: string; components: Record<string, { use: string; props: string }> }, () => null);
   const sceneFile = path.join(jobDir, "scenes.json");
   const freshScenes = redo("resolve") || redo("storyboard") || redo("manifest") || !(await exists(sceneFile));
   // The scene designer is an agent with eyes: it looks at the channel's real shots, designs every shot, renders
@@ -356,7 +368,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const coolS = await cooldownRefs(o.data, jobId);
     const eraS = eraOfFacts(facts);
     const pictures = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
-    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
+    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, ...(filmKit ? { kit: { concept: filmKit.concept, components: filmKit.components } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
       // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
       const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
