@@ -8,6 +8,7 @@
  *           band), submit_scenes, note_lesson
  *  memory   <memoryDir>/<channel>.md — its own lessons and a log of every film
  */
+import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -50,6 +51,9 @@ export interface SceneAgentOptions {
   people?: string[];
   avoidLayouts?: string;
   onReport?: (r: SceneReport) => void;
+  /** Revision (sent back by the showrunner or the gate): start from this plan and redesign only these shots. */
+  previous?: ScenePlan;
+  revise?: Array<{ shotId: string; note: string }>;
   log?: (s: string) => void;
 }
 
@@ -63,7 +67,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const empty = () => ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: [], generatedAt: new Date().toISOString() });
   if (!shots.length) return empty();
   const skill = await readFile(new URL("../skills/scenes.md", import.meta.url), "utf8");
-  const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, `${o.channel}.md`), "utf8").catch(() => "") : "";
+  const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const words = o.script.segments.flatMap((s) => s.words);
   const lineOf = (sh: StoryboardShot) => words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
@@ -72,10 +76,11 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const ds = o.design;
   const tr = ds?.treatment;
 
-  let plan: ScenePlan = empty();
-  const dirty = new Set<string>(); // designed or changed since the last render
-  const unseen = new Set<string>(); // designed or changed since the designer last LOOKED at it
-  let referenceViews = 0;
+  const revising = !!(o.previous && o.revise?.length);
+  let plan: ScenePlan = revising ? structuredClone(o.previous!) : empty();
+  const dirty = new Set<string>(revising ? o.revise!.map((r) => r.shotId) : []); // designed or changed since the last render
+  const unseen = new Set<string>(revising ? o.revise!.map((r) => r.shotId) : []); // designed or changed since the designer last LOOKED at it
+  let referenceViews = revising ? 2 : 0;
   const triedPicture = new Map<string, number>(); // shots the designer asked a picture for and got none
   const frames = new Map<string, { sheet: string; mid: string }>();
   const rounds: SceneReport["rounds"] = [];
@@ -361,11 +366,13 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const portrait = o.storyboard.aspect === "9:16";
   const system = [
     plain(
-      `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## This film's design language (stay inside it so the film is coherent)\n- concept: ${ds?.concept ?? "—"}\n- colours: primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}, text ${ds?.palette.text}\n- type: ${ds?.typography.display} display, ${ds?.typography.casing} case; headlines drawn "${tr?.headline ?? "solid_stroke"}", narration phrases "${tr?.phrase ?? "neon_glow"}", labels "${tr?.label ?? "tag"}", photos "${tr?.photo ?? "print"}"\n- stage when a shot has no footage: "${tr?.world ?? "smoke"}" in the film's colours\n- motif: ${tr?.motif ?? "—"}\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${tail(notes, 30)}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
+      `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## This film's design language (stay inside it so the film is coherent)\n- concept: ${ds?.concept ?? "—"}\n- colours: primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}, text ${ds?.palette.text}\n- type: ${ds?.typography.display} display, ${ds?.typography.casing} case; headlines drawn "${tr?.headline ?? "solid_stroke"}", narration phrases "${tr?.phrase ?? "neon_glow"}", labels "${tr?.label ?? "tag"}", photos "${tr?.photo ?? "print"}"\n- stage when a shot has no footage: "${tr?.world ?? "smoke"}" in the film's colours\n- motif: ${tr?.motif ?? "—"}\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${MODELS.sonnet})…`);
-  const run = await agentLoop({ stage: "scenes.agent", model: MODELS.sonnet, system, user: `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: 34, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
+  const run = await agentLoop({ stage: "scenes.agent", model: MODELS.sonnet, system, user: revising
+      ? `Revise this film's scenes. The plan below is the current one; redesign ONLY these shots, for these reasons, and keep every other shot as it is:\n${o.revise!.map((r) => `- ${r.shotId}: ${r.note}`).join("\n")}\n\nCURRENT SCENES OF THOSE SHOTS:\n${o.revise!.map((r) => JSON.stringify(plan.scenes.find((x) => x.shotId === r.shotId) ?? null)).join("\n")}\n\n${briefs}\n\nLook at the nearest real shots for these lines (similar_real_shots), redesign, render and look, then submit.`
+      : `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: 34, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
   // Whatever happened, every shot leaves with a rendered, measured scene plan.
   if (!accepted && plan.scenes.length) await measure().catch(() => {});
   const report: SceneReport = { pass: accepted, rounds, remaining: accepted ? [] : lastIssues, agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4, rendered } };

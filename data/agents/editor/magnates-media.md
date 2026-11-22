@@ -1,3 +1,5 @@
 - LOG 2026-11-22 "How Kodak Invented the Digital Camera and Still Died": accepted; structure 68 → 89; 29 edits (10 splits, 19 moves, 0 merges); remaining: cutToWordMedianS, shotCv, cutInPause
 - LESSON (How Kodak Invented the Digital Camera and Still Died): Moving cuts onto word starts inside phrases removes the pause share cheaply. Punch-in splits add shot-length variety. Use shorter splits (under 1.2 s) for bursts to raise the CV.
 - LOG 2026-11-22 "How Kodak Invented the Digital Camera and Still Died": accepted; structure 68 → 83; 24 edits (6 splits, 18 moves, 0 merges); remaining: cutToWordMedianS, shotCv, shotMedianS
+- LESSON (How Kodak Invented the Digital Camera and Still Died): Shift every cut about 0.07 s into the phrase, then add short punch-in splits on footage shots. Designed shots can't be split, so plan the bursts on stock shots.
+- LOG 2026-11-22 "How Kodak Invented the Digital Camera and Still Died": accepted; structure 68 → 85; 30 edits (11 splits, 19 moves, 0 merges); remaining: cutToWordMedianS, shotCv, cutInPause, wordsPerShot

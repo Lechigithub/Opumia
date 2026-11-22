@@ -36,3 +36,5 @@ export * from "./channel-profile.js";
 export * from "./reference-library.js";
 export * from "./film-score.js";
 export * from "./editor-agent.js";
+export * from "./showrunner-agent.js";
+export * from "./lessons.js";

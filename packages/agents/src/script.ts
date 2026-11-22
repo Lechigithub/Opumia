@@ -77,6 +77,8 @@ export interface ScriptOptions {
   /** Reuse a chosen blueprint (e.g. on a length re-fit). */
   blueprint?: { hook: string; spine: string; ending: string; why: string };
   log?: (s: string) => void;
+  /** The showrunner sent the script back (writer agent only). */
+  brief?: string;
 }
 
 /** Chapters for a runtime: 90–150 s each in long-form (3–15), none for shorts. */
@@ -152,7 +154,7 @@ function dossierText(f: FactSheet): string {
  * or reference films yet.
  */
 export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
-  if (process.env.OPUMIA_WRITER !== "legacy" && o.storyBand && o.films?.length) return writeScriptAgent({ pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.askResearcher ? { askResearcher: o.askResearcher } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
+  if (process.env.OPUMIA_WRITER !== "legacy" && o.storyBand && o.films?.length) return writeScriptAgent({ ...(o.brief ? { brief: o.brief } : {}), pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.askResearcher ? { askResearcher: o.askResearcher } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
   const log = o.log ?? (() => {});
   log("  script: legacy five-pass writer (no story band or reference films for this channel, or OPUMIA_WRITER=legacy)");
   const short = o.durationS <= 90;

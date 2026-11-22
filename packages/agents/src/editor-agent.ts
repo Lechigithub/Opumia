@@ -11,6 +11,7 @@
  *  output   the edited storyboard, scenes and resolution (a split shot's second half gets its own scene and media,
  *           starting later inside the same clip via StoryboardShot.trimInS)
  */
+import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -37,6 +38,8 @@ export interface EditorAgentOptions {
   /** Watch a stretch of the edited film with its sound (renders a low-resolution clip). Optional. */
   watch?: (st: { storyboard: Storyboard; scenes: ScenePlan; resolution: ResolutionReport }, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
   memoryDir?: string;
+  /** Sent back by the showrunner: what to change and why. */
+  brief?: string;
   onReport?: (r: EditorReport) => void;
   log?: (s: string) => void;
 }
@@ -228,13 +231,13 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
   ];
 
   const skill = await readFile(new URL("../skills/editor.md", import.meta.url), "utf8");
-  const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, `${o.channel}.md`), "utf8").catch(() => "") : "";
+  const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const system = [
     cached(`${skill}\n\n## The channel's measured cutting (profile v${prof.version})\n${prof.directives.slice(0, 5).map((d) => `- ${d}`).join("\n")}`),
-    plain(`${notes.trim() ? `## Your own notes from earlier films\n${tail(notes, 30)}\n\n` : ""}${owner.trim() ? `## The owner's notes on your work (take these seriously)\n${tail(owner, 20)}\n\n` : ""}Times are in seconds on the narration's clock. Words with times are given so you can place cuts inside phrases.`),
+    plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes on your work (take these seriously)\n${tail(owner, 20)}\n\n` : ""}Times are in seconds on the narration's clock. Words with times are given so you can place cuts inside phrases.`),
   ];
-  const user = `Edit this film (${o.script.title}, ${o.script.aspect}, ${o.script.durationS.toFixed(1)} s).\n\nNARRATION WORDS (word@start):\n${words.map((w) => `${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nSHOT INTENTS:\n${board.shots.map((s) => `${s.id} ${s.startS.toFixed(2)}–${s.endS.toFixed(2)} [${s.lineLink}] ${s.intent.slice(0, 90)} · said: "${lineOf(s).slice(0, 80)}"`).join("\n")}\n\nStart with read_cut.`;
+  const user = `Edit this film (${o.script.title}, ${o.script.aspect}, ${o.script.durationS.toFixed(1)} s).\n\nNARRATION WORDS (word@start):\n${words.map((w) => `${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nSHOT INTENTS:\n${board.shots.map((s) => `${s.id} ${s.startS.toFixed(2)}–${s.endS.toFixed(2)} [${s.lineLink}] ${s.intent.slice(0, 90)} · said: "${lineOf(s).slice(0, 80)}"`).join("\n")}${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS CUT BACK:\n${o.brief}` : ""}\n\nStart with read_cut.`;
   log(`  editor: ${board.shots.length} shots, structure on the editor's measures ${before.structure}/100 (${MODELS.sonnet})…`);
   let grace = 2;
   const run = await agentLoop({ stage: "editor.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 40, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The cut is not submitted yet. Read it, study the channel, edit, and submit.", log });

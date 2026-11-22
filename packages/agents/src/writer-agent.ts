@@ -8,6 +8,7 @@
  *           how many rounds it took) and <memoryDir>/owner-notes.md (the owner's feedback, read every time).
  *  loop     study → plan → draft → measure → revise → submit. Code only verifies; it never rewrites a sentence.
  */
+import { readMemory } from "./lessons.js";
 import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -60,6 +61,8 @@ export interface WriterOptions {
   recent?: Array<{ hook: string; ending: string; spine: string; beats?: string[] }>;
   recentOpenings?: string[];
   onStory?: (r: StoryReport) => void;
+  /** The showrunner sent the script back: what to change and why (with the lines concerned). */
+  brief?: string;
   log?: (s: string) => void;
 }
 
@@ -78,7 +81,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const band = o.storyBand;
   const pc = (x: number) => `${Math.round(x * 100)}%`;
   const skill = await readFile(new URL("../skills/writer.md", import.meta.url), "utf8");
-  const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, `${o.pack.channelId}.md`), "utf8").catch(() => "") : "";
+  const notes = o.memoryDir ? await readMemory(o.memoryDir, o.pack.channelId, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
 
   // ---- one evaluation, used by measure_draft and submit_script: the same checks, nothing rewritten.
@@ -209,10 +212,10 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const system = [
     cached(o.pack.text),
     plain(
-      `${skill}\n\n## This channel, measured on ${band.films} of its real films\n- explains what things mean in ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)} of its lines (typically ${pc(band.kinds.explain.p50)})\n- talks to the viewer or as the narrator in ${pc(band.viewer.p10)}–${pc(band.viewer.p90)} (typically ${pc(band.viewer.p50)})\n- quotes in at most ${pc(band.kinds.quote.p90)} of its lines; bare facts in at most ${pc(band.kinds.fact.p90)}\n- about one sentence in six carries a figure; the median sentence runs about 19 words; few sentences are six words or shorter\n\n## This film\n${short ? `A ${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}: a hook and thesis early, one scene carried in detail, a turn, and an ending that lands. No chapter titles, no call to subscribe.` : `A ${Math.round(o.durationS / 60)}-minute 16:9 documentary in chapters of 90–150 seconds, each with a title; a re-hook that is a real revelation every half minute or so. No call to subscribe.`}\nLength: ${targetWords} words (±5%) — the narrator speaks at ${o.narrationWpm} words a minute.\nSegment roles: ${ROLES.join(", ")}. Each segment lists the claim ids it relies on and one line on what should be on screen.${notes.trim() ? `\n\n## Your own notes from earlier scripts\n${tail(notes, 30)}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
+      `${skill}\n\n## This channel, measured on ${band.films} of its real films\n- explains what things mean in ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)} of its lines (typically ${pc(band.kinds.explain.p50)})\n- talks to the viewer or as the narrator in ${pc(band.viewer.p10)}–${pc(band.viewer.p90)} (typically ${pc(band.viewer.p50)})\n- quotes in at most ${pc(band.kinds.quote.p90)} of its lines; bare facts in at most ${pc(band.kinds.fact.p90)}\n- about one sentence in six carries a figure; the median sentence runs about 19 words; few sentences are six words or shorter\n\n## This film\n${short ? `A ${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}: a hook and thesis early, one scene carried in detail, a turn, and an ending that lands. No chapter titles, no call to subscribe.` : `A ${Math.round(o.durationS / 60)}-minute 16:9 documentary in chapters of 90–150 seconds, each with a title; a re-hook that is a real revelation every half minute or so. No call to subscribe.`}\nLength: ${targetWords} words (±5%) — the narrator speaks at ${o.narrationWpm} words a minute.\nSegment roles: ${ROLES.join(", ")}. Each segment lists the claim ids it relies on and one line on what should be on screen.${notes.trim() ? `\n\n## Your own notes from earlier scripts\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
-  const user = `Write the narration for this film.\n\nTOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n\n${dossier}\n\nFACT SHEET (the only facts you may use):\n${claims.map((c) => `[${c.id}] (${c.verdict}) ${c.text}`).join("\n")}${earlier ? `\n\nEARLIER FILMS OF OURS WERE BUILT LIKE THIS — build this one differently:\n${earlier}` : ""}${o.recentOpenings?.length ? `\n\nEARLIER FILMS OF OURS OPENED ON — open differently:\n${o.recentOpenings.map((x) => `- "${x}…"`).join("\n")}` : ""}\n\nStart by studying the channel's real films with your tools.`;
+  const user = `Write the narration for this film.\n\nTOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n\n${dossier}\n\nFACT SHEET (the only facts you may use):\n${claims.map((c) => `[${c.id}] (${c.verdict}) ${c.text}`).join("\n")}${earlier ? `\n\nEARLIER FILMS OF OURS WERE BUILT LIKE THIS — build this one differently:\n${earlier}` : ""}${o.recentOpenings?.length ? `\n\nEARLIER FILMS OF OURS OPENED ON — open differently:\n${o.recentOpenings.map((x) => `- "${x}…"`).join("\n")}` : ""}${o.brief ? `\n\nTHE SHOWRUNNER SENT THE LAST VERSION OF THIS SCRIPT BACK. Keep what worked; change what it asks, for the reasons it gives:\n${o.brief}` : ""}\n\nStart by studying the channel's real films with your tools.`;
 
   log(`  writer: one author with tools — ${o.films.length} real films to study, ${targetWords} words to write at ${o.narrationWpm} wpm (${MODELS.sonnet})…`);
   const run = await agentLoop({ stage: "script.writer", model: MODELS.sonnet, system, user, tools, effort: "high", maxTurns: 26, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });

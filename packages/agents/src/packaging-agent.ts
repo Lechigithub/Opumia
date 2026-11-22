@@ -10,6 +10,7 @@
  *  memory   <memoryDir>/<channel>.md (its lessons + a log of every package), owner-notes.md
  *  band     data/thumbnail-profile/<channel>.json (thumbnail-measure.ts)
  */
+import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -295,7 +296,7 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
 export async function packagingAgent(o: PackagingAgentOptions): Promise<PackagingReport> {
   const log = o.log ?? (() => {});
   const skill = await readFile(new URL("../skills/packaging.md", import.meta.url), "utf8");
-  const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, `${o.channel}.md`), "utf8").catch(() => "") : "";
+  const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const narration = o.script.segments.map((s) => s.text).join(" ");
   const spoken = narration.toLowerCase();
@@ -330,7 +331,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   ].join("\n");
   const refTitles = [...o.references].sort((x, y) => (y.views ?? 0) - (x.views ?? 0)).slice(0, 30).map((r) => `- ${r.title} [${r.views ?? "?"}]`).join("\n");
   const system = [
-    plain(`${skill}\n\n${bandText}\n\n## The channel's titles, most viewed first\n${refTitles}${o.avoidConcepts?.length ? `\n\n## Recent thumbnails of ours — do something different\n${o.avoidConcepts.map((c) => `- ${c}`).join("\n")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier packages\n${tail(notes, 30)}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`),
+    plain(`${skill}\n\n${bandText}\n\n## The channel's titles, most viewed first\n${refTitles}${o.avoidConcepts?.length ? `\n\n## Recent thumbnails of ours — do something different\n${o.avoidConcepts.map((c) => `- ${c}`).join("\n")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier packages\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`),
   ];
 
   const bestTitle = () => titles.filter((t) => t.ok).sort((x, y) => x.risk - y.risk)[0]?.title;

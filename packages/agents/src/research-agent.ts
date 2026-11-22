@@ -66,6 +66,13 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
   const hostsFile = o.memoryDir ? path.join(o.memoryDir, "hosts.json") : null;
   const hosts: Record<string, { read: number; archive: number; failed: number }> = hostsFile ? await readFile(hostsFile, "utf8").then((t) => JSON.parse(t) as Record<string, { read: number; archive: number; failed: number }>, () => ({})) : {};
   const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, "notes.md"), "utf8").catch(() => "") : "";
+  // F22: subjects researched for earlier films. Their verified facts (with source and exact evidence) are leads:
+  // the agent may record them again with record_claim, which re-reads the page and checks them like any claim.
+  const STOP = new Set(["the", "and", "how", "why", "what", "with", "from", "that", "this", "still", "into", "rise", "fall", "story", "company", "invented"]);
+  const kw = (t: string) => new Set(t.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !STOP.has(w)));
+  const mine = kw(o.topic);
+  const subjects = o.memoryDir && !quick ? await readFile(path.join(o.memoryDir, "subjects.jsonl"), "utf8").then((t) => t.split("\n").filter(Boolean).map((l) => JSON.parse(l) as { topic: string; claims: Array<{ text: string; kind: string; sourceUrl: string; evidence: string }> }), () => []) : [];
+  const leads = subjects.filter((x) => x.topic !== o.topic && [...kw(x.topic)].filter((w) => mine.has(w)).length >= 1).flatMap((x) => x.claims.map((c) => ({ ...c, from: x.topic }))).slice(0, 40);
 
   // ---- pages (each read once per run; the outcome per site is remembered across runs)
   const pages = new Map<string, Promise<{ text: string; via: "live" | "archive" | "browser" } | null>>();
@@ -244,7 +251,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
     system,
     user: quick
       ? `The film is: ${o.topic}\n\nThe writer needs these specific facts verified. For each, find a readable source, record it with record_claim (one fact per claim, exact evidence), then call finish (summary and angle may be one line; covered may be empty; list in gaps anything you could not verify). Do not research anything else.\n${o.questions!.map((q) => `- ${q}`).join("\n")}`
-      : `Research this film: ${o.topic}\n\nStart with a few searches to learn the story, then plan_story, then read and record.`,
+      : `Research this film: ${o.topic}${leads.length ? `\n\nLEADS from earlier films on overlapping subjects — facts verified then, with their source and exact evidence. Use the ones this story needs: record them with record_claim like any claim (the page is re-read and checked again). They are leads, not a fact sheet:\n${leads.map((c) => `- (${c.kind}) ${c.text} — ${c.sourceUrl} — evidence: "${c.evidence.slice(0, 160)}" [from "${c.from.slice(0, 50)}"]`).join("\n")}` : ""}\n\nStart with a few searches to learn the story, then plan_story, then read and record.`,
     tools,
     serverTools: [{ type: "web_search_20260209", name: "web_search", max_uses: quick ? 6 : 20 } as Anthropic.Beta.BetaToolUnion],
     effort: quick ? "low" : "medium",
@@ -267,6 +274,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
       await writeFile(`${hostsFile}.tmp`, JSON.stringify(Object.fromEntries(Object.entries(hosts).sort(([a], [b]) => a.localeCompare(b))), null, 1) + "\n");
       await rename(`${hostsFile}.tmp`, hostsFile);
     }
+    if (!quick && claims.length) await appendFile(path.join(o.memoryDir, "subjects.jsonl"), JSON.stringify({ topic: o.topic, at: new Date().toISOString(), claims: claims.filter((c) => c.verdict === "supported").map((c) => ({ text: c.text, kind: c.kind, sourceUrl: c.sourceUrl, evidence: c.evidence })) }) + "\n");
     if (!quick) await appendFile(path.join(o.memoryDir, "notes.md"), `- LOG ${new Date().toISOString().slice(0, 10)} "${o.topic.slice(0, 60)}": ${fin ? "complete" : "not finished"}, ${u.length} verified, ${rejected} rejected, must-haves ${fin ? fin.covered.length : 0}/${thePlan?.mustHave.length ?? 0} covered${fin?.gaps.length ? `, gaps: ${fin.gaps.join("; ").slice(0, 200)}` : ""}\n`);
   }
   const srcUrls = [...new Set(claims.map((c) => c.sourceUrl))];

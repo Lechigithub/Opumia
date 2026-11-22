@@ -5,8 +5,8 @@ Everything below is built before the next end-to-end film and before Cloudflare 
 Each item is committed and measured as it lands. Status: ☐ open · ◐ in progress · ☑ done.
 
 ## A. Orchestration
-- ☐ A1 Showrunner agent: holds the film's central idea as a contract, reads every stage's report, sends work back.
-- ☐ A2 Backward loops: scenes → writer (a line no picture can show), sound → narration/edit (held beat), packaging ↔ script.
+- ☑ A1 Showrunner agent: holds the film's central idea as a contract, reads every stage's report, sends work back.
+- ◐ A2 Backward loops: scenes → writer (a line no picture can show), sound → narration/edit (held beat), packaging ↔ script.
 - ☑ A3 Whole-film score (`film-score.ts`, `dev/film-score.ts`): our plan measured with the channel's own function, gaps named with their owner. Kodak 84, Theranos 77 (structure only until the taste model is trained).
 
 ## B. Agents
@@ -43,9 +43,9 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☐ E19 Fundamentals in every skill file: editing, design, sound, story arc (setups/payoffs).
 
 ## F. Memory
-- ☐ F20 Lessons kept only if the agent's score improves.
-- ☐ F21 Shared film-level memory every agent reads.
-- ☐ F22 Cache of researched subjects across films.
+- ☑ F20 Lessons kept only if the agent's score improves.
+- ☑ F21 Shared film-level memory every agent reads.
+- ☑ F22 Cache of researched subjects across films.
 
 ## G. Tools and vocabulary
 - ☐ G23 Real compositor: masks, light falling on subjects, clean edges, colour matching.

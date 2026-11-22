@@ -9,6 +9,7 @@
  *  memory   <memoryDir>/<channel>.md — its own lessons and a log of every film
  *  hand-over  the candidates its probes found go to sourcing, which starts from them instead of searching blind
  */
+import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -59,7 +60,7 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
   const nf = numericFacts(o.facts);
   const menu = buildMenu(o.index);
   const skill = await readFile(new URL("../skills/director.md", import.meta.url), "utf8");
-  const notes = o.memoryDir ? await readFile(path.join(o.memoryDir, `${o.pack.channelId}.md`), "utf8").catch(() => "") : "";
+  const notes = o.memoryDir ? await readMemory(o.memoryDir, o.pack.channelId, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const people = (o.facts.story?.characters ?? []).map((c) => c.name.split(/\s+/).at(-1)!.replace(/[^\p{L}]/gu, "")).filter((n) => n.length >= 3);
   const lineFrom = (a: number, b: number) => words.slice(a, b).map((w) => w.word).join(" ");
@@ -200,7 +201,7 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
   const system = [
     cached(o.pack.text),
     plain(
-      `${skill}\n\n## This channel's pace (measured)\n${cuts.lo.toFixed(0)}–${cuts.hi.toFixed(0)} cuts a minute, typically ${cuts.mid.toFixed(0)}; median shot about ${(pacing.shotMedianS?.p50 ?? 2).toFixed(1)} s. No shot under 0.8 s or over ${maxShot} s.\n\n## The plan you write\nAspect ${o.script.aspect}. Each shot: startWord (global word index it starts on), intent (what the viewer should understand), lineLink, visual (reenactment = staged footage with anonymous people; broll; photo; designed), query (the footage to find — also the footage behind a graphic), era, entities (real named people, companies, products, places the shot must literally show; year 0 if unknown), designedKind + designedProps for a data graphic (else "none" and "{}"), camera, transitionIn, focusX (0.5 unless the subject sits to one side). Leave overlay empty and sfx as an empty list: sound is designed later on what the viewer sees.\nmusicId: one bed from the music menu.\n\n${PROPS_SPEC}${o.avoidQueries?.length ? `\n\nQueries that failed in earlier films (do not reuse these phrasings): ${o.avoidQueries.slice(0, 30).join("; ")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${tail(notes, 30)}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
+      `${skill}\n\n## This channel's pace (measured)\n${cuts.lo.toFixed(0)}–${cuts.hi.toFixed(0)} cuts a minute, typically ${cuts.mid.toFixed(0)}; median shot about ${(pacing.shotMedianS?.p50 ?? 2).toFixed(1)} s. No shot under 0.8 s or over ${maxShot} s.\n\n## The plan you write\nAspect ${o.script.aspect}. Each shot: startWord (global word index it starts on), intent (what the viewer should understand), lineLink, visual (reenactment = staged footage with anonymous people; broll; photo; designed), query (the footage to find — also the footage behind a graphic), era, entities (real named people, companies, products, places the shot must literally show; year 0 if unknown), designedKind + designedProps for a data graphic (else "none" and "{}"), camera, transitionIn, focusX (0.5 unless the subject sits to one side). Leave overlay empty and sfx as an empty list: sound is designed later on what the viewer sees.\nmusicId: one bed from the music menu.\n\n${PROPS_SPEC}${o.avoidQueries?.length ? `\n\nQueries that failed in earlier films (do not reuse these phrasings): ${o.avoidQueries.slice(0, 30).join("; ")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
   const user = `Direct this film.\n\nMUSIC MENU: ${menu.music.slice(0, 40).map((m) => `${m.id} "${m.title}" ${m.durationS}s`).join("; ")}\n\nNUMERIC FACT TABLE (verified):\n${formatFactTable(nf) || "(none — no counters, charts or versus cards)"}\n\nNARRATION:\n${o.script.segments.map((s) => `[${s.id} ${s.role}${s.chapter ? ` | chapter "${s.chapter}"` : ""}] ${s.text}`).join("\n")}\n\nWORDS (index:word@seconds):\n${words.map((w, k) => `${k}:${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nStart by reading how the channel shows lines like these.`;
