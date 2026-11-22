@@ -14,7 +14,22 @@ type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "
 interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter }
 type El =
   | (Box & { type: "photo"; slot: number; frame?: "none" | "print" | "torn" | "circle" | "tv" | "polaroid"; grade?: "natural" | "mono" | "duotone"; h?: number })
-  | (Box & { type: "cutout"; slot: number; shadow?: boolean; outline?: boolean })
+  | (Box & {
+      type: "cutout";
+      slot: number;
+      shadow?: boolean;
+      outline?: boolean;
+      /** Thumbnail finishing, all on the picture's own pixels: a coloured glow (rim light), a colour tint masked to the
+       * subject, a punchier grade or mono, a glitch colour split, one half only (two half-faces make one face), mirrored. */
+      glowColor?: string;
+      glowSize?: number;
+      tint?: string;
+      tintStrength?: number;
+      look?: "natural" | "punch" | "mono" | "glitch";
+      half?: "left" | "right" | "top" | "bottom";
+      flip?: boolean;
+      outlineColor?: string;
+    })
   | (Box & { type: "text"; text: string; role: "display" | "headline" | "body" | "label" | "stamp" | "kicker"; size: number; align?: "left" | "center" | "right"; color?: Token; box?: Token; highlightWord?: string })
   | (Box & { type: "phrase"; text: string; size: number; align?: "left" | "center" | "right"; color?: Token; emphasis?: string; wordFrames?: number[] })
   | (Box & { type: "text3d"; text: string; color?: Token; spin?: number })
@@ -219,9 +234,32 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const src = slots[String(el.slot)];
     if (!src) return null;
     const o = Math.max(3, w * 0.008);
-    const outline = el.outline ? `drop-shadow(${o}px 0 0 #fff) drop-shadow(-${o}px 0 0 #fff) drop-shadow(0 ${o}px 0 #fff) drop-shadow(0 -${o}px 0 #fff) ` : "";
-    const glow = `drop-shadow(0 0 ${28 * TREATMENT.glow}px ${PALETTE.gold}aa) `;
-    return wrap(<Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: `${outline}${TREATMENT.glow > 0.3 ? glow : ""}${el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.65))"}` }} />);
+    const hex = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
+    const oc = hex(el.outlineColor) ?? "#fff";
+    const outline = el.outline ? `drop-shadow(${o}px 0 0 ${oc}) drop-shadow(-${o}px 0 0 ${oc}) drop-shadow(0 ${o}px 0 ${oc}) drop-shadow(0 -${o}px 0 ${oc}) ` : "";
+    const gc = hex(el.glowColor);
+    const gs = Math.max(0.3, Math.min(3, el.glowSize ?? 1));
+    const glow = gc ? `drop-shadow(0 0 ${Math.round(w * 0.012 * gs)}px ${gc}) drop-shadow(0 0 ${Math.round(w * 0.04 * gs)}px ${gc}cc) ` : TREATMENT.glow > 0.3 ? `drop-shadow(0 0 ${28 * TREATMENT.glow}px ${PALETTE.gold}aa) ` : "";
+    const grade = el.look === "punch" ? "contrast(1.22) saturate(1.45) brightness(1.06)" : el.look === "mono" ? "grayscale(1) contrast(1.3) brightness(1.04)" : el.look === "glitch" ? "contrast(1.15) saturate(1.2)" : "none";
+    const clip = el.half === "left" ? "inset(0 50% 0 0)" : el.half === "right" ? "inset(0 0 0 50%)" : el.half === "top" ? "inset(0 0 50% 0)" : el.half === "bottom" ? "inset(50% 0 0 0)" : undefined;
+    const flip = el.flip ? "scaleX(-1)" : undefined;
+    const mask = (extra: React.CSSProperties = {}): React.CSSProperties => ({ position: "absolute", inset: 0, WebkitMaskImage: `url(${staticFile(src)})`, maskImage: `url(${staticFile(src)})`, WebkitMaskSize: "100% 100%", maskSize: "100% 100%", ...(flip ? { transform: flip } : {}), ...extra });
+    const tc = hex(el.tint);
+    const off = Math.max(2, w * 0.012);
+    return wrap(
+      <div style={{ position: "relative", filter: `${outline}${glow}${el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.65))"}`.trim() || undefined }}>
+        <div style={{ position: "relative", ...(clip ? { clipPath: clip } : {}) }}>
+          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: grade, ...(flip ? { transform: flip } : {}) }} />
+          {tc ? <div style={mask({ background: tc, mixBlendMode: "color", opacity: Math.max(0, Math.min(1, el.tintStrength ?? 0.6)) })} /> : null}
+          {el.look === "glitch" ? (
+            <>
+              <div style={mask({ background: "#ff2a55", mixBlendMode: "screen", opacity: 0.55, left: -off, right: off })} />
+              <div style={mask({ background: "#19e6ff", mixBlendMode: "screen", opacity: 0.45, left: off, right: -off })} />
+            </>
+          ) : null}
+        </div>
+      </div>,
+    );
   }
   if (el.type === "card3d") {
     const src = slots[String(el.slot)];

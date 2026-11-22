@@ -97,17 +97,3 @@ export const ScriptDraft = z.object({
 });
 export type ScriptDraft = z.infer<typeof ScriptDraft>;
 
-/** Thumbnail style rules extracted from a channel's reference thumbnails. */
-export const ThumbnailStyle = z.object({
-  schemaVersion: z.literal(1),
-  channelId: ChannelId,
-  rules: z.array(z.string()).min(3),
-  palette: z.array(z.string()),
-  textRules: z.object({ maxWords: z.number().int(), casing: z.string(), placement: z.string(), font: z.string() }),
-  composition: z.string(),
-  subject: z.string(),
-  promptTemplate: z.string(),
-  references: z.array(z.string()),
-  generatedAt: IsoDateTime,
-});
-export type ThumbnailStyle = z.infer<typeof ThumbnailStyle>;

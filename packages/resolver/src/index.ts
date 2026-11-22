@@ -4,3 +4,4 @@ export * from "./resolve.js";
 export * from "./press.js";
 export * from "./widen.js";
 export * from "./scene-tools.js";
+export * from "./thumbnail-tools.js";

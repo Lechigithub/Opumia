@@ -16,7 +16,7 @@ No frame of picture may come from a generative video or image model. Every visua
 3. **Designed motion graphics** rendered deterministically by Remotion: charts, maps, text cards, cutout collages, versus cards and **composed scenes** (layered layouts written per shot by the scene designer), built from data and licensed or press stills.
 4. **Fair-use press material** (`origin: "press"`, decided 2026-11-20): real news/interview/keynote footage from YouTube and Wikipedia portraits and logos of the people and companies the narration names. Used defensibly: excerpts ≤ 6.5 s, source audio never used, reframed/graded/composited under commentary, one clip per source video per film, never lifted from documentary channels (reference channels included), every use logged with source, channel, in-point and seconds in `ResolvedMedia.fairUse` and listed in `LICENSES.md`. QA `fair_use` (major): clips ≤ 7.5 s, ≤ 45 % of runtime, one clip per source, all logged.
 
-The one exception is **thumbnails**, which are generated through the Higgsfield API. Thumbnails never enter the film timeline.
+**No exception — thumbnails included** (owner decision 2026-11-22): the thumbnail is composed from real pictures only (photos, logos, library objects and overlays, frames of the film's own footage, cut-outs of these) by the film's scene engine. The Higgsfield path and its keys were removed from the code.
 
 The rule is enforced in code. `StoryboardShot.source.kind` and `RenderManifest` layers have no AI-video variant, and the QA stage fails any manifest whose layer is not traced to an `AssetRecord` with a licence, or to a designed (Remotion) component.
 
@@ -30,7 +30,7 @@ Music beds in `Library/music` may carry generation prompts (`*.json` sidecars). 
 | Narration and word timestamps | ElevenLabs (TTS with character/word alignment), producing a `TimedScript` |
 | Motion, camera moves (Ken Burns, pan, parallax), compositing, captions | Remotion |
 | Probing, transcoding, trims, loudness (EBU R128), muxing | FFmpeg / ffprobe |
-| Thumbnails | Higgsfield API |
+| Thumbnails | Packaging agent: real pictures composed by Remotion (`ThumbnailScene`), no generation |
 | Contracts | TypeScript (strict) + Zod at every stage boundary |
 
 ### Environment variables and secrets
@@ -76,7 +76,7 @@ topic
   → Assembly                    → RenderManifest (16:9 and/or 9:16)
   → Render (Remotion + FFmpeg)  → mp4
   → QA (FFmpeg measures + Sonnet judge) → QAReport  (pass | review | fail)
-  → Thumbnail (Higgsfield) + title/description
+  → Packaging agent (title + thumbnail from real pictures) + description/tags
 ```
 
 `StyleProfile`, derived from the six reference channels, conditions the script (WPM, structure), the direction (cuts/min, shot length, designed-vs-stock mix), the audio mix (LUFS, ducking, hit density) and QA thresholds.
@@ -89,10 +89,10 @@ package.json / pnpm-workspace.yaml / tsconfig.base.json
 packages/
   contracts/      Zod schemas + inferred types + storage/DB adapter interfaces
   ingest/         Library indexer, Reference style analyzer, ffprobe + fs helpers
-  agents/         Claude agents: research/fact-check, script, director, thumbnail style, QA judge; style pack; licence gate
+  agents/         Claude agents: research/fact-check, script, director, scene designer, packaging, QA judge; style pack; licence gate
   narration/      ElevenLabs /with-timestamps adapter, IPA pronunciation rules, word alignment, tempo-fit
   resolver/       Library-first asset resolver (BM25 + Claude rerank), 8 stock/archival adapters, QA repair
-  motion-engine/  Remotion compositions (src/remotion), manifest builder, FFmpeg mastering, captions/SRT, Higgsfield, QA
+  motion-engine/  Remotion compositions (src/remotion), manifest builder, FFmpeg mastering, captions/SRT, thumbnail scene, QA
 apps/
   cli/            `opumia` CLI: index-library, analyze-styles, inspect-reference, produce (src/dev/smoke.ts = offline render test)
   container/      Renderer container HTTP server (one stage per request, R2 sync) for Cloudflare Containers
@@ -195,7 +195,7 @@ npx wrangler r2 bucket create opumia-media
 npx wrangler d1 create opumia            # put the id in wrangler.toml
 pnpm db:migrate                          # applies migrations/0001_init.sql remotely
 # Upload data/ (and the Library subset you want available) to R2, e.g. rclone sync data r2:opumia-media/data
-for s in API_TOKEN INTERNAL_TOKEN ANTHROPIC_API_KEY ELEVENLABS_API_KEY PEXELS_API_KEY PIXABAY_API_KEY COVERR_API_KEY VECTEEZY_API_KEY VECTEEZY_ACCOUNT_ID VIMEO_ACCESS_TOKEN EUROPEANA_API_KEY NARA_API_KEY WIKIMEDIA_ACCESS_TOKEN HF_API_KEY_ID HF_API_KEY_SECRET; do npx wrangler secret put $s; done
+for s in API_TOKEN INTERNAL_TOKEN ANTHROPIC_API_KEY ELEVENLABS_API_KEY PEXELS_API_KEY PIXABAY_API_KEY COVERR_API_KEY VECTEEZY_API_KEY VECTEEZY_ACCOUNT_ID VIMEO_ACCESS_TOKEN EUROPEANA_API_KEY NARA_API_KEY WIKIMEDIA_ACCESS_TOKEN; do npx wrangler secret put $s; done
 pnpm deploy                              # builds containers/renderer/Dockerfile (needs Docker)
 curl -X POST $URL/jobs -H "authorization: Bearer $API_TOKEN" -d '{"topic":"…","channel":"moon","aspect":"16:9","durationS":600}'
 ```
@@ -317,7 +317,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Hand-over (agents connected):** the candidates the probes found are written to `out/<job>/probes.json` and sourcing starts from them (`ResolveOptions.probes`) instead of searching blind. The accepted plan is turned into a storyboard by the same conversion and guards as before (`directStoryboard({ raw })`).
 - **Memory / score:** `data/agents/director/<channel>.md`, `owner-notes.md`; `npx tsx apps/cli/src/dev/director-score.ts out/<job>` → `data/agents/director/score-history.json`.
 - **Measured on Kodak (2026-11-22), production path from director to preflight, no render:** director 120 s $0.32 (25 shots, 17 cuts a minute, 25 pictures probed); sourcing 142 s $0.09 — **17 of 23 shots placed on the first pass (was 8–18 of 25–28), 6 sent to re-plan (was 14–19), coverage 21 of 23**; scene designer 137 s $0.29 — 46 % clean footage, text on 50 %, no picture-less stage shot left, real picture compositions; **preflight passed on its first round with no repairs**. Whole planning chain ≈ 6.7 min, $0.70.
-- **Limits seen in the frames:** some footage is still modern under 1975 lines (colleagues high-fiving in a modern office, a tablet) — the eye check does not reliably catch period; a pink wash on several fetched shots; one lone-word card. `OPUMIA_DIRECTOR=legacy` runs the old single prompt. Packaging (title, description, thumbnail) is still a set of single prompts.
+- **Limits seen in the frames:** some footage is still modern under 1975 lines (colleagues high-fiving in a modern office, a tablet) — the eye check does not reliably catch period; a pink wash on several fetched shots; one lone-word card. `OPUMIA_DIRECTOR=legacy` runs the old single prompt. Packaging is now an agent (see **The packaging agent**).
 
 ### Tools added to the rebuilt agents (2026-11-22, second pass)
 
@@ -348,6 +348,16 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - Movement, near-still time, cuts and anything needing the mixed audio can only be measured on the rendered film: those stay with `opumia eval`.
 - Listen-back compares a hyphenated compound as one word when the recogniser writes it that way ("Film-less" / "filmless") — it used to cost three paid retakes and leave the line unresolved.
 
+### The packaging agent (fifth agent rebuilt, 2026-11-22)
+
+- **Thumbnail measurement** (`agents/thumbnail-measure.ts`): every thumbnail — the channel's real ones and ours — is labelled the same way (hero kind and how much of the frame it covers, cut out or not, faces and expression, background kind, focal elements, words and text height, marks such as glow/fire/money/outline/burst, and whether it could be made from real pictures alone). Band: `data/thumbnail-profile/<channel>.json`. **Measured on 37 MagnatesMedia thumbnails: only 35 % are made from real pictures alone; 35 % rely on retouching (painted tears, wounds or blood, merged or altered faces), 11 % show invented scenes, 19 % are illustrations.** The agent aims only at the first kind. Also measured: hero 30–60 % of the frame (cut out on 92 %), a real photo behind the hero on 51 %, glow on 51 %, money 30 %, fire 27 %, median one word (35 % none, never more than 6), text median 17 % of the frame height, at most 5 focal elements, colourfulness 94–139.
+- **Skill:** `packages/agents/skills/packaging.md`.
+- **Tools** (`agents/packaging-agent.ts`; pictures in `resolver/thumbnail-tools.ts`, rendered in their own small folder `out/<job>/thumb-public/`): `view_reference_thumbnails` (real ones by hero/background/mark, with their labels), `list_pictures`, `find_picture` (a subject's photos and logos from Wikipedia/Commons, checked to show them; or a place, object or texture from stock and archives, rated by eye; photo-agency pictures never taken), `film_footage` + `use_film_frame` (a strip of a shot of the film's own footage, then the strongest frame — real expressions from press clips), `cut_out`, `search_library` / `add_library` (cut-out objects, icons, and fire/smoke/sparks/light filmed on black), `test_titles` (figures in the film, ≤ 70 characters, blind among real titles), `render_thumbnail` (full size and at phone size 360/168 px, measured against the band, plus code checks), `imposter_test` (blind among four real thumbnails), `submit_package`, `note_lesson`.
+- **Finishing on real pixels** (`remotion/scenes/ThumbnailScene.tsx`, cut-out options in `Composed.tsx`): a real photo filling the frame behind the hero (blur, dim, tint), a two-colour split, a light burst, real overlays blended over or under, vignette; per cut-out a coloured glow (rim light), outline colour, colour tint masked to the subject, punch/mono/glitch grade, one half only (two halves of two faces make one), mirrored.
+- **Blocking checks** (submission refused): a face that is not a verified subject of the film (`stand_in_face`), a figure or name on the thumbnail the narration never says, thumbnail words that repeat the title, a title not tested or failed, a thumbnail not tested blind. Until three renders exist, anything outside the band or a confident blind pick-out also refuses.
+- **Memory / score:** `data/agents/packaging/<channel>.md`, `owner-notes.md`; `npx tsx apps/cli/src/dev/package-score.ts out/<job>` → `data/agents/packaging/score-history.json`. Band alone: `npx tsx apps/cli/src/dev/thumb-band.ts`.
+- **After the agent:** description, tags, hashtags and pinned comment are written from its title (`writePublishingText({ title })`), the package check runs, and thumbnail pictures whose licence requires a credit are credited in the description. `publish.json.thumbnail` lists every picture used with its source and `generatedImagery: false`.
+
 ## Sound: timeline sound designer (rebuild stage 7)
 
 `agents/sound-timeline.ts:designSoundTimeline` (no model call) runs as `produce` stage **B5**, after the scenes are final, and replaces the director's sound plan:
@@ -362,7 +372,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 
 `produce` stage **C3** builds the whole package with `apps/cli/src/publish.ts` + `agents/publishing.ts` (test without rendering: `npx tsx apps/cli/src/dev/package-test.ts out/<job>`). Outputs: `thumbnail.jpg`, `publish.json`, `youtube-description.txt`, `youtube-tags.txt`, `pinned-comment.txt`.
 
-- **Thumbnail from real pictures, no generated imagery.** The film's verified press stills, the main subjects' Wikipedia photos and logos, and matching `Library/objects` cutouts become picture slots; photos are cut out with `senses/cutout.ts:removeBackground` (BiRefNet-lite, MIT, ONNX; keeps only source pixels). A Sonnet designer, shown real reference thumbnails and the channel's learned rules (`data/thumbnail-grammar/<channel>.json`), writes one composed scene with its own palette; it is rendered by the film's scene engine (`ThumbnailScene`), measured against the reference thumbnails' colourfulness, and put through an **imposter test** among real thumbnails; one revision if picked out. Recent concepts are avoided (`data/thumbnail-concepts.json`). The Higgsfield plate path is legacy (`OPUMIA_THUMBNAIL=higgsfield`).
+- **Thumbnail from real pictures, no generated imagery.** The film's verified press stills, the main subjects' Wikipedia photos and logos, and matching `Library/objects` cutouts become picture slots; photos are cut out with `senses/cutout.ts:removeBackground` (BiRefNet-lite, MIT, ONNX; keeps only source pixels). Designed by the packaging agent (below); the old single-prompt designer with one revision is `OPUMIA_PACKAGING=legacy`. Recent concepts are avoided (`data/thumbnail-concepts.json`).
 - **Title:** six candidates from the reference titles weighted by views; figures must be in the film; the winner is the candidate least often picked out among real titles.
 - **Credits follow each source's terms** (`publish.ts:creditLines`, `SOURCE_CREDIT`): one visible link line per source the film really uses ("Stock footage and photos provided by Pexels — https://www.pexels.com", likewise Pixabay, Coverr, Vecteezy, Commons, Europeana, NARA, Openverse, Internet Archive), then per-item credits with a link — licence-required ones (CC BY / BY-SA, Vecteezy, music) always, creator credits for Pexels and Pixabay as space allows. Press excerpts are covered by the fair-use notice, not here.
 - **Description:** hook + story paragraph in the channel's style (only figures the narration speaks), chapters, sources, a fair-use notice naming the rights holders of press excerpts, credits, hashtags. **No channel-links slot** (owner decision).
@@ -421,7 +431,7 @@ npx tsx apps/cli/src/dev/smoke.ts                 # offline render test of every
 | B2 resolver | (see **Sourcing: planned, pooled, judged by eye** for the current flow) **press first** for entity shots (Wikipedia lead photo/logo + YouTube news excerpts via yt-dlp section downloads, Haiku vision check that the frame really shows the subject; `resolver/press.ts`) → archives → (20,946 captioned shots, cinematic, era, objects) → Haiku rerank (era- and person-aware) → stock/archival fallback → black-frame screen | `resolution.json`, `public/media/` |
 | B3 scene designer | Sonnet 5.5, one call per film (`agents/scene-designer.ts`): a `SceneSpec` per `scene` shot — backdrop, layered photo/cutout/text/shape/texture elements with entrances, depth and camera — from the film's design tokens, the resolved picture slots (layer role) and the channel's labelled designed shots; sanitised in code (slots must exist, figures only if spoken). Rendered by `remotion/scenes/Composed.tsx` | `scenes.json` |
 | C1–C2 render | manifest → Remotion (muted) → FFmpeg mix (voice chain, sidechain-ducked bed, SFX at frame delays) → two-pass loudnorm −14 LUFS / −1.5 dBTP → mux | `manifest.json`, final `*_9x16.mp4`, `captions.srt` |
-| C3 thumbnail | Sonnet vision extracts channel thumbnail rules (`data/thumbnail-styles/`) → Haiku brief → Higgsfield plate (no text, no real people) → Remotion still with headline | `thumbnail.jpg` |
+| C3 package | packaging agent (see **The packaging agent**) → description, tags, hashtags, pinned comment from its title | `thumbnail.jpg`, `publish.json`, `thumbs/` |
 | C4 QA | ffprobe/ebur128/blackdetect/freezedetect + provenance + caption sync + facts + number parity + card length + lower-third backdrop + pacing + Sonnet vision judge; ≤2 autonomous B-roll repair rounds | `qa.json`, `LICENSES.md`, `usage.json` |
 | benchmark (dev) | `npx tsx apps/cli/src/dev/benchmark.ts out/<job>`: our frames + metrics vs the channel's technique clips (`Library/moments/<channel>/`), reference b-roll and profile; strict Sonnet vision gap list | `benchmark.md`, `benchmark.json`, `benchmark/` |
 
@@ -440,7 +450,6 @@ Editorial rules enforced in code (keep them):
 - **Text slams ≤ 3.2 s** (`big_word`, `quote_card`; `CARD_MAX_S`, reference median 3.12 s) laid over sharp footage; chapter rolls 2.4 s; burned-in captions (dark translucent pill) hidden under them. QA `card_length`; lower thirds must sit over a detailed picture (QA `lower_third_backdrop`).
 - **Voice:** Christopher at stability 0.4 / similarity 0.8 / style 0.35 / speed 1.1 (~196 wpm, audition in `voice-calibration.json`); `<break>` only before chapter changes and after rehook/twist lines; broadcast voice chain in `audio.ts` (warmth, presence, de-ess, two-stage compression). Master −12.5 LUFS, music ducked ~8 dB.
 - **Sound:** music bed evolves every ~45 s within a mood span; breathing drop-outs (1.2–1.6 s) about once a minute, a sub drop only after rehook/twist; hits ≈ 3/min, mostly low thuds/booms (no whooshes); riser + boom on chapter pivots.
-- **Thumbnail fallback:** without a Higgsfield plate, `ThumbnailLocal` composites the top-10 pattern from Library assets (one focal cutout, crimson/gold/emerald field, flames/cash motif, 0–3 words) → `thumbnail.local.json`.
 - Only the reranker's accepted pick is ever used. A rejected shot falls back to an approved picture from the same segment, or to kinetic type of the spoken words. Lines that name a person always use kinetic type: never a stand-in face.
 - Footage more than 15 years older than the story's era is out (5 years in repairs). Assets with `bugSpots` are excluded.
 - The licence gate (`agents/library-menu.ts:isUsable`): licence required; `moments/`, `bank/` and `thumb_cache/` are never used in output; generated assets are allowed only for audio.
@@ -455,12 +464,12 @@ Editorial rules enforced in code (keep them):
 - **Long-form:** chaptered scripts with `rehook` beats every 25–35 s, chapter-chunked narration stitched with FFmpeg, per-chunk director plans, music cue changes with crossfades, parallel chunk rendering (`render.ts:chunkRanges`), `youtube-description.txt` with chapter timestamps, and a `chapters` QA check.
 - **`data/license-overrides.json`:** licence whitelists by glob (applied by the indexer only where a licence is missing) and per-channel `maxWpm` caps.
 
-Credentials are loaded by `pnpm opumia …` (see **Secrets** above; check with `pnpm opumia keys`): `OPUMIA_ANTHROPIC_KEY`, `ELEVENLABS_API_KEY`, the stock keys, and Higgsfield `HIGGSFIELD_API_KEY` in `id:secret` form (or `HF_API_KEY_ID` + `HF_API_KEY_SECRET`). Without usable Higgsfield credentials the thumbnail stage writes `thumbnail.brief.json`; put a plate at `public/thumb_bg.png` and re-run. In Cloudflare the same names are Workers secrets (the container receives the Claude key as `ANTHROPIC_API_KEY`).
+Credentials are loaded by `pnpm opumia …` (see **Secrets** above; check with `pnpm opumia keys`): `OPUMIA_ANTHROPIC_KEY`, `ELEVENLABS_API_KEY`, and the stock keys. In Cloudflare the same names are Workers secrets (the container receives the Claude key as `ANTHROPIC_API_KEY`).
 
 ## Sprint plan
 
 1. ✅ **Foundation + local indexers**: monorepo, contracts, Library index, Reference status, draft StyleProfiles.
-2. ✅ **Narration-first production**: research/fact-check, script, ElevenLabs `TimedScript`, director, resolver + 8 stock/archival adapters, Remotion scenes (parallax card, chart, map flyover, document highlighter, kinetic type, B-roll drift + overlays, word captions), FFmpeg mastering, Higgsfield thumbnail, QA + auto-repair. First film: `out/enron-short-9x16/` (60 s 9:16 MagnatesMedia).
+2. ✅ **Narration-first production**: research/fact-check, script, ElevenLabs `TimedScript`, director, resolver + 8 stock/archival adapters, Remotion scenes (parallax card, chart, map flyover, document highlighter, kinetic type, B-roll drift + overlays, word captions), FFmpeg mastering, thumbnail, QA + auto-repair. First film: `out/enron-short-9x16/` (60 s 9:16 MagnatesMedia).
 3. ✅ **Cinema polish, archive-first, long-form, cloud**: duplicate-text, safe-zone, fact-binding, prop and blank-frame fixes; archive-first entity sourcing with citation badges; chaptered 16:9 long-form with parallel chunk rendering; license overrides; R2/D1 adapters, Worker, Workflow and Container. Verification film: `out/nokia-longform-16x9/`.
 4. SigLIP embedding search over `footage/index` (text→image), per-chapter mastering stems, a remote Workflow run on a real Cloudflare account, and R2 upload tooling for the Library subset.
 

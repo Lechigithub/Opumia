@@ -26,8 +26,6 @@ export interface Env {
   EUROPEANA_API_KEY: string;
   NARA_API_KEY: string;
   WIKIMEDIA_ACCESS_TOKEN: string;
-  HF_API_KEY_ID: string;
-  HF_API_KEY_SECRET: string;
 }
 
 export interface ProductionParams {

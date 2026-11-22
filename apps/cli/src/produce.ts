@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, thumbnailBrief, thumbnailStyle, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -13,7 +13,7 @@ import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, pruneEmptyFrames, referenceHueDominance, safeScene, type PreflightCheck } from "./preflight.js";
-import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, higgsfieldConfig, higgsfieldImage, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderLocalThumbnail, renderThumbnailStill, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
+import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -54,7 +54,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.45, B2: 0.2, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.3, C4: 0.2 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.45, B2: 0.2, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.9, C4: 0.2 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -627,71 +627,13 @@ async function produceStages(o: ProduceOptions) {
 
   log("\n[C3] publishing package (thumbnail, title, description, tags, hashtags, pinned comment)");
   let thumbnailPath: string | null = path.join(jobDir, "thumbnail.jpg");
-  // The studio composes the thumbnail from real cut-out pictures; the generated-plate path is legacy
-  // (OPUMIA_THUMBNAIL=higgsfield).
-  const legacyThumb = process.env.OPUMIA_THUMBNAIL === "higgsfield";
-  if (!legacyThumb && (redo("thumbnail") || !(await exists(thumbnailPath)) || !(await exists(path.join(jobDir, "publish.json"))))) {
+  // The thumbnail is composed from real pictures only (no generated imagery anywhere in a film's package).
+  if (redo("thumbnail") || !(await exists(thumbnailPath)) || !(await exists(path.join(jobDir, "publish.json")))) {
     const pk = await buildPublishingPackage({ jobDir, data: o.data, library: o.library, channel, job: jobId, facts, script: timed, design, resolution, board, index, publicDir: pub, log }).catch((err: Error) => {
       log(`  ! publishing package failed: ${err.message.slice(0, 160)}`);
       return { thumbnailPath: null, usd: 0 };
     });
     thumbnailPath = pk.thumbnailPath;
-  } else if (legacyThumb && (redo("thumbnail") || !(await exists(thumbnailPath)))) {
-    const style = await thumbnailStyle(channel, { reference: o.reference, data: o.data }, log);
-    const briefPath = path.join(jobDir, "thumbnail.brief.json");
-    const brief = (await exists(briefPath)) && !redo("thumbnail") ? JSON.parse(await readFile(briefPath, "utf8")) : await thumbnailBrief(style, draft, o.aspect);
-    await writeFile(briefPath, JSON.stringify({ ...brief, style: style.channelId, aspect: o.aspect }, null, 2) + "\n");
-    const existingBg = (await readdir(pub)).find((f) => /^thumb_bg\.(png|jpe?g|webp)$/.test(f));
-    let bg = existingBg;
-    const cfg = higgsfieldConfig();
-    if (!bg && cfg) {
-      log(`  Higgsfield ${cfg.modelPath}: generating plate…`);
-      try {
-        const r = await higgsfieldImage(cfg, { prompt: brief.imagePrompt, aspect: o.aspect, out: path.join(pub, "thumb_bg.png") });
-        bg = "thumb_bg.png";
-        await writeFile(path.join(jobDir, "thumbnail.higgsfield.json"), JSON.stringify({ requestId: r.requestId, model: cfg.modelPath }, null, 2) + "\n");
-      } catch (err) {
-        // Non-fatal: the film is done; supply public/thumb_bg.* and re-run the thumbnail stage.
-        log(`  ! Higgsfield failed: ${(err as Error).message.slice(0, 160)}`);
-      }
-    }
-    if (bg) {
-      const [w, h] = o.aspect === "9:16" ? [1080, 1920] : [1280, 720];
-      await renderThumbnailStill({ publicDir: pub, bg, headline: brief.headline, accentWord: brief.accentWord, accent: style.palette.find((c) => /^#/.test(c) && !/^#(0|f){3,6}$/i.test(c)) ?? look.accent, placement: style.textRules.placement as "top" | "middle" | "bottom", width: w, height: h, out: thumbnailPath, log });
-      log(`  thumbnail.jpg (${w}x${h}) headline "${brief.headline}"`);
-    } else {
-      // Local fallback: composite the top-10 pattern from licensed Library assets (no generated plate).
-      try {
-        const words = `${brief.focalObject ?? ""} ${brief.subject ?? ""}`.toLowerCase().split(/\W+/).filter((w: string) => w.length > 2);
-        const objs = index.assets.filter((a) => a.category === "objects" && a.relPath.endsWith(".png") && a.provenance.license);
-        const score = (a: (typeof objs)[number]) => [...a.tags, a.relPath].join(" ").toLowerCase().split(/\W+/).filter((t) => words.some((w: string) => t.startsWith(w) || w.startsWith(t))).length;
-        const focalObj = [...objs].sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))[0];
-        const hook = resolution.media.find((m) => m.role === "primary" && m.kind === "image");
-        const focalSrc = focalObj && score(focalObj) > 0 ? path.join(o.library, focalObj.relPath) : hook?.localPath;
-        if (!focalSrc) throw new Error("no focal object or still");
-        const focalName = `thumb_focal${path.extname(focalSrc)}`;
-        await copyFile(focalSrc, path.join(pub, focalName));
-        let flames: string | undefined;
-        let cash: string | undefined;
-        const fire = index.assets.find((a) => a.category === "overlays" && /flames|embers/.test(a.relPath) && a.provenance.license);
-        if ((brief.motif === "fire" || brief.motif === "crisis") && fire) {
-          await promisify(execFile)("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", "2", "-i", path.join(o.library, fire.relPath), "-frames:v", "1", path.join(pub, "thumb_flames.jpg")]);
-          flames = "thumb_flames.jpg";
-        }
-        const money = objs.find((a) => /dollar_stack/.test(a.relPath));
-        if ((brief.motif === "cash" || brief.motif === "crisis") && money) {
-          await copyFile(path.join(o.library, money.relPath), path.join(pub, "thumb_cash.png"));
-          cash = "thumb_cash.png";
-        }
-        const [w, h] = o.aspect === "9:16" ? [1080, 1920] : [1280, 720];
-        await renderLocalThumbnail({ publicDir: pub, focal: focalName, ...(flames ? { flames } : {}), ...(cash ? { cash } : {}), headline: brief.headline, accentWord: brief.accentWord, tone: brief.tone ?? "crimson", width: w, height: h, out: thumbnailPath, log });
-        await writeFile(path.join(jobDir, "thumbnail.local.json"), JSON.stringify({ focal: focalObj && score(focalObj) > 0 ? focalObj.relPath : hook?.ref, flames: fire?.relPath, cash: cash ? money?.relPath : undefined, headline: brief.headline, tone: brief.tone, motif: brief.motif }, null, 2) + "\n");
-        log(`  thumbnail.jpg (${w}x${h}) composited locally from Library assets (no Higgsfield plate): "${brief.headline}"`);
-      } catch (err) {
-        thumbnailPath = null;
-        log(`  ! local thumbnail failed (${(err as Error).message.slice(0, 120)}); brief saved to thumbnail.brief.json`);
-      }
-    }
   } else log("  ✓ thumbnail.jpg (cached)");
   if (stop("thumbnail")) return { jobDir };
 

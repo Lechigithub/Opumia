@@ -1,0 +1,1050 @@
+{
+ "channel": "magnates-media",
+ "count": 37,
+ "hero": {
+  "person": 0.514,
+  "product": 0.135,
+  "logo": 0.189,
+  "object": 0.135,
+  "building": 0,
+  "place": 0,
+  "text": 0.027,
+  "none": 0
+ },
+ "background": {
+  "colour_field": 0.054,
+  "gradient": 0.081,
+  "photo_scene": 0.486,
+  "split_colour": 0.081,
+  "pattern": 0.243,
+  "texture": 0.054
+ },
+ "makeable": {
+  "real_pictures": 0.27,
+  "needs_retouch": 0.486,
+  "needs_invention": 0.054,
+  "illustration": 0.189
+ },
+ "marks": {
+  "arrow": 0.054,
+  "circle": 0,
+  "cross": 0,
+  "strike": 0,
+  "box": 0.189,
+  "burst": 0.081,
+  "money": 0.297,
+  "fire": 0.27,
+  "glow": 0.541,
+  "outline": 0.135
+ },
+ "heroShare": {
+  "p10": 0.3,
+  "median": 0.4,
+  "p90": 0.6
+ },
+ "cutoutShare": 0.918918918918919,
+ "faceShare": 0.5405405405405406,
+ "strongExpressionShare": 0.4,
+ "words": {
+  "median": 1,
+  "p90": 4,
+  "max": 6,
+  "noTextShare": 0.35135135135135137
+ },
+ "textHeight": {
+  "p10": 0.08,
+  "median": 0.17
+ },
+ "textStyle": {
+  "none": 0.042,
+  "label_box": 0.292,
+  "outlined": 0.083,
+  "plain": 0.583,
+  "gradient": 0,
+  "glow": 0
+ },
+ "textLooks": [
+  "white heavy sans-serif on green and red boxes",
+  "white heavy sans-serif on red and black boxes",
+  "white serif on black bar with red swoosh",
+  "black heavy sans-serif on yellow road sign",
+  "white Nestle logo on red hat, no headline",
+  "yellow thin wide sans-serif capitals",
+  "white serif-like caps with a yellow outline beneath the logo",
+  "pale cyan heavy italic sans-serif, faded behind the shoe",
+  "red heavy condensed sans-serif on a white badge with a green border",
+  "chrome metallic sans-serif logo letters",
+  "white dotted stud-style sans-serif",
+  "red dripping blood-style heavy serif",
+  "rainbow gradient thin sans-serif",
+  "red bold italic sans-serif on white brush stroke",
+  "white heavy sans-serif on black box, white Coca-Cola script on red box",
+  "white heavy script with dark outline on a red oval logo",
+  "blue and orange FedEx logotype on truck",
+  "dark brown heavy sans-serif on a building sign, with ornate gold lettering on the right",
+  "red heavy rounded sans-serif logo lettering",
+  "yellow-gold serif capitals with wide letter spacing",
+  "black serif letters in white on black bar with blue swoosh",
+  "yellow-orange heavy sans-serif letters",
+  "large white heavy sans-serif letters, semi-transparent",
+  "white heavy sans-serif on black and red boxes"
+ ],
+ "elements": {
+  "median": 4,
+  "max": 5
+ },
+ "colourfulness": {
+  "p25": 93.9,
+  "median": 109.7,
+  "p90": 138.9
+ },
+ "luma": {
+  "p10": 0.305,
+  "p90": 0.521
+ },
+ "items": [
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/FQd5bo9nIZs.jpg",
+   "title": "How WhatsApp Makes Money: The INSANE Story of WhatsApp",
+   "views": 5264123,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.3,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "pattern",
+    "elements": 4,
+    "words": 3,
+    "textHeight": 0.15,
+    "textStyle": "label_box",
+    "textLook": "white heavy sans-serif on green and red boxes",
+    "marks": [
+     "box",
+     "glow",
+     "outline"
+    ],
+    "makeable": "real_pictures",
+    "why": "Logo, padlock and hand cutouts over a binary-code background can be composed from existing images."
+   },
+   "colourfulness": 96.6,
+   "luma": 0.332
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/ISIjlRExdpE.jpg",
+   "title": "The Uber Story: Fraud, Betrayal, Death & Cars",
+   "views": 2966798,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.3,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 5,
+    "words": 5,
+    "textHeight": 0.14,
+    "textStyle": "label_box",
+    "textLook": "white heavy sans-serif on red and black boxes",
+    "marks": [
+     "arrow",
+     "box"
+    ],
+    "makeable": "real_pictures",
+    "why": "Uber logo, handcuffs, car images and an arrow are placed over a map background."
+   },
+   "colourfulness": 88.7,
+   "luma": 0.359
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/ELu8y6eK-0g.jpg",
+   "title": "The Disturbing History of Coca-Cola",
+   "views": 7650608,
+   "label": {
+    "hero": "product",
+    "heroShare": 0.45,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "pattern",
+    "elements": 4,
+    "words": 4,
+    "textHeight": 0.1,
+    "textStyle": "label_box",
+    "textLook": "white serif on black bar with red swoosh",
+    "marks": [
+     "box"
+    ],
+    "makeable": "real_pictures",
+    "why": "Coca-Cola glass, trucks and bottle packs are existing brand imagery composed on red."
+   },
+   "colourfulness": 135.9,
+   "luma": 0.385
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/UXZzyKTsBMw.jpg",
+   "title": "Why Netflix is Collapsing: The Truth About Netflix's Empire",
+   "views": 6562655,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 2,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "fire",
+     "glow"
+    ],
+    "makeable": "real_pictures",
+    "why": "Netflix logo is placed over stock flame footage and a show-poster background."
+   },
+   "colourfulness": 142.1,
+   "luma": 0.405
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/fsfoqdqyykI.jpg",
+   "title": "The Most Illegal Business In The World: Silk Road",
+   "views": 6053699,
+   "label": {
+    "hero": "text",
+    "heroShare": 0.3,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 2,
+    "textHeight": 0.17,
+    "textStyle": "plain",
+    "textLook": "black heavy sans-serif on yellow road sign",
+    "marks": [
+     "glow"
+    ],
+    "makeable": "illustration",
+    "why": "Stylised illustrated camel, landscape and helicopter are drawn artwork."
+   },
+   "colourfulness": 121.8,
+   "luma": 0.368
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/HMgpUqugtOU.jpg",
+   "title": "Nestlé's Darkest Secret: The Disturbing Truth",
+   "views": 3038966,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "pattern",
+    "elements": 4,
+    "words": 2,
+    "textHeight": 0.08,
+    "textStyle": "none",
+    "textLook": "white Nestle logo on red hat, no headline",
+    "marks": [
+     "arrow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The nurse's face is visibly altered with painted-on injuries and a branded hat, merged with the scene."
+   },
+   "colourfulness": 92.4,
+   "luma": 0.393
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/FHr1WnAn-kU.jpg",
+   "title": "The Man Who Robbed An Entire Country",
+   "views": 4355807,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.6,
+    "heroCutout": true,
+    "faces": 3,
+    "expression": "neutral",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "",
+    "marks": [
+     "money"
+    ],
+    "makeable": "needs_retouch",
+    "why": "Three separate portraits and cash are composited and the middle face looks enlarged and merged into a grass scene."
+   },
+   "colourfulness": 95.1,
+   "luma": 0.525
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/v2OYxD_7uuI.jpg",
+   "title": "The Homeless Teen Who Created Louis Vuitton",
+   "views": 5368992,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.5,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "pattern",
+    "elements": 3,
+    "words": 2,
+    "textHeight": 0.15,
+    "textStyle": "plain",
+    "textLook": "yellow thin wide sans-serif capitals",
+    "marks": [],
+    "makeable": "needs_retouch",
+    "why": "A person is placed in front of a monogram pattern over brick with heavy grading, blending into one stylised scene."
+   },
+   "colourfulness": 74.3,
+   "luma": 0.295
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/ubHS3It6dqg.jpg",
+   "title": "Why Red Bull Isn't A Drink Company",
+   "views": 1329198,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "split_colour",
+    "elements": 2,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "",
+    "marks": [
+     "outline"
+    ],
+    "makeable": "real_pictures",
+    "why": "The logo, question mark and colour blocks are all flat graphics that can be composed directly."
+   },
+   "colourfulness": 141.4,
+   "luma": 0.37
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/4zFi8LuZz50.jpg",
+   "title": "The Poor Boy Who Created Honda",
+   "views": 1193584,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 1,
+    "textHeight": 0.05,
+    "textStyle": "outlined",
+    "textLook": "white serif-like caps with a yellow outline beneath the logo",
+    "marks": [
+     "glow",
+     "outline"
+    ],
+    "makeable": "needs_retouch",
+    "why": "Photos of a child, a car, a wrench and a logo are combined with heavy glow and colour grading."
+   },
+   "colourfulness": 84.2,
+   "luma": 0.448
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/gHXaUDx7P0Y.jpg",
+   "title": "How A Kid With $0 Created Nike",
+   "views": 3999862,
+   "label": {
+    "hero": "product",
+    "heroShare": 0.5,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "gradient",
+    "elements": 4,
+    "words": 1,
+    "textHeight": 0.3,
+    "textStyle": "plain",
+    "textLook": "pale cyan heavy italic sans-serif, faded behind the shoe",
+    "marks": [
+     "money"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The shoe with a hand is cut out and edited, with painted-in blood splatter and a recoloured swoosh."
+   },
+   "colourfulness": 110.3,
+   "luma": 0.55
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/lrmvbn_7Vsk.jpg",
+   "title": "Papa John's: Scandals, Betrayal & Dumpster Diving",
+   "views": 739701,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 3,
+    "textHeight": 0.17,
+    "textStyle": "plain",
+    "textLook": "red heavy condensed sans-serif on a white badge with a green border",
+    "marks": [
+     "fire",
+     "money"
+    ],
+    "makeable": "real_pictures",
+    "why": "A logo, pizza photo, banknote and flame photos can be layered together."
+   },
+   "colourfulness": 90.2,
+   "luma": 0.425
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/Wj9IlThHUVw.jpg",
+   "title": "The Craziest CEO Ever: War, Drugs & Time Machines",
+   "views": 365294,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.35,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "gradient",
+    "elements": 4,
+    "words": 1,
+    "textHeight": 0.17,
+    "textStyle": "plain",
+    "textLook": "chrome metallic sans-serif logo letters",
+    "marks": [
+     "glow",
+     "outline"
+    ],
+    "makeable": "needs_retouch",
+    "why": "Face is heavily stylised and relit with coloured glow, and the scene is composited into a single graded image."
+   },
+   "colourfulness": 112.5,
+   "luma": 0.408
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/5U11gCja26A.jpg",
+   "title": "Versace: A True Story of Wealth & Murder",
+   "views": 1078211,
+   "label": {
+    "hero": "object",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "photo_scene",
+    "elements": 1,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "Statue photo is glitched and heavily recoloured with red eyes over a graded black and red scene."
+   },
+   "colourfulness": 53.3,
+   "luma": 0.193
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/GCZxOfY3hAM.jpg",
+   "title": "The F**ked Up History of LEGO",
+   "views": 712971,
+   "label": {
+    "hero": "object",
+    "heroShare": 0.45,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "colour_field",
+    "elements": 4,
+    "words": 2,
+    "textHeight": 0.2,
+    "textStyle": "plain",
+    "textLook": "white dotted stud-style sans-serif",
+    "marks": [
+     "fire"
+    ],
+    "makeable": "illustration",
+    "why": "The Lego minifigure is a 3D-rendered character with rendered flames and bricks."
+   },
+   "colourfulness": 138.9,
+   "luma": 0.485
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/zEGiWhEGrCI.jpg",
+   "title": "The Disturbing Story Of Hugo Boss",
+   "views": 1019923,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.4,
+    "heroCutout": false,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "texture",
+    "elements": 2,
+    "words": 2,
+    "textHeight": 0.22,
+    "textStyle": "plain",
+    "textLook": "red dripping blood-style heavy serif",
+    "marks": [],
+    "makeable": "needs_retouch",
+    "why": "Colourised portrait with added stitches and bruise edits, plus blood splatter text on a concrete wall."
+   },
+   "colourfulness": 61.2,
+   "luma": 0.454
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/kT9IwOV9LT0.jpg",
+   "title": "The Bankrupt Child That Created Rolls-Royce",
+   "views": 1407520,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.35,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 2,
+    "textHeight": 0.2,
+    "textStyle": "plain",
+    "textLook": "rainbow gradient thin sans-serif",
+    "marks": [],
+    "makeable": "needs_retouch",
+    "why": "Child's face is dirtied and altered, and the cars are recoloured in rainbow tones."
+   },
+   "colourfulness": 109.7,
+   "luma": 0.305
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/LgDQG-ZKRFg.jpg",
+   "title": "Ponzi: The Financial Idiot Who Scammed the World",
+   "views": 4627239,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.3,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "colour_field",
+    "elements": 5,
+    "words": 3,
+    "textHeight": 0.08,
+    "textStyle": "label_box",
+    "textLook": "red bold italic sans-serif on white brush stroke",
+    "marks": [
+     "money",
+     "box"
+    ],
+    "makeable": "real_pictures",
+    "why": "A cut-out old photo, money photos, pyramid icons and a brush-stroke text label can all be composed from real pictures."
+   },
+   "colourfulness": 85.3,
+   "luma": 0.408
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/jb1gWuzczSQ.jpg",
+   "title": "The INSANE Reason That MySpace Lost Everything",
+   "views": 1007111,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "gradient",
+    "elements": 3,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "fire",
+     "money",
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The face is painted into a Joker makeup look and heavily stylised, so it needs retouching beyond a simple cut-out."
+   },
+   "colourfulness": 119.3,
+   "luma": 0.504
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/KDURb6xfZBY.jpg",
+   "title": "The Genius of Coca-Cola's Marketing",
+   "views": 197481,
+   "label": {
+    "hero": "product",
+    "heroShare": 0.3,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 5,
+    "textHeight": 0.12,
+    "textStyle": "label_box",
+    "textLook": "white heavy sans-serif on black box, white Coca-Cola script on red box",
+    "marks": [
+     "box"
+    ],
+    "makeable": "real_pictures",
+    "why": "A can, a polar bear photo, logos and text boxes can all be composed from real photos."
+   },
+   "colourfulness": 94.6,
+   "luma": 0.505
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/LwlCUm6Xm0o.jpg",
+   "title": "KFC Lied To You...",
+   "views": 126190,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.35,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "photo_scene",
+    "elements": 3,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The face is dressed in a Santa outfit and blended seamlessly into a stylised winter scene."
+   },
+   "colourfulness": 99.8,
+   "luma": 0.56
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/E1KjINowtcU.jpg",
+   "title": "How Chicken Tenders Made Him A Millionaire 🍗",
+   "views": 779561,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.3,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "pattern",
+    "elements": 4,
+    "words": 4,
+    "textHeight": 0.2,
+    "textStyle": "outlined",
+    "textLook": "white heavy script with dark outline on a red oval logo",
+    "marks": [
+     "money",
+     "burst"
+    ],
+    "makeable": "real_pictures",
+    "why": "The man, the food plate, the logo and the money stacks are all real photos that can be cut out and composed."
+   },
+   "colourfulness": 93.9,
+   "luma": 0.479
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/weHYzzDXca0.jpg",
+   "title": "Why FedEx Bet Their Entire Company In A Casino",
+   "views": 1062321,
+   "label": {
+    "hero": "object",
+    "heroShare": 0.45,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 1,
+    "textHeight": 0.2,
+    "textStyle": "plain",
+    "textLook": "blue and orange FedEx logotype on truck",
+    "marks": [
+     "fire",
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The truck is merged with casino chips and a fiery backdrop in a heavily graded composite."
+   },
+   "colourfulness": 102.3,
+   "luma": 0.502
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/Fe2iQ1f-IYE.jpg",
+   "title": "The Scammer Who Sold The Eiffel Tower (Twice)",
+   "views": 1367189,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.45,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 5,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "money",
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "A masked hooded figure, miniature towers, tags and a code overlay are blended into one stylised scene."
+   },
+   "colourfulness": 110.9,
+   "luma": 0.479
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/_F3DKbUf8uM.jpg",
+   "title": "The Disturbing Story of Coco Chanel",
+   "views": 1673065,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.6,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "photo_scene",
+    "elements": 4,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "glow",
+     "fire"
+    ],
+    "makeable": "needs_invention",
+    "why": "A woman is placed on a throne amid bombed ruins with a swastika armband, and the scene is graded pink so seamlessly it reads as one invented picture."
+   },
+   "colourfulness": 82.9,
+   "luma": 0.437
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/vzrUhpBwebA.jpg",
+   "title": "Hershey: The Real Life Willy Wonka",
+   "views": 1505739,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.55,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "split_colour",
+    "elements": 4,
+    "words": 6,
+    "textHeight": 0.1,
+    "textStyle": "plain",
+    "textLook": "dark brown heavy sans-serif on a building sign, with ornate gold lettering on the right",
+    "marks": [
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "Two different men's faces are merged down the middle into one painted-looking face, which means heavy blending is needed."
+   },
+   "colourfulness": 103.8,
+   "luma": 0.54
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/JdOKdypKUjE.jpg",
+   "title": "The Profitable Business of Selling Snake Oil",
+   "views": 241887,
+   "label": {
+    "hero": "object",
+    "heroShare": 0.5,
+    "heroCutout": false,
+    "faces": 0,
+    "expression": "none",
+    "background": "texture",
+    "elements": 2,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "glow"
+    ],
+    "makeable": "illustration",
+    "why": "A cartoon-style glowing poison bottle with a skull stopper is drawn artwork, not a photograph."
+   },
+   "colourfulness": 99,
+   "luma": 0.204
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/51fWzJ-A5w4.jpg",
+   "title": "The Secret Chinese Company That Owns Everything",
+   "views": 12107873,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.6,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "pattern",
+    "elements": 4,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "fire",
+     "glow",
+     "burst"
+    ],
+    "makeable": "illustration",
+    "why": "The QQ penguin is a cartoon mascot altered with angry laser eyes and set on a flame illustration, so it is drawn artwork."
+   },
+   "colourfulness": 135.2,
+   "luma": 0.343
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/W8faexXg3fo.jpg",
+   "title": "The Untold TRUTH of Burger King",
+   "views": 2314483,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.65,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "neutral",
+    "background": "pattern",
+    "elements": 4,
+    "words": 4,
+    "textHeight": 0.2,
+    "textStyle": "plain",
+    "textLook": "red heavy rounded sans-serif logo lettering",
+    "marks": [
+     "money",
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The mascot is painted and warped, and the burger is filled with cash, so the picture goes beyond a simple composite of real photos."
+   },
+   "colourfulness": 164.5,
+   "luma": 0.521
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/fEoubSFmQvU.jpg",
+   "title": "The F**ked Up History Of Gucci",
+   "views": 1260320,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.55,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "photo_scene",
+    "elements": 5,
+    "words": 1,
+    "textHeight": 0.14,
+    "textStyle": "plain",
+    "textLook": "yellow-gold serif capitals with wide letter spacing",
+    "marks": [
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The screaming face is stylised and relit in red and green, and it is composited into a staged curtain and pillar scene."
+   },
+   "colourfulness": 126.1,
+   "luma": 0.283
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/JZtQx52GDxo.jpg",
+   "title": "How Facebook Destroyed Google",
+   "views": 799249,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "photo_scene",
+    "elements": 3,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "fire",
+     "money",
+     "glow"
+    ],
+    "makeable": "needs_retouch",
+    "why": "Real face and logos are composed, but the face is heavily stylised and the flaming Google logo is a composite effect."
+   },
+   "colourfulness": 132.3,
+   "luma": 0.435
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/JQeptSh_o7I.jpg",
+   "title": "Why Pepsi Went Bankrupt",
+   "views": 2052037,
+   "label": {
+    "hero": "product",
+    "heroShare": 0.4,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "pattern",
+    "elements": 4,
+    "words": 6,
+    "textHeight": 0.12,
+    "textStyle": "label_box",
+    "textLook": "black serif letters in white on black bar with blue swoosh",
+    "marks": [
+     "box"
+    ],
+    "makeable": "real_pictures",
+    "why": "Pepsi logo, glass, trucks and bottles are all real pictures that can be cut out and arranged on blue."
+   },
+   "colourfulness": 115.7,
+   "luma": 0.354
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/8aIyHl5qP9I.jpg",
+   "title": "The Richest Man In The World: The Ugly Truth",
+   "views": 1768296,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.65,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "photo_scene",
+    "elements": 3,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "fire",
+     "money",
+     "glow"
+    ],
+    "makeable": "illustration",
+    "why": "The screaming bloodied old man is a painted, stylised artwork, not a photo."
+   },
+   "colourfulness": 112,
+   "luma": 0.436
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/aJLdLb9dwAY.jpg",
+   "title": "How MagnatesMedia Almost Got DELETED",
+   "views": 656386,
+   "label": {
+    "hero": "logo",
+    "heroShare": 0.3,
+    "heroCutout": false,
+    "faces": 0,
+    "expression": "none",
+    "background": "photo_scene",
+    "elements": 2,
+    "words": 1,
+    "textHeight": 0.09,
+    "textStyle": "plain",
+    "textLook": "yellow-orange heavy sans-serif letters",
+    "marks": [
+     "fire",
+     "glow"
+    ],
+    "makeable": "needs_invention",
+    "why": "A burning tombstone with an engraved logo is a scene that never existed, rendered realistically."
+   },
+   "colourfulness": 140.7,
+   "luma": 0.321
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/QJh1LkOM4KY.jpg",
+   "title": "The INSANE Story of Domino's Pizza",
+   "views": 2561734,
+   "label": {
+    "hero": "object",
+    "heroShare": 0.45,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "split_colour",
+    "elements": 2,
+    "words": 2,
+    "textHeight": 0.3,
+    "textStyle": "plain",
+    "textLook": "large white heavy sans-serif letters, semi-transparent",
+    "marks": [],
+    "makeable": "illustration",
+    "why": "The monster-faced pizza slice is a painted, fantastical artwork."
+   },
+   "colourfulness": 129.7,
+   "luma": 0.341
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/x1_a20ZDBlU.jpg",
+   "title": "J.P. Morgan: The Man Who Owned America",
+   "views": 4368490,
+   "label": {
+    "hero": "person",
+    "heroShare": 0.55,
+    "heroCutout": true,
+    "faces": 1,
+    "expression": "strong",
+    "background": "photo_scene",
+    "elements": 3,
+    "words": 0,
+    "textHeight": 0,
+    "textStyle": "none",
+    "textLook": "none",
+    "marks": [
+     "glow",
+     "money"
+    ],
+    "makeable": "illustration",
+    "why": "The angry old man is a painted, stylised illustration over a flag and piles of cash."
+   },
+   "colourfulness": 127.9,
+   "luma": 0.349
+  },
+  {
+   "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/3RKU9XBwZro.jpg",
+   "title": "Why did Starbucks REALLY become so popular?",
+   "views": 631314,
+   "label": {
+    "hero": "product",
+    "heroShare": 0.25,
+    "heroCutout": true,
+    "faces": 0,
+    "expression": "none",
+    "background": "pattern",
+    "elements": 4,
+    "words": 2,
+    "textHeight": 0.17,
+    "textStyle": "label_box",
+    "textLook": "white heavy sans-serif on black and red boxes",
+    "marks": [
+     "box",
+     "burst",
+     "outline"
+    ],
+    "makeable": "needs_retouch",
+    "why": "The cup is a real product photo with a painterly filter, set over a green-tinted logo and bean pattern with burst rays, so it needs stylised retouching."
+   },
+   "colourfulness": 106.4,
+   "luma": 0.403
+  }
+ ],
+ "generatedAt": "2026-11-22T00:32:14.017Z"
+}

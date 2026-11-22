@@ -9,7 +9,7 @@ import type { Env } from "./env.js";
 export class RendererContainer extends Container<Env> {
   override defaultPort = 8080;
   override sleepAfter = "20m";
-  override enableInternet = true; // stock/archival APIs, ElevenLabs, Anthropic, Higgsfield
+  override enableInternet = true; // stock/archival APIs, ElevenLabs, Anthropic
 
   constructor(ctx: DurableObjectState<{}>, env: Env) {
     super(ctx, env);
@@ -35,8 +35,6 @@ export class RendererContainer extends Container<Env> {
       EUROPEANA_API_KEY: env.EUROPEANA_API_KEY,
       NARA_API_KEY: env.NARA_API_KEY,
       WIKIMEDIA_ACCESS_TOKEN: env.WIKIMEDIA_ACCESS_TOKEN,
-      HF_API_KEY_ID: env.HF_API_KEY_ID,
-      HF_API_KEY_SECRET: env.HF_API_KEY_SECRET,
     };
   }
 

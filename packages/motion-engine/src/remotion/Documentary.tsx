@@ -125,24 +125,3 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   );
 };
 
-/** Thumbnail still: background image + headline set by the channel's thumbnail rules. */
-export const Thumbnail: React.FC<{ bg: string; headline: string; accentWord?: string; accent: string; placement: "top" | "middle" | "bottom"; w: number; h: number }> = ({ bg, headline, accentWord, accent, placement }) => {
-  const words = headline.toUpperCase().split(/\s+/);
-  return (
-    <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      <Img src={staticFile(bg)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      <AbsoluteFill style={{ background: "linear-gradient(transparent 40%, rgba(0,0,0,0.75))" }} />
-      <AbsoluteFill style={{ justifyContent: placement === "top" ? "flex-start" : placement === "middle" ? "center" : "flex-end", alignItems: "center", padding: "8% 6%" }}>
-        <div style={{ textAlign: "center", lineHeight: 0.95 }}>
-          {words.map((w, i) => (
-            <span key={i} style={{ fontFamily: `"Arial Black", Helvetica, sans-serif`, fontSize: 150, color: accentWord && w.includes(accentWord.toUpperCase()) ? accent : "#fff", WebkitTextStroke: "6px #000", paintOrder: "stroke fill",
-                // Tight dark outline + soft outer glow keeps coloured words razor-sharp on dark plates.
-                textShadow: accentWord && w.includes(accentWord.toUpperCase()) ? `0 0 2px #000, 0 0 4px #000, 0 0 18px ${accent}AA, 0 0 36px rgba(255,255,255,0.28), 0 10px 30px #000` : "0 0 2px #000, 0 0 16px rgba(255,255,255,0.22), 0 10px 30px #000", margin: "0 14px", display: "inline-block" }}>
-              {w}
-            </span>
-          ))}
-        </div>
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
-};

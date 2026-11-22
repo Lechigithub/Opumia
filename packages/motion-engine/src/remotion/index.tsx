@@ -1,7 +1,6 @@
 import React from "react";
 import { Composition, registerRoot } from "remotion";
-import { Documentary, Thumbnail } from "./Documentary";
-import { ThumbnailLocal } from "./scenes/Signature";
+import { Documentary } from "./Documentary";
 import { ThumbnailScene } from "./scenes/ThumbnailScene";
 import type { DocProps } from "./types";
 
@@ -34,26 +33,6 @@ const Root: React.FC = () => (
       durationInFrames={30}
       defaultProps={{ manifest: emptyManifest, look: { accent: "#f5c518", saturate: 1.05, contrast: 1.06, vignette: 0.55, grain: 0.25 } } satisfies DocProps}
       calculateMetadata={({ props }) => ({ durationInFrames: props.manifest.durationFrames, width: props.manifest.width, height: props.manifest.height, fps: props.manifest.fps })}
-    />
-    <Composition
-      id="Thumbnail"
-      component={Thumbnail}
-      width={1080}
-      height={1920}
-      fps={30}
-      durationInFrames={1}
-      defaultProps={{ bg: "thumb_bg.png", headline: "", accent: "#f5c518", placement: "bottom" as const, w: 1080, h: 1920 }}
-      calculateMetadata={({ props }) => ({ width: props.w, height: props.h })}
-    />
-    <Composition
-      id="ThumbnailLocal"
-      component={ThumbnailLocal}
-      width={1280}
-      height={720}
-      fps={30}
-      durationInFrames={1}
-      defaultProps={{ focal: "thumb_focal.png", headline: "", w: 1280, h: 720 }}
-      calculateMetadata={({ props }) => ({ width: props.w, height: props.h })}
     />
     <Composition
       id="ThumbnailScene"

@@ -153,7 +153,7 @@ export async function thumbnailImposter(o: { channel: string; candidate: string;
   const { data, usage } = await structured({
     stage: "publish.imposter",
     model: MODELS.sonnet,
-    system: [plain(`You are the thumbnail designer of the YouTube channel ${o.channel}. Of these thumbnails, all but one are real thumbnails from the channel; one was made by an imitator. Pick the imitation and say exactly what gives it away (composition, the subject and how it is cut out, colour, text, finish). Do not decide by topic or image resolution. If they all look like the channel, say so with low confidence.`)],
+    system: [plain(`You are the thumbnail designer of the YouTube channel ${o.channel}. Of these thumbnails, all but one are real thumbnails from the channel; one was made by an imitator. Pick the imitation and say exactly what gives it away (composition, the subject and how it is cut out, colour, text, finish). Do not decide by topic or image resolution, and ignore the channel's own logo, badge or watermark (an imitation is not allowed to carry it, so its absence tells you nothing). If they all look like the channel, say so with low confidence.`)],
     user: blocks,
     schema: z.object({ observations: z.array(z.string()), pick: z.string().describe("the letter of the imitation"), confidence: z.number().describe("0.2 = guess, 1 = certain"), tells: z.array(z.string()) }),
     effort: "medium",
@@ -177,7 +177,7 @@ const TextSchema = z.object({
 
 export interface PublishingText { title: string; titleCandidates: Array<{ title: string; pattern: string }>; hook: string; summary: string; tags: string[]; hashtags: string[]; pinnedComment: string; checks: string[]; usd: number }
 
-export async function writePublishingText(o: { channel: string; references: Array<{ title: string; views: number | null; summary: string; tags: string[] }>; script: TimedScript; facts: FactSheet }): Promise<PublishingText> {
+export async function writePublishingText(o: { channel: string; references: Array<{ title: string; views: number | null; summary: string; tags: string[] }>; script: TimedScript; facts: FactSheet; /** Chosen and tested by the packaging agent: kept as it is. */ title?: string; /** Problems a first version had (from the package check): fix them. */ fix?: string[] }): Promise<PublishingText> {
   const refs = [...o.references].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
   const narration = o.script.segments.map((s) => s.text).join(" ");
   const verified = o.facts.claims.map((c) => c.text).join(" ");
@@ -202,7 +202,7 @@ RULES:
 - No links, no "subscribe", no channel promotion, no emojis.
 - Tags: phrases a person would search, built around the subject's names and the story's angle; no single generic words like "business". Never use the name of ${o.channel} or any other channel as a tag, and never a person, product or term the narration does not mention.`),
     ],
-    user: `FILM NARRATION:\n${narration}\n\nVERIFIED FACTS:\n${o.facts.claims.map((c) => `- ${c.text}`).join("\n").slice(0, 6000)}`,
+    user: `${o.fix?.length ? `A FIRST VERSION OF THIS PACKAGE HAD THESE PROBLEMS — do not repeat them; mention nothing the narration does not:\n${o.fix.map((x) => `- ${x}`).join("\n")}\n\n` : ""}FILM NARRATION:\n${narration}\n\nVERIFIED FACTS:\n${o.facts.claims.map((c) => `- ${c.text}`).join("\n").slice(0, 6000)}`,
     schema: TextSchema,
     effort: "medium",
     maxTokens: 6000,
@@ -218,8 +218,9 @@ RULES:
   if (badNum.length) checks.push(`${badNum.length} title candidate(s) dropped: a figure not in the film`);
   candidates = candidates.filter((t) => numsOk(t.title));
   if (!candidates.length) candidates = [{ title: o.script.title, pattern: "script title" }];
+  if (o.title) candidates = [{ title: o.title, pattern: "chosen by the packaging agent" }];
   // Imposter test on titles: each candidate hidden among real titles; the one least often picked out wins.
-  const judged = await structured({
+  const judged = o.title ? null : await structured({
     stage: "publish.titles",
     model: MODELS.haiku,
     system: [plain(`You know the YouTube channel ${o.channel} well. For each numbered list, all titles but one are real titles from the channel; one is an imitation. Say which line is the imitation and how sure you are. Judge wording, length, punctuation and the kind of promise — not the topic.`)],
@@ -241,7 +242,7 @@ RULES:
   };
   const ranked = candidates.map((c, k) => ({ c, r: risk(k) })).sort((a, b) => a.r - b.r);
   const title = ranked[0]!.c.title;
-  checks.push(`title chosen by imposter test: "${title}" (spotted-risk ${ranked[0]!.r.toFixed(2)}; ${ranked.filter((x) => x.r === 0).length}/${ranked.length} candidates passed as real)`);
+  if (!o.title) checks.push(`title chosen by imposter test: "${title}" (spotted-risk ${ranked[0]!.r.toFixed(2)}; ${ranked.filter((x) => x.r === 0).length}/${ranked.length} candidates passed as real)`);
   // Description text: only figures the NARRATION speaks (stricter than the fact sheet — the description must
   // not promise a number the viewer never hears). A sentence with any other figure is removed.
   const spoken = narration.toLowerCase();
@@ -276,6 +277,45 @@ RULES:
   const hashtags = [...new Set(d.hashtags.map((h) => `#${h.replace(/[^\p{L}\p{N}]/gu, "")}`).filter((h) => h.length > 2 && h.length <= 30))].slice(0, 5);
   const noLinks = (t: string) => t.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
   return { title, titleCandidates: ranked.map((x) => x.c), hook: noLinks(d.hook).slice(0, 220), summary: noLinks(d.summary), tags, hashtags, pinnedComment: noLinks(d.pinnedComment).slice(0, 400), checks, usd };
+}
+
+/**
+ * Title test: each candidate is hidden among real titles of the channel (a different set per candidate) and a judge
+ * picks the imitation; a figure the film does not contain or a title over 70 characters fails outright.
+ * risk = the judge's confidence when it picked our title out, 0 when it did not.
+ */
+export async function testTitles(o: { channel: string; references: Array<{ title: string; views: number | null }>; titles: string[]; narration: string; verified: string }): Promise<{ results: Array<{ title: string; risk: number; ok: boolean; why: string }>; usd: number }> {
+  const refs = [...o.references].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+  const source = `${o.narration} ${o.verified}`.toLowerCase();
+  const numsOk = (t: string) => (t.match(/\d[\d,.]*/g) ?? []).every((n) => source.includes(n.replace(/[.,]$/, "").toLowerCase()));
+  const cands = o.titles.map((t) => t.trim().replace(/\s+/g, " ")).filter(Boolean).slice(0, 8);
+  const pre = cands.map((t) => (t.length > 70 ? "longer than 70 characters" : t.length < 12 ? "too short" : !numsOk(t) ? "a figure the film does not contain" : ""));
+  const testable = cands.map((t, k) => ({ t, k })).filter((x) => !pre[x.k]);
+  let usd = 0;
+  const judged = testable.length
+    ? await structured({
+        stage: "publish.titles",
+        model: MODELS.haiku,
+        system: [plain(`You know the YouTube channel ${o.channel} well. For each numbered list, all titles but one are real titles from the channel; one is an imitation. Say which line is the imitation and how sure you are. Judge wording, length, punctuation and the kind of promise — not the topic.`)],
+        user: testable.map(({ t }, j) => {
+          const lines = refs.filter((_, i) => i % Math.max(1, testable.length) === j % Math.max(1, testable.length)).slice(0, 5).map((r) => r.title);
+          lines.splice((j * 2 + 1) % (lines.length + 1), 0, t);
+          return `LIST ${j}:\n${lines.map((x, i) => `${i + 1}. ${x}`).join("\n")}`;
+        }).join("\n\n"),
+        schema: z.object({ lists: z.array(z.object({ list: z.number(), imitation: z.string(), confidence: z.number() })) }),
+        effort: "low",
+        maxTokens: 2000,
+      }).catch(() => null)
+    : null;
+  if (judged) usd += judged.usage.usd;
+  const results = cands.map((t, k) => {
+    if (pre[k]) return { title: t, risk: 1, ok: false, why: pre[k]! };
+    const j = testable.findIndex((x) => x.k === k);
+    const v = judged?.data.lists.find((x) => x.list === j);
+    const risk = !v ? 0.5 : v.imitation.trim().toLowerCase() === t.toLowerCase() ? clamp(v.confidence, 0, 1) : 0;
+    return { title: t, risk, ok: true, why: risk === 0 ? "passed as a real title" : `picked out as the imitation (confidence ${risk.toFixed(2)})` };
+  });
+  return { results, usd };
 }
 
 /** Does the package promise what the film delivers? (title, thumbnail words, description vs the narration) */

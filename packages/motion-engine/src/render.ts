@@ -117,27 +117,11 @@ export async function renderVideo(o: { manifest: RenderManifest; look: Look; des
   return o.out;
 }
 
-export async function renderThumbnailStill(o: { publicDir: string; bg: string; headline: string; accentWord?: string; accent: string; placement: "top" | "middle" | "bottom"; width: number; height: number; out: string; log?: (s: string) => void }) {
-  const url = await serveUrl(o.publicDir, o.log ?? (() => {}), true);
-  const inputProps = { bg: o.bg, headline: o.headline, accentWord: o.accentWord, accent: o.accent, placement: o.placement, w: o.width, h: o.height };
-  const composition = await selectComposition({ serveUrl: url, id: "Thumbnail", inputProps });
-  await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: o.out, inputProps, imageFormat: "jpeg", jpegQuality: 92 });
-  return o.out;
-}
-
-/** Local thumbnail (no generated plate): Library focal object + fire/cash motif + 0–3 bold words. */
-export async function renderLocalThumbnail(o: { publicDir: string; focal: string; flames?: string; cash?: string; headline: string; accentWord?: string; tone?: "crimson" | "gold" | "emerald"; width: number; height: number; out: string; log?: (s: string) => void }) {
-  const url = await serveUrl(o.publicDir, o.log ?? (() => {}), true);
-  const inputProps = { focal: o.focal, flames: o.flames, cash: o.cash, headline: o.headline, accentWord: o.accentWord, tone: o.tone, w: o.width, h: o.height };
-  const composition = await selectComposition({ serveUrl: url, id: "ThumbnailLocal", inputProps });
-  await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: o.out, inputProps, imageFormat: "jpeg", jpegQuality: 92 });
-  return o.out;
-}
-
 /** Thumbnail from a composed scene spec (real cutouts on the film's colour world), frozen after its entrances. */
-export async function renderThumbnailScene(o: { publicDir: string; spec: unknown; slots: Record<string, string>; design?: unknown; width?: number; height?: number; out: string; log?: (s: string) => void }): Promise<string> {
-  const url = await serveUrl(o.publicDir, o.log ?? (() => {}), true);
-  const inputProps = { spec: o.spec, slots: o.slots, ...(o.design ? { design: o.design } : {}), w: o.width ?? 1280, h: o.height ?? 720 };
+export async function renderThumbnailScene(o: { publicDir: string; spec: unknown; slots: Record<string, string>; design?: unknown; finish?: unknown; width?: number; height?: number; out: string; fresh?: boolean; log?: (s: string) => void }): Promise<string> {
+  // A new bundle only when public/ gained files since the last one (Remotion snapshots public/ at bundle time).
+  const url = await serveUrl(o.publicDir, o.log ?? (() => {}), o.fresh ?? true);
+  const inputProps = { spec: o.spec, slots: o.slots, ...(o.design ? { design: o.design } : {}), ...(o.finish ? { finish: o.finish } : {}), w: o.width ?? 1280, h: o.height ?? 720 };
   const composition = await selectComposition({ serveUrl: url, id: "ThumbnailScene", inputProps });
   await renderStill({ chromiumOptions: GL, composition, serveUrl: url, output: o.out, inputProps, frame: 80, imageFormat: "jpeg", jpegQuality: 93 });
   return o.out;

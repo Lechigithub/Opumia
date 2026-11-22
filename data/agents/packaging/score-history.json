@@ -1,0 +1,36 @@
+[
+  {
+    "at": "2026-11-22T00:31:01.577Z",
+    "commit": "345246a",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.8,
+        "outsideBand": [],
+        "renders": 5,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 138,
+        "usd": 0.363
+      }
+    ]
+  },
+  {
+    "at": "2026-11-22T00:35:09.677Z",
+    "commit": "345246a",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.8,
+        "outsideBand": [],
+        "renders": 4,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 184,
+        "usd": 0.417
+      }
+    ]
+  }
+]

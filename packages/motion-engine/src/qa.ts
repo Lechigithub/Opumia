@@ -329,7 +329,7 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
     `- Render: \`${path.basename(q.finalPath)}\` (${q.manifest.aspect}, ${durS.toFixed(2)} s)`,
     `- AI-generated picture in the film: **none** (${pictureLayers.length} footage/photo layers, all licensed or fair-use press; ${q.manifest.video.length - pictureLayers.length} designed Remotion layers)`,
     `- Narration: ElevenLabs \`${q.script.voice.modelId}\`, voice \`${q.script.voice.voiceId}\``,
-    `- Thumbnail: ${q.thumbnailPath ? `\`${path.basename(q.thumbnailPath)}\` — generated image plate (Higgsfield) with composited headline; not used in the film` : "not produced"}`,
+    `- Thumbnail: ${q.thumbnailPath ? `\`${path.basename(q.thumbnailPath)}\` — composed from real, licensed or fair-use pictures by the scene engine (no generated imagery); not used in the film` : "not produced"}`,
     "",
     "## Media credits",
     "",
