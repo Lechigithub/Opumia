@@ -7,7 +7,7 @@ import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
-import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
+import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
@@ -429,6 +429,17 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   if (process.env.OPUMIA_EDITOR !== "off" && (freshScenes || !(await exists(editFile)))) {
     log("\n[B4e] editor (rhythm of the cut)");
     await runEditor();
+  }
+  // [B4k] Compositor (G23): cut-outs over footage take its colour, its light direction, clean edges and a contact
+  // shadow — in code, deterministic. OPUMIA_COMPOSITOR=off skips it.
+  if (process.env.OPUMIA_COMPOSITOR !== "off" && freshScenes) {
+    const cp = await compositeScenes({ plan: scenePlan, resolution, jobDir, design, log });
+    if (cp.touched) {
+      scenePlan = ScenePlan.parse(cp.plan);
+      await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+      await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+    }
   }
   // [B4c] Colourist (B9): the film's colour as one thing — act grades, washes and dimming, measured on the final
   // previews against the channel's real frames. OPUMIA_COLOURIST=off skips it.

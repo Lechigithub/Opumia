@@ -48,7 +48,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ F22 Cache of researched subjects across films.
 
 ## G. Tools and vocabulary
-- ☐ G23 Real compositor: masks, light falling on subjects, clean edges, colour matching.
+- ☑ G23 Compositor (`resolver/composite.ts`, stage B4k; `OPUMIA_COMPOSITOR=off` skips): scene cut-outs can now use colour matching, directional light, contact shadow, soft edges, rim and brightness (contract + renderer); an automatic pass sets them from the footage behind (mean colour, measured light direction) or the stage colour with a top-left key; logos and icons are left flat. Not yet seen on a plan with a photo cut-out over footage (neither test plan has one).
 - ☐ G24 Scene vocabulary: icon infographics, picture counters, step flows, screen recordings, newspaper layouts.
 - ☐ G25 Stronger footage-less shots.
 - ☐ G26 Sharper sources only (thumbnails and footage).

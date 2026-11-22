@@ -32,6 +32,10 @@ type El =
       /** Light from the scene behind: the background's colour laid over the subject at soft-light, so it sits in it. */
       matchColor?: string;
       matchStrength?: number;
+      /** Light falling on the subject from the backdrop's light (CSS gradient angle pointing away from the light). */
+      lightAngle?: number;
+      lightColor?: string;
+      lightStrength?: number;
       brightness?: number;
       /** Compositing into a real scene: a contact shadow on the ground, softened cut edges, a perspective turn. */
       contactShadow?: number;
@@ -290,6 +294,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
           {tc ? <div style={mask({ background: tc, mixBlendMode: "color", opacity: Math.max(0, Math.min(1, el.tintStrength ?? 0.6)) })} /> : null}
           {texSrc ? <div style={mask({ backgroundImage: `url(${staticFile(texSrc)})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: el.textureBlend ?? "multiply", opacity: Math.max(0, Math.min(1, el.textureOpacity ?? 0.8)) })} /> : null}
           {hex(el.matchColor) ? <div style={mask({ background: `radial-gradient(ellipse at 50% 30%, transparent 20%, ${hex(el.matchColor)} 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.matchStrength ?? 0.55)) })} /> : null}
+          {el.lightAngle !== undefined ? <div style={mask({ background: `linear-gradient(${Math.round(el.lightAngle)}deg, ${hex(el.lightColor) ?? "#fff4e0"} 0%, transparent 55%, rgba(0,0,0,0.55) 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.lightStrength ?? 0.45)) })} /> : null}
           {el.look === "glitch" ? (
             <>
               <div style={mask({ background: "#ff2a55", mixBlendMode: "screen", opacity: 0.55, left: -off, right: off })} />

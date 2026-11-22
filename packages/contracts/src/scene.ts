@@ -11,7 +11,21 @@ export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDee
 
 export const SceneElement = z.discriminatedUnion("type", [
   z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, frame: z.enum(["none", "print", "torn", "circle", "tv", "polaroid"]).default("print"), grade: z.enum(["natural", "mono", "duotone"]).default("natural"), h: z.number().optional() }),
-  z.object({ type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true), outline: z.boolean().default(false) }),
+  z.object({
+    type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true), outline: z.boolean().default(false),
+    /** G23 compositing: the subject sits IN the backdrop — its colour laid over the subject, light falling from the
+     *  backdrop's own light direction (CSS angle pointing away from the light), a contact shadow, cleaned edges, a rim. */
+    matchColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    matchStrength: z.number().min(0).max(1).optional(),
+    lightAngle: z.number().min(0).max(360).optional(),
+    lightColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    lightStrength: z.number().min(0).max(1).optional(),
+    contactShadow: z.number().min(0).max(1).optional(),
+    soften: z.number().min(0).max(3).optional(),
+    glowColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    glowSize: z.number().min(0.3).max(3).optional(),
+    brightness: z.number().min(0.6).max(1.5).optional(),
+  }),
   /** Kinetic narration phrase: a run of words spoken in this shot, revealed word by word in sync with the voice. */
   z.object({ type: z.literal("phrase"), text: z.string().min(1).max(120), ...Box, size: z.number().min(0.02).max(0.2), align: z.enum(["left", "center", "right"]).default("center"), color: ColorToken.default("text"), emphasis: z.string().optional() }),
   /** Real 3D (Three.js): an extruded word with lights, slowly turning. */
