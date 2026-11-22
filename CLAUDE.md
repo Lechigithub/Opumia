@@ -234,22 +234,22 @@ Sourcing is planned per film, not searched blind (`resolver/widen.ts`, `resolver
 - **Re-plan around what was found** (`replanShots`, one Sonnet call): every shot the first search could not fill goes back to the director with what the sources actually returned. It gets a spare approved picture, a different findable picture that tells the same line (timeless close-ups rather than period group scenes), or becomes a designed scene (at most a third). Then one more pooled search for those shots. `sourcing.json` records `replanned` (asked, action, why).
 - **Search memo** `data/.cache/stock-search.json` (20 h): re-runs and films on one subject do not spend API quota twice. Refused searches (HTTP 429) and sources that returned nothing are logged and written to `sourcing.json` (`refusedByRateLimit`, `sources`) — never silently counted as "nothing found".
 - Measured on the Kodak plan (2026-11-21): footage for 19–23 of 25–27 shots that need a picture (was 8 of 29, with unrelated pictures among them); first pass 8–18, the re-plan adds 7–10. Run-to-run spread comes from the rater and from rate limits. Pexels supplies most usable stock; YouTube the real footage.
-- **Known limits:** Pexels allows ~200 searches/hour by default and a film asks ~130 — ask Pexels to lift it before running films back to back. The stored Europeana key is rejected (HTTP 401). Openverse times out intermittently. The Internet Archive adapter works but is not asked in the pooled search (whole films; the fixed moment fitted 0 of 55) until it has the moment finding YouTube has. Spare pictures can make a film repeat a motif (three CRT screens). No cross-film cache of researched subjects yet.
+- **Known limits:** Pexels allows ~200 searches/hour by default and a film asks ~130 — ask Pexels to lift it before running films back to back. The stored Europeana key is rejected (HTTP 401). Openverse times out intermittently. The Internet Archive is asked for period footage: the moment in each whole film is found from its own thumbnails (`press.ts:archiveMoment`); a film with no matching moment is not offered. Spare pictures can make a film repeat a motif (three CRT screens). No cross-film cache of researched subjects yet.
 
 ## Speed and cost (rebuild stage 10, 2026-11-21)
 
 - **Stage clock** (`produce.ts`): every `[XX] name` log header opens a stage; seconds and Claude spend per stage go to `out/<job>/timing.json` and are printed at the end of every run ("Where the time and money went"). Each stage has a budget (`STAGE_BUDGET_USD`, for a 90 s film, scaled for longer ones); a stage over it is marked `OVER BUDGET`.
-- **Film spend limit** (`agents/llm.ts:setBudget`): no model call starts once the film has spent its limit — $3 up to 90 s, $6 up to 4 min, else $15, or `OPUMIA_MAX_USD`. Finished stages are cached, so a stopped job resumes. ElevenLabs spend is not in this ledger.
+- **Film spend limit** (`agents/llm.ts:setBudget`): no model call starts once the film has spent its limit — $3 up to 90 s, $6 up to 4 min, else $15, or `OPUMIA_MAX_USD`. Finished stages are cached, so a stopped job resumes. ElevenLabs characters are in this ledger too (`narration.tts`, estimated $0.30 per 1,000 characters — set `OPUMIA_TTS_USD_PER_1K`) and count toward the limit.
 - **Sourcing stage** has per-phase times in `sourcing.json.seconds`. One Wikipedia lookup and one YouTube press search per subject per film (they were repeated per shot); the plan and the web picture research run alongside the press and search phases. Measured on the Kodak plan: 352 s → 129 s, $0.08.
 - **Scene critic is calibrated on the real channel** (`apps/cli/src/dev/critic-test.ts <job>`): real reference shots are shown to it as if they were ours and it must pass nearly all (measured 0 of 24 flagged; at the earlier, looser bar it rejected 8 of 24 real shots and 27–29 of 29 of ours). Only visible defects send a scene back (`HARD_DEFECT` with severity ≥ 7, or severity ≥ 9), worst first, at most 40 % of the film. It judges defects, not taste — taste is the release gate's job. Measured: 6 of 27 scenes revised; preview → critique → revise 45 s, $0.04.
 - **Previews** render four stills at a time on one shared browser (27 scenes × 3 moments in 30 s).
 - **Art direction runs alongside the script** (both need only the facts). Not yet exercised on a fresh film.
 - Measured on the Kodak plan, sourcing to manifest (no render): B2 129 s $0.08, B3 43 s $0.17, B4 45 s $0.04.
-- **Not done:** the publishing package still runs after the render rather than beside it (untested concurrency on the render was not risked without a film); the story blind test was not moved before narration (the blind judge is weak on story, so it would add cost without a trustworthy signal); render time has not been re-measured since the rebuild (no film has been rendered).
+- **Not done:** the publishing package now runs beside the render (H33) but that concurrency is untested on a real render; the story blind test was not moved before narration (the blind judge is weak on story, so it would add cost without a trustworthy signal); render time has not been re-measured since the rebuild (no film has been rendered).
 
 ## Voice: directed narration and listen-back (rebuild stage 6)
 
-`narration/directed.ts:narrateDirected` is the default (`OPUMIA_NARRATION=legacy` restores the single-pass path).
+`narration/directed.ts:narrateDirected` is the only path (the single-pass switch was removed).
 
 1. **Voice director** (`agents/voice-director.ts`, one Sonnet call): per line — pace, the pause after it, the word to lean on — and every risky word (names, places, brands, foreign words, acronyms, abbreviations, figures, rare terms) with IPA, a respelling and, where needed, a written-out spoken form. Solved words persist in `data/pronunciation-lexicon.json`.
 2. **Line takes:** one ElevenLabs take per sentence with neighbours as context, cached in `out/<job>/takes/`.
@@ -282,7 +282,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **One author:** code only verifies and formats (figures, ear punctuation); it never rewrites a sentence. No story menu: the writer builds each film's own structure from its facts; the old hook/ending names survive only as labels for the uniqueness check.
 - **Memory:** `data/agents/writer/<channel>.md` (its own lessons and a log of every script) and `data/agents/writer/owner-notes.md` (the owner's feedback — add a line there and the writer reads it before its next script).
 - **Score:** `npx tsx apps/cli/src/dev/writer-score.ts out/<job> …` → `data/agents/writer/score-history.json`. First score (2026-11-22): 3 of 3 accepted (Kodak 97 s $0.36, Theranos 129 s $0.37, Enron 78 s $0.23); the five-pass writer on Kodak: not accepted, 200 s, $0.61.
-- **Gate:** a script that is not accepted is not narrated (`script.story.json`; `OPUMIA_STORY=warn` overrides). `OPUMIA_WRITER=legacy` runs the five-pass writer.
+- **Gate:** a script that is not accepted is not narrated (`script.story.json`; `OPUMIA_STORY=warn` overrides). The five-pass writer only runs for a channel with no story band yet.
 - **Limits:** acceptance means "inside the channel's measured range and factually clean", not "as good as the channel" — nobody has judged these scripts by ear or eye yet. Only 90-second scripts have been run; long-form is untested. Research leaves many claims unverified (Kodak: 20 of 36 "unreachable"), which starves the writer of facts — a research-agent problem. The other roles (director, scene designer, packaging) are still single prompts.
 
 ### The researcher (second agent rebuilt)
@@ -294,7 +294,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Memory:** `data/agents/research/hosts.json` (which sites could be read, from the archive, or not — learned every run, shown before the next) and `notes.md` (a log of every sheet).
 - **Score:** `npx tsx apps/cli/src/dev/research-score.ts "Topic" …` → `data/agents/research/score-history.json`. Kodak: 24 verified (20 fully), 4 quotations, 10 figures, 7 sources, 3 pages recovered from the archive, 102 s, $0.33 — the single pass had 16 usable of 36. Theranos: 49 verified, 168 s, $0.62 (it over-collected; it is now told to stop once the sheet is full — not re-run).
 - **Chain check:** the writer on the new Kodak sheet was accepted in 59 s for $0.28 with a visibly better script (viewer address 14 %, ends on Sasson keeping the camera "because it was too cool to throw away").
-- **Limits:** page reading still fails on some sites even with the archive (Theranos: 9 of 16 pages unreadable, e.g. bbc.com, fda.gov) — a headless-browser reader is the next step. Source quality is not yet scored (a blog counts the same as a court filing). `OPUMIA_RESEARCH=legacy` runs the old single pass.
+- **Limits:** page reading still fails on some sites even with the archive (Theranos: 9 of 16 pages unreadable, e.g. bbc.com, fda.gov) — a headless-browser reader is the next step. Source quality is not yet scored (a blog counts the same as a court filing). (The old single pass was removed.)
 
 ### The scene designer (third agent rebuilt)
 
@@ -317,7 +317,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Hand-over (agents connected):** the candidates the probes found are written to `out/<job>/probes.json` and sourcing starts from them (`ResolveOptions.probes`) instead of searching blind. The accepted plan is turned into a storyboard by the same conversion and guards as before (`directStoryboard({ raw })`).
 - **Memory / score:** `data/agents/director/<channel>.md`, `owner-notes.md`; `npx tsx apps/cli/src/dev/director-score.ts out/<job>` → `data/agents/director/score-history.json`.
 - **Measured on Kodak (2026-11-22), production path from director to preflight, no render:** director 120 s $0.32 (25 shots, 17 cuts a minute, 25 pictures probed); sourcing 142 s $0.09 — **17 of 23 shots placed on the first pass (was 8–18 of 25–28), 6 sent to re-plan (was 14–19), coverage 21 of 23**; scene designer 137 s $0.29 — 46 % clean footage, text on 50 %, no picture-less stage shot left, real picture compositions; **preflight passed on its first round with no repairs**. Whole planning chain ≈ 6.7 min, $0.70.
-- **Limits seen in the frames:** some footage is still modern under 1975 lines (colleagues high-fiving in a modern office, a tablet) — the eye check does not reliably catch period; a pink wash on several fetched shots; one lone-word card. `OPUMIA_DIRECTOR=legacy` runs the old single prompt. Packaging is now an agent (see **The packaging agent**).
+- **Limits seen in the frames:** some footage is still modern under 1975 lines (colleagues high-fiving in a modern office, a tablet) — the eye check does not reliably catch period; a pink wash on several fetched shots; one lone-word card. Packaging is now an agent (see **The packaging agent**).
 
 ### Tools added to the rebuilt agents (2026-11-22, second pass)
 
@@ -365,12 +365,51 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 
 The reference channel is the taste source of truth (owner) — not anyone's personal rating. Agents learn *how* it is made, not only *what* it measures:
 
-- **Thumbnail deconstructions** (`agents/thumbnail-craft.ts` → `data/thumbnail-profile/<channel>-craft.json`): the 28 reachable real thumbnails taken apart (idea, fusion, layers, edges, background, lettering, phone read, recipe). The packaging agent studies them (`study_reference_ideas`), proposes 6–14 concepts that a critic scores against them (`propose_concepts`; nothing is rendered until a concept scores 8/10, three rounds at most), and every render is critiqued beside the three nearest real thumbnails (`critique_thumbnail`: fused or collage, empty areas, what each real one does that ours does not, score /10, fixes). Submission needs 8/10 or twelve renders. The blind imposter test runs three times; it proved too lenient on its own (it passed a render the critique scored 4.5/10). Craft steps run on Sonnet; `OPUMIA_CRAFT_MODEL=opus` switches to Opus 5.5 (owner: measure without Opus first).
+- **Thumbnail deconstructions** (`agents/thumbnail-craft.ts` → `data/thumbnail-profile/<channel>-craft.json`): the 28 reachable real thumbnails taken apart (idea, fusion, layers, edges, background, lettering, phone read, recipe). The packaging agent studies them (`study_reference_ideas`), proposes 6–14 concepts that a critic scores against them (`propose_concepts`; nothing is rendered until a concept scores 8/10, three rounds at most), and every render is critiqued beside the three nearest real thumbnails (`critique_thumbnail`: fused or collage, empty areas, what each real one does that ours does not, score /10, fixes). Submission needs the critic's score for the channel's own thumbnails (measured 4.5/10 — `dev/critic-models.ts`; a fixed 8/10 was a bar the channel itself fails) or twelve renders. The blind imposter test runs three times; it proved too lenient on its own (it passed a render the critique scored 4.5/10). Craft steps run on Sonnet; `OPUMIA_CRAFT_MODEL=opus` switches to Opus 5.5 (owner: measure without Opus first).
 - **Pixel-level quality bar** (`senses/craft.ts`, `agents/quality-band.ts` → `data/quality-profile/<channel>.json`): sharpness of the sharpest tenth (`sharpTop`), of the typical block (`sharpMedian`), contrast (p95−p5), grain — the same function on 37 real thumbnails, 276 real shot frames and ours, all scaled to 640×360. Measured: the channel's thumbnails hold about 8× the typical detail of our early renders (median 1,219 vs ~160) and visible grain (17.5 vs ~5); 14 of 17 early renders fell below the bar. Our footage mostly sits inside the frames' band. `npx tsx apps/cli/src/dev/quality-gap.ts out/<job>`.
 - **Where the bar applies:** every thumbnail render (`soft_image`, `smeared_image`, `flat_contrast`, `too_clean`); preflight `soft_footage` (footage softer than the channel's softest tenth; blocker, dropped and refilled like period footage).
 - **Thumbnail finishing:** rendered at 2560×1440, brought to 1280×720 with Lanczos, an unsharp mask and film grain on the real pixels (`finish.sharpen`, `finish.grain`).
 - **Retrieval by meaning** (`agents/retrieve.ts:nearestByMeaning`, Haiku, text only): the real examples nearest to the task — the critic's comparison thumbnails, `study_reference_ideas`, and the scene designer's `similar_real_shots` (the real shots whose spoken line is nearest in meaning and role, with what was on screen).
 - **Measured before this pass** (Kodak, Theranos): best concepts 5.5–5.6/10, renders 2.5–4.5/10 against the real thumbnails. Not at the channel's level.
+
+## Build list A–H (2026-11-22, `docs/BUILD-LIST.md` — every item ☑, details and measurements there)
+
+Learning from the whole reference, a film owned end to end, and a craft agent per role. Each agent has a skill
+file, tools, memory (`data/agents/<agent>/`), its own score (`apps/cli/src/dev/<agent>-score.ts`) and an off switch.
+
+- **Reference index** (`ingest/reference/shot-index.ts`, `pnpm opumia build-reference-index`): all 67,906 shots and 154
+  thumbnails of the five channels with labels, words, cut-vs-voice, hits and music, SigLIP 2 embedded with our own
+  embedder (`tools/siglip/embed.py`) → `data/reference-index/` (git-ignored, ~4 h to embed).
+- **Unified channel profile v2** (`agents/channel-profile.ts`, `pnpm opumia build-channel-profile --channel X`):
+  every band, by position, relations (line→picture, hit→screen, music→story), variety and look distance, grade arc,
+  view correlations with a permutation test — for all five channels (Big Company: no shot analysis). Its version is
+  stamped on eval runs, lesson trials and score histories; a new profile is a new baseline.
+- **Trained taste** (`agents/taste.ts`, `dev/taste-train.ts`): SigLIP heads (real vs ours/degraded, this channel vs
+  others) per channel; in the film score and every thumbnail render (`taste_far`). Measures distance to the
+  reference, not quality on its own; it does not separate owner-rejected films from our other old films.
+- **Whole-film score** (`agents/film-score.ts`): our plan measured with the channel's own function, every gap named
+  with its owner; look distance to our earlier films (`data/looks/`) — too close is a preflight blocker (`unique_look`).
+- **Order of production stages after the director:** B2 sourcing → **B2s picture researcher** (`sourcing-agent.ts`) →
+  scene designer → **B4e editor** (`editor-agent.ts`) → **B4k compositor** (`resolver/composite.ts`, no model) →
+  **B4c colourist** (`colourist-agent.ts`) → **B5 sound designer** (`sound-agent.ts` + music editing
+  `music-edit.ts`) → **B5s showrunner** (`showrunner-agent.ts`: sends work back, once to the writer) → B6 preflight →
+  render, with the **publishing package beside it** → C4 QA → **C4v viewer QA** (`qa-agent.ts`, watches the finished
+  mp4 via `watch.ts:watchFile`; can only tighten the verdict). Narration: the **voice director hears its own takes**
+  (`voice-agent.ts`) before the pronunciation listen-back.
+- **Off switches** (for debugging; none is a second production path): `OPUMIA_EDITOR=off`, `OPUMIA_COMPOSITOR=off`,
+  `OPUMIA_COLOURIST=off`, `OPUMIA_SOUND=legacy`, `OPUMIA_SOURCING=legacy`, `OPUMIA_SHOWRUNNER=off`,
+  `OPUMIA_SHOWRUNNER_REWRITE=off`, `OPUMIA_VOICE_AGENT=off`, `OPUMIA_QA_AGENT=off`, `OPUMIA_PACKAGE_BESIDE=off`.
+- **Memory that earns its place** (`agents/lessons.ts`): a lesson is dropped if the next films it was shown to score
+  3+ points worse; every agent reads the shared film memory `data/films/<channel>.jsonl`; the researcher reuses
+  verified facts of earlier films on overlapping subjects as leads (`data/agents/research/subjects.jsonl`).
+- **Design and scene vocabulary:** two-sided design fundamentals on pixels (`senses/design.ts`); scene cut-outs can be
+  colour-matched, lit from the backdrop's light, contact-shadowed and edge-softened; new elements `counter`, `steps`,
+  `icongrid`, `newspaper` (headline must be spoken words, no masthead), `screen`.
+- **Truth guards added:** a motive stated as fact fails the writer's check unless hedged or in the fact sheet; research
+  scores sources (primary / reputable / weak) and confirms contested claims; package sentences the narration never
+  supports are removed; undersized stock is refused before rating; the Archive is searched by moment.
+- **Not yet proven on a film:** none of the agents built on this list has run inside a full `produce` of a new film;
+  each was measured on the Kodak plan (or a rendered Kodak film) alone. That run is the owner's next step.
 
 ## Sound: timeline sound designer (rebuild stage 7)
 
@@ -386,7 +425,7 @@ The reference channel is the taste source of truth (owner) — not anyone's pers
 
 `produce` stage **C3** builds the whole package with `apps/cli/src/publish.ts` + `agents/publishing.ts` (test without rendering: `npx tsx apps/cli/src/dev/package-test.ts out/<job>`). Outputs: `thumbnail.jpg`, `publish.json`, `youtube-description.txt`, `youtube-tags.txt`, `pinned-comment.txt`.
 
-- **Thumbnail from real pictures, no generated imagery.** The film's verified press stills, the main subjects' Wikipedia photos and logos, and matching `Library/objects` cutouts become picture slots; photos are cut out with `senses/cutout.ts:removeBackground` (BiRefNet-lite, MIT, ONNX; keeps only source pixels). Designed by the packaging agent (below); the old single-prompt designer with one revision is `OPUMIA_PACKAGING=legacy`. Recent concepts are avoided (`data/thumbnail-concepts.json`).
+- **Thumbnail from real pictures, no generated imagery.** The film's verified press stills, the main subjects' Wikipedia photos and logos, and matching `Library/objects` cutouts become picture slots; photos are cut out with `senses/cutout.ts:removeBackground` (BiRefNet-lite, MIT, ONNX; keeps only source pixels). Designed by the packaging agent (below); the old single-prompt designer is only the fallback for a channel without a thumbnail band. Recent concepts are avoided (`data/thumbnail-concepts.json`).
 - **Title:** six candidates from the reference titles weighted by views; figures must be in the film; the winner is the candidate least often picked out among real titles.
 - **Credits follow each source's terms** (`publish.ts:creditLines`, `SOURCE_CREDIT`): one visible link line per source the film really uses ("Stock footage and photos provided by Pexels — https://www.pexels.com", likewise Pixabay, Coverr, Vecteezy, Commons, Europeana, NARA, Openverse, Internet Archive), then per-item credits with a link — licence-required ones (CC BY / BY-SA, Vecteezy, music) always, creator credits for Pexels and Pixabay as space allows. Press excerpts are covered by the fair-use notice, not here.
 - **Description:** hook + story paragraph in the channel's style (only figures the narration speaks), chapters, sources, a fair-use notice naming the rights holders of press excerpts, credits, hashtags. **No channel-links slot** (owner decision).
