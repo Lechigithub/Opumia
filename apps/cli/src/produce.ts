@@ -737,6 +737,16 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     if (pre && !pre.pass && process.env.OPUMIA_PREFLIGHT !== "warn" && (redo("render") || !(await exists(finalPath)))) throw new Error(`preflight gate: the plan would not pass the release gate (${pre.blockers.join(", ")}) — see preflight.json; nothing was rendered`);
   }
 
+  // H33: the publishing package needs only the final plan (facts, narration, design, pictures), not the rendered
+  // film — it starts now and runs beside the render (its thumbnail renders in its own folder, thumb-public/).
+  // OPUMIA_PACKAGE_BESIDE=off runs it after the render as before.
+  let thumbnailPath: string | null = path.join(jobDir, "thumbnail.jpg");
+  const needPackage = redo("thumbnail") || !(await exists(thumbnailPath)) || !(await exists(path.join(jobDir, "publish.json")));
+  const startPackage = () => buildPublishingPackage({ jobDir, data: o.data, library: o.library, channel, job: jobId, facts, script: timed, design, resolution, board, index, publicDir: pub, log: (x: string) => log(`  [package] ${x.trimStart()}`) }).catch((err: Error) => {
+    log(`  ! publishing package failed: ${err.message.slice(0, 160)}`);
+    return { thumbnailPath: null as string | null, usd: 0 };
+  });
+  const packageP = needPackage && process.env.OPUMIA_PACKAGE_BESIDE !== "off" && !stop("render") ? (log("\n[C3] publishing package — started beside the render"), startPackage()) : null;
   log("\n[C2] Remotion render + FFmpeg mastering");
   const silent = path.join(jobDir, "video_silent.mp4");
   const master = path.join(jobDir, "master.wav");
@@ -788,15 +798,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   if (stop("render")) return { jobDir };
 
   log("\n[C3] publishing package (thumbnail, title, description, tags, hashtags, pinned comment)");
-  let thumbnailPath: string | null = path.join(jobDir, "thumbnail.jpg");
   // The thumbnail is composed from real pictures only (no generated imagery anywhere in a film's package).
-  if (redo("thumbnail") || !(await exists(thumbnailPath)) || !(await exists(path.join(jobDir, "publish.json")))) {
-    const pk = await buildPublishingPackage({ jobDir, data: o.data, library: o.library, channel, job: jobId, facts, script: timed, design, resolution, board, index, publicDir: pub, log }).catch((err: Error) => {
-      log(`  ! publishing package failed: ${err.message.slice(0, 160)}`);
-      return { thumbnailPath: null, usd: 0 };
-    });
-    thumbnailPath = pk.thumbnailPath;
-  } else log("  ✓ thumbnail.jpg (cached)");
+  if (packageP) thumbnailPath = (await packageP).thumbnailPath;
+  else if (needPackage) thumbnailPath = (await startPackage()).thumbnailPath;
+  else log("  ✓ thumbnail.jpg (cached)");
   if (stop("thumbnail")) return { jobDir };
 
   if (o.repair?.size) {
