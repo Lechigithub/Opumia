@@ -41,3 +41,4 @@ export * from "./lessons.js";
 export * from "./sound-agent.js";
 export * from "./music-edit.js";
 export * from "./voice-agent.js";
+export * from "./sourcing-agent.js";
