@@ -58,7 +58,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ H28 Description promises: names the narration never says are stripped like figures; the package check returns the exact quote of each unsupported claim and, if the rewrite still fails, those sentences are removed (tested: a planted "Elon Musk admitted $4 billion" sentence was caught and removed).
 - ☑ H29 Motive stated as fact: a line the story labeller marks as a motive must be hedged ("it seems", "he later said") or carried by a fact-sheet claim (≥ 60 % of its content words), else the writer's check fails it (`motive_as_fact`). Not yet run on a fresh script.
 - ☑ H30 Source quality: every claim's source is primary (courts, regulators, filings, PDFs, the person's own words on video), reputable (established press, reference works, newspapers by name) or weak; the sheet needs half from the first two, and a contested claim on a weak source needs a better or second independent one. Kodak's existing sheet: 14 of 16 claims reputable or primary under the rule.
-- ☐ H31 Internet Archive moment finding (then join the pooled search).
+- ☑ H31 Internet Archive moments (`press.ts:archiveMoment`): up to 16 of the item's own thumbnails (the file name gives the second) tiled into one sheet; Haiku names the cell that shows the wanted picture, the 20 s clip is taken there and that thumbnail is the preview to rate; a film with no such moment is not offered. The Archive now joins the pooled search for period footage. Live test: a moment in 4 of 8 films found for three period searches.
 - ☐ H32 ElevenLabs spend in the cost ledger.
 - ☐ H33 Publishing package beside the render.
 - ☐ H34 Remove `legacy` paths once each replacement is proven.

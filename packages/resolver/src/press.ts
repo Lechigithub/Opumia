@@ -342,6 +342,52 @@ export async function youtubeTranscript(url: string): Promise<{ title: string; c
 
 const Moments = z.object({ picks: z.array(z.object({ sheet: z.number(), cell: z.number(), what: z.string() })) });
 
+/**
+ * H31: where in a whole Internet Archive film the wanted picture is. Up to 16 of the item's own thumbnails (about
+ * one a minute), tiled in time order into one sheet; the model names the cell that shows the picture, or none.
+ * Returns the second to take the clip from and that thumbnail as the preview, or null.
+ */
+export async function archiveMoment(c: { externalId: string; moments?: Array<{ atS: number; url: string }> }, must: string, dlDir: string): Promise<{ atS: number; thumbUrl: string } | null> {
+  const ms = c.moments ?? [];
+  if (!ms.length) return null;
+  const pick = ms.length <= 16 ? ms : Array.from({ length: 16 }, (_, k) => ms[Math.round((k * (ms.length - 1)) / 15)]!);
+  await mkdir(dlDir, { recursive: true });
+  const key = createHash("sha1").update(c.externalId).digest("hex").slice(0, 12);
+  const files: string[] = [];
+  for (const [k, m] of pick.entries()) {
+    const f = path.join(dlDir, `iam_${key}_${k}.jpg`);
+    if (!(await exists(f))) {
+      const r = await fetch(m.url, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
+      if (!r?.ok) continue;
+      await writeFile(f, Buffer.from(await r.arrayBuffer()));
+    }
+    files.push(f);
+  }
+  if (files.length < 2) return null;
+  const cols = 4, rows = Math.ceil(files.length / cols);
+  const sheet = path.join(dlDir, `iam_${key}_sheet.jpg`);
+  if (!(await exists(sheet))) {
+    const inputs = files.flatMap((f) => ["-i", f]);
+    const scale = files.map((_, k) => `[${k}]scale=240:180:force_original_aspect_ratio=decrease,pad=240:180:(ow-iw)/2:(oh-ih)/2[s${k}]`).join(";");
+    const layout = files.map((_, k) => `${(k % cols) * 240}_${Math.floor(k / cols) * 180}`).join("|");
+    await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...inputs, "-filter_complex", `${scale};${files.map((_, k) => `[s${k}]`).join("")}xstack=inputs=${files.length}:layout=${layout}:fill=black`, "-frames:v", "1", "-q:v", "4", sheet], { timeout: 60_000 }).catch(() => null);
+  }
+  if (!(await exists(sheet))) return null;
+  const res = await structured({
+    stage: "resolve.moments",
+    model: MODELS.haiku,
+    system: [plain("The image is a grid of frames from one old film, in time order, numbered from 0 left-to-right then top-to-bottom. Pick up to 2 cells that clearly show the wanted picture. Never a title card, text, credits, a black or blank frame. If no cell shows it, return no picks.")],
+    user: [{ type: "text" as const, text: `Wanted picture: ${must}\n${cols} columns × ${rows} rows, ${files.length} cells` }, { type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: (await readFile(sheet)).toString("base64") } }],
+    schema: Moments,
+    effort: "low",
+    maxTokens: 400,
+  }).catch(() => null);
+  const cell = res?.data.picks.find((p) => p.cell >= 0 && p.cell < files.length)?.cell;
+  if (cell === undefined) return null;
+  const m = pick[cell]!;
+  return { atS: m.atS, thumbUrl: m.url };
+}
+
 /** Where in the video the wanted picture is: the model looks at the video's thumbnail strip and names the cells. */
 async function ytMoments(info: YtInfo, must: string, dlDir: string): Promise<number[]> {
   if (!info.sheets.length) return [];

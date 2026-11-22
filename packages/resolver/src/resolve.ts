@@ -9,7 +9,7 @@ import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
-import { periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
+import { archiveMoment, periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
 import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
 const run = promisify(execFile);
@@ -415,7 +415,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           if (c.src === "press") (thumb = c.p.frameFile), (ok = true);
           else if (c.src === "local") ok = await thumbOf({ file: await ensureLocal(o.libraryRoot, c.doc.asset.relPath, "library"), video: c.doc.kind === "video", atS: c.doc.inS + 1 }, thumb);
           // A whole archive film: the preview is the very moment that would be used, not the item's poster.
-          else if (c.c.provider === "archive" && c.c.fileUrl) ok = await thumbOf({ url: c.c.fileUrl, video: true, atS: archiveAt(c.c) + 1.2 }, thumb);
+          else if (c.c.provider === "archive" && c.c.fileUrl) {
+            // H31: find the moment in the whole film that shows the wanted picture (its own thumbnails, one look);
+            // a film with no such moment is not offered.
+            if (c.c.moments?.length) {
+              const m = await archiveMoment(c.c, briefOf(n).must || n.query, path.dirname(thumbDir)).catch(() => null);
+              if (m) { c.c.atS = m.atS; ok = await thumbOf({ url: m.thumbUrl }, thumb); }
+            } else ok = await thumbOf({ url: c.c.fileUrl, video: true, atS: archiveAt(c.c) + 1.2 }, thumb);
+          }
           else if (c.c.thumbUrl) ok = await thumbOf({ url: c.c.thumbUrl }, thumb);
           else if (c.c.fileUrl) ok = await thumbOf(c.c.kind === "image" ? { url: c.c.fileUrl } : { url: c.c.fileUrl, video: true, atS: 1 }, thumb);
           if (ok) offers.push({ n, c, key, thumb });

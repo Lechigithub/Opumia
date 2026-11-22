@@ -24,6 +24,9 @@ export interface StockCandidate {
   attributionText?: string;
   aiGenerated: boolean;
   archival: boolean;
+  /** Internet Archive: the item's own thumbnails with the second each shows (H31), and the moment chosen. */
+  moments?: Array<{ atS: number; url: string }>;
+  atS?: number;
 }
 
 export interface SearchOpts {
@@ -188,10 +191,13 @@ async function archive(q: string, o: SearchOpts): Promise<StockCandidate[]> {
   for (const d of (j?.response?.docs ?? []).slice(0, o.perPage)) {
     // One small H.264 derivative per item (the files list is a second request).
     const meta = await get<{ files?: Array<{ name: string; format?: string; size?: string; length?: string; width?: string; height?: string }>; result?: Array<{ name: string; format?: string; size?: string; length?: string; width?: string; height?: string }> }>(`https://archive.org/metadata/${encodeURIComponent(d.identifier)}/files`);
-    const f = (meta?.result ?? meta?.files ?? []).filter((x) => /\.mp4$/i.test(x.name) && /h\.264|MPEG4/i.test(x.format ?? "")).sort((a, b) => Number(a.size ?? 0) - Number(b.size ?? 0))[0];
+    const files = meta?.result ?? meta?.files ?? [];
+    const f = files.filter((x) => /\.mp4$/i.test(x.name) && /h\.264|MPEG4/i.test(x.format ?? "")).sort((a, b) => Number(a.size ?? 0) - Number(b.size ?? 0))[0];
     if (!f) continue;
+    // H31: the archive's own thumbnails, one about every minute; the number in the name is the second it shows.
+    const moments = files.filter((x) => x.format === "Thumbnail" && /_(\d+)\.jpg$/i.test(x.name)).map((x) => ({ atS: Number(/_(\d+)\.jpg$/i.exec(x.name)![1]), url: `https://archive.org/download/${d.identifier}/${x.name.split("/").map(encodeURIComponent).join("/")}` })).sort((a, b) => a.atS - b.atS);
     const pd = /publicdomain/.test(d.licenseurl ?? "") || (d.collection ?? []).some((c) => c === "prelinger" || c === "fedflix");
-    out.push({ provider: "archive" as const, externalId: `${d.identifier}/${f.name}`, kind: "video" as const, title: d.title ?? d.identifier, tags: [String(d.year ?? ""), ...(Array.isArray(d.subject) ? d.subject : d.subject ? [d.subject] : [])].filter(Boolean).slice(0, 8), pageUrl: `https://archive.org/details/${d.identifier}`, fileUrl: `https://archive.org/download/${d.identifier}/${encodeURIComponent(f.name)}`, thumbUrl: `https://archive.org/services/img/${d.identifier}`, ...(f.width ? { width: Number(f.width), height: Number(f.height) } : {}), ...(f.length ? { durationS: f.length.includes(":") ? f.length.split(":").reduce((t, x) => t * 60 + Number(x), 0) : Number(f.length) } : {}), license: pd ? "Public domain (Internet Archive)" : "CC BY (Internet Archive)", attributionRequired: !pd, attributionText: `${d.title ?? d.identifier} — Internet Archive`, aiGenerated: false, archival: true });
+    out.push({ provider: "archive" as const, externalId: `${d.identifier}/${f.name}`, kind: "video" as const, title: d.title ?? d.identifier, tags: [String(d.year ?? ""), ...(Array.isArray(d.subject) ? d.subject : d.subject ? [d.subject] : [])].filter(Boolean).slice(0, 8), pageUrl: `https://archive.org/details/${d.identifier}`, fileUrl: `https://archive.org/download/${d.identifier}/${encodeURIComponent(f.name)}`, thumbUrl: `https://archive.org/services/img/${d.identifier}`, ...(f.width ? { width: Number(f.width), height: Number(f.height) } : {}), ...(f.length ? { durationS: f.length.includes(":") ? f.length.split(":").reduce((t, x) => t * 60 + Number(x), 0) : Number(f.length) } : {}), license: pd ? "Public domain (Internet Archive)" : "CC BY (Internet Archive)", attributionRequired: !pd, attributionText: `${d.title ?? d.identifier} — Internet Archive`, aiGenerated: false, archival: true, ...(moments.length ? { moments } : {}) });
   }
   return out;
 }
@@ -206,9 +212,9 @@ export function providersFor(o: { kind: "video" | "image"; period: boolean }): s
 
 /** Every source that can supply this kind of picture: the pooled search asks all of them and judges by eye. */
 export function allProviders(o: { kind: "video" | "image"; period: boolean }): string[] {
-  // The Internet Archive adapter works but is not asked here: it returns whole films, and the fixed moment taken
-  // fitted 0 of 55 candidates on a real plan while costing a remote seek each. It needs moment finding first.
-  if (o.kind === "video") return o.period ? ["commons", "nara", "pexels", "pixabay"] : ["pexels", "pixabay", "coverr", "vecteezy", "commons"];
+  // The Internet Archive (whole films) joins for period footage now that the moment is found in each film from its
+  // own thumbnails (H31, press.ts:archiveMoment); a film with no matching moment is not offered.
+  if (o.kind === "video") return o.period ? ["commons", "nara", "archive", "pexels", "pixabay"] : ["pexels", "pixabay", "coverr", "vecteezy", "commons"];
   return o.period ? ["commons", "europeana", "nara", "openverse"] : ["pexels", "pixabay", "commons", "openverse"];
 }
 
@@ -218,7 +224,7 @@ export async function searchStock(q: string, o: SearchOpts & { providers: string
 }
 
 /** Where in a whole archive film the 20 s stretch is taken (the preview frame is taken from the same place). */
-export const archiveAt = (c: { durationS?: number }) => Math.max(5, Math.min((c.durationS ?? 120) * 0.4, (c.durationS ?? 120) - 25));
+export const archiveAt = (c: { durationS?: number; atS?: number }) => (c.atS !== undefined ? Math.max(0, c.atS - 3) : Math.max(5, Math.min((c.durationS ?? 120) * 0.4, (c.durationS ?? 120) - 25)));
 
 /** Download a candidate's file (never into Library/). Vecteezy URLs are requested on demand. */
 export async function downloadCandidate(c: StockCandidate, destDir: string): Promise<string> {
