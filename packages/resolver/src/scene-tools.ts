@@ -20,7 +20,7 @@ import { ensureLocal } from "@opumia/ingest";
 import { removeBackground } from "@opumia/senses";
 import { periodCheck, reviewPictures, yearOf } from "./press.js";
 import { materialize } from "./resolve.js";
-import { allProviders, downloadCandidate, searchStock, type StockCandidate } from "./stock.js";
+import { allProviders, downloadCandidate, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
 import { thumbOf } from "./widen.js";
 
 const sha = (s: string, n = 10) => createHash("sha1").update(s).digest("hex").slice(0, n);
@@ -67,7 +67,7 @@ export function makeSceneTools(o: SceneToolsOptions) {
     if (q.length < 4) return { ok: false, why: "say what the picture should show in a few plain words" };
     const found: StockCandidate[] = (await Promise.all([searchStock(q, { kind, orientation, perPage: 6, providers: ["pexels"] }).catch(() => []), searchStock(q, { kind, orientation, perPage: 3, providers: allProviders({ kind, period: false }).filter((p) => p !== "pexels") }).catch(() => []), ...(kind === "image" ? [searchStock(q, { kind, orientation, perPage: 3, providers: ["openverse", "europeana"] }).catch(() => [])] : [])])).flat();
     const taken = used();
-    const cands = found.filter((c) => !c.aiGenerated && !taken.has(`${c.provider}:${c.externalId}`) && !o.blocked?.has(`${c.provider}:${c.externalId}`)).slice(0, 18);
+    const cands = found.filter((c) => !c.aiGenerated && sharpEnough(c) && !taken.has(`${c.provider}:${c.externalId}`) && !o.blocked?.has(`${c.provider}:${c.externalId}`)).slice(0, 18);
     if (!cands.length) return { ok: false, why: `no source returned anything for "${q}" — try other words (what a stock library would call it)` };
     const withThumb = (
       await Promise.all(
@@ -183,7 +183,7 @@ export function makeFootageProbe(o: { jobDir: string; aspect: string; era: strin
       items.map(async (it): Promise<ProbeResult> => {
         const q = it.want.replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 6).join(" ");
         if (q.length < 4) return { key: it.key, found: 0, fit: 0, shows: "the request was too short to search", candidates: [] };
-        const found = (await Promise.all([searchStock(q, { kind: it.kind, orientation, perPage: 6, providers: ["pexels"] }).catch(() => []), searchStock(q, { kind: it.kind, orientation, perPage: 3, providers: ["pixabay", "commons"] }).catch(() => [])])).flat().filter((c) => !c.aiGenerated).slice(0, 10);
+        const found = (await Promise.all([searchStock(q, { kind: it.kind, orientation, perPage: 6, providers: ["pexels"] }).catch(() => []), searchStock(q, { kind: it.kind, orientation, perPage: 3, providers: ["pixabay", "commons"] }).catch(() => [])])).flat().filter((c) => !c.aiGenerated && sharpEnough(c)).slice(0, 10);
         const withThumb = (
           await Promise.all(
             found.map(async (c) => {

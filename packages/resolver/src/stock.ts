@@ -262,3 +262,16 @@ export async function downloadCandidate(c: StockCandidate, destDir: string): Pro
   });
   return dest;
 }
+
+/**
+ * G26: sharp sources only. A candidate whose stated size is below what a 1080p frame needs is refused before it is
+ * looked at: video under 720 px on its short side, a still under 1000 px on its long side (a still is often shown
+ * smaller than full frame). Archival material is allowed smaller (half), since period sources rarely exist in HD.
+ * Unknown sizes pass here; the preflight gate measures the downloaded pixels (soft_footage).
+ */
+export function sharpEnough(c: Pick<StockCandidate, "kind" | "width" | "height" | "archival">): boolean {
+  if (!c.width || !c.height) return true;
+  const k = c.archival ? 0.5 : 1;
+  return c.kind === "video" ? Math.min(c.width, c.height) >= 720 * k : Math.max(c.width, c.height) >= 1000 * k;
+}
+

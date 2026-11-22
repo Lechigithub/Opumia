@@ -7,6 +7,9 @@
  * Pictures live in their own small public folder (out/<job>/thumb-public/) so a thumbnail render bundles in
  * seconds instead of snapshotting the film's media.
  */
+import { sharpEnough as _sharp } from "./stock.js";
+/** Thumbnails are seen full-frame at 1280×720: stills need ≥ 1280 px on the long side (archival ≥ 900). */
+const thumbSharp = (c: { kind: "video" | "image"; width?: number; height?: number; archival: boolean }) => !c.width || !c.height || (c.kind === "video" ? _sharp(c) : Math.max(c.width, c.height) >= (c.archival ? 900 : 1280));
 import { createHash } from "node:crypto";
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -156,7 +159,7 @@ export function makeThumbnailTools(o: ThumbToolsOptions) {
     if (q.length < 3) return { ok: false, why: "say what the picture should show in a few plain words" };
     const cands = (await Promise.all([searchStock(q, { kind: "image", orientation: "landscape", perPage: 6, providers: ["pexels"] }).catch(() => []), searchStock(q, { kind: "image", orientation: "landscape", perPage: 4, providers: ["pixabay", "commons", "openverse"] }).catch(() => [])]))
       .flat()
-      .filter((c) => !c.aiGenerated && !AGENCY.test(`${c.attributionText ?? ""} ${c.title}`) && !has(`${c.provider}:${c.externalId}`) && !o.blocked?.has(`${c.provider}:${c.externalId}`))
+      .filter((c) => !c.aiGenerated && thumbSharp(c) && !AGENCY.test(`${c.attributionText ?? ""} ${c.title}`) && !has(`${c.provider}:${c.externalId}`) && !o.blocked?.has(`${c.provider}:${c.externalId}`))
       .slice(0, 14);
     if (!cands.length) return { ok: false, why: `no source returned anything for "${q}" — try the words a stock library would use` };
     const withThumb = (await Promise.all(cands.map(async (c) => {
@@ -261,7 +264,7 @@ export function makeThumbnailTools(o: ThumbToolsOptions) {
     if (base.length < 3) return { ok: false, why: "say what the overlay is (fire, smoke, sparks, explosion, light)" };
     const queries = [`${base} black background`, `${base} on black`];
     const found = (await Promise.all(queries.map((q) => searchStock(q, { kind: "video", orientation: "landscape", perPage: 6, providers: ["pexels", "pixabay"] }).catch(() => [])))).flat();
-    const uniq = [...new Map(found.filter((c) => !c.aiGenerated && !has(`${c.provider}:${c.externalId}`)).map((c) => [`${c.provider}:${c.externalId}`, c])).values()].slice(0, 8);
+    const uniq = [...new Map(found.filter((c) => !c.aiGenerated && thumbSharp(c) && !has(`${c.provider}:${c.externalId}`)).map((c) => [`${c.provider}:${c.externalId}`, c])).values()].slice(0, 8);
     if (!uniq.length) return { ok: false, why: `no stock video for "${base}" on black` };
     const scored: Array<{ c: StockCandidate; file: string; at: number; frame: string; bright: number }> = [];
     await Promise.all(
@@ -338,7 +341,7 @@ export function makeThumbnailTools(o: ThumbToolsOptions) {
     const base = i.want.replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 5).join(" ");
     if (base.length < 3) return { ok: false, why: "say what the texture is (blood splatter, cracked glass, burn marks, torn paper…)" };
     const found = (await Promise.all([`${base} texture`, `${base} isolated`].map((q) => searchStock(q, { kind: "image", orientation: "landscape", perPage: 6, providers: ["pexels", "pixabay"] }).catch(() => [])))).flat();
-    const uniq = [...new Map(found.filter((c) => !c.aiGenerated && !AGENCY.test(`${c.attributionText ?? ""}`) && !has(`${c.provider}:${c.externalId}`)).map((c) => [`${c.provider}:${c.externalId}`, c])).values()].slice(0, 10);
+    const uniq = [...new Map(found.filter((c) => !c.aiGenerated && thumbSharp(c) && !AGENCY.test(`${c.attributionText ?? ""}`) && !has(`${c.provider}:${c.externalId}`)).map((c) => [`${c.provider}:${c.externalId}`, c])).values()].slice(0, 10);
     if (!uniq.length) return { ok: false, why: `no stock picture for "${base}"` };
     const withThumb = (await Promise.all(uniq.map(async (c) => {
       const t = path.join(dl, "prev", `${sha(`${c.provider}:${c.externalId}`, 14)}.jpg`);
@@ -368,7 +371,7 @@ export function makeThumbnailTools(o: ThumbToolsOptions) {
     if (q.length < 3) return { ok: false, why: "say what the illustration shows" };
     const imageType = i.style ?? "vector";
     const found = (await Promise.all([searchStock(q, { kind: "image", orientation: "landscape", perPage: 8, providers: ["pixabay"], imageType }).catch(() => []), searchStock(q, { kind: "image", orientation: "landscape", perPage: 6, providers: ["vecteezy"], imageType }).catch(() => [])])).flat();
-    const uniq = found.filter((c) => !c.aiGenerated && !/\b(ai[- ]generated|midjourney|stable diffusion|dall-?e|generative)\b/i.test(`${c.title} ${c.tags.join(" ")}`) && !has(`${c.provider}:${c.externalId}`)).slice(0, 12);
+    const uniq = found.filter((c) => !c.aiGenerated && thumbSharp(c) && !/\b(ai[- ]generated|midjourney|stable diffusion|dall-?e|generative)\b/i.test(`${c.title} ${c.tags.join(" ")}`) && !has(`${c.provider}:${c.externalId}`)).slice(0, 12);
     if (!uniq.length) return { ok: false, why: `no human-made ${imageType} for "${q}"` };
     const withThumb = (await Promise.all(uniq.map(async (c) => {
       const t = path.join(dl, "prev", `${sha(`${c.provider}:${c.externalId}`, 14)}.jpg`);

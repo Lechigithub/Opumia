@@ -8,7 +8,7 @@ import { isUsable, MODELS, plain, structured } from "@opumia/agents";
 import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
-import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, type StockCandidate } from "./stock.js";
+import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
 import { periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
 import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
@@ -366,7 +366,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     // Measured on real plans: Pexels supplies most of the usable stock, so it is asked for more per search.
     const search = (q: string, kind: "video" | "image", providers: string[]): Promise<StockCandidate[]> => {
       const k = `${kind}|${providers.join(",")}|${q.toLowerCase()}`;
-      if (!memo.has(k)) memo.set(k, Promise.all(providers.map((pv) => askSource(pv, q, kind, pv === "pexels" ? 6 : 3))).then((r) => r.flat().filter((c) => !c.aiGenerated)));
+      if (!memo.has(k)) memo.set(k, Promise.all(providers.map((pv) => askSource(pv, q, kind, pv === "pexels" ? 6 : 3))).then((r) => r.flat().filter((c) => !c.aiGenerated && sharpEnough(c))));
       return memo.get(k)!;
     };
     type Offer = { n: Need; c: Cand; key: string; thumb: string };
