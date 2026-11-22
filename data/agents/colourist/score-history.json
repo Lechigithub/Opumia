@@ -1,0 +1,28 @@
+[
+ {
+  "job": "preview-kodak",
+  "at": "2026-11-22T13:36:26.529Z",
+  "pass": true,
+  "before": {
+   "luma": 0.31,
+   "colourfulness": 55.77,
+   "tinted": 10,
+   "tintedShare": 0.32,
+   "outside": [
+    "32 % of shots carried by one colour (the channel's typical film 11 %, most 40 %)"
+   ]
+  },
+  "after": {
+   "luma": 0.32,
+   "colourfulness": 44.92,
+   "tinted": 9,
+   "tintedShare": 0.29,
+   "outside": [
+    "29 % of shots carried by one colour (the channel's typical film 11 %, most 40 %)"
+   ]
+  },
+  "ops": 16,
+  "seconds": 79,
+  "usd": 0.0556
+ }
+]

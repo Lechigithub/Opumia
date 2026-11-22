@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, soundAgent, sourcingAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, soundAgent, sourcingAgent, colouristAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -191,7 +191,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     await writeFile(path.join(jobDir, "facts.json"), JSON.stringify(facts, null, 2) + "\n");
     log(`  writer: asked the researcher — ${facts.claims.length - claimsBefore} verified fact(s) added to the fact sheet`);
   }
-  const design = await designP;
+  let design = await designP;
   if (stop("script")) return { jobDir };
 
   log("\n[A3] narration (ElevenLabs)");
@@ -429,6 +429,35 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   if (process.env.OPUMIA_EDITOR !== "off" && (freshScenes || !(await exists(editFile)))) {
     log("\n[B4e] editor (rhythm of the cut)");
     await runEditor();
+  }
+  // [B4c] Colourist (B9): the film's colour as one thing — act grades, washes and dimming, measured on the final
+  // previews against the channel's real frames. OPUMIA_COLOURIST=off skips it.
+  const colourFile = path.join(jobDir, "colour.json");
+  if (process.env.OPUMIA_COLOURIST !== "off" && sceneAgent && (freshScenes || !(await exists(colourFile)))) {
+    log("\n[B4c] colourist");
+    const prevDir = path.join(jobDir, "previews");
+    const frames = new Map(scenePlan.scenes.map((x) => [x.shotId, path.join(prevDir, `${x.shotId}_1.jpg`)] as [string, string]).filter(([, f]) => existsSync(f)));
+    const actStarts = [0, ...manifest.video.filter((l) => l.ref === "chapter_card").map((l) => l.startFrame / manifest.fps).sort((a, b) => a - b)];
+    const startOf = new Map(board.shots.map((x) => [x.id, x.startS]));
+    const lookC = lookFromProfile(pack.profile.look, design.palette.primarySoft);
+    const col = await colouristAgent({
+      channel, title: draft.title, data: o.data, design, scenes: scenePlan, frames,
+      actOf: (id) => Math.max(0, actStarts.filter((t) => t <= (startOf.get(id) ?? 0) + 0.01).length - 1),
+      lineOf: (id) => { const sh = board.shots.find((x) => x.id === id); return sh ? timed.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; },
+      render: async (d, plan, ids) => {
+        const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: d.sceneGrammar.minRepeatGapS, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+        const prev = await renderShotPreviews({ manifest: m, look: lookC, design: d, publicDir: pub, outDir: prevDir, shotIds: ids });
+        return new Map(prev.map((pv) => [pv.shotId, pv.frames[1]!.path] as [string, string]));
+      },
+      memoryDir: path.join(o.data, "agents", "colourist"), log,
+    });
+    design = FilmDesignSystem.parse(col.design);
+    scenePlan = ScenePlan.parse(col.scenes);
+    await writeFile(path.join(jobDir, "design.json"), JSON.stringify(design, null, 2) + "\n");
+    await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+    manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+    await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+    await writeFile(colourFile, JSON.stringify(col.report, null, 2) + "\n");
   }
   // [B5] Timeline sound design: sound goes on what the viewer sees, once the scenes are final.
   const soundFile = path.join(jobDir, "sound.json");

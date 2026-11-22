@@ -1,0 +1,1 @@
+- LOG 2026-11-22 "preview-kodak": tinted 10 → 9, outside 1 → 1; 16 change(s); Lowered act tint from 0.18 to 0.03, saturation from 1.2 to 0.9, contrast from 1.1 to 1.05. Removed or softened washes on the tinted shots. Colourfulness is now inside the channel band, and brightness 
