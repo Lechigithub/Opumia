@@ -48,6 +48,18 @@ const guardBudget = () => {
   if (spent >= budget.limitUsd) throw new BudgetError(`spend limit reached: $${spent.toFixed(2)} of $${budget.limitUsd.toFixed(2)} for this film (raise OPUMIA_MAX_USD to continue; finished stages are cached)`);
 };
 
+/**
+ * H32: spend outside Claude goes in the same ledger (and counts toward the film's spend limit): ElevenLabs speech is
+ * billed per character. The price per 1,000 characters is an estimate for the account's plan — set
+ * OPUMIA_TTS_USD_PER_1K to the real figure (default 0.30).
+ */
+export function recordExternal(stage: string, provider: string, units: number, usd: number): UsageRecord {
+  const r: UsageRecord = { stage, model: provider, input: units, output: 0, cacheRead: 0, cacheWrite: 0, usd: Math.round(usd * 1e5) / 1e5 };
+  ledger.push(r);
+  return r;
+}
+export const ttsUsdPer1k = () => Number(process.env.OPUMIA_TTS_USD_PER_1K ?? 0.3) || 0.3;
+
 function record(stage: string, model: ModelId, msg: { model: string; usage: Anthropic.Beta.BetaUsage }) {
   const u = msg.usage;
   const p = PRICE[model];

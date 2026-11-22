@@ -58,7 +58,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.08, B1: 0.45, B2: 0.2, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.9, C4: 0.2 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.45, A2: 0.4, A3: 0.6, B1: 0.45, B2: 0.2, B3: 0.45, B4: 0.3, B5: 0.02, B6: 0.15, C1: 0.02, C2: 0.05, C3: 0.9, C4: 0.2 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;

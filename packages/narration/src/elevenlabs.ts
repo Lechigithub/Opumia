@@ -1,3 +1,4 @@
+import { recordExternal, ttsUsdPer1k } from "@opumia/agents";
 export interface CharAlignment {
   characters: string[];
   character_start_times_seconds: number[];
@@ -60,6 +61,7 @@ export async function ttsWithTimestamps(r: TtsRequest, apiKey = process.env.ELEV
     if (res.ok) {
       const j = (await res.json()) as { audio_base64: string; alignment?: CharAlignment | null; normalized_alignment?: CharAlignment | null };
       if (!j.alignment) throw new Error("ElevenLabs returned no alignment");
+      recordExternal("narration.tts", `elevenlabs:${r.modelId}`, r.text.length, (r.text.length / 1000) * ttsUsdPer1k());
       return {
         audio: Buffer.from(j.audio_base64, "base64"),
         alignment: j.alignment,
