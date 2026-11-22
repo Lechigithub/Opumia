@@ -5,3 +5,4 @@ export * from "./asr.js";
 export * from "./phoneme.js";
 export * from "./cutout.js";
 export * from "./craft.js";
+export * from "./design.js";

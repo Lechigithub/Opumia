@@ -4,9 +4,16 @@
  */
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { craftBand, measureCraft, type Craft, type CraftBand } from "@opumia/senses";
+import { craftBand, designBand, measureCraft, measureDesign, type Craft, type CraftBand, type Design, type DesignBand } from "@opumia/senses";
 
-export interface QualityBand { channel: string; thumbs: CraftBand; frames: CraftBand; generatedAt: string }
+export interface QualityBand {
+  channel: string;
+  thumbs: CraftBand;
+  frames: CraftBand;
+  /** Design fundamentals (senses/design.ts) on the same reference thumbnails and frames. */
+  design?: { thumbs: DesignBand; frames: DesignBand };
+  generatedAt: string;
+}
 
 export async function ensureQualityBand(o: { data: string; channel: string; log?: (s: string) => void }): Promise<QualityBand | null> {
   const file = path.join(o.data, "quality-profile", `${o.channel}.json`);
@@ -17,14 +24,23 @@ export async function ensureQualityBand(o: { data: string; channel: string; log?
   // The second frame of each labelled shot (mid-shot), every real shot of the exemplar set.
   const frameFiles = ex.shots.filter((s) => s.frames.length).map((s) => path.join(exDir, s.frames.at(-1)!));
   const prev = await readFile(file, "utf8").then((t) => JSON.parse(t) as QualityBand, () => null);
-  if (prev && prev.thumbs.count === thumbFiles.length && prev.frames.count === frameFiles.length) return prev;
+  if (prev?.design && prev.thumbs.count === thumbFiles.length && prev.frames.count === frameFiles.length) return prev;
   o.log?.(`  quality band: measuring ${thumbFiles.length} reference thumbnails and ${frameFiles.length} reference frames…`);
   const measure = async (fs: string[]) => {
     const out: Craft[] = [];
     for (let i = 0; i < fs.length; i += 8) out.push(...(await Promise.all(fs.slice(i, i + 8).map((f) => measureCraft(f).catch(() => null)))).filter((x): x is Craft => x !== null));
     return out;
   };
-  const band: QualityBand = { channel: o.channel, thumbs: craftBand(await measure(thumbFiles)), frames: craftBand(await measure(frameFiles)), generatedAt: new Date().toISOString() };
+  const measureD = async (fs: string[]) => {
+    const out: Design[] = [];
+    for (let i = 0; i < fs.length; i += 8) out.push(...(await Promise.all(fs.slice(i, i + 8).map((f) => measureDesign(f).catch(() => null)))).filter((x): x is Design => x !== null));
+    return out;
+  };
+  const band: QualityBand = {
+    channel: o.channel, thumbs: craftBand(await measure(thumbFiles)), frames: craftBand(await measure(frameFiles)),
+    design: { thumbs: designBand(await measureD(thumbFiles)), frames: designBand(await measureD(frameFiles)) },
+    generatedAt: new Date().toISOString(),
+  };
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(`${file}.tmp`, JSON.stringify(band, null, 1) + "\n");
   await rename(`${file}.tmp`, file);

@@ -25,18 +25,18 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 ## D. Learning from the reference (including the style profile)
 - ◐ D13 Full-reference embedding index (SigLIP 2 so400m, the Library's footage space): every reference shot and thumbnail.
 - ☐ D14 Trained taste scorer: real vs ours vs degraded.
-- ☐ D15 Edit-rhythm library: cuts against words and music.
-- ☐ D16 Sound against picture: hits and beds against what is on screen.
-- ☐ D17 Colour grade per act, measured on the reference.
-- ☐ D18 Design fundamentals on the reference: focal point, depth, colour contrast, light direction.
-- ☐ D35 One unified, versioned channel profile — every band in one place, all on the `senses` method, read by every agent.
-- ☐ D36 Profile by position in the film: cold open, chapter openings, middle, turns, ending.
-- ☐ D37 Relationship measures: line → picture, cut → word/beat, hit → visual event, music → story moment.
-- ☐ D38 Variety range: how far the channel's films differ from each other, so each of ours lands somewhere different.
-- ☐ D39 Real technique frequencies counted from every reference shot (the old profile's counts were example-clip counts).
-- ☐ D40 Short-form profile from real shorts (or a decision if the reference has none).
-- ☐ D41 Weighting by views (later: our own click-through).
-- ☐ D42 The other five channels rebuilt to the same depth.
+- ☑ D15 Edit-rhythm library: cuts against words and music (`reference-library.ts:findPassages`, `edl`).
+- ☑ D16 Sound against picture: hits, beds, drops and cues per shot in the index; `relations.hitOnScreen`, passages show them.
+- ☑ D17 Colour grade per act: `grade.arc` and chapter-to-chapter shift in the channel profile.
+- ☑ D18 Design fundamentals (`senses/design.ts`), two-sided band in `quality-profile`, checked on every thumbnail render. Kodak renders: 8 of 9 outside (sparse frame / pasted on a void).
+- ☑ D35 One unified, versioned channel profile — every band in one place, all on the `senses` method, read by every agent.
+- ☑ D36 Profile by position in the film: cold open, chapter openings, middle, turns, ending.
+- ☑ D37 Relationship measures: line → picture, cut → word/beat, hit → visual event, music → story moment.
+- ◐ D38 Variety range (look distance waits on embeddings): how far the channel's films differ from each other, so each of ours lands somewhere different.
+- ☑ D39 Real technique frequencies counted from every reference shot (the old profile's counts were example-clip counts).
+- ☑ D40 Short-form: the reference has 1 film under 3 min and no real shorts — recorded in the profile; shorts follow the cold-open segment until real shorts are added (owner decision needed to source them).
+- ◐ D41 Weighting by views: rank correlations and top-quartile band in the profile (later: our own click-through).
+- ◐ D42 Other channels: unified profiles built for four (Big Company has no shot analysis); story/visual/thumbnail bands still MagnatesMedia only.
 - ☐ D43 Profile version tied to the evaluation set.
 
 ## E. Craft written down

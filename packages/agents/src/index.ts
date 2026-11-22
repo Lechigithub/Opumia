@@ -33,3 +33,4 @@ export * from "./retrieve.js";
 export * from "./reference-index.js";
 export * from "./taste.js";
 export * from "./channel-profile.js";
+export * from "./reference-library.js";

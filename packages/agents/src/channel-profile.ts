@@ -68,6 +68,9 @@ export interface ChannelProfile {
     voice: { cutInPause: Band; cutToWordMedianS: Band };
   };
   variety: { acrossFilms: Record<string, number>; lookDistance: { betweenFilms: Band; withinFilm: Band } | null };
+  /** Colour grade across the film (D17): median saturation / brightness / contrast per tenth of the film, and how much
+   * the grade moves from chapter to chapter inside one film (median of per-film spread of chapter medians). */
+  grade: { arc: Array<{ sat: number; luma: number; contrast: number }>; chapterShift: { sat: Band; luma: Band; contrast: Band } };
   techniques: { pictureText: Record<string, number>; transitions: Record<string, number>; perFilmRange: Record<string, Band> };
   views: { rankCorrelation: Record<string, number>; topQuartile: Record<string, number>; note: string };
   shortForm: { available: boolean; films: number; note: string };
@@ -120,7 +123,7 @@ export function flat(m: Measures): Record<string, number> {
   return out;
 }
 
-function segmentOf(s: ReferenceShot, film: { durS: number; chapters: Array<[number, string]> }): Segment {
+export function segmentOfShot(s: ReferenceShot, film: { durS: number; chapters: Array<[number, string]> }): Segment {
   const first = film.chapters.find((c) => c[0] > 5)?.[0] ?? 60;
   if (s.t0 < Math.min(75, Math.max(25, first))) return "cold_open";
   if (s.pos >= 0.92) return "ending";
@@ -175,6 +178,8 @@ export async function buildChannelProfile(o: { data: string; channel: ChannelId;
   let cueNear = 0, cueN = 0, dropBefore = 0, chapN = 0;
   const cues10: number[] = [], drops10: number[] = [];
   const arc = Array.from({ length: 10 }, () => [] as number[]);
+  const gArc = Array.from({ length: 10 }, () => ({ sat: [] as number[], luma: [] as number[], contrast: [] as number[] }));
+  const shift = { sat: [] as number[], luma: [] as number[], contrast: [] as number[] };
   for (const f of films) {
     const shots = (byFilm.get(f.id) ?? []).map((i) => shotsAll[i]!);
     if (!shots.length) continue;
@@ -183,7 +188,7 @@ export async function buildChannelProfile(o: { data: string; channel: ChannelId;
     filmRows.push({ id: f.id, title: f.title, views: f.views, durS: f.durS, m: measure(shots, strong, f.durS) });
     // by position
     const seg = new Map<Segment, ReferenceShot[]>();
-    for (const s of shots) (seg.get(segmentOf(s, f)) ?? seg.set(segmentOf(s, f), []).get(segmentOf(s, f))!).push(s);
+    for (const s of shots) (seg.get(segmentOfShot(s, f)) ?? seg.set(segmentOfShot(s, f), []).get(segmentOfShot(s, f))!).push(s);
     for (const [k, ss] of seg) {
       const secs = ss.reduce((x, s) => x + (s.t1 - s.t0), 0);
       const hs = strong.filter((h) => ss.some((s) => h.t >= s.t0 && h.t < s.t1));
@@ -198,7 +203,16 @@ export async function buildChannelProfile(o: { data: string; channel: ChannelId;
       lineCls[c]!.push(s);
       if (s.hitOnCut) { hitShots.push(s); hitClasses.push(s.hitOnCut); }
       arc[Math.min(9, Math.floor(s.pos * 10))]!.push(s.bedDb);
+      const g = gArc[Math.min(9, Math.floor(s.pos * 10))]!;
+      g.sat.push(s.sat); g.luma.push(s.luma); g.contrast.push(s.contrast);
     }
+    const byCh = new Map<number, ReferenceShot[]>();
+    for (const s of shots) (byCh.get(s.chapter) ?? byCh.set(s.chapter, []).get(s.chapter)!).push(s);
+    if (byCh.size >= 3)
+      for (const k of ["sat", "luma", "contrast"] as const) {
+        const meds = [...byCh.values()].filter((x) => x.length >= 8).map((x) => pct(x.map((s) => s[k]), 0.5));
+        if (meds.length >= 3) shift[k].push(pct(meds, 0.9) - pct(meds, 0.1));
+      }
     // music → story
     if (a) {
       cues10.push((a.cues.length / f.durS) * 600);
@@ -292,6 +306,7 @@ export async function buildChannelProfile(o: { data: string; channel: ChannelId;
       voice: { cutInPause: allBand.cutInPause!, cutToWordMedianS: allBand.cutToWordMedianS! },
     },
     variety: { acrossFilms, lookDistance },
+    grade: { arc: gArc.map((g) => ({ sat: r(pct(g.sat, 0.5)), luma: r(pct(g.luma, 0.5)), contrast: r(pct(g.contrast, 0.5)) })), chapterShift: { sat: band(shift.sat), luma: band(shift.luma), contrast: band(shift.contrast) } },
     techniques,
     views: { rankCorrelation, topQuartile, note: `${filmRows.length} films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = ${top.length} films with ≥ ${q} views` },
     shortForm: { available: shorts.length >= 5, films: shorts.length, note: shorts.length >= 5 ? "real shorts present" : `the reference holds ${shorts.length} film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/` },
@@ -334,6 +349,7 @@ export function directivesOf(p: ChannelProfile): string[] {
     `Music: a cue change within 6 s of ${pc(p.relations.music.cueNearChapterStart)} of chapter starts; a drop-out just before ${pc(p.relations.music.dropBeforeChapter)} of them; ${p.relations.music.cuesPer10Min.median} cue changes per 10 min.`,
     `Variety: the channel's films differ — e.g. text share varies by ${Math.round((p.variety.acrossFilms.textSlam ?? 0) * 100)}% across films${p.variety.lookDistance ? `; two films' looks differ by ${p.variety.lookDistance.betweenFilms.median} (within one film ${p.variety.lookDistance.withinFilm.median})` : ""}. Land each film somewhere different inside the band, not on the average.`,
   ];
+  out.push(`Grade: the look moves between chapters — saturation shifts by about ${p.grade.chapterShift.sat.median} and brightness by ${p.grade.chapterShift.luma.median} (0–1 scale) between a film's chapters; across the film saturation runs ${p.grade.arc.map((g) => g.sat).join(" → ")}.`);
   if (!p.shortForm.available) out.push(`Short-form: ${p.shortForm.note}.`);
   return out;
 }

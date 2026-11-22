@@ -14,7 +14,7 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { FactSheet, FilmDesignSystem, SceneElement, TimedScript } from "@opumia/contracts";
-import { craftIssues, measureCraft, measureLook, run } from "@opumia/senses";
+import { craftIssues, designIssues, measureCraft, measureDesign, measureLook, run } from "@opumia/senses";
 import type { QualityBand } from "./quality-band.js";
 import * as z from "zod/v4";
 import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
@@ -590,7 +590,8 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         const look = await measureLook(file, { fps: 1 });
         const empty = await emptyShare(file).catch(() => 0);
         const px = await measureCraft(file).catch(() => null);
-        const pxIssues = px && o.quality ? craftIssues(px, o.quality.thumbs, "thumbnail", { grain: true }) : [];
+        const dz = o.quality?.design ? await measureDesign(file).catch(() => null) : null;
+        const pxIssues = [...(px && o.quality ? craftIssues(px, o.quality.thumbs, "thumbnail", { grain: true }) : []), ...(dz && o.quality?.design ? designIssues(dz, o.quality.design.thumbs, "thumbnail") : [])];
         const emptyLimit = craft ? Math.max(0.08, craft.emptyShare.p90) : 0.3;
         const issues = [...pxIssues, ...(empty > emptyLimit ? [{ kind: "empty_frame", detail: `${pc(empty)} of the frame is flat, dim or blurred; the channel's thumbnails stay at or under ${pc(emptyLimit)} (median ${pc(craft?.emptyShare.median ?? 0)}). Fill it: a pile, a pattern of the subject's own marks, a sharp background, fire, the hero bigger.` }] : []),...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
         const r: ThumbRender = { id, file, phone, concept: d.concept, conceptId: d.conceptId, empty, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness };

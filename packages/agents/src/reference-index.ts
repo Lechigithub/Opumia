@@ -43,13 +43,16 @@ export function loadReferenceIndex(data: string): Promise<ReferenceIndex | null>
   if (!cache.has(dir))
     cache.set(dir, (async () => {
       const manifest = await readFile(path.join(dir, "manifest.json"), "utf8").then((t) => JSON.parse(t) as ReferenceIndexManifest, () => null);
-      if (!manifest || !existsSync(path.join(dir, "shots.f16"))) return null;
+      if (!manifest || !existsSync(path.join(dir, "shots.jsonl"))) return null;
       const lines = async (f: string) => (await readFile(path.join(dir, f), "utf8")).split("\n").filter(Boolean).map((l) => JSON.parse(l));
+      const vecs = async (n: string, rows: number) => (existsSync(path.join(dir, `${n}.f16`)) ? f16ToF32(await readFile(path.join(dir, `${n}.f16`))) : new Float32Array(rows * DIM));
+      const oks = async (n: string, rows: number) => (existsSync(path.join(dir, `${n}.ok`)) ? new Uint8Array(await readFile(path.join(dir, `${n}.ok`))) : new Uint8Array(rows));
       const [shots, thumbs] = [(await lines("shots.jsonl")) as ReferenceShot[], (await lines("thumbs.jsonl")) as ReferenceThumb[]];
       return {
         manifest, shots, thumbs,
-        shotVec: f16ToF32(await readFile(path.join(dir, "shots.f16"))), thumbVec: f16ToF32(await readFile(path.join(dir, "thumbs.f16"))),
-        shotOk: new Uint8Array(await readFile(path.join(dir, "shots.ok"))), thumbOk: new Uint8Array(await readFile(path.join(dir, "thumbs.ok"))),
+        // Labels work without embeddings (still being built); vectors absent → every row marked unread.
+        shotVec: await vecs("shots", shots.length), thumbVec: await vecs("thumbs", thumbs.length),
+        shotOk: await oks("shots", shots.length), thumbOk: await oks("thumbs", thumbs.length),
       };
     })());
   return cache.get(dir)!;

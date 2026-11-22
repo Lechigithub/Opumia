@@ -2095,6 +2095,77 @@
   },
   "lookDistance": null
  },
+ "grade": {
+  "arc": [
+   {
+    "sat": 0.368,
+    "luma": 0.229,
+    "contrast": 0.382
+   },
+   {
+    "sat": 0.378,
+    "luma": 0.225,
+    "contrast": 0.38
+   },
+   {
+    "sat": 0.391,
+    "luma": 0.235,
+    "contrast": 0.391
+   },
+   {
+    "sat": 0.358,
+    "luma": 0.235,
+    "contrast": 0.376
+   },
+   {
+    "sat": 0.375,
+    "luma": 0.238,
+    "contrast": 0.381
+   },
+   {
+    "sat": 0.366,
+    "luma": 0.23,
+    "contrast": 0.386
+   },
+   {
+    "sat": 0.392,
+    "luma": 0.239,
+    "contrast": 0.381
+   },
+   {
+    "sat": 0.395,
+    "luma": 0.233,
+    "contrast": 0.38
+   },
+   {
+    "sat": 0.381,
+    "luma": 0.229,
+    "contrast": 0.385
+   },
+   {
+    "sat": 0.372,
+    "luma": 0.239,
+    "contrast": 0.379
+   }
+  ],
+  "chapterShift": {
+   "sat": {
+    "p10": 0.062,
+    "median": 0.164,
+    "p90": 0.322
+   },
+   "luma": {
+    "p10": 0.049,
+    "median": 0.116,
+    "p90": 0.271
+   },
+   "contrast": {
+    "p10": 0.042,
+    "median": 0.095,
+    "p90": 0.174
+   }
+  }
+ },
  "techniques": {
   "pictureText": {
    "designed+text": 0.251,
@@ -3492,7 +3563,115 @@
      "p90": 4.8
     }
    },
-   "generatedAt": "2026-11-22T01:46:49.955Z"
+   "design": {
+    "thumbs": {
+     "count": 37,
+     "focus": {
+      "p10": 0.173,
+      "median": 0.21,
+      "p90": 0.255
+     },
+     "focusX": {
+      "p10": 0.472,
+      "median": 0.494,
+      "p90": 0.512
+     },
+     "focusY": {
+      "p10": 0.461,
+      "median": 0.506,
+      "p90": 0.551
+     },
+     "depth": {
+      "p10": 2.773,
+      "median": 4.094,
+      "p90": 9.946
+     },
+     "separation": {
+      "p10": 0.028,
+      "median": 0.068,
+      "p90": 0.15
+     },
+     "hueContrast": {
+      "p10": 0.049,
+      "median": 0.132,
+      "p90": 0.669
+     },
+     "oneColour": {
+      "p10": 0.323,
+      "median": 0.506,
+      "p90": 0.712
+     },
+     "light": {
+      "p10": 0.121,
+      "median": 0.351,
+      "p90": 0.765
+     },
+     "lightDeg": {
+      "p10": 55,
+      "median": 211,
+      "p90": 302
+     },
+     "keyRatio": {
+      "p10": 1.845,
+      "median": 2.899,
+      "p90": 4.813
+     }
+    },
+    "frames": {
+     "count": 276,
+     "focus": {
+      "p10": 0.226,
+      "median": 0.324,
+      "p90": 0.544
+     },
+     "focusX": {
+      "p10": 0.437,
+      "median": 0.494,
+      "p90": 0.546
+     },
+     "focusY": {
+      "p10": 0.436,
+      "median": 0.497,
+      "p90": 0.571
+     },
+     "depth": {
+      "p10": 5.47,
+      "median": 23.09,
+      "p90": 50
+     },
+     "separation": {
+      "p10": 0.043,
+      "median": 0.142,
+      "p90": 0.306
+     },
+     "hueContrast": {
+      "p10": 0,
+      "median": 0.015,
+      "p90": 0.154
+     },
+     "oneColour": {
+      "p10": 0.431,
+      "median": 0.694,
+      "p90": 0.984
+     },
+     "light": {
+      "p10": 0.049,
+      "median": 0.266,
+      "p90": 0.762
+     },
+     "lightDeg": {
+      "p10": 33,
+      "median": 129,
+      "p90": 320
+     },
+     "keyRatio": {
+      "p10": 1.802,
+      "median": 4.119,
+      "p90": 15.689
+     }
+    }
+   },
+   "generatedAt": "2026-11-22T07:49:52.673Z"
   },
   "voice": {
    "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
@@ -3515,7 +3694,7 @@
    }
   }
  },
- "version": "f47cab5effd0",
+ "version": "ed12a5307105",
  "directives": [
   "Pace: 10.73–26.68 cuts a minute across the channel's films (median 16.96); median shot 2.002 s; shot lengths vary a lot (CV 1.254).",
   "By position: cold open 24.76 cuts/min with text on 49% of shots; chapter openings 15.15; middle 17.87; ending 16.65.",
@@ -3526,7 +3705,8 @@
   "Sound: 3.08 strong hits a minute, 26% of them on a cut; hit classes thud/hit 56%, boom/impact 27%, click/pop 8%.",
   "Music: a cue change within 6 s of 54% of chapter starts; a drop-out just before 32% of them; 10.008 cue changes per 10 min.",
   "Variety: the channel's films differ — e.g. text share varies by 30% across films. Land each film somewhere different inside the band, not on the average.",
+  "Grade: the look moves between chapters — saturation shifts by about 0.164 and brightness by 0.116 (0–1 scale) between a film's chapters; across the film saturation runs 0.368 → 0.378 → 0.391 → 0.358 → 0.375 → 0.366 → 0.392 → 0.395 → 0.381 → 0.372.",
   "Short-form: the reference holds 1 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T07:47:50.099Z"
+ "generatedAt": "2026-11-22T07:50:58.092Z"
 }
