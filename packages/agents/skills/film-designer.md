@@ -53,7 +53,7 @@ transition. Even the same topic made twice must look different.
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { loadFont as display } from "@remotion/google-fonts/Fraunces";
-const D = display().fontFamily;
+const D = display("normal", { weights: ["400", "800"], subsets: ["latin"] }).fontFamily; // only the weights used
 
 const Headline: React.FC<Record<string, unknown>> = (p) => {
   const f = useCurrentFrame(); const { fps } = useVideoConfig();

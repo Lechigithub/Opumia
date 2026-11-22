@@ -174,6 +174,7 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   picture_less_scenes: NO_PICTURE,
   dead_frames: SCENE,
   scene_defects: SCENE,
+  unreadable_text: SCENE,
   film_taste: SCENE,
   designed_share: [rung("the scene designer decides every shot", "scene designer", 0.4, sceneNote("this shot has no decided scene:"))],
   slow_zoom_share: EDIT,

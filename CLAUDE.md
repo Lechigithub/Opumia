@@ -354,6 +354,25 @@ appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds)
   provider switching are build list 3 part D.
 - Tests: `npx tsx apps/cli/src/dev/ladder-test.ts` (engine), `npx tsx apps/cli/src/dev/stretch-test.ts` (after the smoke render), both in `dev/regressions.ts`.
 
+## Prevention: the gate's measures run where the work is done (build list 3, part C, 2026-11-22)
+
+The preflight gate is meant to confirm, not to discover: each of its checks has the same measure inside the agent that
+does the work.
+
+| Gate check | Where it is prevented |
+| --- | --- |
+| `soft_footage` | the resolver and `find_picture` pass over footage whose `measureCraft().sharpTop` is below the channel's softest tenth (`softBelow`) |
+| `period_footage` | every placed pick under a pre-2009 line is dated on its own footage with `periodCheck` (not only its thumbnail); a late one is replaced |
+| `weak_fit` | the resolver's review rejects a pick under 6/10 (the gate's bar; it was 4) |
+| `stand_in_face` | the resolver's review (no face under a named person's line) and the scene designer's name guard |
+| `unreadable_text` (new), `scene_defects`, `film_taste`, `unique_look` | the scene designer's every `render_previews` reports code legibility (letters on a label box measured against the box), trained taste and likeness to our earlier films (`film-kit.ts:makeLikeness`, > 0.9 = too close); the critic is told about pale letters on light boxes |
+| `unique_plan` colour/treatment | the art director: `set_tokens` refuses a primary and accent within 25° of hue of an earlier film's; a used typeface is refused; samples report likeness |
+| font weight (film 2) | `write_kit` refuses a `loadFont()` that loads every weight (aliases followed) |
+| `unbridged_split` | the editor's `split_shot` bridges with the film's transition as it splits; `cut_on_action` reads motion and match frames around a cut |
+| `cause_as_fact` (writer) | `writer-agent.ts:causesAsFact`: "X caused Y" without a fact-sheet claim stating the cause, or a hedge, is refused like a motive |
+| voice repeatability | the voice direction of an unchanged script is cached (`voice-direction.json`); take seeds come from each passage's text |
+| jumps under overlays | `senses/jumps.ts:samePicture` compares the six best of twelve tiles when a card covers part of the frame |
+
 ## Preflight gate (2026-11-22)
 
 `produce` stage **B6** (`apps/cli/src/preflight.ts`, wired in `produce.ts`) runs every release-gate check that can be computed before the render, on the plan, the final scene previews and the narration. **A failing check goes to its owner, which replaces or redesigns — nothing is ever reduced to a weaker look** (build list 3, L8: the old `safe_scene`, `prune_shapes`, `soften_wash`, `vary_stage` reductions and dropping a picture without a replacement were removed). Up to eight rounds, each failing check one rung higher on its ladder (see **Escalation ladders**); what every ladder leaves unresolved is written to `out/<job>/preflight.json` and the render is refused.

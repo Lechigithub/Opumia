@@ -69,6 +69,9 @@ Fix what it names in your own part of the film. Pass on what belongs to another 
   the same footage is a jump unless a transition carries it. Use `set_transition` with `film`, the film's own
   transition from its kit; the channel bridges 4–11 such changes a minute, mostly with light flashes. `submit_cut` is
   refused while a split is unbridged.
+- **Cut on action, and match.** `cut_on_action` reads the motion of the outgoing clip around a cut and how closely its
+  frames match the incoming first frame: cut during a movement (a hand reaching, a door swinging), or on a frame that
+  matches the next shot's composition. A split is bridged by the film's own transition as it is made.
 - **Cut on the music.** `cut_on_beat` moves a cut onto the nearest beat when one is within 0.25 s and the cut stays
   off the middle of an important word. Use it at turns and in bursts, not everywhere.
 - **Cut on the voice, not after it.** A picture that arrives a moment before the word that names it leads the eye;

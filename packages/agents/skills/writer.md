@@ -32,7 +32,7 @@ The fact sheet is the only source of facts, but it is not closed. If the story n
 
 ## What you never do
 
-- Add a fact, figure, date, motive or quotation that is not in the fact sheet. Hedge anything marked partially supported.
+- Add a fact, figure, date, motive, cause or quotation that is not in the fact sheet. "X caused Y" is a claim: the fact sheet must say it, or tell the events in order and hedge the link. Hedge anything marked partially supported.
 - Write around a number with a vague phrase to dodge a limit ("a couple of decades away", "the following decade"). If a figure matters, say it; if it does not, leave the fact out or tell it differently.
 - Use dashes as pauses, brackets or semicolons. The narrator cannot speak them.
 - Use stock filler ("little did they know", "but that was just the beginning", "buckle up"), aphorisms, "it wasn't just X, it was Y", or rule-of-three lists.

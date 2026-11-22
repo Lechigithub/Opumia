@@ -16,7 +16,7 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ChannelId, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
-import { probeDuration } from "@opumia/senses";
+import { probeDuration, rgbFrames } from "@opumia/senses";
 import * as z from "zod/v4";
 import { loadChannelProfile, type Segment } from "./channel-profile.js";
 import { ourShotsFrom, structureOf, type FilmGap } from "./film-score.js";
@@ -113,6 +113,36 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
       }) as AgentTool["run"],
     },
     {
+      name: "cut_on_action",
+      description: "Build list 3, item 24: where a cut should fall, from the motion in the footage itself. For the cut at the start of a shot: the motion of the outgoing clip over its last second (cut DURING a movement, not after it) and how closely each moment of it matches the first frame of the incoming clip (a match cut). Returns the best times; then move_cut.",
+      schema: z.object({ shotId: z.string() }),
+      run: (async (i: { shotId: string }) => {
+        const k = find(i.shotId);
+        if (k <= 0) return "pick a shot after the first";
+        const prev = board.shots[k - 1]!, cur = board.shots[k]!;
+        const clip = (id: string) => o.resolution.media.find((m) => m.shotId === id && m.role === "primary" && m.kind === "video");
+        const a = clip(prev.id), b = clip(cur.id);
+        if (!a) return `${prev.id} has no moving footage: nothing to cut on`;
+        const FPS = 12, W = 32, H = 18;
+        const from = Math.max(prev.startS + MIN_SHOT, cur.startS - 1);
+        const to = Math.min(cur.startS + 0.4, prev.startS + capacity(prev.id, prev.trimInS ?? 0) - 0.05);
+        const ss = (prev.trimInS ?? 0) + (from - prev.startS);
+        const fr = await rgbFrames(a.localPath, { ss, t: to - from + 0.1, fps: FPS, w: W, h: H }).catch(() => []);
+        if (fr.length < 3) return "the outgoing clip could not be read there";
+        const gray = (f: Uint8Array) => { const g = new Float32Array(W * H); for (let p = 0; p < W * H; p++) g[p] = (f[p * 3]! + f[p * 3 + 1]! + f[p * 3 + 2]!) / 3; return g; };
+        const gs = fr.map(gray);
+        const motion = gs.map((g, j) => (j ? g.reduce((t, v, p) => t + Math.abs(v - gs[j - 1]![p]!), 0) / (W * H) : 0));
+        const first = b ? (await rgbFrames(b.localPath, { ss: cur.trimInS ?? 0, t: 0.2, fps: FPS, w: W, h: H }).catch(() => []))[0] : undefined;
+        const fg = first ? gray(first) : null;
+        const match = gs.map((g) => (fg ? 1 - g.reduce((t, v, p) => t + Math.abs(v - fg[p]!), 0) / (W * H * 255) : 0));
+        const at = (j: number) => r3(from + j / FPS);
+        const peak = motion.reduce((best, v, j) => (v > motion[best]! ? j : best), 1);
+        const bestMatch = match.reduce((best, v, j) => (v > match[best]! ? j : best), 0);
+        const now = Math.round((cur.startS - from) * FPS);
+        return `cut now at ${cur.startS.toFixed(2)} s (motion there ${(motion[Math.min(motion.length - 1, Math.max(0, now))] ?? 0).toFixed(1)}).\n- cut on action: the outgoing clip moves most at ${at(peak)} s (motion ${motion[peak]!.toFixed(1)}; the clip's median ${[...motion].sort((x, y) => x - y)[Math.floor(motion.length / 2)]!.toFixed(1)})${b ? `\n- match cut: the outgoing frame most like the incoming first frame is at ${at(bestMatch)} s (likeness ${match[bestMatch]!.toFixed(2)}; above 0.85 reads as a match)` : ""}\nMove the cut only where the voice allows (between words).`;
+      }) as AgentTool["run"],
+    },
+    {
       name: "move_cut",
       description: "Move the cut at the start of a shot to a new time (seconds). The previous shot ends there. A shot cannot become shorter than 0.35 s, and cannot grow past the footage its clip holds.",
       schema: z.object({ shotId: z.string(), toS: z.number() }),
@@ -157,7 +187,7 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         const cam = s.camera;
         const scale = i.second === "punch_in" ? 1.28 : 0.86;
         const cam2 = cam.type === "ken_burns" ? { ...cam, fromScale: Math.max(1, cam.toScale * scale), toScale: Math.max(1, cam.toScale * scale * 1.03) } : { type: "ken_burns" as const, fromScale: Math.max(1, 1.02 * scale), toScale: Math.max(1, 1.05 * scale), from: [0.5, 0.5] as [number, number], to: [0.5, 0.48] as [number, number], easing: "ease_in_out" as const };
-        board.shots.splice(k, 1, { ...s, endS: at }, { ...s, id: id2, startS: at, trimInS: r3(trim2), camera: cam2, transitionIn: "cut", sfx: [] });
+        board.shots.splice(k, 1, { ...s, endS: at }, { ...s, id: id2, startS: at, trimInS: r3(trim2), camera: cam2, transitionIn: o.filmTransition ? "film" : "whip", sfx: [] }); // item 24: a split is bridged as it is made
         const media2 = resolution.media.filter((m) => m.shotId === s.id).map((m) => ({ ...m, shotId: id2 }));
         resolution = { ...resolution, media: [...resolution.media, ...media2] };
         const sc = scenes.scenes.find((x) => x.shotId === s.id);

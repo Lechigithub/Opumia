@@ -55,6 +55,21 @@ export function samePicture(a: Uint8Array, b: Uint8Array): { score: number; how:
     if (zin > score) (score = zin), (how = `the same picture pushed in ×${s}`);
     if (zout > score) (score = zout), (how = `the same picture pulled out ×${s}`);
   }
+  // Build list 3, item 25: a heavy overlay (a card, a box of words) covers part of the picture and hides a jump from the
+  // whole-frame comparison. The same picture still agrees region by region where it is not covered: the six best of
+  // twelve tiles (4×3) are compared on their edge structure.
+  if (score < 0.8) {
+    const tiles: number[] = [];
+    const TW = W / 4, TH = Hh / 3;
+    for (let ty = 0; ty < 3; ty++) for (let tx = 0; tx < 4; tx++) {
+      const ta = new Float64Array(TW * TH), tb = new Float64Array(TW * TH);
+      for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const p = (ty * TH + y) * W + tx * TW + x; ta[y * TW + x] = ha[p]!; tb[y * TW + x] = hb[p]!; }
+      tiles.push(corr(ta, tb));
+    }
+    const best6 = tiles.sort((x, y) => y - x).slice(0, 6);
+    const regional = best6.reduce((t, v) => t + v, 0) / 6;
+    if (best6[5]! > 0.75 && regional * 0.97 > score) (score = regional * 0.97), (how = "the same picture under an overlay (half the frame agrees)");
+  }
   return { score, how };
 }
 /** A frame scaled up by `s` around (cx, cy) in 0..1 (a punch-in toward any point), resampled to the frame size. */

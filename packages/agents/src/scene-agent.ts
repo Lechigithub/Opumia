@@ -17,7 +17,7 @@ import { ScenePlan, type FilmDesignSystem, type ResolutionReport, type Storyboar
 import * as z from "zod/v4";
 import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
 import { designScenes, SceneDraftSchema, type SceneDraftScene } from "./scene-designer.js";
-import { colourCover } from "@opumia/senses";
+import { colourCover, measureLegibility, textBoxesOf } from "@opumia/senses";
 import { nearestByMeaning } from "./retrieve.js";
 import { labelShots, SHOT_KINDS, visualIssues, visualProfile, type VisualBand, type VisualProfile } from "./visual-measure.js";
 
@@ -43,6 +43,8 @@ export interface SceneAgentOptions {
   play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
   /** Step 4: trained taste of rendered frames (0–10, the same heads as the film score), and the channel's real band. */
   taste?: { score: (files: string[]) => Promise<Array<number | null>>; realP10: number; realMedian: number };
+  /** Build list 3, item 20: likeness of frames to our earlier films (max cosine) and the limit above which a frame looks like one. */
+  likeness?: { near: (files: string[]) => Promise<number[]>; limit: number };
   /** This film's own kit (design/film/meta.json): every word on screen and the stage come from it (build list 3, L3). */
   kit: FilmKitMeta;
   /** Step 2: watch a stretch at real speed with sound, with the measured detector report (jumps, legibility, seams, taste). */
@@ -323,9 +325,21 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         const out = await renderShots(i.shotIds);
         if (!out.length) return "nothing to render: design those shots first";
         const blocks: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [];
-        for (const r of out) {
+        // item 20: the gate's own measures on every render — legibility on a phone, trained taste, likeness to our earlier films
+        const tastes = o.taste ? await o.taste.score(out.map((r) => r.mid)).catch(() => out.map(() => null)) : out.map(() => null);
+        const near = o.likeness ? await o.likeness.near(out.map((r) => r.mid)).catch(() => out.map(() => 0)) : out.map(() => 0);
+        for (const [k, r] of out.entries()) {
           const sh = shots.find((s) => s.id === r.shotId)!;
-          blocks.push({ type: "text", text: `${r.shotId} — "${lineOf(sh).slice(0, 120)}" (early, middle, end):` }, await img(r.sheet));
+          const sc = plan.scenes.find((x) => x.shotId === r.shotId);
+          const leg = sc ? await measureLegibility(r.mid, textBoxesOf(sc as never)).catch(() => []) : [];
+          const bad = leg.filter((l) => l.issues.length);
+          const t = tastes[k];
+          const m = [
+            leg.length ? (bad.length ? `UNREADABLE: ${bad.map((l) => `"${l.label}" ${l.issues.join("; ")}`).join(" | ")}` : `text readable (${leg.map((l) => `${l.contrast}:1`).join(", ")})`) : "no text",
+            t !== null && t !== undefined && o.taste ? `taste ${t}/10${t < o.taste.realP10 ? ` — BELOW the channel's lowest tenth (${o.taste.realP10})` : ""}` : "",
+            o.likeness && near[k]! > o.likeness.limit ? `LOOKS LIKE AN EARLIER FILM (${near[k]})` : "",
+          ].filter(Boolean).join("; ");
+          blocks.push({ type: "text", text: `${r.shotId} — "${lineOf(sh).slice(0, 120)}" (early, middle, end) — measured: ${m}` }, await img(r.sheet));
           unseen.delete(r.shotId);
         }
         return blocks;

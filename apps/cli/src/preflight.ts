@@ -17,7 +17,7 @@ import path from "node:path";
 import type { RenderManifest, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
 import { contactSheet, measureLook, measurePace, measureProsody, measureSound, pct, r3, rgbFrames } from "@opumia/senses";
 import { periodCheck, reviewFrame, yearOf } from "@opumia/resolver";
-import { measureCraft } from "@opumia/senses";
+import { measureCraft, measureLegibility, textBoxesOf } from "@opumia/senses";
 import type { QualityBand } from "@opumia/agents";
 import type { ExemplarIndex } from "./exemplars.js";
 
@@ -283,6 +283,21 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     add({ id: "soft_footage", label: "Footage softer than the channel's softest tenth of frames", value: soft.length, target: `≤ ${lim}`, pass: soft.length <= lim, level: "blocker", repair: "replace_picture", shots: soft });
   }
 
+  // --- Words on screen readable on a phone (item 25: the same measure the scene designer sees on every render; letters
+  // on a drawn label box are measured against the box).
+  {
+    const bad: string[] = [];
+    const notes: string[] = [];
+    for (const sc of o.scenes.scenes) {
+      const f = path.join(o.jobDir, "previews", `${sc.shotId}_1.jpg`);
+      const boxes = textBoxesOf(sc as never);
+      if (!boxes.length || !(await import("node:fs")).existsSync(f)) continue;
+      const leg = await measureLegibility(f, boxes, { aspect: o.board.aspect }).catch(() => []);
+      const u = leg.filter((l) => l.issues.length);
+      if (u.length) (bad.push(sc.shotId), notes.push(`${sc.shotId}: "${u[0]!.label}" ${u[0]!.issues[0]}`));
+    }
+    add({ id: "unreadable_text", label: "Scenes with words a phone viewer cannot read", value: bad.length, target: "0", pass: bad.length === 0, level: "blocker", repair: "redesign_scene", shots: bad, ...(notes.length ? { note: notes.slice(0, 4).join("; ") } : {}) });
+  }
   add({ id: "scene_defects", label: "Scenes with a visible defect on the final preview", value: o.sceneDefects.size, target: "0", pass: o.sceneDefects.size === 0, level: "blocker", repair: "redesign_scene", shots: [...o.sceneDefects.keys()], ...(o.sceneDefects.size ? { note: [...o.sceneDefects.entries()].slice(0, 4).map(([k, v]) => `${k}: ${v[0]}`).join("; ") } : {}) });
 
   // --- Look, measured on the final preview frames against the channel's own films (movement needs the render).

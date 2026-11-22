@@ -38,6 +38,25 @@ async function paletteOf(files: string[]): Promise<string[]> {
   return groups.sort((a, b) => b.n - a.n).slice(0, 8).map((g) => `#${hex(g.c[0])}${hex(g.c[1])}${hex(g.c[2])} (${Math.round((g.n / Math.max(1, cols.length)) * 100)} %)`);
 }
 
+/** Likeness of frames to our produced films (max cosine of the frame's embedding against their looks, once a second). */
+export async function makeLikeness(o: { root: string; data: string; job: string }): Promise<{ films: number; near: (files: string[]) => Promise<number[]> }> {
+  const made = await producedJobs(o.data);
+  const earlier: Float32Array[] = [];
+  for (const j of made) {
+    if (j === o.job || !existsSync(path.join("out", j))) continue;
+    const f = readdirSync(path.join("out", j)).find((x) => /_(16x9|9x16)\.mp4$/.test(x));
+    if (f) earlier.push(...(await filmLook({ root: o.root, data: o.data, video: path.join("out", j, f), film: j })).vecs);
+  }
+  return {
+    films: earlier.length,
+    near: async (files) => {
+      if (!earlier.length || !files.length) return files.map(() => 0);
+      const vs = await embedPictures({ root: o.root, data: o.data, items: files.map((file) => ({ file })) });
+      return vs.map((v) => { let best = 0; if (v) for (const e of earlier) { let d = 0; for (let k = 0; k < v.length; k++) d += v[k]! * e[k]!; if (d > best) best = d; } return Math.round(best * 1000) / 1000; });
+    },
+  };
+}
+
 export async function runFilmDesigner(o: { root: string; data: string; library: string; jobDir: string; job: string; channel: ChannelId; title: string; topic: string; acts: number; brief: string; board: Storyboard; scenes: ScenePlan | null; resolution: ResolutionReport; timed: TimedScript; look: (d: FilmDesignSystem) => Look; change?: { request: string; fresh: boolean; tokens?: KitTokens }; log: (s: string) => void }): Promise<{ report: FilmDesignerReport; design: FilmDesignSystem | null }> {
   // design.json is written from the kit's own tokens (build list 3, L1): the art director sets them, nothing else does
   let design: FilmDesignSystem | null = o.change?.tokens && !o.change.fresh && existsSync(path.join(o.jobDir, "design.json")) ? (JSON.parse(await readFile(path.join(o.jobDir, "design.json"), "utf8")) as FilmDesignSystem) : null;
@@ -58,13 +77,7 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
   const reference = ex.shots.filter((x) => x.frames.length && x.designed).map((x) => ({ kind: x.kind, frame: path.join(exDir, x.frames.at(-1)!), line: `${x.line} [${x.layout}]` }));
   const tm = await loadTaste(o.data, o.channel, "shot").catch(() => null);
   // our produced films' looks (frames, once a second), for "too close to an earlier film"
-  const made = await producedJobs(o.data);
-  const earlier: Float32Array[] = [];
-  for (const j of made) {
-    if (j === o.job || !existsSync(path.join("out", j))) continue;
-    const f = readdirSync(path.join("out", j)).find((x) => /_(16x9|9x16)\.mp4$/.test(x));
-    if (f) earlier.push(...(await filmLook({ root: o.root, data: o.data, video: path.join("out", j, f), film: j })).vecs);
-  }
+  const likeness = await makeLikeness({ root: o.root, data: o.data, job: o.job });
   const samplesDir = path.join(o.jobDir, "design", "samples");
   await mkdir(samplesDir, { recursive: true });
   let round = 0;
@@ -91,16 +104,12 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
         const dz = await measureDesign(mid).catch(() => null);
         const dIssues = dz && qb?.design ? designIssues(dz, (qb.design as { frames: never }).frames, "frame").map((x) => x.kind) : [];
         const t = tm ? (await scoreTaste({ root: o.root, data: o.data, channel: o.channel, kind: "shot", items: [{ file: mid }] }).catch(() => [null]))[0] : null;
-        let near = 0;
-        if (earlier.length) {
-          const v = (await embedPictures({ root: o.root, data: o.data, items: [{ file: mid }] }))[0];
-          if (v) for (const e of earlier) { let d = 0; for (let k = 0; k < v.length; k++) d += v[k]! * e[k]!; if (d > near) near = d; }
-        }
+        const near = (await likeness.near([mid]))[0] ?? 0;
         const legText = leg.length ? leg.map((l) => `"${l.label}": ${l.issues.length ? `UNREADABLE — ${l.issues.join("; ")}` : `contrast ${l.contrast}:1, ${l.phonePx} px on a phone`}`).join("; ") : "no text box measured";
         // the model takes images up to 3000 px a side: the sheet (three full frames) is sent at 1800 px wide
         const small = p.sheet.replace(/(\.[a-z]+)$/, "_s$1");
         await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", p.sheet, "-vf", "scale='min(1800,iw)':-2", small]).catch(() => null);
-        out.push({ shotId: p.shotId, mid, sheet: existsSync(small) ? small : p.sheet, text: `- legibility: ${legText}\n- design: ${dIssues.length ? dIssues.join(", ") : "focal point, depth and colour inside the channel's band"}\n- trained taste: ${t?.score ?? "?"}/10${tm ? ` (the channel's real shots: lowest tenth ${tm.calibration.real.p10}, median ${tm.calibration.real.median})` : ""}\n- likeness to our earlier films: ${earlier.length ? `${near.toFixed(2)}${near > 0.9 ? " — TOO CLOSE: it looks like an earlier film" : ""}` : "no earlier produced film"}` });
+        out.push({ shotId: p.shotId, mid, sheet: existsSync(small) ? small : p.sheet, text: `- legibility: ${legText}\n- design: ${dIssues.length ? dIssues.join(", ") : "focal point, depth and colour inside the channel's band"}\n- trained taste: ${t?.score ?? "?"}/10${tm ? ` (the channel's real shots: lowest tenth ${tm.calibration.real.p10}, median ${tm.calibration.real.median})` : ""}\n- likeness to our earlier films: ${likeness.films ? `${near.toFixed(2)}${near > 0.9 ? " — TOO CLOSE: it looks like an earlier film" : ""}` : "no earlier produced film"}` });
       }
       return out;
     },

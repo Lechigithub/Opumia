@@ -10,6 +10,7 @@ import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
+import { measureCraft } from "@opumia/senses";
 import { archiveMoment, periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
 import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
@@ -161,6 +162,9 @@ export interface ResolveOptions {
   era?: StoryEra | null;
   /** Candidates the director already found and rated when it probed for footage (shot id → candidates). */
   probes?: Map<string, StockCandidate[]>;
+  /** Build list 3, item 21: footage whose sharpest tenth is below this (the channel's softest tenth of frames,
+   * `senses:measureCraft().sharpTop`) is not placed — the same measure the preflight gate uses. */
+  softBelow?: number;
   /** Folder for the stock-search memo (results kept 20 h, so re-runs and films on one subject do not spend API quota twice). */
   cacheDir?: string;
   /** Fair-use press sourcing (YouTube news/interview excerpts, Wikipedia photos and logos). Default on. */
@@ -561,6 +565,12 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           fallbacks++;
           continue;
         }
+        if (await tooSoft(m)) {
+          lastErr = `${keyOf(c)} is softer than the channel's softest frames`;
+          await unlink(m.localPath).catch(() => {});
+          fallbacks++;
+          continue;
+        }
         const rs = ratedSeen.get(`${n.shot.id}|${keyOf(c)}`);
         if (rs) (m.seen = rs), (m.depicts ??= rs.note);
         media.push(m);
@@ -600,7 +610,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         const r = reviews[k]!;
         x.m.seen = { fit: r.fit, face: r.face, banner: r.banner, note: r.shows };
         if (!x.m.depicts) x.m.depicts = r.shows;
-        const why = r.fit < 4 ? `poor fit (${r.fit}/10): shows ${r.shows}` : r.banner ? "burned-in graphics" : r.synthetic ? "looks generated, not photographed" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
+        const why = r.fit < 6 ? `poor fit (${r.fit}/10, the gate needs 6): shows ${r.shows}` : r.banner ? "burned-in graphics" : r.synthetic ? "looks generated, not photographed" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
         if (!why) continue;
         rejected++;
         media.splice(media.indexOf(x.m), 1);
@@ -618,6 +628,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
             try {
               const m2 = await materializeCand(alt, x.n);
               if (m2.kind === "video" && (await hasBlack(m2.localPath))) continue;
+              if (await tooSoft(m2)) continue;
               const rs = ratedSeen.get(`${x.n.shot.id}|${keyOf(alt)}`);
               if (rs) (m2.seen = rs), (m2.depicts ??= rs.note);
               media.push(m2);
@@ -634,6 +645,52 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       }
     }
     log(`  resolver: every pick reviewed by eye — ${rejected} rejected (${replaced} replaced, ${rejected - replaced > 0 ? `${unresolved.filter((u) => u.reason.startsWith("review:")).length} shot(s) left for a designed scene` : "none left without a picture"})`);
+  }
+
+  // Build list 3, item 21: every placed pick under a line set before 2009 is dated on its own footage with the same
+  // check the preflight gate runs (the candidates were dated on preview thumbnails; the footage can differ).
+  {
+    let late = 0, fixed = 0;
+    const items: Array<{ m: ResolvedMedia; n: Need; frame: string; year: number }> = [];
+    for (const m of media.filter((x) => x.role === "primary" && x.origin !== "press")) {
+      const n = needs.find((x) => x.shot.id === m.shotId);
+      const year = n ? yearOf(briefOf(n).when) : null;
+      if (!n || year === null || year > 2008) continue;
+      const frame = `${m.localPath}.period.jpg`;
+      if (await reviewFrame(m.localPath, frame, m.kind === "video" ? 1 : 0)) items.push({ m, n, frame, year });
+    }
+    const dated = items.length ? await periodCheck(items.map((x) => ({ frameFile: x.frame, year: x.year }))) : [];
+    for (const [k, x] of items.entries()) {
+      if (dated[k]!.ok) continue;
+      late++;
+      media.splice(media.indexOf(x.m), 1);
+      let ok = false;
+      for (const alt of [...(stock.get(x.n.shot.id) ?? []), ...(local.get(x.n.shot.id) ?? [])].filter((c) => !taken.has(keyOf(c))).slice(0, 2)) {
+        try {
+          const m2 = await materializeCand(alt, x.n);
+          const f2 = `${m2.localPath}.period.jpg`;
+          if (!(await reviewFrame(m2.localPath, f2, m2.kind === "video" ? 1 : 0)) || !(await periodCheck([{ frameFile: f2, year: x.year }]))[0]!.ok || (await tooSoft(m2))) continue;
+          const rs = ratedSeen.get(`${x.n.shot.id}|${keyOf(alt)}`);
+          if (rs) (m2.seen = rs), (m2.depicts ??= rs.note);
+          media.push(m2);
+          taken.add(keyOf(alt));
+          fixed++;
+          ok = true;
+          break;
+        } catch {
+          /* next */
+        }
+      }
+      if (!ok) unresolved.push({ shotId: x.n.shot.id, query: x.n.query, reason: `period: ${dated[k]!.evidence.slice(0, 120)}` });
+    }
+    if (items.length) log(`  resolver: ${items.length} period pick(s) dated on their footage — ${late} looked too late (${fixed} replaced)`);
+  }
+
+  /** The preflight gate's softness measure, run at placement (press footage is exempt, as in the gate). */
+  async function tooSoft(m: ResolvedMedia): Promise<boolean> {
+    if (!o.softBelow || m.origin === "press") return false;
+    const c = await measureCraft(m.localPath, m.kind === "video" ? Math.min(1, (m.durationS ?? 2) / 2) : undefined).catch(() => null);
+    return Boolean(c && c.sharpTop < o.softBelow);
   }
 
   async function materializeCand(c: Cand, n: Need): Promise<ResolvedMedia> {

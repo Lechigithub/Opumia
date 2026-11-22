@@ -12,7 +12,7 @@ import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
-import { runFilmDesigner } from "./film-kit.js";
+import { makeLikeness, runFilmDesigner } from "./film-kit.js";
 import { run } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
@@ -308,12 +308,15 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   if (stop("storyboard")) return { jobDir };
 
   log("\n[B2] asset resolver (library first → stock/archival)");
+  // The gate's own measures run where the work is done (build list 3, part C): footage softer than the channel's
+  // softest tenth of frames is never placed.
+  const softBelow = (await ensureQualityBand({ data: o.data, channel, log }).catch(() => null))?.frames.sharpTop.p10;
   let resolution = await cachedJson(path.join(jobDir, "resolution.json"), ResolutionReport, redo("resolve"), async () => {
     // Blocked = pictures earlier films rejected + everything the last films used (cross-film cooldown).
     const cool = await cooldownRefs(o.data, jobId);
     const blocked = new Set([...blockedRefs(memory), ...cool.pictures]);
     log(`  cooldown: ${cool.pictures.size} picture ref(s) used by recent films are off limits`);
-    return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), probes: new Map(Object.entries(await readFile(probesFile, "utf8").then((t) => (JSON.parse(t) as { probes: Record<string, StockCandidate[]> }).probes, () => ({}) as Record<string, StockCandidate[]>))), log });
+    return resolveAssets({ ...(softBelow ? { softBelow } : {}), storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), probes: new Map(Object.entries(await readFile(probesFile, "utf8").then((t) => (JSON.parse(t) as { probes: Record<string, StockCandidate[]> }).probes, () => ({}) as Record<string, StockCandidate[]>))), log });
   }, log);
   // [B2d] The art director from a blank slate: the film's own motion-design kit, written as code (design/film/),
   // rendered on the film's own shots, measured and revised. It owns the film's look: its tokens (design.json:
@@ -340,7 +343,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const coolR = await cooldownRefs(o.data, jobId);
       const eraR = eraOfFacts(facts);
       const whenR = new Map(cov.rows.filter((r) => r.when).map((r) => [r.shotId, r.when!] as [string, string]));
-      const tools = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraR ? `${eraR.min}–${eraR.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolR.pictures]), iconColor: design.palette.text, whenOf: (id) => whenR.get(id) });
+      const tools = makeSceneTools({ ...(softBelow ? { softBelow } : {}), jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraR ? `${eraR.min}–${eraR.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolR.pictures]), iconColor: design.palette.text, whenOf: (id) => whenR.get(id) });
       const sa = await sourcingAgent({ channel, data: o.data, jobDir, title: draft.title, rows: cov.rows, resolution, subjects: (facts.story?.characters ?? []).map((c) => c.name), findPicture: (i) => tools.findPicture(i), memoryDir: path.join(o.data, "agents", "sourcing"), log });
       resolution = ResolutionReport.parse(sa.resolution);
       await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
@@ -363,6 +366,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // The scene designer agent, callable again (the showrunner sends shots back to it).
   let sceneReport: SceneReport | null = null;
   const tasteModel = await loadTaste(o.data, channel, "shot").catch(() => null);
+  const likeness = await makeLikeness({ root: o.root, data: o.data, job: jobId });
   const runSceneAgent = async (extra: { previous?: ScenePlan; revise?: Array<{ shotId: string; note: string }> } = {}) => {
     const lookA = lookFromProfile(pack.profile.look, design.palette.primarySoft);
     const burn = o.aspect === "9:16" || pack.captions.burnLongForm;
@@ -378,8 +382,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const whenByShot = new Map<string, string>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; when?: string }> }).rows.filter((r) => r.when).map((r) => [r.shotId, r.when!] as [string, string]), () => []));
     const coolS = await cooldownRefs(o.data, jobId);
     const eraS = eraOfFacts(facts);
-    const pictures = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
-    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
+    const pictures = makeSceneTools({ ...(softBelow ? { softBelow } : {}), jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
+    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(likeness.films ? { likeness: { near: likeness.near, limit: 0.9 } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
       // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
       const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
@@ -607,7 +611,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const recent = await cooldownRefs(o.data, jobId);
   const srcRows = new Map<string, { must?: string; when?: string; need?: string }>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; must?: string; when?: string; need?: string }> }).rows.map((r) => [r.shotId, r] as [string, { must?: string; when?: string; need?: string }]), () => []));
   const eraG = eraOfFacts(facts);
-  const gateTools = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: allW, era: eraG ? `${eraG.min}–${eraG.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...recent.pictures]), iconColor: design.palette.text, whenOf: (id) => srcRows.get(id)?.when });
+  const gateTools = makeSceneTools({ ...(softBelow ? { softBelow } : {}), jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: allW, era: eraG ? `${eraG.min}–${eraG.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...recent.pictures]), iconColor: design.palette.text, whenOf: (id) => srcRows.get(id)?.when });
   // New footage through the same tool the scene designer uses — searched, rated by eye, dated against the line's year.
   const refill = async (ids: string[], wantOf?: (id: string) => string) => {
     const got: string[] = [];

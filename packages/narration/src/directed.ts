@@ -120,7 +120,13 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const scriptText = raw.map((r) => r.text).join(" ");
   const known: Lexicon = Object.fromEntries(Object.entries(lexAll).filter(([t]) => scriptText.includes(t)));
   const people = (o.facts.story?.characters ?? []).map((c) => c.name);
-  const dv = await directVoice({ channel: o.channel, sentences: raw.map((r) => ({ text: r.text, role: r.role })), people, known, ...(o.narrator ? { narratorWpm: o.narrator.wpm } : {}) });
+  // Build list 3, item 23: the direction of an unchanged script is reused (the same passages, emphases and pauses), so a
+  // re-run or a ladder rung does not re-direct and re-record lines that did not change; melody stops varying run to run.
+  const dirFile = path.join(o.outDir, "voice-direction.json");
+  const dirKey = sha(`${o.channel}|${raw.map((r) => `${r.role}:${r.text}`).join("\n")}`);
+  const cachedDir = existsSync(dirFile) ? (JSON.parse(await readFile(dirFile, "utf8")) as { key: string; dv: Awaited<ReturnType<typeof directVoice>> }) : null;
+  const dv = cachedDir?.key === dirKey ? cachedDir.dv : await directVoice({ channel: o.channel, sentences: raw.map((r) => ({ text: r.text, role: r.role })), people, known, ...(o.narrator ? { narratorWpm: o.narrator.wpm } : {}) });
+  if (cachedDir?.key !== dirKey) await writeFile(dirFile, JSON.stringify({ key: dirKey, dv }, null, 1) + "\n");
   const lex: Lexicon = { ...known, ...dv.terms };
   // Step 3 (seamless voice): sentences are spoken in passages — consecutive sentences of one segment and chapter, up to
   // about 600 characters, ending at a held beat — so the voice is never cut inside a passage: its intonation runs
@@ -157,7 +163,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     const text = speakText(u, lex, respell);
     const prev = units.slice(Math.max(0, i - 2), i).map((x) => x.text).join(" ").slice(-300);
     const next = units[i + 1]?.text.slice(0, 200);
-    const req = { voiceId: voice.voiceId, modelId, text, speed: speedOf(u.dir.pace), stability: voice.settings.stability, similarityBoost: voice.settings.similarityBoost, style: voice.settings.style, seed: 1234 + attempt * 101 + i, ...(prev ? { previousText: prev } : {}), ...(next ? { nextText: next } : {}) };
+    const req = { voiceId: voice.voiceId, modelId, text, speed: speedOf(u.dir.pace), stability: voice.settings.stability, similarityBoost: voice.settings.similarityBoost, style: voice.settings.style, seed: (parseInt(sha(text).slice(0, 6), 16) % 100000) + attempt * 101, ...(prev ? { previousText: prev } : {}), ...(next ? { nextText: next } : {}) };
     const key = sha(JSON.stringify(req));
     const mp3 = path.join(o.outDir, "takes", `${key}.mp3`);
     const meta = path.join(o.outDir, "takes", `${key}.json`);
@@ -297,7 +303,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
 
   // 4–5. Listen back, check the sounds of risky words, regenerate only what failed.
   const asr = await asrBackend(o.dataDir);
-  const report: NarrationReport = { lines: units.length, takes: 0, retakes: 0, characters: 0, wpm: 0, tempo: 1, asr, wer: null, speechIssues: [], pronunciation: [], unresolved: [], directorUsd: dv.usd, ...(delivery ? { delivery } : {}) };
+  const report: NarrationReport = { lines: units.length, takes: 0, retakes: 0, characters: 0, wpm: 0, tempo: 1, asr, wer: null, speechIssues: [], pronunciation: [], unresolved: [], directorUsd: cachedDir?.key === dirKey ? 0 : dv.usd, ...(delivery ? { delivery } : {}) };
   const phonemeTerms = Object.entries(lex).filter(([, e]) => ["name", "place", "brand", "foreign", "rare"].includes(e.kind) && (e.ipa || e.respelling));
   const respellFor = new Map<number, Set<string>>();
   /** Best take seen per line (fewest problems), so a retake can never make a line worse. */

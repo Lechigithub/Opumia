@@ -78,23 +78,28 @@ engine unit test, stretch re-render, pause refit on film 2's narration. Not yet 
 
 ## C. Prevention: the same measures run where the work is done
 
-19. ☐ **Art director:** checks the kit's colours, type and look against earlier films while designing, and owns the
+Done 2026-11-22 (CLAUDE.md, **Prevention**). Verified offline: 11/11 regressions, including new cases for cause stated as
+fact (film 1's line), letters on a label box, and a jump under a busy card; the overlay rule found no false jumps on
+four reference films. Not yet exercised on a full film. Not done: "melody varies less" is addressed by caching and seeds,
+not measured across runs.
+
+19. ☑ **Art director:** checks the kit's colours, type and look against earlier films while designing, and owns the
     palette, stages and grade. Its fonts load only the weights it uses.
-20. ☐ **Scene designer:** can only build from the kit. Legibility, taste and likeness are measured on every render
+20. ☑ **Scene designer:** can only build from the kit. Legibility, taste and likeness are measured on every render
     inside its loop, not only at the end.
-21. ☐ **Sourcing and the picture researcher:** date every pick, check fit and soft footage, and screen out
+21. ☑ **Sourcing and the picture researcher:** date every pick, check fit and soft footage, and screen out
     stand-in faces before placing anything.
-22. ☐ **Writer:** cause-and-effect claims ("keeping it quiet caused the bankruptcy") are checked like motives.
+22. ☑ **Writer:** cause-and-effect claims ("keeping it quiet caused the bankruptcy") are checked like motives.
     Length is fitted to the voice's measured passage pace.
-23. ☐ **Voice:** each voice's natural pace and expressiveness are measured once in passage mode, so the script is
+23. ☑ **Voice:** each voice's natural pace and expressiveness are measured once in passage mode, so the script is
     cut to the real pace and the narration fits the first time. Melody varies less from run to run.
-24. ☐ **Editor:** bridges every same-picture change while cutting. Match cuts and cutting on action, from motion
+24. ☑ **Editor:** bridges every same-picture change while cutting. Match cuts and cutting on action, from motion
     analysis of the footage. Pace kept inside the channel's band through the gate's repairs.
-25. ☐ **Detectors made complete:**
+25. ☑ **Detectors made complete:**
     - jumps behind heavy overlays;
     - legibility of text on drawn label boxes;
     - the scene critic and gate catching low-contrast labels.
-26. ☐ **The final gate becomes a confirmation:** preflight runs the same measures the agents already passed, so it
+26. ☑ **The final gate becomes a confirmation:** preflight runs the same measures the agents already passed, so it
     rarely fails.
 
 ## D. Pause and resume (failures outside the platform)

@@ -47,6 +47,40 @@ export async function measureLegibility(frame: string, boxes: TextBox[], o: { as
       // the minority tone is the letters; use robust means (ignore the outer 10 % of each tone)
       const rob = (xs: number[]) => { const s = [...xs].sort((a, c) => a - c); const k = Math.floor(s.length * 0.1); const m = s.slice(k, s.length - k); return m.reduce((a, c) => a + c, 0) / Math.max(1, m.length); };
       if (lo.length > 3 && hi.length > 3) contrast = (rob(hi) + 0.05) / (rob(lo) + 0.05);
+      // Build list 3, item 25: letters on a drawn label box. Two tones then split box against picture, not letters against
+      // box. So the box is looked for directly: with three tones, a tone that fills most of its own bounding rectangle
+      // (a solid card) and covers a real share of the text box is a label box; the letters are what lies inside that
+      // rectangle in other tones, and their contrast against the box is what a viewer reads.
+      const W = x1 - x0, Hb = y1 - y0;
+      if (W > 8 && Hb > 6) {
+        let best3 = 0, t1 = 0, t2 = 0;
+        const cum = new Array<number>(65).fill(0), cumS = new Array<number>(65).fill(0);
+        for (let k = 0; k < 64; k++) (cum[k + 1] = cum[k]! + bins[k]!), (cumS[k + 1] = cumS[k]! + k * bins[k]!);
+        const cls = (a0: number, a1: number) => { const w = cum[a1]! - cum[a0]!; return w ? { w, m: (cumS[a1]! - cumS[a0]!) / w } : null; };
+        const mAll = sumAll / lums.length;
+        for (let i = 1; i < 63; i++) for (let j = i + 1; j < 64; j++) {
+          const c0 = cls(0, i), c1 = cls(i, j), c2 = cls(j, 64);
+          if (!c0 || !c1 || !c2) continue;
+          const v = c0.w * (c0.m - mAll) ** 2 + c1.w * (c1.m - mAll) ** 2 + c2.w * (c2.m - mAll) ** 2;
+          if (v > best3) (best3 = v), (t1 = i), (t2 = j);
+        }
+        if (t1) {
+          const klass = (l: number) => { const b2 = Math.min(63, Math.floor(l * 64)); return b2 < t1 ? 0 : b2 < t2 ? 1 : 2; };
+          const grid = lums.map(klass);
+          for (const c of [0, 1, 2]) {
+            let n = 0, bx0 = W, bx1 = -1, by0 = Hb, by1 = -1;
+            for (let y = 0; y < Hb; y++) for (let x = 0; x < W; x++) if (grid[y * W + x] === c) (n++, (bx0 = Math.min(bx0, x)), (bx1 = Math.max(bx1, x)), (by0 = Math.min(by0, y)), (by1 = Math.max(by1, y)));
+            if (n < lums.length * 0.15 || bx1 < 0) continue;
+            const area = (bx1 - bx0 + 1) * (by1 - by0 + 1);
+            if (n / area < 0.6 || area > lums.length * 0.97) continue;
+            const fill: number[] = [], inner: number[] = [];
+            for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) (grid[y * W + x] === c ? fill : inner).push(lums[y * W + x]!);
+            if (inner.length < area * 0.02) continue;
+            const rf = rob(fill), ri = rob(inner);
+            contrast = Math.min(contrast, (Math.max(rf, ri) + 0.05) / (Math.min(rf, ri) + 0.05));
+          }
+        }
+      }
     }
     const phonePx = b.h * 0.72 * (o.aspect === "9:16" ? phoneScale : (phoneScale * 9) / 16);
     const inside = b.x >= 0.05 && b.y >= 0.05 && b.x + b.w <= 0.95 && b.y + b.h <= 0.95;

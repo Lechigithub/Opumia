@@ -17,7 +17,7 @@ import path from "node:path";
 import { isUsable } from "@opumia/agents";
 import type { LibraryIndex, ResolutionReport, ResolvedMedia, Storyboard } from "@opumia/contracts";
 import { ensureLocal } from "@opumia/ingest";
-import { removeBackground } from "@opumia/senses";
+import { measureCraft, removeBackground } from "@opumia/senses";
 import { periodCheck, reviewPictures, yearOf } from "./press.js";
 import { materialize } from "./resolve.js";
 import { allProviders, downloadCandidate, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
@@ -41,6 +41,8 @@ export interface SceneToolsOptions {
   blocked?: Set<string>;
   /** Colour for line icons (they are drawn in one colour). */
   iconColor?: string;
+  /** Build list 3, item 21: footage softer than this (`measureCraft().sharpTop`, the channel's softest tenth) is passed over. */
+  softBelow?: number;
 }
 export interface AddedPicture { ok: true; shotId: string; as: "footage" | "slot"; slot?: number; kind: "video" | "image"; depicts: string; fit?: number; preview: string }
 export type ToolFail = { ok: false; why: string };
@@ -89,12 +91,24 @@ export function makeSceneTools(o: SceneToolsOptions) {
       if (!kept.length) return { ok: false, why: `the pictures that fit all look later than ${year} (${dated.map((d) => d.evidence).filter(Boolean).slice(0, 2).join("; ")}). Ask for something timeless: a close-up of hands, an object, paper, a place with nothing modern in it.` };
       fits = kept;
     }
-    const best = fits[0];
-    if (!best) return { ok: false, why: `${withThumb.length} candidates were looked at and none fitted (best ${Math.max(...rated.map((r) => r.fit))}/10). Ask for something more common or more concrete.` };
+    if (!fits[0]) return { ok: false, why: `${withThumb.length} candidates were looked at and none fitted (best ${Math.max(...rated.map((r) => r.fit))}/10). Ask for something more common or more concrete.` };
     await mkdir(mediaDir, { recursive: true });
+    // the best fit that downloads and is not softer than the channel's softest frames (the gate's own measure)
+    let best = fits[0];
+    let dl: string | null = null;
+    let soft = 0;
+    for (const f of fits.slice(0, 3)) {
+      const d = await downloadCandidate(f.c, dlDir).catch(() => null);
+      if (!d) continue;
+      if (o.softBelow && i.as === "footage") {
+        const cr = await measureCraft(d, f.c.kind === "video" ? 1 : undefined).catch(() => null);
+        if (cr && cr.sharpTop < o.softBelow) { soft++; continue; }
+      }
+      (best = f), (dl = d);
+      break;
+    }
+    if (!dl) return { ok: false, why: soft ? `the pictures that fit are softer than the channel's footage (${soft} passed over): ask for something filmed sharply, or a still to compose with` : "the best candidates could not be downloaded" };
     const c = best.c;
-    const dl = await downloadCandidate(c, dlDir).catch(() => null);
-    if (!dl) return { ok: false, why: "the best candidate could not be downloaded" };
     const ref = `${c.provider}:${c.externalId}`;
     const base: Omit<ResolvedMedia, "role" | "localPath" | "publicPath"> = { shotId: i.shotId, origin: c.archival ? "archival" : "stock", ref, provider: c.provider, kind: c.kind, ...(c.width ? { width: c.width, height: c.height } : {}), license: c.license, attributionRequired: c.attributionRequired, ...(c.attributionText ? { attributionText: c.attributionText } : {}), sourceUrl: c.pageUrl, aiGenerated: false, score: best.r.fit / 10, query: q, depicts: best.r.shows, seen: { fit: best.r.fit, face: best.r.face, banner: best.r.banner, note: best.r.shows } };
     if (i.as === "footage") {

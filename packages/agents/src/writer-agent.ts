@@ -70,6 +70,19 @@ const countWords = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
 const norm = (t: string) => t.toLowerCase().replace(/[“”"'’‘]/g, "").replace(/\s+/g, " ").trim();
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
 
+const CAUSE = /\b(caused|causes|cause of|led to|leads to|lead to|resulted in|result of|as a result|because of|due to|thanks to|that'?s why|which is why|this is why|is why|which meant|meant that|that meant|so (it|they|he|she|the company) (had to|filed|went|lost|collapsed|failed|missed)|drove|forced|doomed|killed|destroyed|sank|ruined|cost (them|it|him|her|the company)|brought down|triggered)\b/i;
+const CAUSE_HEDGE = /\b(reportedly|allegedly|apparently|seems?|seemed|appears?|may|might|could have|probably|perhaps|likely|helped|partly|in part|part of the reason|one reason|arguably|according to|(he|she|they) (later )?(said|says|argued|claimed|admitted)|critics|many (say|believe|argue)|didn'?t help)\b/i;
+const CAUSE_STOP = new Set(["the", "and", "that", "this", "with", "from", "they", "them", "their", "have", "had", "was", "were", "would", "could", "about", "into", "than", "what", "when", "which", "meant", "years", "later", "because", "caused", "led"]);
+/** Lines that state a cause as fact with no fact-sheet claim stating it (a causal word and half the line's content words in one claim). */
+export function causesAsFact(lines: string[], claims: string[]): string[] {
+  const content = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 3 && !CAUSE_STOP.has(w));
+  const causal = claims.filter((c) => CAUSE.test(c)).map((c) => new Set(content(c)));
+  return lines.filter((t) => CAUSE.test(t) && !CAUSE_HEDGE.test(t)).filter((t) => {
+    const cw = content(t);
+    return !cw.length || !causal.some((set) => cw.filter((w) => set.has(w)).length / cw.length >= 0.5);
+  });
+}
+
 export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const log = o.log ?? (() => {});
   const short = o.durationS <= 90;
@@ -115,6 +128,10 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
       return !cw.length || !claimWords.some((set) => cw.filter((w) => set.has(w)).length / cw.length >= 0.6);
     });
     if (motives.length) issues.push({ kind: "motive_as_fact", detail: `these lines state what someone wanted, feared or believed as fact, and no claim in the fact sheet says it: ${motives.slice(0, 5).map((x) => `"${x.t}"`).join(" | ")}. A motive is a claim: tell it as what they did, hedge it in plain words ("it seems", "he later said"), or ask the researcher for evidence.` });
+    // Build list 3, item 22 (film 1: "kept the camera quiet, which meant … so it filed for Chapter 11"): a cause stated
+    // as fact is a claim too, checked like a motive.
+    const causes = causesAsFact(lines, claims.map((c) => c.text));
+    if (causes.length) issues.push({ kind: "cause_as_fact", detail: `these lines state that one thing caused another as fact, and no claim in the fact sheet states that cause: ${causes.slice(0, 5).map((x) => `"${x}"`).join(" | ")}. A cause is a claim: tell the events in order and let the viewer connect them, hedge it in plain words ("it didn't help", "part of the reason"), or ask the researcher for evidence of the cause.` });
     const badIds = [...new Set(segments.flatMap((sg) => sg.claimIds).filter((c) => !known.has(c)))];
     if (badIds.length) issues.push({ kind: "unknown_claim", detail: `claim ids not in the fact sheet: ${badIds.join(", ")}` });
     rounds.push({ issues: issues.map((x) => x.kind), profile: story.profile });

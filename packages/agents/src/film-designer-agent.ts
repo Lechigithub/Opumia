@@ -65,6 +65,19 @@ export interface FilmDesignerReport { pass: boolean; fonts: string[]; components
 
 const HEX = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: /\.png$/i.test(file) ? "image/png" : "image/jpeg", data: (await readFile(file)).toString("base64") } });
+/** Hue distance in degrees (90 when either colour is near-neutral). */
+const hueGap = (a: string, b: string) => {
+  const hue = (h: string) => {
+    const [r, g, bl] = [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16) / 255) as [number, number, number];
+    const mx = Math.max(r, g, bl), d = mx - Math.min(r, g, bl);
+    if (d < 0.08) return -1;
+    return ((mx === r ? ((g - bl) / d + 6) % 6 : mx === g ? (bl - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360;
+  };
+  const x = hue(a), y = hue(b);
+  if (x < 0 || y < 0) return 90;
+  const d = Math.abs(x - y) % 360;
+  return d > 180 ? 360 - d : d;
+};
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
 
 /** What a kit may contain: checked before it is written (the kit runs inside the render's browser). */
@@ -88,7 +101,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const fontSet = new Set(o.fonts);
   const kitFile = path.join(o.kitDir, "index.tsx");
   const made = await producedJobs(o.data);
-  const earlier = await readFile(path.join(o.data, "film-kits.json"), "utf8").then((t) => (JSON.parse(t) as Array<{ job: string; fonts: string[]; palette: string[]; concept: string; transition: string }>).filter((k) => made.has(k.job) && k.job !== o.job), () => []);
+  const earlier = await readFile(path.join(o.data, "film-kits.json"), "utf8").then((t) => (JSON.parse(t) as Array<{ job: string; fonts: string[]; palette: string[]; tokens?: { primary: string; accent: string; surface: string }; concept: string; transition: string }>).filter((k) => made.has(k.job) && k.job !== o.job), () => []);
   const usedFonts = new Set(earlier.flatMap((k) => k.fonts));
   let code: string | null = existsSync(kitFile) && !o.change?.fresh ? await readFile(kitFile, "utf8") : null;
   let studied = 0, renders = 0, transitionSeen = false, lastRenderOk = false, accepted: string | null = null, noteSaved = false;
@@ -148,6 +161,11 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         const issues = checkKitCode(i.code, fontSet);
         const fontsUsed = [...i.code.matchAll(/@remotion\/google-fonts\/([A-Za-z0-9]+)/g)].map((m) => m[1]!);
         const repeat = fontsUsed.filter((f) => usedFonts.has(f));
+        // item 19: a font loads only the weights the kit uses (film 2 loaded every weight of every face)
+        const names = [...i.code.matchAll(/import\s*\{\s*loadFont(?:\s+as\s+(\w+))?\s*\}\s*from\s*["']@remotion\/google-fonts\//g)].map((m) => m[1] ?? "loadFont");
+        const loads = [...new Set(names)].flatMap((n) => [...i.code.matchAll(new RegExp(`\\b${n}\\s*\\(([^)]*)\\)`, "g"))]);
+        const bare = loads.filter((m) => !/weights\s*:/.test(m[1] ?? ""));
+        if (bare.length) issues.push(`${bare.length} loadFont() call(s) load every weight: pass only the weights used, e.g. loadFont("normal", { weights: ["400", "800"], subsets: ["latin"] })`);
         if (repeat.length) issues.push(`typefaces an earlier film used: ${repeat.join(", ")} — this film needs its own`);
         if (issues.length) return `NOT WRITTEN:\n${issues.map((x) => `- ${x}`).join("\n")}`;
         // syntax check before the render bundles it
@@ -174,6 +192,9 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
       }),
       run: (async (i: KitTokens) => {
         if (i.acts.length !== o.acts) return `NOT SET: the film has ${o.acts} act(s); give exactly ${o.acts} grade(s)`;
+        // item 19: the palette is checked against our earlier films' palettes while designing, not only at the gate
+        const near = earlier.filter((k) => k.tokens).map((k) => ({ job: k.job, p: hueGap(i.palette.primary, k.tokens!.primary), a: hueGap(i.palette.accent, k.tokens!.accent) })).filter((x) => x.p < 25 && x.a < 25);
+        if (near.length) return `NOT SET: primary and accent sit within 25° of hue of ${near.map((x) => `${x.job} (primary ${Math.round(x.p)}°, accent ${Math.round(x.a)}° apart)`).join(", ")} — this film needs its own colours`;
         const { design, adjusted } = designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: accepted ?? o.title, fonts: kitFontStacks(), tokens: i });
         tokens = { palette: design.palette, texture: design.texture, acts: design.acts };
         await o.onDesign(design);
@@ -236,7 +257,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, roles, components, fonts: kitFonts(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null }, null, 1) + "\n");
         await o.onDesign(designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: i.concept, fonts: kitFontStacks(), tokens: tokens! }).design);
         const pal = await o.palette().catch(() => [] as string[]);
-        const rec = { job: o.job, fonts: kitFonts(), palette: pal.slice(0, 6), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", at: new Date().toISOString() };
+        const rec = { job: o.job, fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", at: new Date().toISOString() };
         const f = path.join(o.data, "film-kits.json");
         const all = await readFile(f, "utf8").then((t) => JSON.parse(t) as unknown[], () => []);
         await writeFile(`${f}.tmp`, JSON.stringify([...all.filter((x) => (x as { job: string }).job !== o.job), rec], null, 1) + "\n");
@@ -260,7 +281,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const skill = await readFile(new URL("../skills/film-designer.md", import.meta.url), "utf8");
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: o.data }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
-  const earlierText = earlier.length ? `## Our earlier films (do not repeat their look)\n${earlier.slice(-8).map((k) => `- ${k.job}: fonts ${k.fonts.join(", ")}; palette ${k.palette.join(" ")}; ${k.concept.slice(0, 160)}; transition ${k.transition}`).join("\n")}\n\n` : "";
+  const earlierText = earlier.length ? `## Our earlier films (do not repeat their look)\n${earlier.slice(-8).map((k) => `- ${k.job}: fonts ${k.fonts.join(", ")}; palette ${k.tokens ? `primary ${k.tokens.primary}, accent ${k.tokens.accent}, surface ${k.tokens.surface}` : k.palette.join(" ")}; ${k.concept.slice(0, 160)}; transition ${k.transition}`).join("\n")}\n\n` : "";
   const system = [cached(skill), plain(`${earlierText}${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}`)];
   const contract = KIT_ROLES.map((r) => `- ${r}: ${ROLE_CONTRACT[r]}`).join("\n");
   const user = `${o.change ? `${o.change.fresh ? "START AGAIN with a NEW visual concept (the current one must not be reused)" : "CHANGE the accepted kit (design/film/index.tsx is loaded; keep every component and prop the scene designer already uses unless the change says otherwise)"}: ${o.change.request}\n\n` : ""}Design the look of "${o.title}"${o.change && !o.change.fresh ? "" : " from a blank slate"}.\n\nROLES your kit must play (one component each; the engine passes these props):\n${contract}\n\nBRIEF:\n${o.brief.slice(0, 5000)}\n\nSHOTS you can render samples on (id — line — picture):\n${o.shots.map((s) => `${s.id} — "${s.line.slice(0, 90)}" — ${s.picture.slice(0, 70)}`).join("\n")}\n\nStart by studying the reference.`;
