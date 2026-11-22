@@ -30,3 +30,6 @@ export * from "./packaging-agent.js";
 export * from "./thumbnail-craft.js";
 export * from "./quality-band.js";
 export * from "./retrieve.js";
+export * from "./reference-index.js";
+export * from "./taste.js";
+export * from "./channel-profile.js";

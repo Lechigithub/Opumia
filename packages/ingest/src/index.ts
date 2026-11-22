@@ -8,3 +8,4 @@ export { parseCsv, readCsv } from "./util/csv.js";
 export { summarize } from "./util/stats.js";
 export { ffprobe, pool } from "./util/probe.js";
 export { ensureLocal, remoteEnabled, r2Get, r2List, r2Put } from "./util/remote.js";
+export { buildReferenceIndex, runEmbedder, embedPython, SIGLIP_MODEL, type ReferenceAudio, type ReferenceShot, type ReferenceThumb, type ReferenceFilm, type ReferenceIndexManifest } from "./reference/shot-index.js";

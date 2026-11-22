@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { availableParallelism } from "node:os";
 import path from "node:path";
-import { analyzeStyles, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
+import { analyzeStyles, buildReferenceIndex, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
 import { KEYCHAIN_SERVICE, loadKeys } from "./keys.js";
 import { cmdEval } from "./eval.js";
 import { buildExemplars } from "./exemplars.js";
@@ -45,6 +45,8 @@ const HELP = `opumia <command>
       --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
   profile-audio        Measure every usable sound effect and music bed → data/audio-profile.json (incremental)
   build-exemplars      Reference exemplar library the agents look at → data/exemplars/<channel>/
+  build-channel-profile  Unified, versioned channel profile from the reference index → data/channel-profile/<channel>.json
+  build-reference-index  Every reference shot + thumbnail with labels and SigLIP 2 embeddings → data/reference-index/ (--no-embed)
       --channel ID       frames of labelled shots, thumbnails, per-film looks, narrator voice profile, technique clips
   eval                 Blind reference test of the platform → data/eval/
       calibrate --channel ID   check the judge on degraded reference windows (cached per judge version)
@@ -132,6 +134,16 @@ async function main() {
       const { readFile } = await import("node:fs/promises");
       const { buildAudioProfile } = await import("./audio-profile.js");
       await buildAudioProfile({ data: DATA, library: LIBRARY, index: LibraryIndex.parse(JSON.parse(await readFile(path.join(DATA, "library-index.json"), "utf8"))), log });
+      return;
+    }
+    case "build-reference-index": {
+      const m = await buildReferenceIndex({ root: ROOT, reference: REFERENCE, data: DATA, embed: !flag("no-embed"), log });
+      log(`${m.films.length} films · ${m.shots} shots (${m.embedded.shots} embedded) · ${m.thumbs} thumbnails (${m.embedded.thumbs} embedded) → ${rel(path.join(DATA, "reference-index"))}/`);
+      return;
+    }
+    case "build-channel-profile": {
+      const { buildChannelProfile } = await import("@opumia/agents");
+      await buildChannelProfile({ data: DATA, channel: (opt("channel") ?? "magnates-media") as never, log });
       return;
     }
     case "build-exemplars":

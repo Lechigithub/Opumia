@@ -1,0 +1,3532 @@
+{
+ "schemaVersion": 2,
+ "channel": "magnates-media",
+ "corpus": {
+  "films": 37,
+  "shots": 17660,
+  "minutes": 993.4
+ },
+ "films": [
+  {
+   "id": "MM-20210812",
+   "title": "How WhatsApp Makes Money: The INSANE Story of WhatsApp",
+   "views": 5264123,
+   "durS": 1822,
+   "m": {
+    "seconds": 1822,
+    "shots": 426,
+    "cutsPerMin": 14.03,
+    "shotMedianS": 2.21,
+    "shotCv": 1.378,
+    "picture": {
+     "stock_actor": 0.57,
+     "designed": 0.258,
+     "stock_broll": 0.134,
+     "other": 0.038
+    },
+    "textSlam": 0.467,
+    "softTransitions": 0.213,
+    "faceShare": 0.636,
+    "sat": 0.336,
+    "luma": 0.205,
+    "contrast": 0.342,
+    "motion": 20.834,
+    "wordsPerShot": 10.026,
+    "cutInPause": 0.228,
+    "cutToWordMedianS": 0.108,
+    "hitsPerMin": 3.82,
+    "hitOnCutShare": 0.284,
+    "bedDb": -27.3
+   }
+  },
+  {
+   "id": "MM-20211213",
+   "title": "The Uber Story: Fraud, Betrayal, Death & Cars",
+   "views": 2966798,
+   "durS": 2568,
+   "m": {
+    "seconds": 2568,
+    "shots": 1142,
+    "cutsPerMin": 26.68,
+    "shotMedianS": 1.543,
+    "shotCv": 1.034,
+    "picture": {
+     "stock_actor": 0.406,
+     "stock_broll": 0.348,
+     "designed": 0.192,
+     "other": 0.054
+    },
+    "textSlam": 0.47,
+    "softTransitions": 0.238,
+    "faceShare": 0.478,
+    "sat": 0.295,
+    "luma": 0.169,
+    "contrast": 0.385,
+    "motion": 17.576,
+    "wordsPerShot": 6.543,
+    "cutInPause": 0.111,
+    "cutToWordMedianS": 0.083,
+    "hitsPerMin": 3.36,
+    "hitOnCutShare": 0.354,
+    "bedDb": -35.5
+   }
+  },
+  {
+   "id": "MM-20220119",
+   "title": "The Disturbing History of Coca-Cola",
+   "views": 7650608,
+   "durS": 2030,
+   "m": {
+    "seconds": 2030,
+    "shots": 524,
+    "cutsPerMin": 15.49,
+    "shotMedianS": 1.96,
+    "shotCv": 1.319,
+    "picture": {
+     "designed": 0.326,
+     "stock_actor": 0.282,
+     "stock_broll": 0.195,
+     "real_footage": 0.122,
+     "other": 0.057,
+     "real_photo": 0.017
+    },
+    "textSlam": 0.574,
+    "softTransitions": 0.188,
+    "faceShare": 0.473,
+    "sat": 0.329,
+    "luma": 0.249,
+    "contrast": 0.429,
+    "motion": 18.515,
+    "wordsPerShot": 11.941,
+    "cutInPause": 0.115,
+    "cutToWordMedianS": 0.082,
+    "hitsPerMin": 3.13,
+    "hitOnCutShare": 0.16,
+    "bedDb": -34.2
+   }
+  },
+  {
+   "id": "MM-20220731",
+   "title": "Why Netflix is Collapsing: The Truth About Netflix's Empire",
+   "views": 6562655,
+   "durS": 4114,
+   "m": {
+    "seconds": 4114,
+    "shots": 736,
+    "cutsPerMin": 10.73,
+    "shotMedianS": 3.28,
+    "shotCv": 1.345,
+    "picture": {
+     "designed": 0.53,
+     "stock_actor": 0.283,
+     "stock_broll": 0.132,
+     "other": 0.045,
+     "real_footage": 0.011
+    },
+    "textSlam": 0.679,
+    "softTransitions": 0.3,
+    "faceShare": 0.471,
+    "sat": 0.505,
+    "luma": 0.213,
+    "contrast": 0.326,
+    "motion": 14.311,
+    "wordsPerShot": 17.933,
+    "cutInPause": 0.122,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 2.68,
+    "hitOnCutShare": 0.201,
+    "bedDb": -30.7
+   }
+  },
+  {
+   "id": "MM-20220826",
+   "title": "The Most Illegal Business In The World: Silk Road",
+   "views": 6053699,
+   "durS": 2671,
+   "m": {
+    "seconds": 2671,
+    "shots": 957,
+    "cutsPerMin": 21.5,
+    "shotMedianS": 1.92,
+    "shotCv": 1.093,
+    "picture": {
+     "stock_broll": 0.323,
+     "stock_actor": 0.316,
+     "designed": 0.253,
+     "other": 0.096,
+     "real_footage": 0.011,
+     "real_photo": 0.001
+    },
+    "textSlam": 0.493,
+    "softTransitions": 0.175,
+    "faceShare": 0.375,
+    "sat": 0.576,
+    "luma": 0.218,
+    "contrast": 0.31,
+    "motion": 18.505,
+    "wordsPerShot": 10.083,
+    "cutInPause": 0.102,
+    "cutToWordMedianS": 0.06,
+    "hitsPerMin": 3.62,
+    "hitOnCutShare": 0.273,
+    "bedDb": -35.5
+   }
+  },
+  {
+   "id": "MM-20220920",
+   "title": "Nestlé's Darkest Secret: The Disturbing Truth",
+   "views": 3038966,
+   "durS": 1354,
+   "m": {
+    "seconds": 1354,
+    "shots": 192,
+    "cutsPerMin": 8.51,
+    "shotMedianS": 1.52,
+    "shotCv": 1.926,
+    "picture": {
+     "designed": 0.469,
+     "stock_actor": 0.188,
+     "stock_broll": 0.167,
+     "other": 0.068,
+     "real_footage": 0.063,
+     "real_photo": 0.047
+    },
+    "textSlam": 0.51,
+    "softTransitions": 0.375,
+    "faceShare": 0.453,
+    "sat": 0.329,
+    "luma": 0.346,
+    "contrast": 0.404,
+    "motion": 23.334,
+    "wordsPerShot": 21.188,
+    "cutInPause": 0.141,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 2.92,
+    "hitOnCutShare": 0.182,
+    "bedDb": -31.3
+   }
+  },
+  {
+   "id": "MM-20220930",
+   "title": "The Man Who Robbed An Entire Country",
+   "views": 4355807,
+   "durS": 1716,
+   "m": {
+    "seconds": 1716,
+    "shots": 774,
+    "cutsPerMin": 27.06,
+    "shotMedianS": 1.377,
+    "shotCv": 1.135,
+    "picture": {
+     "stock_actor": 0.544,
+     "stock_broll": 0.207,
+     "designed": 0.18,
+     "other": 0.037,
+     "real_footage": 0.03,
+     "real_photo": 0.003
+    },
+    "textSlam": 0.247,
+    "softTransitions": 0.238,
+    "faceShare": 0.664,
+    "sat": 0.491,
+    "luma": 0.205,
+    "contrast": 0.355,
+    "motion": 24.585,
+    "wordsPerShot": 7.708,
+    "cutInPause": 0.063,
+    "cutToWordMedianS": 0.052,
+    "hitsPerMin": 2.17,
+    "hitOnCutShare": 0.371,
+    "bedDb": -31.9
+   }
+  },
+  {
+   "id": "MM-20221027",
+   "title": "The Homeless Teen Who Created Louis Vuitton",
+   "views": 5368992,
+   "durS": 935,
+   "m": {
+    "seconds": 935,
+    "shots": 194,
+    "cutsPerMin": 12.45,
+    "shotMedianS": 2.377,
+    "shotCv": 1.254,
+    "picture": {
+     "stock_broll": 0.335,
+     "designed": 0.304,
+     "stock_actor": 0.186,
+     "other": 0.103,
+     "real_footage": 0.067,
+     "real_photo": 0.005
+    },
+    "textSlam": 0.577,
+    "softTransitions": 0.163,
+    "faceShare": 0.34,
+    "sat": 0.364,
+    "luma": 0.3,
+    "contrast": 0.325,
+    "motion": 20.275,
+    "wordsPerShot": 17.351,
+    "cutInPause": 0.103,
+    "cutToWordMedianS": 0.076,
+    "hitsPerMin": 3.08,
+    "hitOnCutShare": 0.083,
+    "bedDb": -38
+   }
+  },
+  {
+   "id": "MM-20221030",
+   "title": "Why Red Bull Isn't A Drink Company",
+   "views": 1329198,
+   "durS": 1135,
+   "m": {
+    "seconds": 1135,
+    "shots": 389,
+    "cutsPerMin": 20.56,
+    "shotMedianS": 1.466,
+    "shotCv": 1.803,
+    "picture": {
+     "designed": 0.406,
+     "stock_actor": 0.254,
+     "stock_broll": 0.219,
+     "other": 0.111,
+     "real_footage": 0.008,
+     "real_photo": 0.003
+    },
+    "textSlam": 0.478,
+    "softTransitions": 0.225,
+    "faceShare": 0.398,
+    "sat": 0.449,
+    "luma": 0.242,
+    "contrast": 0.392,
+    "motion": 26.603,
+    "wordsPerShot": 9.697,
+    "cutInPause": 0.111,
+    "cutToWordMedianS": 0.067,
+    "hitsPerMin": 3.75,
+    "hitOnCutShare": 0.38,
+    "bedDb": -37.5
+   }
+  },
+  {
+   "id": "MM-20221031",
+   "title": "The Poor Boy Who Created Honda",
+   "views": 1193584,
+   "durS": 1139,
+   "m": {
+    "seconds": 1139,
+    "shots": 423,
+    "cutsPerMin": 22.28,
+    "shotMedianS": 2.002,
+    "shotCv": 0.96,
+    "picture": {
+     "designed": 0.293,
+     "real_footage": 0.234,
+     "stock_actor": 0.191,
+     "stock_broll": 0.18,
+     "other": 0.08,
+     "real_photo": 0.021
+    },
+    "textSlam": 0.619,
+    "softTransitions": 0.313,
+    "faceShare": 0.411,
+    "sat": 0.371,
+    "luma": 0.292,
+    "contrast": 0.344,
+    "motion": 23.569,
+    "wordsPerShot": 8.738,
+    "cutInPause": 0.116,
+    "cutToWordMedianS": 0.057,
+    "hitsPerMin": 2.21,
+    "hitOnCutShare": 0.119,
+    "bedDb": -45
+   }
+  },
+  {
+   "id": "MM-20221103",
+   "title": "How A Kid With $0 Created Nike",
+   "views": 3999862,
+   "durS": 2038,
+   "m": {
+    "seconds": 2038,
+    "shots": 486,
+    "cutsPerMin": 14.31,
+    "shotMedianS": 2.56,
+    "shotCv": 1.221,
+    "picture": {
+     "stock_actor": 0.418,
+     "designed": 0.288,
+     "stock_broll": 0.175,
+     "other": 0.066,
+     "real_footage": 0.047,
+     "real_photo": 0.006
+    },
+    "textSlam": 0.626,
+    "softTransitions": 0.288,
+    "faceShare": 0.566,
+    "sat": 0.402,
+    "luma": 0.322,
+    "contrast": 0.357,
+    "motion": 20.316,
+    "wordsPerShot": 14.058,
+    "cutInPause": 0.173,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 3.62,
+    "hitOnCutShare": 0.146,
+    "bedDb": -32.2
+   }
+  },
+  {
+   "id": "MM-20221107",
+   "title": "Papa John's: Scandals, Betrayal & Dumpster Diving",
+   "views": 739701,
+   "durS": 1158,
+   "m": {
+    "seconds": 1158,
+    "shots": 248,
+    "cutsPerMin": 12.85,
+    "shotMedianS": 2.6,
+    "shotCv": 1.105,
+    "picture": {
+     "stock_actor": 0.504,
+     "designed": 0.274,
+     "stock_broll": 0.149,
+     "other": 0.048,
+     "real_footage": 0.02,
+     "real_photo": 0.004
+    },
+    "textSlam": 0.653,
+    "softTransitions": 0.113,
+    "faceShare": 0.621,
+    "sat": 0.522,
+    "luma": 0.229,
+    "contrast": 0.333,
+    "motion": 17.941,
+    "wordsPerShot": 16.742,
+    "cutInPause": 0.044,
+    "cutToWordMedianS": 0.06,
+    "hitsPerMin": 1.4,
+    "hitOnCutShare": 0.148,
+    "bedDb": -33.8
+   }
+  },
+  {
+   "id": "MM-20221115",
+   "title": "The Craziest CEO Ever: War, Drugs & Time Machines",
+   "views": 365294,
+   "durS": 1252,
+   "m": {
+    "seconds": 1252,
+    "shots": 473,
+    "cutsPerMin": 22.67,
+    "shotMedianS": 2.12,
+    "shotCv": 0.807,
+    "picture": {
+     "designed": 0.342,
+     "stock_actor": 0.237,
+     "real_footage": 0.226,
+     "stock_broll": 0.106,
+     "real_photo": 0.076,
+     "other": 0.013
+    },
+    "textSlam": 0.672,
+    "softTransitions": 0.225,
+    "faceShare": 0.607,
+    "sat": 0.487,
+    "luma": 0.285,
+    "contrast": 0.393,
+    "motion": 20.486,
+    "wordsPerShot": 8.854,
+    "cutInPause": 0.114,
+    "cutToWordMedianS": 0.06,
+    "hitsPerMin": 7.04,
+    "hitOnCutShare": 0.252,
+    "bedDb": -41.2
+   }
+  },
+  {
+   "id": "MM-20221116",
+   "title": "Versace: A True Story of Wealth & Murder",
+   "views": 1078211,
+   "durS": 1024,
+   "m": {
+    "seconds": 1024,
+    "shots": 486,
+    "cutsPerMin": 28.48,
+    "shotMedianS": 1.335,
+    "shotCv": 1.066,
+    "picture": {
+     "stock_actor": 0.562,
+     "designed": 0.222,
+     "stock_broll": 0.14,
+     "other": 0.051,
+     "real_footage": 0.021,
+     "real_photo": 0.004
+    },
+    "textSlam": 0.27,
+    "softTransitions": 0.125,
+    "faceShare": 0.698,
+    "sat": 0.485,
+    "luma": 0.236,
+    "contrast": 0.376,
+    "motion": 25.859,
+    "wordsPerShot": 6.953,
+    "cutInPause": 0.093,
+    "cutToWordMedianS": 0.057,
+    "hitsPerMin": 1.7,
+    "hitOnCutShare": 0.517,
+    "bedDb": -30.3
+   }
+  },
+  {
+   "id": "MM-20221203",
+   "title": "The F**ked Up History of LEGO",
+   "views": 712971,
+   "durS": 1059,
+   "m": {
+    "seconds": 1059,
+    "shots": 343,
+    "cutsPerMin": 19.43,
+    "shotMedianS": 1.967,
+    "shotCv": 1.096,
+    "picture": {
+     "designed": 0.367,
+     "stock_broll": 0.222,
+     "stock_actor": 0.201,
+     "real_footage": 0.105,
+     "other": 0.082,
+     "real_photo": 0.023
+    },
+    "textSlam": 0.274,
+    "softTransitions": 0.363,
+    "faceShare": 0.455,
+    "sat": 0.437,
+    "luma": 0.265,
+    "contrast": 0.413,
+    "motion": 23.839,
+    "wordsPerShot": 10.601,
+    "cutInPause": 0.128,
+    "cutToWordMedianS": 0.073,
+    "hitsPerMin": 3.74,
+    "hitOnCutShare": 0.303,
+    "bedDb": -37.4
+   }
+  },
+  {
+   "id": "MM-20221209",
+   "title": "The Disturbing Story Of Hugo Boss",
+   "views": 1019923,
+   "durS": 1134,
+   "m": {
+    "seconds": 1134,
+    "shots": 423,
+    "cutsPerMin": 22.38,
+    "shotMedianS": 1.64,
+    "shotCv": 1.21,
+    "picture": {
+     "stock_actor": 0.397,
+     "stock_broll": 0.241,
+     "designed": 0.229,
+     "real_footage": 0.057,
+     "other": 0.047,
+     "real_photo": 0.028
+    },
+    "textSlam": 0.369,
+    "softTransitions": 0.35,
+    "faceShare": 0.558,
+    "sat": 0.364,
+    "luma": 0.305,
+    "contrast": 0.352,
+    "motion": 21.069,
+    "wordsPerShot": 8.52,
+    "cutInPause": 0.118,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 3.76,
+    "hitOnCutShare": 0.254,
+    "bedDb": -37.9
+   }
+  },
+  {
+   "id": "MM-20221210",
+   "title": "The Bankrupt Child That Created Rolls-Royce",
+   "views": 1407520,
+   "durS": 962,
+   "m": {
+    "seconds": 962,
+    "shots": 148,
+    "cutsPerMin": 9.23,
+    "shotMedianS": 4.866,
+    "shotCv": 1,
+    "picture": {
+     "designed": 0.601,
+     "stock_broll": 0.169,
+     "stock_actor": 0.155,
+     "other": 0.054,
+     "real_footage": 0.02
+    },
+    "textSlam": 0.723,
+    "softTransitions": 0.288,
+    "faceShare": 0.324,
+    "sat": 0.371,
+    "luma": 0.261,
+    "contrast": 0.404,
+    "motion": 20.326,
+    "wordsPerShot": 22.791,
+    "cutInPause": 0.135,
+    "cutToWordMedianS": 0.06,
+    "hitsPerMin": 2.18,
+    "hitOnCutShare": 0.257,
+    "bedDb": -33.6
+   }
+  },
+  {
+   "id": "MM-20221214",
+   "title": "Ponzi: The Financial Idiot Who Scammed the World",
+   "views": 4627239,
+   "durS": 1199,
+   "m": {
+    "seconds": 1199,
+    "shots": 115,
+    "cutsPerMin": 5.75,
+    "shotMedianS": 2.6,
+    "shotCv": 1.623,
+    "picture": {
+     "designed": 0.391,
+     "stock_actor": 0.235,
+     "other": 0.174,
+     "stock_broll": 0.148,
+     "real_footage": 0.026,
+     "real_photo": 0.026
+    },
+    "textSlam": 0.409,
+    "softTransitions": 0.475,
+    "faceShare": 0.487,
+    "sat": 0.454,
+    "luma": 0.307,
+    "contrast": 0.361,
+    "motion": 21.183,
+    "wordsPerShot": 35.991,
+    "cutInPause": 0.217,
+    "cutToWordMedianS": 0.1,
+    "hitsPerMin": 2.3,
+    "hitOnCutShare": 0.087,
+    "bedDb": -37.5
+   }
+  },
+  {
+   "id": "MM-20221223",
+   "title": "The INSANE Reason That MySpace Lost Everything",
+   "views": 1007111,
+   "durS": 1393,
+   "m": {
+    "seconds": 1393,
+    "shots": 283,
+    "cutsPerMin": 12.19,
+    "shotMedianS": 2.602,
+    "shotCv": 1.323,
+    "picture": {
+     "designed": 0.597,
+     "stock_actor": 0.219,
+     "stock_broll": 0.117,
+     "other": 0.067
+    },
+    "textSlam": 0.693,
+    "softTransitions": 0.5,
+    "faceShare": 0.431,
+    "sat": 0.438,
+    "luma": 0.277,
+    "contrast": 0.37,
+    "motion": 17.6,
+    "wordsPerShot": 15.746,
+    "cutInPause": 0.085,
+    "cutToWordMedianS": 0.077,
+    "hitsPerMin": 2.97,
+    "hitOnCutShare": 0.275,
+    "bedDb": -32.4
+   }
+  },
+  {
+   "id": "MM-20221224",
+   "title": "The Genius of Coca-Cola's Marketing",
+   "views": 197481,
+   "durS": 632,
+   "m": {
+    "seconds": 632,
+    "shots": 179,
+    "cutsPerMin": 16.99,
+    "shotMedianS": 2.25,
+    "shotCv": 1.09,
+    "picture": {
+     "designed": 0.408,
+     "stock_actor": 0.33,
+     "stock_broll": 0.123,
+     "real_footage": 0.089,
+     "other": 0.045,
+     "real_photo": 0.006
+    },
+    "textSlam": 0.642,
+    "softTransitions": 0.263,
+    "faceShare": 0.603,
+    "sat": 0.441,
+    "luma": 0.301,
+    "contrast": 0.443,
+    "motion": 25.964,
+    "wordsPerShot": 13.698,
+    "cutInPause": 0.067,
+    "cutToWordMedianS": 0.067,
+    "hitsPerMin": 2.75,
+    "hitOnCutShare": 0.241,
+    "bedDb": -33.9
+   }
+  },
+  {
+   "id": "MM-20221225",
+   "title": "KFC Lied To You...",
+   "views": 126190,
+   "durS": 176,
+   "m": {
+    "seconds": 176,
+    "shots": 55,
+    "cutsPerMin": 18.75,
+    "shotMedianS": 1.733,
+    "shotCv": 1.248,
+    "picture": {
+     "stock_actor": 0.564,
+     "designed": 0.291,
+     "other": 0.091,
+     "real_footage": 0.036,
+     "stock_broll": 0.018
+    },
+    "textSlam": 0.455,
+    "softTransitions": 0.185,
+    "faceShare": 0.764,
+    "sat": 0.439,
+    "luma": 0.289,
+    "contrast": 0.353,
+    "motion": 23.206,
+    "wordsPerShot": 10.636,
+    "cutInPause": 0.073,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 3.41,
+    "hitOnCutShare": 0.1,
+    "bedDb": -33.5
+   }
+  },
+  {
+   "id": "MM-20221229",
+   "title": "How Chicken Tenders Made Him A Millionaire 🍗",
+   "views": 779561,
+   "durS": 1029,
+   "m": {
+    "seconds": 1029,
+    "shots": 335,
+    "cutsPerMin": 19.53,
+    "shotMedianS": 2.086,
+    "shotCv": 1.049,
+    "picture": {
+     "stock_actor": 0.516,
+     "stock_broll": 0.301,
+     "designed": 0.125,
+     "other": 0.039,
+     "real_footage": 0.015,
+     "real_photo": 0.003
+    },
+    "textSlam": 0.227,
+    "softTransitions": 0.163,
+    "faceShare": 0.558,
+    "sat": 0.451,
+    "luma": 0.302,
+    "contrast": 0.438,
+    "motion": 28.141,
+    "wordsPerShot": 10.6,
+    "cutInPause": 0.09,
+    "cutToWordMedianS": 0.063,
+    "hitsPerMin": 2.04,
+    "hitOnCutShare": 0.314,
+    "bedDb": -37.7
+   }
+  },
+  {
+   "id": "MM-20221230",
+   "title": "Why FedEx Bet Their Entire Company In A Casino",
+   "views": 1062321,
+   "durS": 1186,
+   "m": {
+    "seconds": 1186,
+    "shots": 218,
+    "cutsPerMin": 11.03,
+    "shotMedianS": 2.961,
+    "shotCv": 1.2,
+    "picture": {
+     "designed": 0.362,
+     "stock_broll": 0.298,
+     "stock_actor": 0.261,
+     "real_footage": 0.041,
+     "other": 0.032,
+     "real_photo": 0.005
+    },
+    "textSlam": 0.472,
+    "softTransitions": 0.288,
+    "faceShare": 0.404,
+    "sat": 0.361,
+    "luma": 0.318,
+    "contrast": 0.351,
+    "motion": 20.593,
+    "wordsPerShot": 19.33,
+    "cutInPause": 0.096,
+    "cutToWordMedianS": 0.068,
+    "hitsPerMin": 2.07,
+    "hitOnCutShare": 0.22,
+    "bedDb": -36.4
+   }
+  },
+  {
+   "id": "MM-20221231",
+   "title": "The Scammer Who Sold The Eiffel Tower (Twice)",
+   "views": 1367189,
+   "durS": 1293,
+   "m": {
+    "seconds": 1293,
+    "shots": 362,
+    "cutsPerMin": 16.8,
+    "shotMedianS": 1.76,
+    "shotCv": 1.437,
+    "picture": {
+     "stock_actor": 0.406,
+     "designed": 0.282,
+     "stock_broll": 0.196,
+     "other": 0.069,
+     "real_footage": 0.044,
+     "real_photo": 0.003
+    },
+    "textSlam": 0.367,
+    "softTransitions": 0.275,
+    "faceShare": 0.599,
+    "sat": 0.371,
+    "luma": 0.268,
+    "contrast": 0.4,
+    "motion": 25.089,
+    "wordsPerShot": 12.564,
+    "cutInPause": 0.108,
+    "cutToWordMedianS": 0.06,
+    "hitsPerMin": 4.04,
+    "hitOnCutShare": 0.207,
+    "bedDb": -33.6
+   }
+  },
+  {
+   "id": "MM-20230116",
+   "title": "The Disturbing Story of Coco Chanel",
+   "views": 1673065,
+   "durS": 1240,
+   "m": {
+    "seconds": 1240,
+    "shots": 334,
+    "cutsPerMin": 16.16,
+    "shotMedianS": 1.877,
+    "shotCv": 1.319,
+    "picture": {
+     "stock_actor": 0.527,
+     "designed": 0.174,
+     "stock_broll": 0.117,
+     "real_footage": 0.108,
+     "other": 0.057,
+     "real_photo": 0.018
+    },
+    "textSlam": 0.249,
+    "softTransitions": 0,
+    "faceShare": 0.695,
+    "sat": 0.396,
+    "luma": 0.258,
+    "contrast": 0.388,
+    "motion": 26.742,
+    "wordsPerShot": 13.644,
+    "cutInPause": 0.078,
+    "cutToWordMedianS": 0.058,
+    "hitsPerMin": 2.23,
+    "hitOnCutShare": 0.196,
+    "bedDb": -27.6
+   }
+  },
+  {
+   "id": "MM-20230201",
+   "title": "Hershey: The Real Life Willy Wonka",
+   "views": 1505739,
+   "durS": 1440,
+   "m": {
+    "seconds": 1440,
+    "shots": 320,
+    "cutsPerMin": 13.33,
+    "shotMedianS": 2.4,
+    "shotCv": 1.362,
+    "picture": {
+     "designed": 0.372,
+     "stock_actor": 0.222,
+     "stock_broll": 0.209,
+     "real_footage": 0.103,
+     "other": 0.072,
+     "real_photo": 0.022
+    },
+    "textSlam": 0.506,
+    "softTransitions": 0,
+    "faceShare": 0.463,
+    "sat": 0.314,
+    "luma": 0.378,
+    "contrast": 0.395,
+    "motion": 22.509,
+    "wordsPerShot": 16.103,
+    "cutInPause": 0.066,
+    "cutToWordMedianS": 0.067,
+    "hitsPerMin": 3.17,
+    "hitOnCutShare": 0.263,
+    "bedDb": -35
+   }
+  },
+  {
+   "id": "MM-20230215",
+   "title": "The Profitable Business of Selling Snake Oil",
+   "views": 241887,
+   "durS": 801,
+   "m": {
+    "seconds": 801,
+    "shots": 245,
+    "cutsPerMin": 18.35,
+    "shotMedianS": 1.8,
+    "shotCv": 1.186,
+    "picture": {
+     "designed": 0.4,
+     "stock_actor": 0.229,
+     "stock_broll": 0.135,
+     "real_footage": 0.11,
+     "other": 0.086,
+     "real_photo": 0.041
+    },
+    "textSlam": 0.543,
+    "softTransitions": 0,
+    "faceShare": 0.498,
+    "sat": 0.514,
+    "luma": 0.296,
+    "contrast": 0.469,
+    "motion": 22.793,
+    "wordsPerShot": 10.233,
+    "cutInPause": 0.131,
+    "cutToWordMedianS": 0.067,
+    "hitsPerMin": 8.84,
+    "hitOnCutShare": 0.263,
+    "bedDb": -39
+   }
+  },
+  {
+   "id": "MM-20230224",
+   "title": "The Secret Chinese Company That Owns Everything",
+   "views": 12107873,
+   "durS": 4726,
+   "m": {
+    "seconds": 4726,
+    "shots": 1336,
+    "cutsPerMin": 16.96,
+    "shotMedianS": 2.12,
+    "shotCv": 1.368,
+    "picture": {
+     "designed": 0.567,
+     "stock_actor": 0.235,
+     "stock_broll": 0.148,
+     "other": 0.034,
+     "real_footage": 0.015,
+     "real_photo": 0.001
+    },
+    "textSlam": 0.539,
+    "softTransitions": 0,
+    "faceShare": 0.468,
+    "sat": 0.402,
+    "luma": 0.293,
+    "contrast": 0.403,
+    "motion": 21.21,
+    "wordsPerShot": 11.216,
+    "cutInPause": 0.118,
+    "cutToWordMedianS": 0.06,
+    "hitsPerMin": 2.73,
+    "hitOnCutShare": 0.279,
+    "bedDb": -36.7
+   }
+  },
+  {
+   "id": "MM-20230306",
+   "title": "The Untold TRUTH of Burger King",
+   "views": 2314483,
+   "durS": 1875,
+   "m": {
+    "seconds": 1875,
+    "shots": 307,
+    "cutsPerMin": 9.82,
+    "shotMedianS": 2.44,
+    "shotCv": 1.895,
+    "picture": {
+     "stock_actor": 0.339,
+     "designed": 0.3,
+     "stock_broll": 0.199,
+     "real_footage": 0.091,
+     "other": 0.062,
+     "real_photo": 0.01
+    },
+    "textSlam": 0.362,
+    "softTransitions": 0,
+    "faceShare": 0.537,
+    "sat": 0.405,
+    "luma": 0.333,
+    "contrast": 0.376,
+    "motion": 22.322,
+    "wordsPerShot": 19.661,
+    "cutInPause": 0.111,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 0.9,
+    "hitOnCutShare": 0.25,
+    "bedDb": -36.6
+   }
+  },
+  {
+   "id": "MM-20230308",
+   "title": "The F**ked Up History Of Gucci",
+   "views": 1260320,
+   "durS": 1041,
+   "m": {
+    "seconds": 1041,
+    "shots": 345,
+    "cutsPerMin": 19.88,
+    "shotMedianS": 2.294,
+    "shotCv": 0.962,
+    "picture": {
+     "stock_actor": 0.438,
+     "stock_broll": 0.246,
+     "designed": 0.226,
+     "other": 0.058,
+     "real_footage": 0.026,
+     "real_photo": 0.006
+    },
+    "textSlam": 0.568,
+    "softTransitions": 0,
+    "faceShare": 0.554,
+    "sat": 0.362,
+    "luma": 0.228,
+    "contrast": 0.324,
+    "motion": 14.135,
+    "wordsPerShot": 10.487,
+    "cutInPause": 0.064,
+    "cutToWordMedianS": 0.084,
+    "hitsPerMin": 3.46,
+    "hitOnCutShare": 0.3,
+    "bedDb": -36.6
+   }
+  },
+  {
+   "id": "MM-20230327",
+   "title": "How Facebook Destroyed Google",
+   "views": 799249,
+   "durS": 1690,
+   "m": {
+    "seconds": 1690,
+    "shots": 413,
+    "cutsPerMin": 14.66,
+    "shotMedianS": 2.52,
+    "shotCv": 1.451,
+    "picture": {
+     "designed": 0.734,
+     "stock_actor": 0.123,
+     "stock_broll": 0.094,
+     "other": 0.044,
+     "real_photo": 0.002,
+     "real_footage": 0.002
+    },
+    "textSlam": 0.586,
+    "softTransitions": 0,
+    "faceShare": 0.429,
+    "sat": 0.346,
+    "luma": 0.402,
+    "contrast": 0.392,
+    "motion": 17.822,
+    "wordsPerShot": 15.012,
+    "cutInPause": 0.145,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 3.73,
+    "hitOnCutShare": 0.19,
+    "bedDb": -40.3
+   }
+  },
+  {
+   "id": "MM-20230421",
+   "title": "Why Pepsi Went Bankrupt",
+   "views": 2052037,
+   "durS": 1731,
+   "m": {
+    "seconds": 1731,
+    "shots": 616,
+    "cutsPerMin": 21.35,
+    "shotMedianS": 2.002,
+    "shotCv": 0.919,
+    "picture": {
+     "stock_actor": 0.44,
+     "designed": 0.276,
+     "stock_broll": 0.157,
+     "real_footage": 0.088,
+     "other": 0.028,
+     "real_photo": 0.011
+    },
+    "textSlam": 0.325,
+    "softTransitions": 0,
+    "faceShare": 0.576,
+    "sat": 0.471,
+    "luma": 0.259,
+    "contrast": 0.411,
+    "motion": 25.615,
+    "wordsPerShot": 9.218,
+    "cutInPause": 0.112,
+    "cutToWordMedianS": 0.063,
+    "hitsPerMin": 5.75,
+    "hitOnCutShare": 0.301,
+    "bedDb": -37.8
+   }
+  },
+  {
+   "id": "MM-20230429",
+   "title": "The Richest Man In The World: The Ugly Truth",
+   "views": 1768296,
+   "durS": 3211,
+   "m": {
+    "seconds": 3211,
+    "shots": 832,
+    "cutsPerMin": 15.55,
+    "shotMedianS": 1.766,
+    "shotCv": 1.551,
+    "picture": {
+     "designed": 0.264,
+     "stock_actor": 0.248,
+     "stock_broll": 0.201,
+     "real_footage": 0.183,
+     "other": 0.055,
+     "real_photo": 0.049
+    },
+    "textSlam": 0.2,
+    "softTransitions": 0,
+    "faceShare": 0.541,
+    "sat": 0.282,
+    "luma": 0.274,
+    "contrast": 0.41,
+    "motion": 22.731,
+    "wordsPerShot": 12.325,
+    "cutInPause": 0.106,
+    "cutToWordMedianS": 0.073,
+    "hitsPerMin": 1.44,
+    "hitOnCutShare": 0.351,
+    "bedDb": -39.6
+   }
+  },
+  {
+   "id": "MM-20230601",
+   "title": "How MagnatesMedia Almost Got DELETED",
+   "views": 656386,
+   "durS": 1519,
+   "m": {
+    "seconds": 1519,
+    "shots": 721,
+    "cutsPerMin": 28.48,
+    "shotMedianS": 0.367,
+    "shotCv": 2.025,
+    "picture": {
+     "designed": 0.628,
+     "stock_actor": 0.226,
+     "stock_broll": 0.075,
+     "other": 0.051,
+     "real_photo": 0.012,
+     "real_footage": 0.007
+    },
+    "textSlam": 0.601,
+    "softTransitions": 0,
+    "faceShare": 0.642,
+    "sat": 0.309,
+    "luma": 0.282,
+    "contrast": 0.387,
+    "motion": 6.685,
+    "wordsPerShot": 7.85,
+    "cutInPause": 0.078,
+    "cutToWordMedianS": 0.063,
+    "hitsPerMin": 3.08,
+    "hitOnCutShare": 0.5,
+    "bedDb": -39.3
+   }
+  },
+  {
+   "id": "MM-20230604",
+   "title": "The INSANE Story of Domino's Pizza",
+   "views": 2561734,
+   "durS": 2923,
+   "m": {
+    "seconds": 2923,
+    "shots": 631,
+    "cutsPerMin": 12.95,
+    "shotMedianS": 2.75,
+    "shotCv": 1.498,
+    "picture": {
+     "designed": 0.36,
+     "stock_actor": 0.3,
+     "stock_broll": 0.193,
+     "other": 0.079,
+     "real_footage": 0.059,
+     "real_photo": 0.01
+    },
+    "textSlam": 0.372,
+    "softTransitions": 0,
+    "faceShare": 0.525,
+    "sat": 0.346,
+    "luma": 0.319,
+    "contrast": 0.367,
+    "motion": 17.691,
+    "wordsPerShot": 15.699,
+    "cutInPause": 0.124,
+    "cutToWordMedianS": 0.063,
+    "hitsPerMin": 2.24,
+    "hitOnCutShare": 0.174,
+    "bedDb": -43.5
+   }
+  },
+  {
+   "id": "MM-20230624",
+   "title": "J.P. Morgan: The Man Who Owned America",
+   "views": 4368490,
+   "durS": 1133,
+   "m": {
+    "seconds": 1133,
+    "shots": 1230,
+    "cutsPerMin": 65.14,
+    "shotMedianS": 0.167,
+    "shotCv": 1.955,
+    "picture": {
+     "designed": 0.481,
+     "stock_actor": 0.167,
+     "stock_broll": 0.157,
+     "other": 0.123,
+     "real_photo": 0.043,
+     "real_footage": 0.029
+    },
+    "textSlam": 0.587,
+    "softTransitions": 0,
+    "faceShare": 0.462,
+    "sat": 0.377,
+    "luma": 0.317,
+    "contrast": 0.445,
+    "motion": 7.354,
+    "wordsPerShot": 3.053,
+    "cutInPause": 0.076,
+    "cutToWordMedianS": 0.07,
+    "hitsPerMin": 3.55,
+    "hitOnCutShare": 0.463,
+    "bedDb": -36.9
+   }
+  },
+  {
+   "id": "MM-20230629",
+   "title": "Why did Starbucks REALLY become so popular?",
+   "views": 631314,
+   "durS": 1256,
+   "m": {
+    "seconds": 1256,
+    "shots": 419,
+    "cutsPerMin": 20.02,
+    "shotMedianS": 2.002,
+    "shotCv": 1.325,
+    "picture": {
+     "stock_actor": 0.463,
+     "stock_broll": 0.279,
+     "designed": 0.177,
+     "real_footage": 0.043,
+     "other": 0.036,
+     "real_photo": 0.002
+    },
+    "textSlam": 0.518,
+    "softTransitions": 0,
+    "faceShare": 0.585,
+    "sat": 0.441,
+    "luma": 0.308,
+    "contrast": 0.412,
+    "motion": 21.77,
+    "wordsPerShot": 8.234,
+    "cutInPause": 0.148,
+    "cutToWordMedianS": 0.09,
+    "hitsPerMin": 3.77,
+    "hitOnCutShare": 0.367,
+    "bedDb": -35.1
+   }
+  }
+ ],
+ "band": {
+  "seconds": {
+   "p10": 962,
+   "median": 1256,
+   "p90": 2671
+  },
+  "shots": {
+   "p10": 192,
+   "median": 413,
+   "p90": 832
+  },
+  "cutsPerMin": {
+   "p10": 10.73,
+   "median": 16.96,
+   "p90": 26.68
+  },
+  "shotMedianS": {
+   "p10": 1.466,
+   "median": 2.002,
+   "p90": 2.602
+  },
+  "shotCv": {
+   "p10": 1,
+   "median": 1.254,
+   "p90": 1.803
+  },
+  "picture.stock_actor": {
+   "p10": 0.188,
+   "median": 0.283,
+   "p90": 0.527
+  },
+  "picture.designed": {
+   "p10": 0.192,
+   "median": 0.304,
+   "p90": 0.567
+  },
+  "picture.stock_broll": {
+   "p10": 0.117,
+   "median": 0.175,
+   "p90": 0.298
+  },
+  "picture.other": {
+   "p10": 0.036,
+   "median": 0.057,
+   "p90": 0.096
+  },
+  "textSlam": {
+   "p10": 0.27,
+   "median": 0.506,
+   "p90": 0.653
+  },
+  "softTransitions": {
+   "p10": 0,
+   "median": 0.185,
+   "p90": 0.35
+  },
+  "faceShare": {
+   "p10": 0.404,
+   "median": 0.525,
+   "p90": 0.642
+  },
+  "sat": {
+   "p10": 0.329,
+   "median": 0.402,
+   "p90": 0.491
+  },
+  "luma": {
+   "p10": 0.218,
+   "median": 0.285,
+   "p90": 0.322
+  },
+  "contrast": {
+   "p10": 0.333,
+   "median": 0.387,
+   "p90": 0.429
+  },
+  "motion": {
+   "p10": 17.576,
+   "median": 21.183,
+   "p90": 25.859
+  },
+  "wordsPerShot": {
+   "p10": 7.85,
+   "median": 11.216,
+   "p90": 19.33
+  },
+  "cutInPause": {
+   "p10": 0.067,
+   "median": 0.111,
+   "p90": 0.145
+  },
+  "cutToWordMedianS": {
+   "p10": 0.06,
+   "median": 0.068,
+   "p90": 0.083
+  },
+  "hitsPerMin": {
+   "p10": 2.04,
+   "median": 3.08,
+   "p90": 3.82
+  },
+  "hitOnCutShare": {
+   "p10": 0.146,
+   "median": 0.257,
+   "p90": 0.371
+  },
+  "bedDb": {
+   "p10": -39.6,
+   "median": -36.4,
+   "p90": -31.3
+  }
+ },
+ "byPosition": {
+  "cold_open": {
+   "band": {
+    "seconds": {
+     "p10": 40,
+     "median": 58.8,
+     "p90": 81.3
+    },
+    "shots": {
+     "p10": 8,
+     "median": 23,
+     "p90": 41
+    },
+    "cutsPerMin": {
+     "p10": 9.67,
+     "median": 21.61,
+     "p90": 37.67
+    },
+    "shotMedianS": {
+     "p10": 0.72,
+     "median": 1.52,
+     "p90": 4.28
+    },
+    "shotCv": {
+     "p10": 0.706,
+     "median": 1.101,
+     "p90": 1.818
+    },
+    "picture.stock_actor": {
+     "p10": 0,
+     "median": 0.105,
+     "p90": 0.389
+    },
+    "picture.designed": {
+     "p10": 0.217,
+     "median": 0.542,
+     "p90": 0.789
+    },
+    "picture.stock_broll": {
+     "p10": 0,
+     "median": 0.12,
+     "p90": 0.286
+    },
+    "picture.other": {
+     "p10": 0.04,
+     "median": 0.125,
+     "p90": 0.32
+    },
+    "textSlam": {
+     "p10": 0.222,
+     "median": 0.478,
+     "p90": 0.72
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0.176,
+     "p90": 0.6
+    },
+    "faceShare": {
+     "p10": 0.167,
+     "median": 0.417,
+     "p90": 0.654
+    },
+    "sat": {
+     "p10": 0.25,
+     "median": 0.404,
+     "p90": 0.558
+    },
+    "luma": {
+     "p10": 0.165,
+     "median": 0.242,
+     "p90": 0.403
+    },
+    "contrast": {
+     "p10": 0.271,
+     "median": 0.366,
+     "p90": 0.431
+    },
+    "motion": {
+     "p10": 10.526,
+     "median": 20.122,
+     "p90": 32.03
+    },
+    "wordsPerShot": {
+     "p10": 3.28,
+     "median": 7.75,
+     "p90": 15.857
+    },
+    "cutInPause": {
+     "p10": 0,
+     "median": 0.125,
+     "p90": 0.333
+    },
+    "cutToWordMedianS": {
+     "p10": 0.06,
+     "median": 0.1,
+     "p90": 0.507
+    },
+    "hitsPerMin": {
+     "p10": 0,
+     "median": 4.56,
+     "p90": 12.05
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0.333,
+     "p90": 1
+    },
+    "bedDb": {
+     "p10": -34.8,
+     "median": -27.5,
+     "p90": -22
+    }
+   },
+   "pooled": {
+    "seconds": 2134.7,
+    "shots": 881,
+    "cutsPerMin": 24.76,
+    "shotMedianS": 1.12,
+    "shotCv": 1.644,
+    "picture": {
+     "designed": 0.526,
+     "stock_actor": 0.145,
+     "other": 0.133,
+     "stock_broll": 0.117,
+     "real_footage": 0.053,
+     "real_photo": 0.026
+    },
+    "textSlam": 0.494,
+    "softTransitions": 0.347,
+    "faceShare": 0.445,
+    "sat": 0.397,
+    "luma": 0.272,
+    "contrast": 0.365,
+    "motion": 19.298,
+    "wordsPerShot": 6.058,
+    "cutInPause": 0.131,
+    "cutToWordMedianS": 0.093,
+    "hitsPerMin": 4.64,
+    "hitOnCutShare": 0.97,
+    "bedDb": -27.8
+   }
+  },
+  "chapter_open": {
+   "band": {
+    "seconds": {
+     "p10": 86.3,
+     "median": 149.4,
+     "p90": 276
+    },
+    "shots": {
+     "p10": 20,
+     "median": 34,
+     "p90": 72
+    },
+    "cutsPerMin": {
+     "p10": 5.98,
+     "median": 14.07,
+     "p90": 26.62
+    },
+    "shotMedianS": {
+     "p10": 1.4,
+     "median": 2.836,
+     "p90": 5.434
+    },
+    "shotCv": {
+     "p10": 0.85,
+     "median": 1.114,
+     "p90": 1.91
+    },
+    "picture.stock_actor": {
+     "p10": 0.073,
+     "median": 0.167,
+     "p90": 0.36
+    },
+    "picture.designed": {
+     "p10": 0.216,
+     "median": 0.429,
+     "p90": 0.765
+    },
+    "picture.stock_broll": {
+     "p10": 0.029,
+     "median": 0.129,
+     "p90": 0.333
+    },
+    "picture.other": {
+     "p10": 0.042,
+     "median": 0.091,
+     "p90": 0.19
+    },
+    "textSlam": {
+     "p10": 0.313,
+     "median": 0.6,
+     "p90": 0.714
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0.143,
+     "p90": 0.444
+    },
+    "faceShare": {
+     "p10": 0.313,
+     "median": 0.417,
+     "p90": 0.619
+    },
+    "sat": {
+     "p10": 0.254,
+     "median": 0.389,
+     "p90": 0.508
+    },
+    "luma": {
+     "p10": 0.185,
+     "median": 0.271,
+     "p90": 0.362
+    },
+    "contrast": {
+     "p10": 0.302,
+     "median": 0.382,
+     "p90": 0.445
+    },
+    "motion": {
+     "p10": 9.804,
+     "median": 19.174,
+     "p90": 26.093
+    },
+    "wordsPerShot": {
+     "p10": 6.226,
+     "median": 11.912,
+     "p90": 29.333
+    },
+    "cutInPause": {
+     "p10": 0.143,
+     "median": 0.306,
+     "p90": 0.563
+    },
+    "cutToWordMedianS": {
+     "p10": 0.062,
+     "median": 0.12,
+     "p90": 0.54
+    },
+    "hitsPerMin": {
+     "p10": 1.52,
+     "median": 4.17,
+     "p90": 7.05
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0.25,
+     "p90": 0.5
+    },
+    "bedDb": {
+     "p10": -40.6,
+     "median": -35.5,
+     "p90": -31.3
+    }
+   },
+   "pooled": {
+    "seconds": 5346.6,
+    "shots": 1350,
+    "cutsPerMin": 15.15,
+    "shotMedianS": 1.96,
+    "shotCv": 1.654,
+    "picture": {
+     "designed": 0.486,
+     "stock_actor": 0.192,
+     "stock_broll": 0.142,
+     "other": 0.099,
+     "real_footage": 0.052,
+     "real_photo": 0.029
+    },
+    "textSlam": 0.571,
+    "softTransitions": 0.324,
+    "faceShare": 0.453,
+    "sat": 0.385,
+    "luma": 0.265,
+    "contrast": 0.383,
+    "motion": 17.544,
+    "wordsPerShot": 10.675,
+    "cutInPause": 0.301,
+    "cutToWordMedianS": 0.12,
+    "hitsPerMin": 4.48,
+    "hitOnCutShare": 0.391,
+    "bedDb": -36.1
+   }
+  },
+  "middle": {
+   "band": {
+    "seconds": {
+     "p10": 706.5,
+     "median": 1051.3,
+     "p90": 2220.1
+    },
+    "shots": {
+     "p10": 143,
+     "median": 327,
+     "p90": 715
+    },
+    "cutsPerMin": {
+     "p10": 10.3,
+     "median": 16.92,
+     "p90": 27.25
+    },
+    "shotMedianS": {
+     "p10": 1.433,
+     "median": 2.069,
+     "p90": 2.84
+    },
+    "shotCv": {
+     "p10": 0.934,
+     "median": 1.241,
+     "p90": 1.583
+    },
+    "picture.stock_actor": {
+     "p10": 0.195,
+     "median": 0.306,
+     "p90": 0.564
+    },
+    "picture.designed": {
+     "p10": 0.169,
+     "median": 0.311,
+     "p90": 0.569
+    },
+    "picture.stock_broll": {
+     "p10": 0.104,
+     "median": 0.183,
+     "p90": 0.291
+    },
+    "picture.other": {
+     "p10": 0.032,
+     "median": 0.052,
+     "p90": 0.079
+    },
+    "textSlam": {
+     "p10": 0.239,
+     "median": 0.523,
+     "p90": 0.682
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0.188,
+     "p90": 0.313
+    },
+    "faceShare": {
+     "p10": 0.413,
+     "median": 0.534,
+     "p90": 0.671
+    },
+    "sat": {
+     "p10": 0.327,
+     "median": 0.406,
+     "p90": 0.496
+    },
+    "luma": {
+     "p10": 0.218,
+     "median": 0.288,
+     "p90": 0.326
+    },
+    "contrast": {
+     "p10": 0.334,
+     "median": 0.383,
+     "p90": 0.433
+    },
+    "motion": {
+     "p10": 16.529,
+     "median": 21.1,
+     "p90": 25.843
+    },
+    "wordsPerShot": {
+     "p10": 8.112,
+     "median": 11.128,
+     "p90": 18.988
+    },
+    "cutInPause": {
+     "p10": 0.05,
+     "median": 0.092,
+     "p90": 0.119
+    },
+    "cutToWordMedianS": {
+     "p10": 0.054,
+     "median": 0.063,
+     "p90": 0.08
+    },
+    "hitsPerMin": {
+     "p10": 1.71,
+     "median": 2.66,
+     "p90": 4.13
+    },
+    "hitOnCutShare": {
+     "p10": 0.141,
+     "median": 0.246,
+     "p90": 0.382
+    },
+    "bedDb": {
+     "p10": -40.7,
+     "median": -36.6,
+     "p90": -32
+    }
+   },
+   "pooled": {
+    "seconds": 47558.7,
+    "shots": 14163,
+    "cutsPerMin": 17.87,
+    "shotMedianS": 1.869,
+    "shotCv": 1.543,
+    "picture": {
+     "stock_actor": 0.348,
+     "designed": 0.332,
+     "stock_broll": 0.2,
+     "other": 0.054,
+     "real_footage": 0.053,
+     "real_photo": 0.013
+    },
+    "textSlam": 0.466,
+    "softTransitions": 0.254,
+    "faceShare": 0.527,
+    "sat": 0.406,
+    "luma": 0.27,
+    "contrast": 0.385,
+    "motion": 19.684,
+    "wordsPerShot": 11.394,
+    "cutInPause": 0.092,
+    "cutToWordMedianS": 0.061,
+    "hitsPerMin": 2.92,
+    "hitOnCutShare": 0.905,
+    "bedDb": -36
+   }
+  },
+  "ending": {
+   "band": {
+    "seconds": {
+     "p10": 74.2,
+     "median": 99.9,
+     "p90": 227
+    },
+    "shots": {
+     "p10": 14,
+     "median": 31,
+     "p90": 75
+    },
+    "cutsPerMin": {
+     "p10": 9.04,
+     "median": 17.5,
+     "p90": 29.92
+    },
+    "shotMedianS": {
+     "p10": 1.32,
+     "median": 2.002,
+     "p90": 8.266
+    },
+    "shotCv": {
+     "p10": 0.757,
+     "median": 1.14,
+     "p90": 1.787
+    },
+    "picture.stock_actor": {
+     "p10": 0.131,
+     "median": 0.295,
+     "p90": 0.533
+    },
+    "picture.designed": {
+     "p10": 0.182,
+     "median": 0.292,
+     "p90": 0.625
+    },
+    "picture.stock_broll": {
+     "p10": 0.133,
+     "median": 0.231,
+     "p90": 0.333
+    },
+    "picture.other": {
+     "p10": 0,
+     "median": 0.048,
+     "p90": 0.2
+    },
+    "textSlam": {
+     "p10": 0.269,
+     "median": 0.5,
+     "p90": 0.71
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.429
+    },
+    "faceShare": {
+     "p10": 0.333,
+     "median": 0.514,
+     "p90": 0.7
+    },
+    "sat": {
+     "p10": 0.288,
+     "median": 0.384,
+     "p90": 0.547
+    },
+    "luma": {
+     "p10": 0.221,
+     "median": 0.296,
+     "p90": 0.369
+    },
+    "contrast": {
+     "p10": 0.334,
+     "median": 0.384,
+     "p90": 0.448
+    },
+    "motion": {
+     "p10": 14.12,
+     "median": 22.18,
+     "p90": 27.232
+    },
+    "wordsPerShot": {
+     "p10": 6.868,
+     "median": 11.739,
+     "p90": 29.87
+    },
+    "cutInPause": {
+     "p10": 0,
+     "median": 0.068,
+     "p90": 0.182
+    },
+    "cutToWordMedianS": {
+     "p10": 0.06,
+     "median": 0.068,
+     "p90": 0.091
+    },
+    "hitsPerMin": {
+     "p10": 0,
+     "median": 1.59,
+     "p90": 6.6
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0.125,
+     "p90": 1
+    },
+    "bedDb": {
+     "p10": -42.1,
+     "median": -36,
+     "p90": -29.5
+    }
+   },
+   "pooled": {
+    "seconds": 4562.4,
+    "shots": 1266,
+    "cutsPerMin": 16.65,
+    "shotMedianS": 1.96,
+    "shotCv": 1.515,
+    "picture": {
+     "designed": 0.342,
+     "stock_actor": 0.321,
+     "stock_broll": 0.215,
+     "real_footage": 0.065,
+     "other": 0.053,
+     "real_photo": 0.004
+    },
+    "textSlam": 0.502,
+    "softTransitions": 0.212,
+    "faceShare": 0.54,
+    "sat": 0.395,
+    "luma": 0.278,
+    "contrast": 0.38,
+    "motion": 20.679,
+    "wordsPerShot": 12.209,
+    "cutInPause": 0.079,
+    "cutToWordMedianS": 0.064,
+    "hitsPerMin": 2.06,
+    "hitOnCutShare": 0.389,
+    "bedDb": -36.3
+   }
+  }
+ },
+ "relations": {
+  "lineToPicture": {
+   "number": {
+    "shots": 1437,
+    "picture": {
+     "designed": 0.595,
+     "stock_actor": 0.189,
+     "stock_broll": 0.125,
+     "real_footage": 0.058,
+     "other": 0.033,
+     "real_photo": 0.001
+    },
+    "textSlam": 0.749,
+    "liftTextSlam": 1.57
+   },
+   "name": {
+    "shots": 5470,
+    "picture": {
+     "designed": 0.416,
+     "stock_actor": 0.306,
+     "stock_broll": 0.169,
+     "real_footage": 0.068,
+     "other": 0.037,
+     "real_photo": 0.004
+    },
+    "textSlam": 0.582,
+    "liftTextSlam": 1.22
+   },
+   "question": {
+    "shots": 161,
+    "picture": {
+     "designed": 0.565,
+     "stock_actor": 0.273,
+     "stock_broll": 0.124,
+     "other": 0.019,
+     "real_footage": 0.019
+    },
+    "textSlam": 0.671,
+    "liftTextSlam": 1.4
+   },
+   "silent": {
+    "shots": 1406,
+    "picture": {
+     "designed": 0.432,
+     "other": 0.242,
+     "stock_actor": 0.176,
+     "stock_broll": 0.103,
+     "real_photo": 0.033,
+     "real_footage": 0.014
+    },
+    "textSlam": 0.474,
+    "liftTextSlam": 0.99
+   },
+   "other": {
+    "shots": 9186,
+    "picture": {
+     "stock_actor": 0.379,
+     "designed": 0.265,
+     "stock_broll": 0.233,
+     "other": 0.053,
+     "real_footage": 0.051,
+     "real_photo": 0.019
+    },
+    "textSlam": 0.371,
+    "liftTextSlam": 0.78
+   }
+  },
+  "hitOnScreen": {
+   "picture": {
+    "designed": 0.49,
+    "stock_actor": 0.22,
+    "stock_broll": 0.13,
+    "other": 0.108,
+    "real_footage": 0.036,
+    "real_photo": 0.015
+   },
+   "textSlam": 0.545,
+   "liftTextSlam": 1.14,
+   "classes": {
+    "thud/hit": 0.556,
+    "boom/impact": 0.271,
+    "click/pop": 0.083,
+    "tonal note/pluck": 0.035,
+    "typing/click": 0.019,
+    "other": 0.015,
+    "riser": 0.014,
+    "whoosh/swipe/paper": 0.005,
+    "ring/chime/coin": 0.001
+   }
+  },
+  "music": {
+   "cueNearChapterStart": 0.542,
+   "dropBeforeChapter": 0.321,
+   "cuesPer10Min": {
+    "p10": 8.732,
+    "median": 10.008,
+    "p90": 11.199
+   },
+   "dropsPer10Min": {
+    "p10": 1.976,
+    "median": 9.359,
+    "p90": 26.217
+   },
+   "bedArc": [
+    -30.6,
+    -34.5,
+    -34.4,
+    -35.5,
+    -36.7,
+    -37.3,
+    -36.5,
+    -37.4,
+    -36.2,
+    -36.1
+   ]
+  },
+  "voice": {
+   "cutInPause": {
+    "p10": 0.067,
+    "median": 0.111,
+    "p90": 0.145
+   },
+   "cutToWordMedianS": {
+    "p10": 0.06,
+    "median": 0.068,
+    "p90": 0.083
+   }
+  }
+ },
+ "variety": {
+  "acrossFilms": {
+   "seconds": 0.566,
+   "shots": 0.636,
+   "cutsPerMin": 0.518,
+   "shotMedianS": 0.364,
+   "shotCv": 0.229,
+   "picture.stock_actor": 0.403,
+   "picture.designed": 0.404,
+   "picture.stock_broll": 0.395,
+   "picture.other": 0.474,
+   "textSlam": 0.297,
+   "softTransitions": 0.866,
+   "faceShare": 0.196,
+   "sat": 0.172,
+   "luma": 0.171,
+   "contrast": 0.098,
+   "motion": 0.224,
+   "wordsPerShot": 0.447,
+   "cutInPause": 0.342,
+   "cutToWordMedianS": 0.172,
+   "hitsPerMin": 0.457,
+   "hitOnCutShare": 0.401,
+   "bedDb": 0.107
+  },
+  "lookDistance": null
+ },
+ "techniques": {
+  "pictureText": {
+   "designed+text": 0.251,
+   "stock_actor": 0.208,
+   "stock_broll": 0.121,
+   "stock_actor+text": 0.116,
+   "designed": 0.103,
+   "stock_broll+text": 0.072,
+   "other": 0.051,
+   "real_footage": 0.03,
+   "real_footage+text": 0.024,
+   "other+text": 0.01,
+   "real_photo": 0.008,
+   "real_photo+text": 0.006
+  },
+  "transitions": {
+   "cut": 0.674,
+   "other": 0.115,
+   "none": 0.061,
+   "whip": 0.052,
+   "flash": 0.051,
+   "dissolve": 0.035,
+   "dip": 0.012
+  },
+  "perFilmRange": {
+   "designed+text": {
+    "p10": 0.141,
+    "median": 0.234,
+    "p90": 0.427
+   },
+   "stock_broll+text": {
+    "p10": 0.026,
+    "median": 0.066,
+    "p90": 0.133
+   },
+   "other": {
+    "p10": 0.031,
+    "median": 0.051,
+    "p90": 0.082
+   },
+   "designed": {
+    "p10": 0.047,
+    "median": 0.088,
+    "p90": 0.145
+   },
+   "stock_broll": {
+    "p10": 0.052,
+    "median": 0.113,
+    "p90": 0.191
+   },
+   "stock_actor+text": {
+    "p10": 0.055,
+    "median": 0.099,
+    "p90": 0.218
+   },
+   "stock_actor": {
+    "p10": 0.091,
+    "median": 0.183,
+    "p90": 0.385
+   },
+   "other+text": {
+    "p10": 0,
+    "median": 0.006,
+    "p90": 0.022
+   },
+   "real_footage+text": {
+    "p10": 0.001,
+    "median": 0.019,
+    "p90": 0.062
+   },
+   "real_footage": {
+    "p10": 0.002,
+    "median": 0.018,
+    "p90": 0.065
+   },
+   "real_photo+text": {
+    "p10": 0,
+    "median": 0.002,
+    "p90": 0.011
+   },
+   "real_photo": {
+    "p10": 0,
+    "median": 0.005,
+    "p90": 0.021
+   }
+  }
+ },
+ "views": {
+  "rankCorrelation": {
+   "seconds": 0.6,
+   "shots": 0.43,
+   "faceShare": -0.31,
+   "shotCv": 0.29,
+   "cutsPerMin": -0.26,
+   "picture.stock_broll": 0.24,
+   "contrast": -0.24,
+   "motion": -0.24,
+   "cutInPause": 0.22,
+   "bedDb": 0.22
+  },
+  "topQuartile": {
+   "seconds": 2030,
+   "shots": 736,
+   "cutsPerMin": 15.49,
+   "shotMedianS": 2.21,
+   "shotCv": 1.345,
+   "picture.stock_actor": 0.283,
+   "picture.designed": 0.326,
+   "picture.stock_broll": 0.175,
+   "picture.other": 0.066,
+   "textSlam": 0.574,
+   "softTransitions": 0.213,
+   "faceShare": 0.473,
+   "sat": 0.402,
+   "luma": 0.293,
+   "contrast": 0.357,
+   "motion": 20.316,
+   "wordsPerShot": 11.941,
+   "cutInPause": 0.118,
+   "cutToWordMedianS": 0.08,
+   "hitsPerMin": 3.13,
+   "hitOnCutShare": 0.273,
+   "bedDb": -34.2
+  },
+  "note": "37 films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = 10 films with ≥ 3999862 views"
+ },
+ "shortForm": {
+  "available": false,
+  "films": 1,
+  "note": "the reference holds 1 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/"
+ },
+ "bands": {
+  "story": {
+   "schemaVersion": 1,
+   "channel": "magnates-media",
+   "films": 30,
+   "kinds": {
+    "scene": {
+     "p10": 0.033,
+     "p50": 0.078,
+     "p90": 0.111
+    },
+    "story": {
+     "p10": 0.2,
+     "p50": 0.311,
+     "p90": 0.478
+    },
+    "fact": {
+     "p10": 0.089,
+     "p50": 0.144,
+     "p90": 0.189
+    },
+    "explain": {
+     "p10": 0.156,
+     "p50": 0.244,
+     "p90": 0.4
+    },
+    "motive": {
+     "p10": 0.033,
+     "p50": 0.067,
+     "p90": 0.111
+    },
+    "quote": {
+     "p10": 0,
+     "p50": 0.033,
+     "p90": 0.067
+    },
+    "question": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.067
+    },
+    "address": {
+     "p10": 0.011,
+     "p50": 0.022,
+     "p90": 0.078
+    },
+    "tease": {
+     "p10": 0.022,
+     "p50": 0.056,
+     "p90": 0.078
+    },
+    "maxim": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.044
+    }
+   },
+   "viewer": {
+    "p10": 0.022,
+    "p50": 0.1,
+    "p90": 0.244
+   },
+   "structures": [
+    "\"How Facebook Destroyed Google\": Google should have won → Friendster, Orkut, Wave, Buzz → Google commits to Google+ → Launch, invites and big numbers → Why it failed: forced sign-ups and ghost town → No unique selling point; Circles → Gundotra leaves, breach, shutdown → Aftermath: Shoelace and Google culture",
+    "\"How WhatsApp Makes Money: The INSANE Story of WhatsApp\": Hook: you are the product → Acton rejected by Facebook, WhatsApp founded → No ads, no data: the $1 fee → Investors fund growth → Facebook buys WhatsApp for $19 billion → Why Facebook really bought it: data and rivals → Acton quits and founds Signal → EU fine, data sharing, encryption doubts → How WhatsApp makes money now → 2021 privacy policy backlash → Balanced take: should you remove WhatsApp",
+    "\"The Bankrupt Child That Created Rolls-Royce\": Hook: poor boy behind Rolls-Royce → Poverty, father's death, apprenticeship → F.H. Royce & Co and the doorbell → Marriage and first cars → Charles Rolls's background → Rolls-Royce formed; 10 HP and Silver Ghost → Rolls's air crash and Royce's decline → Eagle engines, backlog, Royce's death",
+    "\"The Craziest CEO Ever: War, Drugs & Time Machines\": Hook: what happened to DeLorean → Detroit childhood and GM rise → Pontiac GTO to Chevrolet, Vega, exit from GM → Founding DMC and the car design → Factory in Northern Ireland and the Troubles → Flop: price, quality, recession, Thatcher → Cocaine sting and trial → Scandal publicity and closure → Back to the Future time machine → Parts, replicas and revival; DeLorean's death",
+    "\"The Disturbing Story of Coco Chanel\": Convent hook → Orphanage and early years → Seamstress, singer, Balsan → Capel and first boutiques → WWI and jersey → Capel's death and Chanel No. 5 → Nazi occupation → Post-war exile and comeback → What to think of Chanel",
+    "\"The Most Illegal Business In The World: Silk Road\": Hook: dark web and the sweet-guy kingpin → Libertarian idea, Tor and Bitcoin, building the site → Launch, mushrooms and first growth → Press attention, guns, Julia and the Erica post → Travelling, bugs, staff and anything-goes categories → Variety Jones and the Dread Pirate Roberts alias → Unicorn-scale empire and its human cost → IRS agent Gary Alford tracks Altoid to Ross → Library arrest with open laptop → Corrupt agents and the staged hit → Trial, verdict and life sentence → Both sides of the debate → Silk Road 2.0 and the clones",
+    "\"Why Red Bull Isn't A Drink Company\": Baumgartner jump hook → Chaleo and Krating Daeng in Thailand → Dietrich Mateschitz finds it → Founding Red Bull and launch prep → Launch and guerrilla marketing → US debut and brand as story → Bans, lawsuits, heir scandal → Founders' deaths and wealth → Three lessons"
+   ]
+  },
+  "visual": {
+   "schemaVersion": 1,
+   "channel": "magnates-media",
+   "films": 9,
+   "shots": 276,
+   "mix": {
+    "plain_footage": 0.42,
+    "words_over_footage": 0.257,
+    "caption_on_footage": 0.054,
+    "title_card": 0.054,
+    "picture_composition": 0.04,
+    "logo": 0.043,
+    "number_stat": 0.018,
+    "chart": 0.022,
+    "document_or_screen": 0.043,
+    "map": 0.011,
+    "comparison": 0.011,
+    "infographic": 0.022,
+    "quote_card": 0.004
+   },
+   "distinctKinds": {
+    "p10": 5,
+    "p50": 6,
+    "p90": 10
+   },
+   "topShare": {
+    "p10": 0.286,
+    "p50": 0.421,
+    "p90": 0.75
+   },
+   "textShare": {
+    "p10": 0.263,
+    "p50": 0.579,
+    "p90": 0.857
+   },
+   "pictureShare": {
+    "p10": 0,
+    "p50": 0.063,
+    "p90": 0.2
+   },
+   "wordsMedian": {
+    "p10": 2,
+    "p50": 5,
+    "p90": 14
+   },
+   "plainFootage": {
+    "p10": 0.19,
+    "p50": 0.4,
+    "p90": 0.75
+   },
+   "wordsOverFootage": {
+    "p10": 0.063,
+    "p50": 0.222,
+    "p90": 0.444
+   },
+   "titleCard": {
+    "p10": 0,
+    "p50": 0.053,
+    "p90": 0.167
+   }
+  },
+  "thumbnail": {
+   "channel": "magnates-media",
+   "count": 37,
+   "hero": {
+    "person": 0.514,
+    "product": 0.135,
+    "logo": 0.189,
+    "object": 0.162,
+    "building": 0,
+    "place": 0,
+    "text": 0,
+    "none": 0
+   },
+   "background": {
+    "colour_field": 0.027,
+    "gradient": 0.081,
+    "photo_scene": 0.514,
+    "split_colour": 0.108,
+    "pattern": 0.216,
+    "texture": 0.054
+   },
+   "makeable": {
+    "real_pictures": 0.459,
+    "needs_retouch": 0.351,
+    "needs_invention": 0.027,
+    "illustration": 0.162
+   },
+   "reach": {
+    "reachable": 0.757,
+    "face_alteration": 0.135,
+    "new_painting": 0.108
+   },
+   "marks": {
+    "arrow": 0.054,
+    "circle": 0,
+    "cross": 0,
+    "strike": 0,
+    "box": 0.216,
+    "burst": 0.108,
+    "money": 0.297,
+    "fire": 0.27,
+    "glow": 0.514,
+    "outline": 0.135
+   },
+   "heroShare": {
+    "p10": 0.3,
+    "median": 0.4,
+    "p90": 0.55
+   },
+   "cutoutShare": 0.8918918918918919,
+   "faceShare": 0.5405405405405406,
+   "strongExpressionShare": 0.3,
+   "words": {
+    "median": 1,
+    "p90": 4,
+    "max": 6,
+    "noTextShare": 0.3783783783783784
+   },
+   "textHeight": {
+    "p10": 0.1,
+    "median": 0.15
+   },
+   "textStyle": {
+    "none": 0,
+    "label_box": 0.348,
+    "outlined": 0.043,
+    "plain": 0.609,
+    "gradient": 0,
+    "glow": 0
+   },
+   "textLooks": [
+    "white heavy sans-serif on green and red boxes",
+    "white heavy sans-serif on red and black boxes",
+    "white serif on black bar; white script logo",
+    "black heavy distressed sans-serif on yellow sign",
+    "yellow thin wide sans-serif",
+    "white heavy serif-like letters with outline under logo",
+    "pale cyan heavy italic sans-serif, faded",
+    "red heavy condensed sans-serif on white box with green banner",
+    "chrome metallic sans-serif logo lettering",
+    "white dotted stud-style sans-serif",
+    "red dripping blood-splatter serif lettering",
+    "rainbow gradient thin sans-serif letters",
+    "red bold italic sans-serif on white brush-stroke box",
+    "white heavy sans-serif on black box; white script logo on red box",
+    "white distressed script with black outline on a red oval",
+    "blue and orange FedEx logo lettering on the truck",
+    "dark brown heavy sans-serif on the Hershey sign, gold script on the factory sign",
+    "red heavy rounded sans-serif in logo, yellow and blue ring",
+    "yellow serif capitals, wide spacing",
+    "white serif on black box with blue swoosh",
+    "yellow-gold heavy sans-serif letters",
+    "white heavy sans-serif, semi-transparent over red",
+    "white heavy sans-serif on black box and red box"
+   ],
+   "elements": {
+    "median": 4,
+    "max": 5
+   },
+   "colourfulness": {
+    "p25": 93.9,
+    "median": 109.7,
+    "p90": 138.9
+   },
+   "luma": {
+    "p10": 0.305,
+    "p90": 0.521
+   },
+   "items": [
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/FQd5bo9nIZs.jpg",
+     "title": "How WhatsApp Makes Money: The INSANE Story of WhatsApp",
+     "views": 5264123,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 4,
+      "words": 3,
+      "textHeight": 0.14,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif on green and red boxes",
+      "marks": [
+       "box",
+       "glow",
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "Logo, padlock, hand cut-out and binary digits can all be composited from real assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 96.6,
+     "luma": 0.332
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/ISIjlRExdpE.jpg",
+     "title": "The Uber Story: Fraud, Betrayal, Death & Cars",
+     "views": 2966798,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.25,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 5,
+      "textHeight": 0.13,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif on red and black boxes",
+      "marks": [
+       "arrow",
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Logo, handcuffs, car images, arrow and map background are composited assets.",
+      "reach": "reachable"
+     },
+     "colourfulness": 88.7,
+     "luma": 0.359
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/ELu8y6eK-0g.jpg",
+     "title": "The Disturbing History of Coca-Cola",
+     "views": 7650608,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 4,
+      "words": 4,
+      "textHeight": 0.1,
+      "textStyle": "label_box",
+      "textLook": "white serif on black bar; white script logo",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Coca-Cola glass, trucks, bottle packs and red wave are composited brand imagery.",
+      "reach": "reachable"
+     },
+     "colourfulness": 135.9,
+     "luma": 0.385
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/UXZzyKTsBMw.jpg",
+     "title": "Why Netflix is Collapsing: The Truth About Netflix's Empire",
+     "views": 6562655,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "fire",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Netflix logo over real fire footage and show posters is a simple composite.",
+      "reach": "reachable"
+     },
+     "colourfulness": 142.1,
+     "luma": 0.405
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/fsfoqdqyykI.jpg",
+     "title": "The Most Illegal Business In The World: Silk Road",
+     "views": 6053699,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.25,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "gradient",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.14,
+      "textStyle": "plain",
+      "textLook": "black heavy distressed sans-serif on yellow sign",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "illustration",
+      "why": "Stylised painted camel rider and landscape artwork is illustration.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 121.8,
+     "luma": 0.368
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/HMgpUqugtOU.jpg",
+     "title": "Nestlé's Darkest Secret: The Disturbing Truth",
+     "views": 3038966,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "pattern",
+      "elements": 4,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "arrow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Face is painted with black tears, bandage and scars, altering the face itself.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 92.4,
+     "luma": 0.393
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/FHr1WnAn-kU.jpg",
+     "title": "The Man Who Robbed An Entire Country",
+     "views": 4355807,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "Three real portraits and cash photos composited over a sky and grass photo.",
+      "reach": "reachable"
+     },
+     "colourfulness": 95.1,
+     "luma": 0.525
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/v2OYxD_7uuI.jpg",
+     "title": "The Homeless Teen Who Created Louis Vuitton",
+     "views": 5368992,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "pattern",
+      "elements": 3,
+      "words": 2,
+      "textHeight": 0.15,
+      "textStyle": "plain",
+      "textLook": "yellow thin wide sans-serif",
+      "marks": [],
+      "makeable": "needs_retouch",
+      "why": "The person is heavily graded and blended into a monogram wall and brick scene so it reads as one stylised image.",
+      "reach": "reachable"
+     },
+     "colourfulness": 74.3,
+     "luma": 0.295
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/ubHS3It6dqg.jpg",
+     "title": "Why Red Bull Isn't A Drink Company",
+     "views": 1329198,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 2,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "Logo, question mark and colour splits with water droplet textures can be composed directly.",
+      "reach": "reachable"
+     },
+     "colourfulness": 141.4,
+     "luma": 0.37
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/4zFi8LuZz50.jpg",
+     "title": "The Poor Boy Who Created Honda",
+     "views": 1193584,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 1,
+      "textHeight": 0.06,
+      "textStyle": "plain",
+      "textLook": "white heavy serif-like letters with outline under logo",
+      "marks": [
+       "glow",
+       "outline"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Photos are heavily relit and colour-graded with rim glow beyond ordinary grading.",
+      "reach": "reachable"
+     },
+     "colourfulness": 84.2,
+     "luma": 0.448
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/gHXaUDx7P0Y.jpg",
+     "title": "How A Kid With $0 Created Nike",
+     "views": 3999862,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 1,
+      "textHeight": 0.3,
+      "textStyle": "plain",
+      "textLook": "pale cyan heavy italic sans-serif, faded",
+      "marks": [
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "Shoe, hand, blood splatter textures and cash photos composited over a blueprint background.",
+      "reach": "reachable"
+     },
+     "colourfulness": 110.3,
+     "luma": 0.55
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/lrmvbn_7Vsk.jpg",
+     "title": "Papa John's: Scandals, Betrayal & Dumpster Diving",
+     "views": 739701,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 3,
+      "textHeight": 0.17,
+      "textStyle": "label_box",
+      "textLook": "red heavy condensed sans-serif on white box with green banner",
+      "marks": [
+       "fire",
+       "money",
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Logo, pizza photo, fire footage and a banknote are all real elements composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 90.2,
+     "luma": 0.425
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/Wj9IlThHUVw.jpg",
+     "title": "The Craziest CEO Ever: War, Drugs & Time Machines",
+     "views": 365294,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 4,
+      "words": 1,
+      "textHeight": 0.17,
+      "textStyle": "plain",
+      "textLook": "chrome metallic sans-serif logo lettering",
+      "marks": [
+       "glow",
+       "outline"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Heavily stylised, relit portrait with coloured rim glow merged with cars reads as one graded scene.",
+      "reach": "reachable"
+     },
+     "colourfulness": 112.5,
+     "luma": 0.408
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/5U11gCja26A.jpg",
+     "title": "Versace: A True Story of Wealth & Murder",
+     "views": 1078211,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 1,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A statue photo cut out over a red-tinted, glitch-filtered photo of a villa is achievable with recolouring and filters.",
+      "reach": "reachable"
+     },
+     "colourfulness": 53.3,
+     "luma": 0.193
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/GCZxOfY3hAM.jpg",
+     "title": "The F**ked Up History of LEGO",
+     "views": 712971,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 3,
+      "words": 2,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "white dotted stud-style sans-serif",
+      "marks": [
+       "fire"
+      ],
+      "makeable": "real_pictures",
+      "why": "A Lego minifigure photo or render with fire footage and brick piles can be composited from real pictures.",
+      "reach": "reachable"
+     },
+     "colourfulness": 138.9,
+     "luma": 0.485
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/zEGiWhEGrCI.jpg",
+     "title": "The Disturbing Story Of Hugo Boss",
+     "views": 1019923,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "texture",
+      "elements": 2,
+      "words": 2,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "red dripping blood-splatter serif lettering",
+      "marks": [],
+      "makeable": "needs_retouch",
+      "why": "Stitches and bruise are painted onto the real person's face, and the photo is colourised.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 61.2,
+     "luma": 0.454
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/kT9IwOV9LT0.jpg",
+     "title": "The Bankrupt Child That Created Rolls-Royce",
+     "views": 1407520,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "rainbow gradient thin sans-serif letters",
+      "marks": [],
+      "makeable": "needs_retouch",
+      "why": "The child's face has dirt and smudges painted on, and the cars are recoloured in rainbow gradients.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 109.7,
+     "luma": 0.305
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/LgDQG-ZKRFg.jpg",
+     "title": "Ponzi: The Financial Idiot Who Scammed the World",
+     "views": 4627239,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "colour_field",
+      "elements": 5,
+      "words": 3,
+      "textHeight": 0.07,
+      "textStyle": "label_box",
+      "textLook": "red bold italic sans-serif on white brush-stroke box",
+      "marks": [
+       "money",
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "A cut-out vintage portrait, money photo, pyramid diagrams and a brush label can all be composited.",
+      "reach": "reachable"
+     },
+     "colourfulness": 85.3,
+     "luma": 0.408
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/jb1gWuzczSQ.jpg",
+     "title": "The INSANE Reason That MySpace Lost Everything",
+     "views": 1007111,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "fire",
+       "money",
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "A real person's face is repainted with Joker makeup and a stylised painterly look, which alters the face itself.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 119.3,
+     "luma": 0.504
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/KDURb6xfZBY.jpg",
+     "title": "The Genius of Coca-Cola's Marketing",
+     "views": 197481,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 5,
+      "textHeight": 0.11,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif on black box; white script logo on red box",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Can, polar bear, ice and logo are all real photos or logos composited with red tint and text boxes.",
+      "reach": "reachable"
+     },
+     "colourfulness": 94.6,
+     "luma": 0.505
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/LwlCUm6Xm0o.jpg",
+     "title": "KFC Lied To You...",
+     "views": 126190,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "The face looks altered into a tearful or laughing expression and blended into a Santa scene.",
+      "reach": "face_alteration"
+     },
+     "colourfulness": 99.8,
+     "luma": 0.56
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/E1KjINowtcU.jpg",
+     "title": "How Chicken Tenders Made Him A Millionaire 🍗",
+     "views": 779561,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 4,
+      "textHeight": 0.2,
+      "textStyle": "outlined",
+      "textLook": "white distressed script with black outline on a red oval",
+      "marks": [
+       "burst",
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "Portrait, food plate, logo and cash photos can be cut out and composited over a sunburst brick wall.",
+      "reach": "reachable"
+     },
+     "colourfulness": 93.9,
+     "luma": 0.479
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/weHYzzDXca0.jpg",
+     "title": "Why FedEx Bet Their Entire Company In A Casino",
+     "views": 1062321,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.45,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 1,
+      "textHeight": 0.25,
+      "textStyle": "plain",
+      "textLook": "blue and orange FedEx logo lettering on the truck",
+      "marks": [
+       "fire",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "A truck photo, casino chips, dice and boxes are composited with fiery colour grading.",
+      "reach": "reachable"
+     },
+     "colourfulness": 102.3,
+     "luma": 0.502
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/Fe2iQ1f-IYE.jpg",
+     "title": "The Scammer Who Sold The Eiffel Tower (Twice)",
+     "views": 1367189,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "A hooded figure in a mask, Eiffel Tower models, price tags, cash and code overlay can be composed from real photos and vector shapes.",
+      "reach": "reachable"
+     },
+     "colourfulness": 110.9,
+     "luma": 0.479
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/_F3DKbUf8uM.jpg",
+     "title": "The Disturbing Story of Coco Chanel",
+     "views": 1673065,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.5,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "glow",
+       "fire"
+      ],
+      "makeable": "needs_invention",
+      "why": "A woman in a suit with a swastika armband on a throne before a ruined, burning city with brand items on pedestals is a composite scene that was never photographed.",
+      "reach": "reachable"
+     },
+     "colourfulness": 82.9,
+     "luma": 0.437
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/vzrUhpBwebA.jpg",
+     "title": "Hershey: The Real Life Willy Wonka",
+     "views": 1505739,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.55,
+      "heroCutout": true,
+      "faces": 2,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 4,
+      "words": 6,
+      "textHeight": 0.1,
+      "textStyle": "plain",
+      "textLook": "dark brown heavy sans-serif on the Hershey sign, gold script on the factory sign",
+      "marks": [
+       "glow",
+       "burst"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Two real faces are split down the middle into one face with a painterly treatment, and the two sides sit in different settings.",
+      "reach": "reachable"
+     },
+     "colourfulness": 103.8,
+     "luma": 0.54
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/JdOKdypKUjE.jpg",
+     "title": "The Profitable Business of Selling Snake Oil",
+     "views": 241887,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.5,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "texture",
+      "elements": 1,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "illustration",
+      "why": "A cartoon-style poison bottle with a skull stopper is a rendered illustration.",
+      "reach": "reachable"
+     },
+     "colourfulness": 99,
+     "luma": 0.204
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/51fWzJ-A5w4.jpg",
+     "title": "The Secret Chinese Company That Owns Everything",
+     "views": 12107873,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "fire",
+       "glow",
+       "burst"
+      ],
+      "makeable": "illustration",
+      "why": "The QQ penguin mascot is a cartoon given glowing laser eyes against illustrated flames and stars.",
+      "reach": "reachable"
+     },
+     "colourfulness": 135.2,
+     "luma": 0.343
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/W8faexXg3fo.jpg",
+     "title": "The Untold TRUTH of Burger King",
+     "views": 2314483,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 4,
+      "words": 4,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "red heavy rounded sans-serif in logo, yellow and blue ring",
+      "marks": [
+       "money",
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "The Burger King mascot is a real costumed character, but the stylised painterly look and the burger made of cash are combined into one blended image.",
+      "reach": "reachable"
+     },
+     "colourfulness": 164.5,
+     "luma": 0.521
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/fEoubSFmQvU.jpg",
+     "title": "The F**ked Up History Of Gucci",
+     "views": 1260320,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.45,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 5,
+      "words": 1,
+      "textHeight": 0.14,
+      "textStyle": "plain",
+      "textLook": "yellow serif capitals, wide spacing",
+      "marks": [
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "A screaming face is combined with a stylised, painterly colour treatment and a staged theatre set.",
+      "reach": "reachable"
+     },
+     "colourfulness": 126.1,
+     "luma": 0.283
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/JZtQx52GDxo.jpg",
+     "title": "How Facebook Destroyed Google",
+     "views": 799249,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "fire",
+       "money",
+       "glow"
+      ],
+      "makeable": "needs_retouch",
+      "why": "Real photo and logos composited, but the face is heavily painterly-retouched and the fire is attached to the logo.",
+      "reach": "reachable"
+     },
+     "colourfulness": 132.3,
+     "luma": 0.435
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/JQeptSh_o7I.jpg",
+     "title": "Why Pepsi Went Bankrupt",
+     "views": 2052037,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 3,
+      "words": 4,
+      "textHeight": 0.12,
+      "textStyle": "label_box",
+      "textLook": "white serif on black box with blue swoosh",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Pepsi logo, cola glass, trucks and bottles are all composable real images with a text bar.",
+      "reach": "reachable"
+     },
+     "colourfulness": 115.7,
+     "luma": 0.354
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/8aIyHl5qP9I.jpg",
+     "title": "The Richest Man In The World: The Ugly Truth",
+     "views": 1768296,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "fire",
+       "money",
+       "glow"
+      ],
+      "makeable": "illustration",
+      "why": "The painted, stylised screaming old man with blood is artwork rather than a photograph.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 112,
+     "luma": 0.436
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/aJLdLb9dwAY.jpg",
+     "title": "How MagnatesMedia Almost Got DELETED",
+     "views": 656386,
+     "label": {
+      "hero": "logo",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 1,
+      "textHeight": 0.1,
+      "textStyle": "plain",
+      "textLook": "yellow-gold heavy sans-serif letters",
+      "marks": [
+       "fire",
+       "glow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Fire footage behind a dark tombstone shape with a logo and text can be composited from stock elements.",
+      "reach": "reachable"
+     },
+     "colourfulness": 140.7,
+     "luma": 0.321
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/QJh1LkOM4KY.jpg",
+     "title": "The INSANE Story of Domino's Pizza",
+     "views": 2561734,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.45,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "split_colour",
+      "elements": 2,
+      "words": 2,
+      "textHeight": 0.28,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif, semi-transparent over red",
+      "marks": [],
+      "makeable": "illustration",
+      "why": "The pizza slice with a monster face is a painted, fantastical creation.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 129.7,
+     "luma": 0.341
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/x1_a20ZDBlU.jpg",
+     "title": "J.P. Morgan: The Man Who Owned America",
+     "views": 4368490,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.55,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 0,
+      "textHeight": 0,
+      "textStyle": "none",
+      "textLook": "none",
+      "marks": [
+       "money",
+       "glow"
+      ],
+      "makeable": "illustration",
+      "why": "The old man is a painterly stylised portrait rather than a photo, with glowing green eyes.",
+      "reach": "new_painting"
+     },
+     "colourfulness": 127.9,
+     "luma": 0.349
+    },
+    {
+     "file": "/Users/lechi/Opumia/data/exemplars/magnates-media/thumbs/3RKU9XBwZro.jpg",
+     "title": "Why did Starbucks REALLY become so popular?",
+     "views": 631314,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.3,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "pattern",
+      "elements": 4,
+      "words": 2,
+      "textHeight": 0.17,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif on black box and red box",
+      "marks": [
+       "burst",
+       "glow",
+       "outline",
+       "box"
+      ],
+      "makeable": "needs_retouch",
+      "why": "The cup is a real product photo given a painterly filter and placed over a tinted logo and coffee bean pattern, all done with recolouring and filters.",
+      "reach": "reachable"
+     },
+     "colourfulness": 106.4,
+     "luma": 0.403
+    }
+   ],
+   "generatedAt": "2026-11-22T01:00:51.718Z"
+  },
+  "quality": {
+   "channel": "magnates-media",
+   "thumbs": {
+    "count": 37,
+    "sharpTop": {
+     "p10": 2287.7,
+     "median": 4598.4
+    },
+    "sharpMedian": {
+     "p10": 277.9,
+     "median": 1219.1
+    },
+    "contrast": {
+     "p10": 188,
+     "median": 219
+    },
+    "grain": {
+     "p10": 7.8,
+     "median": 17.5,
+     "p90": 35
+    }
+   },
+   "frames": {
+    "count": 276,
+    "sharpTop": {
+     "p10": 39,
+     "median": 557.7
+    },
+    "sharpMedian": {
+     "p10": 1.4,
+     "median": 18.1
+    },
+    "contrast": {
+     "p10": 59,
+     "median": 152
+    },
+    "grain": {
+     "p10": 0.2,
+     "median": 1.2,
+     "p90": 4.8
+    }
+   },
+   "generatedAt": "2026-11-22T01:46:49.955Z"
+  },
+  "voice": {
+   "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
+    "wpm": 171.1,
+    "pitchTravelSt": 14.312,
+    "melodySt": 3.832,
+    "dynamicsDb": 5.988,
+    "characters": 463,
+    "measuredAt": "2026-11-21",
+    "source": "measured"
+   },
+   "nPczCjzI2devNBz1zQrb|eleven_v4": {
+    "wpm": 172.5,
+    "pitchTravelSt": 13.256,
+    "melodySt": 2.779,
+    "dynamicsDb": 5.816,
+    "characters": 463,
+    "measuredAt": "2026-11-21",
+    "source": "measured"
+   }
+  }
+ },
+ "version": "f47cab5effd0",
+ "directives": [
+  "Pace: 10.73–26.68 cuts a minute across the channel's films (median 16.96); median shot 2.002 s; shot lengths vary a lot (CV 1.254).",
+  "By position: cold open 24.76 cuts/min with text on 49% of shots; chapter openings 15.15; middle 17.87; ending 16.65.",
+  "Pictures (every shot counted): designed+text 25%, stock_actor 21%, stock_broll 12%, stock_actor+text 12%, designed 10%, stock_broll+text 7%.",
+  "Transitions (on the sampled cuts): cut 67%, other 12%, none 6%, whip 5%, flash 5%, dissolve 4%, dip 1%.",
+  "Cuts and the voice: 11% of cuts fall in a pause; the median cut sits 0.068 s from a word boundary.",
+  "Lines with a number get text on screen 1.57× as often as average; lines naming someone show real footage/photos 7% of the time.",
+  "Sound: 3.08 strong hits a minute, 26% of them on a cut; hit classes thud/hit 56%, boom/impact 27%, click/pop 8%.",
+  "Music: a cue change within 6 s of 54% of chapter starts; a drop-out just before 32% of them; 10.008 cue changes per 10 min.",
+  "Variety: the channel's films differ — e.g. text share varies by 30% across films. Land each film somewhere different inside the band, not on the average.",
+  "Short-form: the reference holds 1 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
+ ],
+ "generatedAt": "2026-11-22T07:47:50.099Z"
+}

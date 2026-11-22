@@ -1,0 +1,16 @@
+[
+ {
+  "version": "94176bd65ddd",
+  "at": "2026-11-22T07:47:19.158Z",
+  "changed": [
+   "first version"
+  ]
+ },
+ {
+  "version": "f47cab5effd0",
+  "at": "2026-11-22T07:47:50.099Z",
+  "changed": [
+   "softTransitions"
+  ]
+ }
+]

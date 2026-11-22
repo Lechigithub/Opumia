@@ -28,3 +28,6 @@ data/exemplars/
 
 # Local speech models (Whisper, phoneme model) — downloaded, never committed
 data/models/
+
+# Full reference index (labels + SigLIP embeddings of every reference shot) — generated, ~150 MB
+data/reference-index/

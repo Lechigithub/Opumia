@@ -1,0 +1,2033 @@
+{
+ "schemaVersion": 2,
+ "channel": "logically-answered",
+ "corpus": {
+  "films": 30,
+  "shots": 6601,
+  "minutes": 411.9
+ },
+ "films": [
+  {
+   "id": "LA-20230417",
+   "title": "Food Delivery - The $432B Industry That Benefits No One",
+   "views": 144032,
+   "durS": 954,
+   "m": {
+    "seconds": 954,
+    "shots": 261,
+    "cutsPerMin": 16.42,
+    "shotMedianS": 2.136,
+    "shotCv": 1.083,
+    "picture": {
+     "stock_actor": 0.437,
+     "stock_broll": 0.333,
+     "designed": 0.199,
+     "other": 0.027,
+     "real_footage": 0.004
+    },
+    "textSlam": 0.598,
+    "softTransitions": 0.175,
+    "faceShare": 0.479,
+    "sat": 0.26,
+    "luma": 0.487,
+    "contrast": 0.385,
+    "motion": 22.533,
+    "wordsPerShot": 12.349,
+    "cutInPause": 0.138,
+    "cutToWordMedianS": 0.116,
+    "hitsPerMin": 1.13,
+    "hitOnCutShare": 0.278,
+    "bedDb": -44.1
+   }
+  },
+  {
+   "id": "LA-20230419",
+   "title": "Why Amazon Wants Their Employees To Resign",
+   "views": 970772,
+   "durS": 776,
+   "m": {
+    "seconds": 776,
+    "shots": 331,
+    "cutsPerMin": 25.59,
+    "shotMedianS": 2.002,
+    "shotCv": 0.846,
+    "picture": {
+     "stock_actor": 0.526,
+     "stock_broll": 0.353,
+     "designed": 0.094,
+     "other": 0.021,
+     "real_footage": 0.006
+    },
+    "textSlam": 0.471,
+    "softTransitions": 0.1,
+    "faceShare": 0.544,
+    "sat": 0.3,
+    "luma": 0.411,
+    "contrast": 0.421,
+    "motion": 24.985,
+    "wordsPerShot": 9.082,
+    "cutInPause": 0.069,
+    "cutToWordMedianS": 0.066,
+    "hitsPerMin": 0.23,
+    "hitOnCutShare": 0.333,
+    "bedDb": -43
+   }
+  },
+  {
+   "id": "LA-20230421",
+   "title": "Nvidia - The World's Next Largest Company",
+   "views": 133785,
+   "durS": 816,
+   "m": {
+    "seconds": 816,
+    "shots": 261,
+    "cutsPerMin": 19.19,
+    "shotMedianS": 2.734,
+    "shotCv": 0.716,
+    "picture": {
+     "designed": 0.368,
+     "stock_actor": 0.326,
+     "stock_broll": 0.291,
+     "other": 0.015
+    },
+    "textSlam": 0.559,
+    "softTransitions": 0.088,
+    "faceShare": 0.414,
+    "sat": 0.328,
+    "luma": 0.338,
+    "contrast": 0.421,
+    "motion": 19.449,
+    "wordsPerShot": 11.808,
+    "cutInPause": 0.161,
+    "cutToWordMedianS": 0.08,
+    "hitsPerMin": 1.03,
+    "hitOnCutShare": 0.286,
+    "bedDb": -41.5
+   }
+  },
+  {
+   "id": "LA-20230424",
+   "title": "Platforms Are Already Giving Up On Short Form Content",
+   "views": 491780,
+   "durS": 777,
+   "m": {
+    "seconds": 777,
+    "shots": 239,
+    "cutsPerMin": 18.46,
+    "shotMedianS": 1.801,
+    "shotCv": 1.153,
+    "picture": {
+     "stock_actor": 0.49,
+     "designed": 0.347,
+     "stock_broll": 0.126,
+     "other": 0.038
+    },
+    "textSlam": 0.573,
+    "softTransitions": 0.25,
+    "faceShare": 0.603,
+    "sat": 0.209,
+    "luma": 0.498,
+    "contrast": 0.411,
+    "motion": 28.379,
+    "wordsPerShot": 9.197,
+    "cutInPause": 0.113,
+    "cutToWordMedianS": 0.095,
+    "hitsPerMin": 0.39,
+    "hitOnCutShare": 0.2,
+    "bedDb": -44
+   }
+  },
+  {
+   "id": "LA-20230426",
+   "title": "This Guy Stole $120M From Google & Meta (& Nearly Got Away)",
+   "views": 48631,
+   "durS": 720,
+   "m": {
+    "seconds": 720,
+    "shots": 212,
+    "cutsPerMin": 17.67,
+    "shotMedianS": 3.067,
+    "shotCv": 0.781,
+    "picture": {
+     "stock_actor": 0.429,
+     "stock_broll": 0.288,
+     "designed": 0.269,
+     "other": 0.014
+    },
+    "textSlam": 0.623,
+    "softTransitions": 0.025,
+    "faceShare": 0.467,
+    "sat": 0.351,
+    "luma": 0.412,
+    "contrast": 0.426,
+    "motion": 15.558,
+    "wordsPerShot": 9.868,
+    "cutInPause": 0.113,
+    "cutToWordMedianS": 0.093,
+    "hitsPerMin": 1,
+    "hitOnCutShare": 0.333,
+    "bedDb": -41.3
+   }
+  },
+  {
+   "id": "LA-20230428",
+   "title": "Cisco's Founders Stole From Stanford. Ended Up Losing Everything.",
+   "views": 73374,
+   "durS": 808,
+   "m": {
+    "seconds": 808,
+    "shots": 215,
+    "cutsPerMin": 15.97,
+    "shotMedianS": 3.37,
+    "shotCv": 0.596,
+    "picture": {
+     "stock_actor": 0.377,
+     "stock_broll": 0.33,
+     "designed": 0.228,
+     "real_footage": 0.056,
+     "real_photo": 0.009
+    },
+    "textSlam": 0.619,
+    "softTransitions": 0.05,
+    "faceShare": 0.484,
+    "sat": 0.312,
+    "luma": 0.402,
+    "contrast": 0.442,
+    "motion": 14.562,
+    "wordsPerShot": 11.642,
+    "cutInPause": 0.177,
+    "cutToWordMedianS": 0.094,
+    "hitsPerMin": 1.04,
+    "hitOnCutShare": 0.214,
+    "bedDb": -42.1
+   }
+  },
+  {
+   "id": "LA-20230501",
+   "title": "8 Traitors Created Silicon Valley",
+   "views": 43926,
+   "durS": 829,
+   "m": {
+    "seconds": 829,
+    "shots": 142,
+    "cutsPerMin": 10.28,
+    "shotMedianS": 4.204,
+    "shotCv": 0.919,
+    "picture": {
+     "designed": 0.373,
+     "real_footage": 0.225,
+     "stock_broll": 0.204,
+     "stock_actor": 0.134,
+     "other": 0.035,
+     "real_photo": 0.028
+    },
+    "textSlam": 0.775,
+    "softTransitions": 0.275,
+    "faceShare": 0.486,
+    "sat": 0.216,
+    "luma": 0.507,
+    "contrast": 0.406,
+    "motion": 17.5,
+    "wordsPerShot": 15.62,
+    "cutInPause": 0.169,
+    "cutToWordMedianS": 0.094,
+    "hitsPerMin": 0.36,
+    "hitOnCutShare": 0.6,
+    "bedDb": -42.9
+   }
+  },
+  {
+   "id": "LA-20230503",
+   "title": "When Kindness Backfires - The Tragic Tale Of Sun Microsystems",
+   "views": 141583,
+   "durS": 808,
+   "m": {
+    "seconds": 808,
+    "shots": 241,
+    "cutsPerMin": 17.9,
+    "shotMedianS": 3.003,
+    "shotCv": 0.801,
+    "picture": {
+     "designed": 0.307,
+     "stock_broll": 0.286,
+     "stock_actor": 0.257,
+     "real_footage": 0.112,
+     "other": 0.025,
+     "real_photo": 0.012
+    },
+    "textSlam": 0.602,
+    "softTransitions": 0.113,
+    "faceShare": 0.394,
+    "sat": 0.32,
+    "luma": 0.389,
+    "contrast": 0.421,
+    "motion": 15.231,
+    "wordsPerShot": 9.083,
+    "cutInPause": 0.174,
+    "cutToWordMedianS": 0.106,
+    "hitsPerMin": 3.79,
+    "hitOnCutShare": 0.314,
+    "bedDb": -41.6
+   }
+  },
+  {
+   "id": "LA-20230505",
+   "title": "How Generosity Became A Burden - The American Tipping Crisis",
+   "views": 122989,
+   "durS": 770,
+   "m": {
+    "seconds": 770,
+    "shots": 238,
+    "cutsPerMin": 18.55,
+    "shotMedianS": 2.802,
+    "shotCv": 0.723,
+    "picture": {
+     "stock_actor": 0.58,
+     "stock_broll": 0.303,
+     "designed": 0.084,
+     "real_footage": 0.029,
+     "other": 0.004
+    },
+    "textSlam": 0.584,
+    "softTransitions": 0.05,
+    "faceShare": 0.613,
+    "sat": 0.313,
+    "luma": 0.398,
+    "contrast": 0.463,
+    "motion": 22.133,
+    "wordsPerShot": 9.214,
+    "cutInPause": 0.151,
+    "cutToWordMedianS": 0.084,
+    "hitsPerMin": 0.7,
+    "hitOnCutShare": 0.444,
+    "bedDb": -33.2
+   }
+  },
+  {
+   "id": "LA-20230508",
+   "title": "The $5 Trillion Shadow Company That Owns Silicon Valley - Sequoia Capital",
+   "views": 101077,
+   "durS": 849,
+   "m": {
+    "seconds": 849,
+    "shots": 174,
+    "cutsPerMin": 12.3,
+    "shotMedianS": 4.104,
+    "shotCv": 0.94,
+    "picture": {
+     "designed": 0.471,
+     "stock_actor": 0.218,
+     "stock_broll": 0.132,
+     "real_footage": 0.092,
+     "real_photo": 0.046,
+     "other": 0.04
+    },
+    "textSlam": 0.592,
+    "softTransitions": 0.175,
+    "faceShare": 0.483,
+    "sat": 0.168,
+    "luma": 0.561,
+    "contrast": 0.335,
+    "motion": 14.816,
+    "wordsPerShot": 12.448,
+    "cutInPause": 0.19,
+    "cutToWordMedianS": 0.112,
+    "hitsPerMin": 0.42,
+    "hitOnCutShare": 0.333,
+    "bedDb": -47.7
+   }
+  },
+  {
+   "id": "LA-20230510",
+   "title": "Podcasts Are Taking Over YouTube. But Not For Long.",
+   "views": 123978,
+   "durS": 825,
+   "m": {
+    "seconds": 825,
+    "shots": 171,
+    "cutsPerMin": 12.44,
+    "shotMedianS": 3.737,
+    "shotCv": 0.899,
+    "picture": {
+     "stock_actor": 0.491,
+     "designed": 0.333,
+     "stock_broll": 0.14,
+     "other": 0.029,
+     "real_footage": 0.006
+    },
+    "textSlam": 0.678,
+    "softTransitions": 0.2,
+    "faceShare": 0.649,
+    "sat": 0.187,
+    "luma": 0.522,
+    "contrast": 0.365,
+    "motion": 19.672,
+    "wordsPerShot": 13.825,
+    "cutInPause": 0.135,
+    "cutToWordMedianS": 0.11,
+    "hitsPerMin": 0.22,
+    "hitOnCutShare": 0.333,
+    "bedDb": -50.6
+   }
+  },
+  {
+   "id": "LA-20230512",
+   "title": "Why Companies Are Blowing Their Cash Reserves",
+   "views": 301696,
+   "durS": 834,
+   "m": {
+    "seconds": 834,
+    "shots": 214,
+    "cutsPerMin": 15.4,
+    "shotMedianS": 3.737,
+    "shotCv": 0.541,
+    "picture": {
+     "stock_actor": 0.481,
+     "designed": 0.266,
+     "stock_broll": 0.224,
+     "real_footage": 0.028
+    },
+    "textSlam": 0.603,
+    "softTransitions": 0.125,
+    "faceShare": 0.542,
+    "sat": 0.295,
+    "luma": 0.446,
+    "contrast": 0.461,
+    "motion": 14.62,
+    "wordsPerShot": 10.79,
+    "cutInPause": 0.229,
+    "cutToWordMedianS": 0.103,
+    "hitsPerMin": 2.73,
+    "hitOnCutShare": 0.421,
+    "bedDb": -38.4
+   }
+  },
+  {
+   "id": "LA-20230515",
+   "title": "People Love Mocking The Metaverse. Mark Is Getting The Last Laugh.",
+   "views": 91057,
+   "durS": 871,
+   "m": {
+    "seconds": 871,
+    "shots": 219,
+    "cutsPerMin": 15.09,
+    "shotMedianS": 2.77,
+    "shotCv": 0.987,
+    "picture": {
+     "designed": 0.525,
+     "stock_actor": 0.26,
+     "stock_broll": 0.16,
+     "other": 0.055
+    },
+    "textSlam": 0.516,
+    "softTransitions": 0.2,
+    "faceShare": 0.466,
+    "sat": 0.227,
+    "luma": 0.53,
+    "contrast": 0.382,
+    "motion": 20.673,
+    "wordsPerShot": 11.215,
+    "cutInPause": 0.178,
+    "cutToWordMedianS": 0.109,
+    "hitsPerMin": 1.24,
+    "hitOnCutShare": 0.389,
+    "bedDb": -44.7
+   }
+  },
+  {
+   "id": "LA-20230517",
+   "title": "How Founders Became Tyrants",
+   "views": 76240,
+   "durS": 842,
+   "m": {
+    "seconds": 842,
+    "shots": 205,
+    "cutsPerMin": 14.61,
+    "shotMedianS": 3.07,
+    "shotCv": 0.949,
+    "picture": {
+     "designed": 0.41,
+     "stock_actor": 0.351,
+     "stock_broll": 0.2,
+     "real_footage": 0.02,
+     "other": 0.015,
+     "real_photo": 0.005
+    },
+    "textSlam": 0.673,
+    "softTransitions": 0.113,
+    "faceShare": 0.439,
+    "sat": 0.216,
+    "luma": 0.485,
+    "contrast": 0.393,
+    "motion": 18.978,
+    "wordsPerShot": 11.073,
+    "cutInPause": 0.127,
+    "cutToWordMedianS": 0.114,
+    "hitsPerMin": 1.64,
+    "hitOnCutShare": 0.696,
+    "bedDb": -45.9
+   }
+  },
+  {
+   "id": "LA-20230519",
+   "title": "Apple’s $573 Billion Bet (& Are They Going Private)",
+   "views": 125602,
+   "durS": 841,
+   "m": {
+    "seconds": 841,
+    "shots": 233,
+    "cutsPerMin": 16.62,
+    "shotMedianS": 3.204,
+    "shotCv": 0.604,
+    "picture": {
+     "stock_actor": 0.421,
+     "stock_broll": 0.339,
+     "designed": 0.223,
+     "real_footage": 0.017
+    },
+    "textSlam": 0.601,
+    "softTransitions": 0.175,
+    "faceShare": 0.464,
+    "sat": 0.323,
+    "luma": 0.392,
+    "contrast": 0.443,
+    "motion": 16.515,
+    "wordsPerShot": 12.099,
+    "cutInPause": 0.283,
+    "cutToWordMedianS": 0.099,
+    "hitsPerMin": 6.63,
+    "hitOnCutShare": 0.43,
+    "bedDb": -45.4
+   }
+  },
+  {
+   "id": "LA-20230522",
+   "title": "Why Microsoft Has Willingly Given Up On Trying To Innovate",
+   "views": 140052,
+   "durS": 969,
+   "m": {
+    "seconds": 969,
+    "shots": 202,
+    "cutsPerMin": 12.51,
+    "shotMedianS": 3.47,
+    "shotCv": 0.975,
+    "picture": {
+     "designed": 0.535,
+     "stock_broll": 0.213,
+     "stock_actor": 0.163,
+     "other": 0.05,
+     "real_footage": 0.04
+    },
+    "textSlam": 0.683,
+    "softTransitions": 0.225,
+    "faceShare": 0.317,
+    "sat": 0.194,
+    "luma": 0.585,
+    "contrast": 0.353,
+    "motion": 14.187,
+    "wordsPerShot": 13.168,
+    "cutInPause": 0.203,
+    "cutToWordMedianS": 0.124,
+    "hitsPerMin": 0.5,
+    "hitOnCutShare": 0.5,
+    "bedDb": -44
+   }
+  },
+  {
+   "id": "LA-20230524",
+   "title": "The Man Who Nearly Bought Netflix Is Now Wanted For Running A Ponzi",
+   "views": 101841,
+   "durS": 1121,
+   "m": {
+    "seconds": 1121,
+    "shots": 237,
+    "cutsPerMin": 12.69,
+    "shotMedianS": 4.004,
+    "shotCv": 0.8,
+    "picture": {
+     "designed": 0.405,
+     "stock_broll": 0.291,
+     "stock_actor": 0.224,
+     "real_footage": 0.038,
+     "other": 0.025,
+     "real_photo": 0.017
+    },
+    "textSlam": 0.692,
+    "softTransitions": 0.163,
+    "faceShare": 0.388,
+    "sat": 0.224,
+    "luma": 0.477,
+    "contrast": 0.36,
+    "motion": 16.495,
+    "wordsPerShot": 12.477,
+    "cutInPause": 0.219,
+    "cutToWordMedianS": 0.113,
+    "hitsPerMin": 1.07,
+    "hitOnCutShare": 0.6,
+    "bedDb": -46.7
+   }
+  },
+  {
+   "id": "LA-20230526",
+   "title": "Bottled Water Is Literally A Scam",
+   "views": 100477,
+   "durS": 832,
+   "m": {
+    "seconds": 832,
+    "shots": 221,
+    "cutsPerMin": 15.94,
+    "shotMedianS": 3.37,
+    "shotCv": 0.679,
+    "picture": {
+     "stock_broll": 0.452,
+     "stock_actor": 0.348,
+     "designed": 0.172,
+     "other": 0.023,
+     "real_footage": 0.005
+    },
+    "textSlam": 0.615,
+    "softTransitions": 0.138,
+    "faceShare": 0.362,
+    "sat": 0.295,
+    "luma": 0.485,
+    "contrast": 0.433,
+    "motion": 17.035,
+    "wordsPerShot": 11.71,
+    "cutInPause": 0.167,
+    "cutToWordMedianS": 0.084,
+    "hitsPerMin": 8.58,
+    "hitOnCutShare": 0.504,
+    "bedDb": -48.7
+   }
+  },
+  {
+   "id": "LA-20230529",
+   "title": "YouTube Has Become Pay To Win",
+   "views": 126725,
+   "durS": 838,
+   "m": {
+    "seconds": 838,
+    "shots": 227,
+    "cutsPerMin": 16.25,
+    "shotMedianS": 3.003,
+    "shotCv": 0.854,
+    "picture": {
+     "stock_actor": 0.436,
+     "designed": 0.282,
+     "stock_broll": 0.269,
+     "other": 0.013
+    },
+    "textSlam": 0.595,
+    "softTransitions": 0.238,
+    "faceShare": 0.542,
+    "sat": 0.234,
+    "luma": 0.498,
+    "contrast": 0.417,
+    "motion": 23.962,
+    "wordsPerShot": 10.004,
+    "cutInPause": 0.22,
+    "cutToWordMedianS": 0.115,
+    "hitsPerMin": 1.65,
+    "hitOnCutShare": 0.174,
+    "bedDb": -39.5
+   }
+  },
+  {
+   "id": "LA-20230531",
+   "title": "Why Does Walmart Pay So Much?",
+   "views": 305620,
+   "durS": 784,
+   "m": {
+    "seconds": 784,
+    "shots": 281,
+    "cutsPerMin": 21.51,
+    "shotMedianS": 2.436,
+    "shotCv": 0.629,
+    "picture": {
+     "stock_actor": 0.381,
+     "stock_broll": 0.31,
+     "designed": 0.292,
+     "real_footage": 0.011,
+     "other": 0.007
+    },
+    "textSlam": 0.612,
+    "softTransitions": 0.138,
+    "faceShare": 0.441,
+    "sat": 0.295,
+    "luma": 0.454,
+    "contrast": 0.429,
+    "motion": 19.074,
+    "wordsPerShot": 7.986,
+    "cutInPause": 0.203,
+    "cutToWordMedianS": 0.082,
+    "hitsPerMin": 2.6,
+    "hitOnCutShare": 0.324,
+    "bedDb": -42.2
+   }
+  },
+  {
+   "id": "LA-20230609",
+   "title": "YouTube Should Feel Stupid For Banning AdBlock",
+   "views": 400039,
+   "durS": 819,
+   "m": {
+    "seconds": 819,
+    "shots": 191,
+    "cutsPerMin": 13.99,
+    "shotMedianS": 3.537,
+    "shotCv": 0.78,
+    "picture": {
+     "designed": 0.403,
+     "stock_actor": 0.277,
+     "stock_broll": 0.277,
+     "other": 0.031,
+     "real_footage": 0.01
+    },
+    "textSlam": 0.654,
+    "softTransitions": 0.188,
+    "faceShare": 0.372,
+    "sat": 0.182,
+    "luma": 0.56,
+    "contrast": 0.345,
+    "motion": 16.408,
+    "wordsPerShot": 11.55,
+    "cutInPause": 0.141,
+    "cutToWordMedianS": 0.122,
+    "hitsPerMin": 0.88,
+    "hitOnCutShare": 0.417,
+    "bedDb": -46.4
+   }
+  },
+  {
+   "id": "LA-20230612",
+   "title": "How To Make $300,000,000,000 By Getting The CCP Drunk",
+   "views": 54880,
+   "durS": 832,
+   "m": {
+    "seconds": 832,
+    "shots": 257,
+    "cutsPerMin": 18.53,
+    "shotMedianS": 1.802,
+    "shotCv": 1.183,
+    "picture": {
+     "stock_broll": 0.339,
+     "designed": 0.268,
+     "stock_actor": 0.257,
+     "real_footage": 0.117,
+     "other": 0.012,
+     "real_photo": 0.008
+    },
+    "textSlam": 0.514,
+    "softTransitions": 0.213,
+    "faceShare": 0.377,
+    "sat": 0.176,
+    "luma": 0.544,
+    "contrast": 0.349,
+    "motion": 24.42,
+    "wordsPerShot": 8.533,
+    "cutInPause": 0.125,
+    "cutToWordMedianS": 0.103,
+    "hitsPerMin": 0.79,
+    "hitOnCutShare": 0.636,
+    "bedDb": -48.6
+   }
+  },
+  {
+   "id": "LA-20230614",
+   "title": "Goodwill? More Like Ill Will - The Ugly Truth",
+   "views": 111517,
+   "durS": 819,
+   "m": {
+    "seconds": 819,
+    "shots": 175,
+    "cutsPerMin": 12.82,
+    "shotMedianS": 3.704,
+    "shotCv": 0.733,
+    "picture": {
+     "stock_actor": 0.371,
+     "stock_broll": 0.286,
+     "designed": 0.257,
+     "other": 0.04,
+     "real_footage": 0.034,
+     "real_photo": 0.011
+    },
+    "textSlam": 0.686,
+    "softTransitions": 0.125,
+    "faceShare": 0.406,
+    "sat": 0.158,
+    "luma": 0.588,
+    "contrast": 0.349,
+    "motion": 16.108,
+    "wordsPerShot": 12.76,
+    "cutInPause": 0.189,
+    "cutToWordMedianS": 0.132,
+    "hitsPerMin": 0.81,
+    "hitOnCutShare": 0.182,
+    "bedDb": -46.3
+   }
+  },
+  {
+   "id": "LA-20230616",
+   "title": "171,849 \"Self Offings\" - Is Eli Lilly Involved? (Allegedly)",
+   "views": 26521,
+   "durS": 842,
+   "m": {
+    "seconds": 842,
+    "shots": 192,
+    "cutsPerMin": 13.68,
+    "shotMedianS": 3.236,
+    "shotCv": 0.744,
+    "picture": {
+     "stock_broll": 0.458,
+     "designed": 0.281,
+     "stock_actor": 0.172,
+     "real_footage": 0.042,
+     "other": 0.031,
+     "real_photo": 0.016
+    },
+    "textSlam": 0.729,
+    "softTransitions": 0.138,
+    "faceShare": 0.214,
+    "sat": 0.136,
+    "luma": 0.635,
+    "contrast": 0.336,
+    "motion": 16.369,
+    "wordsPerShot": 14.026,
+    "cutInPause": 0.188,
+    "cutToWordMedianS": 0.104,
+    "hitsPerMin": 0.57,
+    "hitOnCutShare": 0.5,
+    "bedDb": -43.9
+   }
+  },
+  {
+   "id": "LA-20230619",
+   "title": "TikTokers Are Getting A Harsh Reality Check",
+   "views": 459346,
+   "durS": 786,
+   "m": {
+    "seconds": 786,
+    "shots": 208,
+    "cutsPerMin": 15.88,
+    "shotMedianS": 2.803,
+    "shotCv": 0.899,
+    "picture": {
+     "designed": 0.577,
+     "stock_actor": 0.226,
+     "stock_broll": 0.139,
+     "other": 0.058
+    },
+    "textSlam": 0.712,
+    "softTransitions": 0.275,
+    "faceShare": 0.428,
+    "sat": 0.237,
+    "luma": 0.521,
+    "contrast": 0.393,
+    "motion": 23.117,
+    "wordsPerShot": 11.707,
+    "cutInPause": 0.163,
+    "cutToWordMedianS": 0.089,
+    "hitsPerMin": 0.38,
+    "hitOnCutShare": 0,
+    "bedDb": -46.4
+   }
+  },
+  {
+   "id": "LA-20230621",
+   "title": "Schools Have Had It With Google",
+   "views": 821343,
+   "durS": 684,
+   "m": {
+    "seconds": 684,
+    "shots": 233,
+    "cutsPerMin": 20.44,
+    "shotMedianS": 2.836,
+    "shotCv": 0.556,
+    "picture": {
+     "stock_actor": 0.536,
+     "designed": 0.313,
+     "stock_broll": 0.137,
+     "other": 0.013
+    },
+    "textSlam": 0.506,
+    "softTransitions": 0.088,
+    "faceShare": 0.609,
+    "sat": 0.245,
+    "luma": 0.513,
+    "contrast": 0.446,
+    "motion": 21.25,
+    "wordsPerShot": 9.069,
+    "cutInPause": 0.155,
+    "cutToWordMedianS": 0.099,
+    "hitsPerMin": 1.67,
+    "hitOnCutShare": 0.316,
+    "bedDb": -44
+   }
+  },
+  {
+   "id": "LA-20230623",
+   "title": "The Demise of Big Tech - Is The End Near?",
+   "views": 103324,
+   "durS": 790,
+   "m": {
+    "seconds": 790,
+    "shots": 199,
+    "cutsPerMin": 15.11,
+    "shotMedianS": 3.37,
+    "shotCv": 0.773,
+    "picture": {
+     "designed": 0.497,
+     "stock_broll": 0.256,
+     "stock_actor": 0.186,
+     "other": 0.03,
+     "real_footage": 0.025,
+     "real_photo": 0.005
+    },
+    "textSlam": 0.698,
+    "softTransitions": 0.188,
+    "faceShare": 0.307,
+    "sat": 0.207,
+    "luma": 0.561,
+    "contrast": 0.324,
+    "motion": 16.374,
+    "wordsPerShot": 10.427,
+    "cutInPause": 0.211,
+    "cutToWordMedianS": 0.12,
+    "hitsPerMin": 0.38,
+    "hitOnCutShare": 0.2,
+    "bedDb": -46.4
+   }
+  },
+  {
+   "id": "LA-20230626",
+   "title": "The Reddit Protest Explained (From Reddit’s Perspective)",
+   "views": 37272,
+   "durS": 781,
+   "m": {
+    "seconds": 781,
+    "shots": 229,
+    "cutsPerMin": 17.59,
+    "shotMedianS": 2.435,
+    "shotCv": 0.986,
+    "picture": {
+     "designed": 0.751,
+     "stock_broll": 0.118,
+     "stock_actor": 0.083,
+     "other": 0.048
+    },
+    "textSlam": 0.629,
+    "softTransitions": 0.138,
+    "faceShare": 0.258,
+    "sat": 0.176,
+    "luma": 0.647,
+    "contrast": 0.327,
+    "motion": 15.162,
+    "wordsPerShot": 10.004,
+    "cutInPause": 0.157,
+    "cutToWordMedianS": 0.093,
+    "hitsPerMin": 1.15,
+    "hitOnCutShare": 0.2,
+    "bedDb": -44.2
+   }
+  },
+  {
+   "id": "LA-20230628",
+   "title": "Are Layoffs Even Worth It?",
+   "views": 96940,
+   "durS": 742,
+   "m": {
+    "seconds": 742,
+    "shots": 230,
+    "cutsPerMin": 18.6,
+    "shotMedianS": 2.936,
+    "shotCv": 0.637,
+    "picture": {
+     "stock_actor": 0.583,
+     "designed": 0.217,
+     "stock_broll": 0.2
+    },
+    "textSlam": 0.465,
+    "softTransitions": 0.125,
+    "faceShare": 0.661,
+    "sat": 0.286,
+    "luma": 0.44,
+    "contrast": 0.462,
+    "motion": 21.256,
+    "wordsPerShot": 9.248,
+    "cutInPause": 0.235,
+    "cutToWordMedianS": 0.1,
+    "hitsPerMin": 0.65,
+    "hitOnCutShare": 0.125,
+    "bedDb": -49.2
+   }
+  },
+  {
+   "id": "LA-20230630",
+   "title": "The 1.2 Billion Sub YouTuber That’s Losing It All",
+   "views": 60165,
+   "durS": 753,
+   "m": {
+    "seconds": 753,
+    "shots": 163,
+    "cutsPerMin": 12.99,
+    "shotMedianS": 2.9,
+    "shotCv": 1.153,
+    "picture": {
+     "designed": 0.736,
+     "stock_broll": 0.104,
+     "stock_actor": 0.098,
+     "other": 0.061
+    },
+    "textSlam": 0.791,
+    "softTransitions": 0.25,
+    "faceShare": 0.313,
+    "sat": 0.221,
+    "luma": 0.63,
+    "contrast": 0.329,
+    "motion": 18.621,
+    "wordsPerShot": 17.92,
+    "cutInPause": 0.098,
+    "cutToWordMedianS": 0.1,
+    "hitsPerMin": 2.39,
+    "hitOnCutShare": 0.033,
+    "bedDb": -39.4
+   }
+  }
+ ],
+ "band": {
+  "seconds": {
+   "p10": 753,
+   "median": 819,
+   "p90": 871
+  },
+  "shots": {
+   "p10": 174,
+   "median": 221,
+   "p90": 261
+  },
+  "cutsPerMin": {
+   "p10": 12.51,
+   "median": 15.97,
+   "p90": 19.19
+  },
+  "shotMedianS": {
+   "p10": 2.136,
+   "median": 3.067,
+   "p90": 3.737
+  },
+  "shotCv": {
+   "p10": 0.604,
+   "median": 0.801,
+   "p90": 1.083
+  },
+  "picture.stock_actor": {
+   "p10": 0.163,
+   "median": 0.351,
+   "p90": 0.526
+  },
+  "picture.stock_broll": {
+   "p10": 0.132,
+   "median": 0.277,
+   "p90": 0.339
+  },
+  "picture.designed": {
+   "p10": 0.199,
+   "median": 0.313,
+   "p90": 0.535
+  },
+  "picture.other": {
+   "p10": 0,
+   "median": 0.025,
+   "p90": 0.05
+  },
+  "picture.real_footage": {
+   "p10": 0,
+   "median": 0.011,
+   "p90": 0.092
+  },
+  "textSlam": {
+   "p10": 0.514,
+   "median": 0.615,
+   "p90": 0.712
+  },
+  "softTransitions": {
+   "p10": 0.088,
+   "median": 0.163,
+   "p90": 0.25
+  },
+  "faceShare": {
+   "p10": 0.313,
+   "median": 0.464,
+   "p90": 0.609
+  },
+  "sat": {
+   "p10": 0.176,
+   "median": 0.234,
+   "p90": 0.32
+  },
+  "luma": {
+   "p10": 0.398,
+   "median": 0.498,
+   "p90": 0.588
+  },
+  "contrast": {
+   "p10": 0.335,
+   "median": 0.406,
+   "p90": 0.446
+  },
+  "motion": {
+   "p10": 14.816,
+   "median": 18.621,
+   "p90": 23.962
+  },
+  "wordsPerShot": {
+   "p10": 9.082,
+   "median": 11.55,
+   "p90": 13.825
+  },
+  "cutInPause": {
+   "p10": 0.113,
+   "median": 0.169,
+   "p90": 0.22
+  },
+  "cutToWordMedianS": {
+   "p10": 0.084,
+   "median": 0.103,
+   "p90": 0.12
+  },
+  "hitsPerMin": {
+   "p10": 0.38,
+   "median": 1.03,
+   "p90": 2.73
+  },
+  "hitOnCutShare": {
+   "p10": 0.174,
+   "median": 0.333,
+   "p90": 0.6
+  },
+  "bedDb": {
+   "p10": -48.6,
+   "median": -44,
+   "p90": -39.5
+  }
+ },
+ "byPosition": {
+  "cold_open": {
+   "band": {
+    "seconds": {
+     "p10": 75.5,
+     "median": 77.6,
+     "p90": 81.6
+    },
+    "shots": {
+     "p10": 11,
+     "median": 16,
+     "p90": 30
+    },
+    "cutsPerMin": {
+     "p10": 8.09,
+     "median": 12.41,
+     "p90": 23.79
+    },
+    "shotMedianS": {
+     "p10": 1.902,
+     "median": 4.037,
+     "p90": 7.741
+    },
+    "shotCv": {
+     "p10": 0.468,
+     "median": 0.828,
+     "p90": 1.138
+    },
+    "picture.stock_actor": {
+     "p10": 0,
+     "median": 0.353,
+     "p90": 0.5
+    },
+    "picture.stock_broll": {
+     "p10": 0,
+     "median": 0.156,
+     "p90": 0.333
+    },
+    "picture.designed": {
+     "p10": 0.267,
+     "median": 0.5,
+     "p90": 0.833
+    },
+    "picture.other": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.083
+    },
+    "picture.real_footage": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.083
+    },
+    "textSlam": {
+     "p10": 0.5,
+     "median": 0.667,
+     "p90": 0.917
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0.2,
+     "p90": 0.5
+    },
+    "faceShare": {
+     "p10": 0.182,
+     "median": 0.5,
+     "p90": 0.714
+    },
+    "sat": {
+     "p10": 0.182,
+     "median": 0.263,
+     "p90": 0.353
+    },
+    "luma": {
+     "p10": 0.4,
+     "median": 0.559,
+     "p90": 0.664
+    },
+    "contrast": {
+     "p10": 0.321,
+     "median": 0.419,
+     "p90": 0.474
+    },
+    "motion": {
+     "p10": 13.359,
+     "median": 19.182,
+     "p90": 30.884
+    },
+    "wordsPerShot": {
+     "p10": 6.767,
+     "median": 13.8,
+     "p90": 18.083
+    },
+    "cutInPause": {
+     "p10": 0.043,
+     "median": 0.154,
+     "p90": 0.333
+    },
+    "cutToWordMedianS": {
+     "p10": 0.062,
+     "median": 0.106,
+     "p90": 0.151
+    },
+    "hitsPerMin": {
+     "p10": 0,
+     "median": 0.79,
+     "p90": 3.19
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0.333,
+     "p90": 1
+    },
+    "bedDb": {
+     "p10": -50.3,
+     "median": -42.6,
+     "p90": -38.2
+    }
+   },
+   "pooled": {
+    "seconds": 2306.1,
+    "shots": 534,
+    "cutsPerMin": 13.89,
+    "shotMedianS": 3.066,
+    "shotCv": 1.037,
+    "picture": {
+     "designed": 0.494,
+     "stock_actor": 0.288,
+     "stock_broll": 0.176,
+     "real_footage": 0.022,
+     "other": 0.019
+    },
+    "textSlam": 0.644,
+    "softTransitions": 0.192,
+    "faceShare": 0.436,
+    "sat": 0.268,
+    "luma": 0.52,
+    "contrast": 0.41,
+    "motion": 20.172,
+    "wordsPerShot": 11.279,
+    "cutInPause": 0.167,
+    "cutToWordMedianS": 0.104,
+    "hitsPerMin": 1.46,
+    "hitOnCutShare": 0.929,
+    "bedDb": -42.3
+   }
+  },
+  "chapter_open": {
+   "band": {
+    "seconds": {
+     "p10": 71,
+     "median": 80.3,
+     "p90": 97.2
+    },
+    "shots": {
+     "p10": 14,
+     "median": 23,
+     "p90": 28
+    },
+    "cutsPerMin": {
+     "p10": 9.26,
+     "median": 17.99,
+     "p90": 20.2
+    },
+    "shotMedianS": {
+     "p10": 1.668,
+     "median": 3.203,
+     "p90": 5.239
+    },
+    "shotCv": {
+     "p10": 0.355,
+     "median": 0.67,
+     "p90": 0.989
+    },
+    "picture.stock_actor": {
+     "p10": 0.091,
+     "median": 0.333,
+     "p90": 0.609
+    },
+    "picture.stock_broll": {
+     "p10": 0.059,
+     "median": 0.222,
+     "p90": 0.395
+    },
+    "picture.designed": {
+     "p10": 0.1,
+     "median": 0.368,
+     "p90": 0.731
+    },
+    "picture.other": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.083
+    },
+    "picture.real_footage": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.091
+    },
+    "textSlam": {
+     "p10": 0.478,
+     "median": 0.68,
+     "p90": 0.818
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0.125,
+     "p90": 0.375
+    },
+    "faceShare": {
+     "p10": 0.217,
+     "median": 0.44,
+     "p90": 0.652
+    },
+    "sat": {
+     "p10": 0.154,
+     "median": 0.243,
+     "p90": 0.327
+    },
+    "luma": {
+     "p10": 0.384,
+     "median": 0.538,
+     "p90": 0.651
+    },
+    "contrast": {
+     "p10": 0.342,
+     "median": 0.399,
+     "p90": 0.469
+    },
+    "motion": {
+     "p10": 12.501,
+     "median": 19.278,
+     "p90": 25.935
+    },
+    "wordsPerShot": {
+     "p10": 7.087,
+     "median": 9.6,
+     "p90": 15.267
+    },
+    "cutInPause": {
+     "p10": 0.15,
+     "median": 0.273,
+     "p90": 0.412
+    },
+    "cutToWordMedianS": {
+     "p10": 0.093,
+     "median": 0.125,
+     "p90": 0.16
+    },
+    "hitsPerMin": {
+     "p10": 0,
+     "median": 1.42,
+     "p90": 6.34
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0.077,
+     "p90": 0.667
+    },
+    "bedDb": {
+     "p10": -49.7,
+     "median": -43.3,
+     "p90": -40.5
+    }
+   },
+   "pooled": {
+    "seconds": 2479.3,
+    "shots": 657,
+    "cutsPerMin": 15.9,
+    "shotMedianS": 3.036,
+    "shotCv": 0.908,
+    "picture": {
+     "designed": 0.362,
+     "stock_actor": 0.356,
+     "stock_broll": 0.234,
+     "real_footage": 0.026,
+     "other": 0.017,
+     "real_photo": 0.005
+    },
+    "textSlam": 0.642,
+    "softTransitions": 0.166,
+    "faceShare": 0.449,
+    "sat": 0.244,
+    "luma": 0.506,
+    "contrast": 0.401,
+    "motion": 19.315,
+    "wordsPerShot": 9.994,
+    "cutInPause": 0.266,
+    "cutToWordMedianS": 0.119,
+    "hitsPerMin": 2.4,
+    "hitOnCutShare": 0.545,
+    "bedDb": -44.7
+   }
+  },
+  "middle": {
+   "band": {
+    "seconds": {
+     "p10": 543,
+     "median": 588.1,
+     "p90": 644.9
+    },
+    "shots": {
+     "p10": 129,
+     "median": 164,
+     "p90": 189
+    },
+    "cutsPerMin": {
+     "p10": 13.12,
+     "median": 16.76,
+     "p90": 19.47
+    },
+    "shotMedianS": {
+     "p10": 1.935,
+     "median": 3.07,
+     "p90": 3.904
+    },
+    "shotCv": {
+     "p10": 0.542,
+     "median": 0.778,
+     "p90": 1.074
+    },
+    "picture.stock_actor": {
+     "p10": 0.158,
+     "median": 0.374,
+     "p90": 0.542
+    },
+    "picture.stock_broll": {
+     "p10": 0.129,
+     "median": 0.279,
+     "p90": 0.356
+    },
+    "picture.designed": {
+     "p10": 0.175,
+     "median": 0.307,
+     "p90": 0.525
+    },
+    "picture.other": {
+     "p10": 0,
+     "median": 0.024,
+     "p90": 0.055
+    },
+    "picture.real_footage": {
+     "p10": 0,
+     "median": 0.008,
+     "p90": 0.106
+    },
+    "textSlam": {
+     "p10": 0.48,
+     "median": 0.603,
+     "p90": 0.725
+    },
+    "softTransitions": {
+     "p10": 0.07,
+     "median": 0.145,
+     "p90": 0.242
+    },
+    "faceShare": {
+     "p10": 0.331,
+     "median": 0.466,
+     "p90": 0.613
+    },
+    "sat": {
+     "p10": 0.163,
+     "median": 0.227,
+     "p90": 0.318
+    },
+    "luma": {
+     "p10": 0.403,
+     "median": 0.495,
+     "p90": 0.593
+    },
+    "contrast": {
+     "p10": 0.333,
+     "median": 0.404,
+     "p90": 0.449
+    },
+    "motion": {
+     "p10": 14.715,
+     "median": 18.314,
+     "p90": 23.448
+    },
+    "wordsPerShot": {
+     "p10": 8.955,
+     "median": 11.523,
+     "p90": 14.007
+    },
+    "cutInPause": {
+     "p10": 0.091,
+     "median": 0.158,
+     "p90": 0.221
+    },
+    "cutToWordMedianS": {
+     "p10": 0.081,
+     "median": 0.103,
+     "p90": 0.123
+    },
+    "hitsPerMin": {
+     "p10": 0.31,
+     "median": 0.78,
+     "p90": 2.1
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0.359,
+     "p90": 0.6
+    },
+    "bedDb": {
+     "p10": -48.2,
+     "median": -44.1,
+     "p90": -38.9
+    }
+   },
+   "pooled": {
+    "seconds": 18016.7,
+    "shots": 4954,
+    "cutsPerMin": 16.5,
+    "shotMedianS": 2.97,
+    "shotCv": 0.841,
+    "picture": {
+     "stock_actor": 0.352,
+     "designed": 0.322,
+     "stock_broll": 0.266,
+     "real_footage": 0.029,
+     "other": 0.026,
+     "real_photo": 0.005
+    },
+    "textSlam": 0.608,
+    "softTransitions": 0.153,
+    "faceShare": 0.459,
+    "sat": 0.246,
+    "luma": 0.486,
+    "contrast": 0.395,
+    "motion": 19.061,
+    "wordsPerShot": 11.125,
+    "cutInPause": 0.157,
+    "cutToWordMedianS": 0.099,
+    "hitsPerMin": 1.39,
+    "hitOnCutShare": 0.952,
+    "bedDb": -44.2
+   }
+  },
+  "ending": {
+   "band": {
+    "seconds": {
+     "p10": 55.9,
+     "median": 62.8,
+     "p90": 69.9
+    },
+    "shots": {
+     "p10": 10,
+     "median": 14,
+     "p90": 22
+    },
+    "cutsPerMin": {
+     "p10": 9.68,
+     "median": 13.03,
+     "p90": 20.13
+    },
+    "shotMedianS": {
+     "p10": 2.333,
+     "median": 3.533,
+     "p90": 5.138
+    },
+    "shotCv": {
+     "p10": 0.538,
+     "median": 1.008,
+     "p90": 1.191
+    },
+    "picture.stock_actor": {
+     "p10": 0.125,
+     "median": 0.318,
+     "p90": 0.667
+    },
+    "picture.stock_broll": {
+     "p10": 0.077,
+     "median": 0.3,
+     "p90": 0.462
+    },
+    "picture.designed": {
+     "p10": 0.118,
+     "median": 0.304,
+     "p90": 0.583
+    },
+    "picture.other": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.053
+    },
+    "picture.real_footage": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.097
+    },
+    "textSlam": {
+     "p10": 0.357,
+     "median": 0.6,
+     "p90": 0.857
+    },
+    "softTransitions": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.4
+    },
+    "faceShare": {
+     "p10": 0.231,
+     "median": 0.4,
+     "p90": 0.667
+    },
+    "sat": {
+     "p10": 0.174,
+     "median": 0.267,
+     "p90": 0.328
+    },
+    "luma": {
+     "p10": 0.383,
+     "median": 0.473,
+     "p90": 0.59
+    },
+    "contrast": {
+     "p10": 0.347,
+     "median": 0.408,
+     "p90": 0.483
+    },
+    "motion": {
+     "p10": 9.18,
+     "median": 16.796,
+     "p90": 27.437
+    },
+    "wordsPerShot": {
+     "p10": 8.591,
+     "median": 12.917,
+     "p90": 16.4
+    },
+    "cutInPause": {
+     "p10": 0,
+     "median": 0.143,
+     "p90": 0.286
+    },
+    "cutToWordMedianS": {
+     "p10": 0.059,
+     "median": 0.098,
+     "p90": 0.159
+    },
+    "hitsPerMin": {
+     "p10": 0,
+     "median": 0.96,
+     "p90": 3.96
+    },
+    "hitOnCutShare": {
+     "p10": 0,
+     "median": 0,
+     "p90": 0.294
+    },
+    "bedDb": {
+     "p10": -50.4,
+     "median": -45.9,
+     "p90": -36.8
+    }
+   },
+   "pooled": {
+    "seconds": 1907.5,
+    "shots": 456,
+    "cutsPerMin": 14.34,
+    "shotMedianS": 2.903,
+    "shotCv": 1.061,
+    "picture": {
+     "stock_actor": 0.362,
+     "stock_broll": 0.303,
+     "designed": 0.294,
+     "real_footage": 0.024,
+     "other": 0.015,
+     "real_photo": 0.002
+    },
+    "textSlam": 0.577,
+    "softTransitions": 0.157,
+    "faceShare": 0.425,
+    "sat": 0.249,
+    "luma": 0.477,
+    "contrast": 0.407,
+    "motion": 18.491,
+    "wordsPerShot": 11.829,
+    "cutInPause": 0.147,
+    "cutToWordMedianS": 0.089,
+    "hitsPerMin": 2.11,
+    "hitOnCutShare": 0.716,
+    "bedDb": -46.1
+   }
+  }
+ },
+ "relations": {
+  "lineToPicture": {
+   "number": {
+    "shots": 1044,
+    "picture": {
+     "designed": 0.53,
+     "stock_actor": 0.214,
+     "stock_broll": 0.199,
+     "real_footage": 0.039,
+     "other": 0.012,
+     "real_photo": 0.006
+    },
+    "textSlam": 0.771,
+    "liftTextSlam": 1.26
+   },
+   "name": {
+    "shots": 1674,
+    "picture": {
+     "designed": 0.419,
+     "stock_actor": 0.268,
+     "stock_broll": 0.25,
+     "real_footage": 0.046,
+     "other": 0.013,
+     "real_photo": 0.004
+    },
+    "textSlam": 0.694,
+    "liftTextSlam": 1.13
+   },
+   "question": {
+    "shots": 146,
+    "picture": {
+     "stock_broll": 0.342,
+     "stock_actor": 0.342,
+     "designed": 0.301,
+     "real_footage": 0.014
+    },
+    "textSlam": 0.644,
+    "liftTextSlam": 1.05
+   },
+   "silent": {
+    "shots": 216,
+    "picture": {
+     "designed": 0.329,
+     "other": 0.273,
+     "stock_actor": 0.199,
+     "stock_broll": 0.157,
+     "real_footage": 0.023,
+     "real_photo": 0.019
+    },
+    "textSlam": 0.38,
+    "liftTextSlam": 0.62
+   },
+   "other": {
+    "shots": 3521,
+    "picture": {
+     "stock_actor": 0.435,
+     "stock_broll": 0.282,
+     "designed": 0.244,
+     "other": 0.018,
+     "real_footage": 0.017,
+     "real_photo": 0.004
+    },
+    "textSlam": 0.539,
+    "liftTextSlam": 0.88
+   }
+  },
+  "hitOnScreen": {
+   "picture": {
+    "designed": 0.384,
+    "stock_actor": 0.312,
+    "stock_broll": 0.249,
+    "real_footage": 0.034,
+    "other": 0.017,
+    "real_photo": 0.004
+   },
+   "textSlam": 0.637,
+   "liftTextSlam": 1.04,
+   "classes": {
+    "thud/hit": 0.675,
+    "click/pop": 0.16,
+    "boom/impact": 0.08,
+    "tonal note/pluck": 0.042,
+    "riser": 0.034,
+    "typing/click": 0.004,
+    "other": 0.004
+   }
+  },
+  "music": {
+   "cueNearChapterStart": 0.79,
+   "dropBeforeChapter": 0.815,
+   "cuesPer10Min": {
+    "p10": 8.895,
+    "median": 10.294,
+    "p90": 11.881
+   },
+   "dropsPer10Min": {
+    "p10": 20.717,
+    "median": 57.398,
+    "p90": 78.385
+   },
+   "bedArc": [
+    -42.3,
+    -41.4,
+    -43.2,
+    -42.5,
+    -44.4,
+    -44.7,
+    -44.9,
+    -45.7,
+    -45,
+    -46.3
+   ]
+  },
+  "voice": {
+   "cutInPause": {
+    "p10": 0.113,
+    "median": 0.169,
+    "p90": 0.22
+   },
+   "cutToWordMedianS": {
+    "p10": 0.084,
+    "median": 0.103,
+    "p90": 0.12
+   }
+  }
+ },
+ "variety": {
+  "acrossFilms": {
+   "seconds": 0.096,
+   "shots": 0.169,
+   "cutsPerMin": 0.196,
+   "shotMedianS": 0.205,
+   "shotCv": 0.212,
+   "picture.stock_actor": 0.422,
+   "picture.stock_broll": 0.37,
+   "picture.designed": 0.455,
+   "picture.other": 0.696,
+   "picture.real_footage": 1.577,
+   "textSlam": 0.129,
+   "softTransitions": 0.412,
+   "faceShare": 0.246,
+   "sat": 0.24,
+   "luma": 0.157,
+   "contrast": 0.113,
+   "motion": 0.193,
+   "wordsPerShot": 0.191,
+   "cutInPause": 0.264,
+   "cutToWordMedianS": 0.143,
+   "hitsPerMin": 1.177,
+   "hitOnCutShare": 0.49,
+   "bedDb": 0.081
+  },
+  "lookDistance": null
+ },
+ "techniques": {
+  "pictureText": {
+   "designed+text": 0.262,
+   "stock_actor+text": 0.179,
+   "stock_actor": 0.169,
+   "stock_broll+text": 0.148,
+   "stock_broll": 0.11,
+   "designed": 0.075,
+   "other": 0.021,
+   "real_footage+text": 0.017,
+   "real_footage": 0.011,
+   "other+text": 0.003,
+   "real_photo+text": 0.003,
+   "real_photo": 0.002
+  },
+  "transitions": {
+   "cut": 0.815,
+   "dissolve": 0.075,
+   "other": 0.068,
+   "none": 0.027,
+   "whip": 0.011,
+   "flash": 0.003,
+   "dip": 0
+  },
+  "perFilmRange": {
+   "designed+text": {
+    "p10": 0.153,
+    "median": 0.241,
+    "p90": 0.427
+   },
+   "designed": {
+    "p10": 0.021,
+    "median": 0.063,
+    "p90": 0.129
+   },
+   "stock_broll+text": {
+    "p10": 0.074,
+    "median": 0.156,
+    "p90": 0.206
+   },
+   "stock_broll": {
+    "p10": 0.042,
+    "median": 0.11,
+    "p90": 0.158
+   },
+   "stock_actor": {
+    "p10": 0.063,
+    "median": 0.167,
+    "p90": 0.262
+   },
+   "stock_actor+text": {
+    "p10": 0.09,
+    "median": 0.19,
+    "p90": 0.259
+   },
+   "other": {
+    "p10": 0,
+    "median": 0.021,
+    "p90": 0.044
+   },
+   "other+text": {
+    "p10": 0,
+    "median": 0.004,
+    "p90": 0.009
+   },
+   "real_footage+text": {
+    "p10": 0,
+    "median": 0.006,
+    "p90": 0.042
+   },
+   "real_photo+text": {
+    "p10": 0,
+    "median": 0,
+    "p90": 0.016
+   },
+   "real_photo": {
+    "p10": 0,
+    "median": 0,
+    "p90": 0.005
+   },
+   "real_footage": {
+    "p10": 0,
+    "median": 0,
+    "p90": 0.051
+   }
+  }
+ },
+ "views": {
+  "rankCorrelation": {
+   "picture.stock_actor": 0.47,
+   "shots": 0.41,
+   "cutsPerMin": 0.35,
+   "textSlam": -0.34,
+   "faceShare": 0.33,
+   "motion": 0.33,
+   "wordsPerShot": -0.33,
+   "contrast": 0.32,
+   "luma": -0.28,
+   "picture.real_footage": -0.27,
+   "sat": 0.27,
+   "hitOnCutShare": -0.26,
+   "shotMedianS": -0.22,
+   "shotCv": -0.2
+  },
+  "topQuartile": {
+   "seconds": 786,
+   "shots": 239,
+   "cutsPerMin": 18.46,
+   "shotMedianS": 2.803,
+   "shotCv": 0.846,
+   "picture.stock_actor": 0.481,
+   "picture.stock_broll": 0.277,
+   "picture.designed": 0.313,
+   "picture.other": 0.027,
+   "picture.real_footage": 0.006,
+   "textSlam": 0.603,
+   "softTransitions": 0.175,
+   "faceShare": 0.542,
+   "sat": 0.26,
+   "luma": 0.498,
+   "contrast": 0.421,
+   "motion": 22.533,
+   "wordsPerShot": 10.79,
+   "cutInPause": 0.155,
+   "cutToWordMedianS": 0.099,
+   "hitsPerMin": 1.13,
+   "hitOnCutShare": 0.324,
+   "bedDb": -44
+  },
+  "note": "30 films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = 8 films with ≥ 144032 views"
+ },
+ "shortForm": {
+  "available": false,
+  "films": 0,
+  "note": "the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/"
+ },
+ "bands": {
+  "story": null,
+  "visual": null,
+  "thumbnail": null,
+  "quality": null,
+  "voice": {
+   "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
+    "wpm": 171.1,
+    "pitchTravelSt": 14.312,
+    "melodySt": 3.832,
+    "dynamicsDb": 5.988,
+    "characters": 463,
+    "measuredAt": "2026-11-21",
+    "source": "measured"
+   },
+   "nPczCjzI2devNBz1zQrb|eleven_v4": {
+    "wpm": 172.5,
+    "pitchTravelSt": 13.256,
+    "melodySt": 2.779,
+    "dynamicsDb": 5.816,
+    "characters": 463,
+    "measuredAt": "2026-11-21",
+    "source": "measured"
+   }
+  }
+ },
+ "version": "18640b4744f3",
+ "directives": [
+  "Pace: 12.51–19.19 cuts a minute across the channel's films (median 15.97); median shot 3.067 s; shot lengths vary a lot (CV 0.801).",
+  "By position: cold open 13.89 cuts/min with text on 64% of shots; chapter openings 15.9; middle 16.5; ending 14.34.",
+  "Pictures (every shot counted): designed+text 26%, stock_actor+text 18%, stock_actor 17%, stock_broll+text 15%, stock_broll 11%, designed 8%.",
+  "Transitions (on the sampled cuts): cut 82%, dissolve 8%, other 7%, none 3%, whip 1%, flash 0%, dip 0%.",
+  "Cuts and the voice: 17% of cuts fall in a pause; the median cut sits 0.103 s from a word boundary.",
+  "Lines with a number get text on screen 1.26× as often as average; lines naming someone show real footage/photos 5% of the time.",
+  "Sound: 1.03 strong hits a minute, 33% of them on a cut; hit classes thud/hit 68%, click/pop 16%, boom/impact 8%.",
+  "Music: a cue change within 6 s of 79% of chapter starts; a drop-out just before 82% of them; 10.294 cue changes per 10 min.",
+  "Variety: the channel's films differ — e.g. text share varies by 13% across films. Land each film somewhere different inside the band, not on the average.",
+  "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
+ ],
+ "generatedAt": "2026-11-22T07:47:57.663Z"
+}

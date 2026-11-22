@@ -2,6 +2,7 @@ import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { StyleProfile, type ChannelId } from "@opumia/contracts";
 import { CHANNELS, discoverVideos, readJsonSafe } from "@opumia/ingest";
+import { loadChannelProfile } from "./channel-profile.js";
 import { beatLibrary, beatText, captionPolicy, grammarText, visualGrammar, type BeatPassage, type CaptionPolicy, type GrammarRow } from "./reference-grammar.js";
 
 /**
@@ -129,10 +130,17 @@ async function buildFromReference(channelId: ChannelId, roots: { reference: stri
   if (grammar.length) sources.push(`Reference/.analysis/designed/answer_*.json (${grammar.length} labelled shots) × pretrain words`);
   const beats = await beatLibrary(roots.reference, storyFiles);
 
+  // The unified channel profile (every shot of every film, by position, relationships, variety, views).
+  const cp = await loadChannelProfile(roots.data, channelId);
+  if (cp) sources.push(`data/channel-profile/${channelId}.json (v${cp.version}, ${cp.corpus.shots} shots)`);
+  const unified = cp
+    ? `\n# 1b. UNIFIED CHANNEL PROFILE v${cp.version} — measured on all ${cp.corpus.shots} shots of ${cp.corpus.films} films (overrides section 1 where they differ)\n${cp.directives.map((d) => `- ${d}`).join("\n")}\nBy position (pooled): ${JSON.stringify(stable(Object.fromEntries(Object.entries(cp.byPosition).map(([k, v]) => [k, { cutsPerMin: v.pooled.cutsPerMin, shotMedianS: v.pooled.shotMedianS, textSlam: v.pooled.textSlam, picture: v.pooled.picture, hitsPerMin: v.pooled.hitsPerMin }]))))}\nLine → picture: ${JSON.stringify(stable(cp.relations.lineToPicture))}`
+    : "";
   const text = [
     `# CHANNEL STYLE PACK: ${ch.displayName} (${channelId})`,
     `This pack describes how the reference channel writes and paces its documentaries. Use it to match the hook formula, act structure, pacing and rhetorical tone. It is a style reference: never copy its sentences, facts or topics.`,
     `\n# 1. MEASURED STYLE PROFILE (JSON)\n${JSON.stringify(stable(profileStable))}`,
+    unified,
     cards ? `\n# 2. STORY TECHNIQUE CARDS FOR THIS CHANNEL (JSON)\n${JSON.stringify(stable(cards))}` : "",
     fam.ok ? `\n# 3. STORY FAMILIES (spines and beat shares)\n${JSON.stringify(stable(fam.value))}` : "",
     labels.length ? `\n# 4. STORY LABELS OF ${labels.length} REFERENCE FILMS\n${labels.join("\n\n")}` : "",
