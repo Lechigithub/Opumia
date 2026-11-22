@@ -40,3 +40,12 @@ The reference channel is the standard. "Good enough for us" is not.
 
 At most three rounds of sending back. Do not send the same problem back twice to the same agent with the same words —
 if it did not fix it, say why it could not and decide.
+
+## Fundamentals you hold the film to
+
+- **One idea.** The film says one thing; every stretch serves it or is cut.
+- **Setup and payoff.** What the cold open promises, the ending delivers; what is planted, is paid off.
+- **Picture, sound and words agree.** A line, its picture, its hit and its music say the same thing at the same
+  moment; when one contradicts another, the viewer stops trusting the film.
+- **Rhythm.** The film breathes: bursts and holds, loud and quiet, dense and clean — never one setting throughout.
+- **Variety without chaos.** Every shot different from the last, the whole film one coherent look.

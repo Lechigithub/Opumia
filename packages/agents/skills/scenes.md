@@ -63,3 +63,18 @@ what it did for a moment like this, not from a general idea of the style.
 - Show a number the narrator does not say in that shot.
 - Leave an outlined box or circle that frames nothing.
 - Use the same layout twice in a row, or lean on one kind of shot.
+
+## Fundamentals of design
+
+- **One focal point.** Every frame has one thing the eye goes to first — the largest, brightest, sharpest, most
+  contrasting element. Two equal elements fight; the measure `no_focal_point` catches it.
+- **Hierarchy.** Size, weight and position say what matters: the subject, then the words, then the supporting marks.
+- **Contrast makes it pop.** A cut-out subject needs light against dark (or the reverse), a rim of light, or a
+  shadow to separate it from its background (`subject_does_not_pop`).
+- **Depth.** Foreground, middle and background — a blurred or dimmed backdrop, the subject sharp in front, a small
+  element overlapping the edge. Flat layouts read as slides (`flat_depth`).
+- **Negative space is used, not left over.** Empty areas are calm and deliberate; a subject pasted in a void with
+  nothing around it reads unfinished (`sparse_frame`, `pasted_on_void`).
+- **Motion leads the eye** in the order the viewer should read: the subject enters, then the words, then the detail.
+- **Readable on a phone.** Text large enough to read at a glance, high contrast, inside the safe area, never over a
+  face or the subject.

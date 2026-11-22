@@ -39,3 +39,14 @@ The fact sheet is the only source of facts, but it is not closed. If the story n
 - Open on a birth, a founding date or an old year. Open inside something happening.
 - End on a general moral. End on something specific to this story.
 - Copy a sentence from a reference film.
+
+## Fundamentals of story
+
+- **Setup and payoff.** Everything the ending pays off is planted earlier — an object, a line, a person, a number.
+  Nothing important arrives from nowhere at the end; nothing planted is forgotten.
+- **A question carries the film.** The opening raises a question the viewer wants answered; the middle complicates
+  it; the ending answers it in a way the viewer did not expect but recognises as true.
+- **Escalation.** Each stretch raises the stakes or turns the situation; a turn roughly every half minute.
+- **Cause and effect, not chronology.** "And then" is a list; "so" and "but" are a story.
+- **Character.** Someone wants something and something is in the way. The viewer follows a person, not a company.
+- **The ending lands on the specific.** A last image or line that calls back to the opening, changed.

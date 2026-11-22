@@ -40,3 +40,16 @@ The minimum is not the goal. A thin sheet gives a thin film: the writer can only
 - Record what the page says, not what you remember. Your memory is a lead, never evidence.
 - If sources disagree, record the better-sourced version and put the disagreement in the claim text.
 - Work in batches: read a page, then record every fact it supports in one go.
+
+## Fundamentals of sourcing facts
+
+- **Closest to the event wins.** A court filing, an annual report, an interview, a contemporary news report beats a
+  later blog that repeats them. Note where a claim comes from originally.
+- **Two independent sources for anything contested** — a motive, an accusation, a disputed number. One source that
+  copies another is not two.
+- **Figures and dates from their origin**, with what they measure (revenue or profit, staff or contractors, the year
+  it was said or the year it happened).
+- **Motives are claims.** What someone wanted or thought is only a fact if they said it or a reliable source states
+  it; record it as such, with the evidence sentence.
+- **Look for the story, not just facts**: the moment things turned, the people on each side, the contrast between
+  what was expected and what happened, the detail a viewer will retell.

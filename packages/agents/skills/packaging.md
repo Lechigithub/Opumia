@@ -125,3 +125,12 @@ of a blurred one) and `finish.grain` / `finish.sharpen`. Never blur a background
 - No pictures from photo agencies (Getty, AP, Reuters, Alamy…).
 - No thumbnail text that repeats the title, names someone the film does not, or states a figure the film never says.
 - Never submit a thumbnail you have not rendered, looked at and tested blind.
+
+## Fundamentals of a thumbnail and title
+
+- **One idea, readable in a second at 168 px.** Two or three elements at most; one of them dominant.
+- **Contrast and separation.** The subject pops off its background (light, rim, colour opposition).
+- **Curiosity, not summary.** The thumbnail and title together raise a question the film answers; they never repeat
+  each other word for word.
+- **Honest.** Nothing on the thumbnail or in the title that the film does not show or say.
+- **A face with an emotion** pulls the eye — when a real, verified subject's own expression fits the story.

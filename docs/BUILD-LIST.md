@@ -40,7 +40,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ D43 Profile version tied to evaluation: eval history, the lesson ledger and agent score histories record the channel-profile version; trends and lesson trials only compare runs on the same profile (a new profile is a new baseline).
 
 ## E. Craft written down
-- ☐ E19 Fundamentals in every skill file: editing, design, sound, story arc (setups/payoffs).
+- ☑ E19 Fundamentals in every skill file: film grammar (director), design (scenes; tied to the measured design issues), story arc with setups/payoffs (writer, showrunner), fact sourcing (research), thumbnails (packaging); sound, music, narration, colour, editing and viewer QA in their new skills.
 
 ## F. Memory
 - ☑ F20 Lessons kept only if the agent's score improves.
