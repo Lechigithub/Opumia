@@ -246,11 +246,15 @@ RULES:
   // Description text: only figures the NARRATION speaks (stricter than the fact sheet — the description must
   // not promise a number the viewer never hears). A sentence with any other figure is removed.
   const spoken = narration.toLowerCase();
-  const spokenOk = (t: string) => (t.match(/\d[\d,.]*/g) ?? []).every((n) => spoken.includes(n.replace(/[.,]$/, "").toLowerCase()));
+  // H28: the same for names — a capitalised word inside a sentence (a person, a company, a place) the narration
+  // never says is a promise the film does not keep.
+  const NAME_OK = /^(I|YouTube|The|A|An|In|On|At|By|But|And|Or|So|If|When|How|Why|What|Who|This|That|These|Those|It|Its|He|She|They|We|You|Our|Their|His|Her|After|Before|From|For|With|Today|Now|Then)$/;
+  const namesOk = (t: string) => [...t.matchAll(/(?<=[\p{L}\p{N},;:] )\p{Lu}[\p{L}'’-]+/gu)].map((m) => m[0]).filter((w) => !NAME_OK.test(w)).every((w) => spoken.includes(w.toLowerCase().replace(/['’]s$/, "")));
+  const spokenOk = (t: string) => (t.match(/\d[\d,.]*/g) ?? []).every((n) => spoken.includes(n.replace(/[.,]$/, "").toLowerCase())) && namesOk(t);
   const keepSpoken = (t: string) => {
     const parts = t.split(/(?<=[.!?])\s+/);
     const kept = parts.filter(spokenOk);
-    if (kept.length < parts.length) checks.push(`${parts.length - kept.length} description sentence(s) removed: a figure the narration never says`);
+    if (kept.length < parts.length) checks.push(`${parts.length - kept.length} description sentence(s) removed: a figure or name the narration never says`);
     return kept.join(" ");
   };
   d.hook = keepSpoken(d.hook);
@@ -319,15 +323,24 @@ export async function testTitles(o: { channel: string; references: Array<{ title
 }
 
 /** Does the package promise what the film delivers? (title, thumbnail words, description vs the narration) */
-export async function checkPackage(o: { title: string; thumbnailText: string[]; thumbnailConcept: string; hook: string; summary: string; pinnedComment: string; narration: string }): Promise<{ ok: boolean; issues: string[]; usd: number }> {
+export async function checkPackage(o: { title: string; thumbnailText: string[]; thumbnailConcept: string; hook: string; summary: string; pinnedComment: string; narration: string }): Promise<{ ok: boolean; issues: string[]; quotes: string[]; usd: number }> {
   const { data, usage } = await structured({
     stage: "publish.check",
     model: MODELS.haiku,
     system: [plain("You are a strict standards editor. Compare a film's publishing package with its narration. Flag only real problems: a promise or claim in the package that the narration does not deliver; a fact, figure or accusation not stated in the narration; the title, thumbnail and description contradicting each other; anything defamatory stated as fact when the narration hedges it. Do not flag style.")],
     user: `TITLE: ${o.title}\nTHUMBNAIL: ${o.thumbnailConcept} — words on it: ${o.thumbnailText.join(" / ") || "none"}\nDESCRIPTION HOOK: ${o.hook}\nDESCRIPTION SUMMARY: ${o.summary}\nPINNED COMMENT: ${o.pinnedComment}\n\nNARRATION:\n${o.narration}`,
-    schema: z.object({ ok: z.boolean(), issues: z.array(z.string()) }),
+    schema: z.object({ ok: z.boolean(), issues: z.array(z.object({ issue: z.string(), quote: z.string().describe("the exact words of the package that make the claim, copied verbatim") })) }),
     effort: "low",
     maxTokens: 1500,
   });
-  return { ok: data.ok && !data.issues.length, issues: data.issues.slice(0, 6), usd: usage.usd };
+  return { ok: data.ok && !data.issues.length, issues: data.issues.slice(0, 6).map((x) => x.issue), quotes: data.issues.slice(0, 6).map((x) => x.quote).filter((q) => q.trim().length >= 4), usd: usage.usd };
+}
+
+/** H28: remove every sentence of a text that contains one of the quoted claims (the package check's quotes). */
+export function withoutClaims(text: string, quotes: string[]): { text: string; removed: number } {
+  const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, " ").replace(/\s+/g, " ").trim();
+  const qs = quotes.map(norm).filter((q) => q.length >= 4);
+  const parts = text.split(/(?<=[.!?])\s+/);
+  const kept = parts.filter((p) => !qs.some((q) => norm(p).includes(q) || (q.length > 30 && q.includes(norm(p)))));
+  return { text: kept.join(" "), removed: parts.length - kept.length };
 }

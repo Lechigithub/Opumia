@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { checkPackage, designThumbnail, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
+import { checkPackage, withoutClaims, designThumbnail, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
 import type { FactSheet, FilmDesignSystem, LibraryIndex, ResolutionReport, Storyboard, TimedScript } from "@opumia/contracts";
 import { renderThumbnailScene } from "@opumia/motion-engine";
 import { closeBrowser, makeThumbnailTools, visionCheck, wikipediaImages, type ThumbCredit, type ThumbPicture } from "@opumia/resolver";
@@ -146,7 +146,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
   const thumbText = ((th?.spec as { elements?: Array<{ type: string; text?: string }> } | undefined)?.elements ?? []).filter((e) => e.type === "text").map((e) => e.text ?? "");
   let text = await writePublishingText({ channel: o.channel, references: ex.packaging ?? [], script: o.script, facts: o.facts, title: report.title });
   usd += text.usd;
-  const check = (t: typeof text) => checkPackage({ title: t.title, thumbnailText: thumbText, thumbnailConcept: th?.concept ?? "", hook: t.hook, summary: t.summary, pinnedComment: t.pinnedComment, narration: o.script.segments.map((s) => s.text).join(" ") }).catch(() => ({ ok: true, issues: [] as string[], usd: 0 }));
+  const check = (t: typeof text) => checkPackage({ title: t.title, thumbnailText: thumbText, thumbnailConcept: th?.concept ?? "", hook: t.hook, summary: t.summary, pinnedComment: t.pinnedComment, narration: o.script.segments.map((s) => s.text).join(" ") }).catch(() => ({ ok: true, issues: [] as string[], quotes: [] as string[], usd: 0 }));
   let chk = await check(text);
   usd += chk.usd;
   // One rewrite when the description, tags or comment promise what the film does not deliver.
@@ -160,7 +160,17 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
       text = again;
       chk = chk2;
     }
-    if (!chk.ok) log(`  ! package check still: ${chk.issues.slice(0, 3).join("; ")}`);
+    if (!chk.ok) {
+      // H28: still promising what the film does not say — remove the sentences that carry those claims.
+      const h = withoutClaims(text.hook, chk.quotes), sm = withoutClaims(text.summary, chk.quotes), pc = withoutClaims(text.pinnedComment, chk.quotes);
+      if (h.removed + sm.removed + pc.removed) {
+        text = { ...text, hook: h.text || text.hook, summary: sm.text, pinnedComment: pc.text || text.pinnedComment, checks: [...text.checks, `${h.removed + sm.removed + pc.removed} sentence(s) removed: claims the narration does not make`] };
+        const chk3 = await check(text);
+        usd += chk3.usd;
+        chk = chk3;
+      }
+      if (!chk.ok) log(`  ! package check still: ${chk.issues.slice(0, 3).join("; ")}`);
+    }
   }
   const thumbCredits = th ? th.slots.map((k) => tools.pics[k]?.credit).filter((c): c is ThumbCredit => Boolean(c)) : [];
   await writeFiles(o, text, thumbCredits);
@@ -340,7 +350,7 @@ async function legacyPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string
 
   // ---- Does the package promise what the film delivers?
   const specEls = ((best?.spec as { elements?: Array<{ type: string; text?: string }> } | undefined)?.elements ?? []).filter((e) => e.type === "text").map((e) => e.text ?? "");
-  const chk = await checkPackage({ title: text.title, thumbnailText: specEls, thumbnailConcept: best?.concept ?? "", hook: text.hook, summary: text.summary, pinnedComment: text.pinnedComment, narration: o.script.segments.map((s) => s.text).join(" ") }).catch(() => ({ ok: true, issues: [] as string[], usd: 0 }));
+  const chk = await checkPackage({ title: text.title, thumbnailText: specEls, thumbnailConcept: best?.concept ?? "", hook: text.hook, summary: text.summary, pinnedComment: text.pinnedComment, narration: o.script.segments.map((s) => s.text).join(" ") }).catch(() => ({ ok: true, issues: [] as string[], quotes: [] as string[], usd: 0 }));
   usd += chk.usd;
   if (!chk.ok) log(`  ! package check: ${chk.issues.slice(0, 3).join("; ")}`);
 

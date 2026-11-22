@@ -6,7 +6,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 
 ## A. Orchestration
 - ☑ A1 Showrunner agent: holds the film's central idea as a contract, reads every stage's report, sends work back.
-- ◐ A2 Backward loops: scenes → writer (a line no picture can show), sound → narration/edit (held beat), packaging ↔ script.
+- ☑ A2 Backward loops: showrunner → scene designer / editor / sound designer / writer (once, re-runs from the script); lines the picture researcher could not picture are shown to the showrunner as writing problems; package ↔ script: the package check quotes what the narration never says and those sentences are removed (H28). Not built: sound → narration held beat (the narration is recorded before the sound; a held beat needs the writer loop).
 - ☑ A3 Whole-film score (`film-score.ts`, `dev/film-score.ts`): our plan measured with the channel's own function, gaps named with their owner. Kodak 84, Theranos 77 (structure only until the taste model is trained).
 
 ## B. Agents
@@ -55,7 +55,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☐ G27 Opus for ideas and critique (measured first).
 
 ## H. Known defects and limits
-- ☐ H28 Description promises facts the narration never says.
+- ☑ H28 Description promises: names the narration never says are stripped like figures; the package check returns the exact quote of each unsupported claim and, if the rewrite still fails, those sentences are removed (tested: a planted "Elon Musk admitted $4 billion" sentence was caught and removed).
 - ☐ H29 Script states a motive as fact.
 - ☐ H30 Research scores source quality.
 - ☐ H31 Internet Archive moment finding (then join the pooled search).

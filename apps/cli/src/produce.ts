@@ -505,7 +505,11 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const ed = await readFile(editFile, "utf8").then((t) => JSON.parse(t) as { note?: string; after?: { structure: number } }, () => null);
       const sr = sceneReport as SceneReport | null;
       const snd = await readFile(soundFile, "utf8").then((t) => t.slice(0, 600), () => "");
-      return `${filmScoreText(fs)}\n\nEDITOR: ${ed?.note ?? "(no editor report)"}\nSCENE DESIGNER: ${sr ? `${sr.pass ? "accepted" : "not accepted"}; remaining: ${sr.remaining.map((x) => x.kind).join(", ") || "none"}` : "(report from an earlier run)"}\nSOUND: ${snd}`;
+      // A2: lines no picture could carry (the picture researcher gave them to the scene designer) — a writing
+      // problem the showrunner may send back to the writer.
+      const src = await readFile(srcAgentFile, "utf8").then((t) => JSON.parse(t) as { ops?: string[]; note?: string }, () => null);
+      const dropped = (src?.ops ?? []).filter((x) => x.startsWith("drop ")).map((x) => { const id = x.split(" ")[1]!; const sh = board.shots.find((y) => y.id === id); const line = sh ? timed.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; return `${x} — line: "${line.slice(0, 120)}"`; });
+      return `${filmScoreText(fs)}\n\nEDITOR: ${ed?.note ?? "(no editor report)"}\nSCENE DESIGNER: ${sr ? `${sr.pass ? "accepted" : "not accepted"}; remaining: ${sr.remaining.map((x) => x.kind).join(", ") || "none"}` : "(report from an earlier run)"}\nSOUND: ${snd}${dropped.length ? `\nPICTURE RESEARCHER — no honest picture found for these lines (now designed shots; if a line is abstract, the writer can make it showable): ${dropped.join("; ")}` : ""}${src?.note ? `\nPICTURE RESEARCHER NOTE: ${src.note.slice(0, 300)}` : ""}`;
     };
     const decision = await showrunnerAgent({
       channel, title: draft.title, treatment, segments: timed.segments.map((sg) => ({ id: sg.id, role: sg.role, text: sg.text })), canRewrite: (o.pass ?? 1) === 1 && process.env.OPUMIA_SHOWRUNNER_REWRITE !== "off", durationS: timed.durationS,
