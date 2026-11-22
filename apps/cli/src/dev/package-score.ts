@@ -37,7 +37,7 @@ const dir = path.join(data, "agents", "packaging");
 mkdirSync(dir, { recursive: true });
 const hf = path.join(dir, "score-history.json");
 const hist = existsSync(hf) ? (JSON.parse(readFileSync(hf, "utf8")) as unknown[]) : [];
-hist.push({ at: new Date().toISOString(), commit, results });
+hist.push({ at: new Date().toISOString(), commit, profileVersion: (() => { try { return (JSON.parse(readFileSync(path.join(process.env.OPUMIA_DATA_DIR ?? "data", "channel-profile", "magnates-media.json"), "utf8")) as { version: string }).version; } catch { return null; } })(), results });
 writeFileSync(hf, JSON.stringify(hist, null, 2) + "\n");
 console.log("\nPACKAGING SCORE");
 for (const r of results) console.log(`  ${r.job.padEnd(20)} ${r.accepted ? "accepted" : "NOT accepted"} | thumbnail ${r.passedBlind === null ? "not tested blind" : r.passedBlind ? "passed blind" : `picked out (${r.spotted?.toFixed(2)})`}${r.outsideBand.length ? `, outside band: ${r.outsideBand.join(", ")}` : ""} | ${r.renders} render(s), ${r.seconds} s, $${r.usd} | "${r.title}"`);

@@ -446,11 +446,17 @@ async function writeReport(ctx: Ctx, setId: string, films: FilmScore[], trusted:
   const dir = path.join(ctx.data, "eval", setId);
   await atomicJson(path.join(dir, "runs", `${runId}.json`), report);
   const histFile = path.join(dir, "history.json");
-  const hist = (await readJson<Array<{ runId: string; overall: number; picture: number; story: number; films: number; trusted: boolean }>>(histFile)) ?? [];
-  const prev = hist.at(-1);
-  hist.push({ runId, overall: report.indistinguishability.overall, picture: report.indistinguishability.picture, story: report.indistinguishability.story, films: films.length, trusted });
+  // D43: every run records the channel profile and taste model it was measured against; a trend is only read
+  // between runs on the same profile, judge and set — a changed profile is a new baseline, not an improvement.
+  const channel = films[0]?.channel ?? "";
+  const profileVersion = (await readJson<{ version: string }>(path.join(ctx.data, "channel-profile", `${channel}.json`)))?.version ?? null;
+  const tasteAt = (await readJson<{ trainedAt: string }>(path.join(ctx.data, "taste", `${channel}-shot.json`)))?.trainedAt ?? null;
+  const hist = (await readJson<Array<{ runId: string; overall: number; picture: number; story: number; films: number; trusted: boolean; profileVersion?: string | null; judgeVersion?: string; tasteAt?: string | null }>>(histFile)) ?? [];
+  const prev = [...hist].reverse().find((h) => h.profileVersion === profileVersion && h.judgeVersion === JUDGE_VERSION);
+  if (!prev && hist.length) console.log(`  eval: profile ${profileVersion} / judge ${JUDGE_VERSION} is new for this set — this run is the new baseline`);
+  hist.push({ runId, overall: report.indistinguishability.overall, picture: report.indistinguishability.picture, story: report.indistinguishability.story, films: films.length, trusted, profileVersion, judgeVersion: JUDGE_VERSION, tasteAt });
   await atomicJson(histFile, hist);
-  const delta = (k: "overall" | "picture" | "story") => (prev ? ` (${report.indistinguishability[k] >= prev[k] ? "+" : ""}${Math.round((report.indistinguishability[k] - prev[k]) * 100)} vs last run)` : "");
+  const delta = (k: "overall" | "picture" | "story") => (prev ? ` (${report.indistinguishability[k] >= prev[k] ? "+" : ""}${Math.round((report.indistinguishability[k] - prev[k]) * 100)} vs last run on profile ${profileVersion})` : "");
   const md = [
     `# Eval ${setId} — ${runId}`,
     ``,

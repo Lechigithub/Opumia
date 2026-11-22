@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-interface LessonState { text: string; film: string; introducedScore: number | null; trials: Array<{ film: string; score: number }>; status: "probation" | "kept" | "dropped" }
+interface LessonState { text: string; film: string; introducedScore: number | null; /** D43: scores are only compared on one channel-profile version */ profileVersion?: string; trials: Array<{ film: string; score: number }>; status: "probation" | "kept" | "dropped" }
 type Ledger = Record<string, LessonState>;
 
 const keyOf = (t: string) => createHash("sha1").update(t.trim().toLowerCase()).digest("hex").slice(0, 12);
@@ -49,7 +49,7 @@ export async function readMemory(memoryDir: string, channel: string, o: { lines?
 }
 
 /** After a film is planned: every lesson shown to this film gets a trial; lessons this film taught start on probation. */
-export async function judgeLessons(o: { data: string; channel: string; film: string; score: number; agents?: string[] }): Promise<Array<{ agent: string; kept: number; dropped: number; probation: number }>> {
+export async function judgeLessons(o: { data: string; channel: string; film: string; score: number; profileVersion?: string; agents?: string[] }): Promise<Array<{ agent: string; kept: number; dropped: number; probation: number }>> {
   const root = path.join(o.data, "agents");
   const agents = o.agents ?? (await readdir(root).catch(() => [] as string[]));
   const out: Array<{ agent: string; kept: number; dropped: number; probation: number }> = [];
@@ -63,6 +63,12 @@ export async function judgeLessons(o: { data: string; channel: string; film: str
       if (!m) continue;
       const k = keyOf(m[2]!);
       const st = l[k] ?? (l[k] = { text: m[2]!.slice(0, 300), film: m[1]!, introducedScore: null, trials: [], status: "probation" });
+      if (o.profileVersion && st.profileVersion && st.profileVersion !== o.profileVersion && st.status === "probation") {
+        // the measure changed under the lesson: start its trial again on the new profile
+        st.introducedScore = null;
+        st.trials = [];
+      }
+      if (o.profileVersion) st.profileVersion = st.profileVersion && st.introducedScore !== null ? st.profileVersion : o.profileVersion;
       if (st.introducedScore === null) {
         // a lesson written during this film (or found for the first time): this film is its baseline
         st.introducedScore = o.score;

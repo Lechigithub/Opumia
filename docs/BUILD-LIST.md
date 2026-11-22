@@ -37,7 +37,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ D40 Short-form: the reference has 1 film under 3 min and no real shorts — recorded in the profile; shorts follow the cold-open segment until real shorts are added (owner decision needed to source them).
 - ☑ D41 Weighting by views: rank correlations, top-quartile band, permutation test (p < 0.05) — MagnatesMedia: only length goes with views beyond noise; Moon: less designed, more staged stock. A tie-breaker directive, not a target. Our own click-through: needs published films.
 - ◐ D42 Other channels: unified profiles built for four (Big Company has no shot analysis); story/visual/thumbnail bands still MagnatesMedia only.
-- ☐ D43 Profile version tied to the evaluation set.
+- ☑ D43 Profile version tied to evaluation: eval history, the lesson ledger and agent score histories record the channel-profile version; trends and lesson trials only compare runs on the same profile (a new profile is a new baseline).
 
 ## E. Craft written down
 - ☐ E19 Fundamentals in every skill file: editing, design, sound, story arc (setups/payoffs).

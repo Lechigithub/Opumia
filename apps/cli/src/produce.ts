@@ -482,7 +482,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     // Shared film memory and the lesson filter: this film's score is a trial for every lesson the agents were shown.
     const fs = await scoreFilm({ root: o.root, data: o.data, jobDir, channel, taste: true, log: () => {} });
     await recordFilm(o.data, channel, { job: jobId, title: draft.title, at: new Date().toISOString(), idea: treatment.replace(/\s+/g, " ").slice(0, 400), score: fs.score, summary: decision.summary, belowChannel: fs.gaps.slice(0, 6).map((g) => `${g.what} (${g.owner})`) });
-    const judged = await judgeLessons({ data: o.data, channel, film: jobId, score: fs.score });
+    const judged = await judgeLessons({ data: o.data, channel, film: jobId, score: fs.score, profileVersion: fs.profileVersion });
     log(`  film score ${fs.score}/100; lessons: ${judged.map((j) => `${j.agent} ${j.kept} kept/${j.probation} on probation/${j.dropped} dropped`).join(", ")}`);
   }
   // Fingerprint of this film against the earlier ones — the plan is checked before the render is paid for.

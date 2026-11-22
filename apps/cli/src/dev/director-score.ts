@@ -45,7 +45,7 @@ const commit = (() => { try { return execFileSync("git", ["rev-parse", "--short"
 mkdirSync(memoryDir, { recursive: true });
 const hf = path.join(memoryDir, "score-history.json");
 const hist = existsSync(hf) ? (JSON.parse(readFileSync(hf, "utf8")) as unknown[]) : [];
-hist.push({ at: new Date().toISOString(), commit, results });
+hist.push({ at: new Date().toISOString(), commit, profileVersion: (() => { try { return (JSON.parse(readFileSync(path.join(process.env.OPUMIA_DATA_DIR ?? "data", "channel-profile", "magnates-media.json"), "utf8")) as { version: string }).version; } catch { return null; } })(), results });
 writeFileSync(hf, JSON.stringify(hist, null, 2) + "\n");
 console.log("\nDIRECTOR SCORE  (✓ footage confirmed in the sources, ★ real named subject, ▣ data graphic, · unconfirmed)");
 for (const r of results) console.log(`  ${r.job.padEnd(20)} ${r.pass ? "accepted" : `NOT accepted (${r.remaining.join(", ")})`} | ${r.measurements} measurement(s), ${r.seconds} s, $${r.usd} | ${r.shots} shots, ${r.cutsPerMin} cuts/min, footage confirmed ${r.found}/${r.probed} probed`);
