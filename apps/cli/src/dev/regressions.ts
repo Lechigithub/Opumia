@@ -9,6 +9,7 @@ import { diffSpeech, measureJumps, measureLegibility, measureSeams, run, samePic
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ladderTest } from "./ladder-test.js";
+import { outsideTest } from "./outside-test.js";
 
 type Case = { id: string; defect: string; run: () => Promise<boolean> };
 const F1 = "out/film1-kodak-3";
@@ -37,6 +38,7 @@ const cases: Case[] = [
     const c = new Uint8Array(W * Hh); for (let i = 0; i < c.length; i++) c[i] = Math.floor(rnd() * 255);
     const s1 = samePicture(a, b); return s1.score >= 0.6 && /overlay/.test(s1.how) && samePicture(a, c).score < 0.6;
   } },
+  { id: "outside-pause-resume", defect: "film 2: the account's usage limit stopped the run; build list 3 part D — outside failures wait and resume, a rejected source is skipped", run: async () => (await outsideTest()).length === 0 },
   { id: "ladder-escalates", defect: "build list 3: a failing check must climb its ladder one rung a round, stop when fixed, and be logged", run: async () => (await ladderTest()).length === 0 },
   { id: "kit-safety", defect: "a film kit may not reach the network or the file system", run: async () => checkKitCode(`import fs from "fs";\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`import React from "react";\nexport const FILM = { components: {} };`, new Set()).length === 0 },
 ];

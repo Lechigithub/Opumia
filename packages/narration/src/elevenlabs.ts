@@ -1,4 +1,5 @@
 import { recordExternal, ttsUsdPer1k } from "@opumia/agents";
+import { withOutside } from "@opumia/senses";
 export interface CharAlignment {
   characters: string[];
   character_start_times_seconds: number[];
@@ -28,11 +29,13 @@ export interface TtsResult {
 }
 
 export class ElevenLabsError extends Error {
+  readonly body: string;
   constructor(
     readonly status: number,
     body: string,
   ) {
     super(`ElevenLabs ${status}: ${body.slice(0, 300)}`);
+    this.body = body;
   }
 }
 
@@ -55,27 +58,24 @@ export async function ttsWithTimestamps(r: TtsRequest, apiKey = process.env.ELEV
     ...(r.seed !== undefined ? { seed: r.seed } : {}),
     apply_text_normalization: "auto",
   };
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, { method: "POST", headers: { "xi-api-key": apiKey, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(180_000) });
-    if (res.ok) {
-      const j = (await res.json()) as { audio_base64: string; alignment?: CharAlignment | null; normalized_alignment?: CharAlignment | null };
-      if (!j.alignment) throw new Error("ElevenLabs returned no alignment");
-      recordExternal("narration.tts", `elevenlabs:${r.modelId}`, r.text.length, (r.text.length / 1000) * ttsUsdPer1k());
-      return {
-        audio: Buffer.from(j.audio_base64, "base64"),
-        alignment: j.alignment,
-        ...(j.normalized_alignment ? { normalized: j.normalized_alignment } : {}),
-        requestId: res.headers.get("request-id") ?? undefined,
-        characters: r.text.length,
-      };
+  // build list 3, part D: a quota, an expired key, a rate limit or an outage waits and retries (see senses/outside.ts)
+  return withOutside("elevenlabs", async () => {
+    const res = await fetch(url, { method: "POST", headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY || apiKey, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(180_000) });
+    if (!res.ok) {
+      const ra = Number(res.headers.get("retry-after") ?? NaN);
+      throw Object.assign(new ElevenLabsError(res.status, await res.text()), Number.isFinite(ra) ? { retryAfterS: ra } : {});
     }
-    const txt = await res.text();
-    lastErr = new ElevenLabsError(res.status, txt);
-    if (res.status !== 429 && res.status < 500) break; // 4xx other than rate limit: not retryable
-    await new Promise((s) => setTimeout(s, 2000 * (attempt + 1)));
-  }
-  throw lastErr;
+    const j = (await res.json()) as { audio_base64: string; alignment?: CharAlignment | null; normalized_alignment?: CharAlignment | null };
+    if (!j.alignment) throw new Error("ElevenLabs returned no alignment");
+    recordExternal("narration.tts", `elevenlabs:${r.modelId}`, r.text.length, (r.text.length / 1000) * ttsUsdPer1k());
+    return {
+      audio: Buffer.from(j.audio_base64, "base64"),
+      alignment: j.alignment,
+      ...(j.normalized_alignment ? { normalized: j.normalized_alignment } : {}),
+      requestId: res.headers.get("request-id") ?? undefined,
+      characters: r.text.length,
+    };
+  });
 }
 
 export async function remainingCharacters(apiKey = process.env.ELEVENLABS_API_KEY): Promise<number | null> {

@@ -1,3 +1,4 @@
+import { ProviderHttpError, withOutside } from "./outside.js";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
@@ -38,12 +39,31 @@ export async function asrBackend(dataDir: string): Promise<"local" | "cloudflare
 /** Names and rare terms the recogniser should expect (improves spelling of proper nouns). */
 export interface TranscribeOptions { dataDir: string; prompt?: string; language?: string }
 
+/** Backends that failed in this run (build list 3, item 29): skipped while the other one stands in. */
+const asrDown = new Map<"local" | "cloudflare", string>();
+export const asrHealth = () => Object.fromEntries(asrDown);
+
 export async function transcribe(file: string, o: TranscribeOptions): Promise<Transcript> {
-  const backend = await asrBackend(o.dataDir);
-  if (!backend) throw new Error("no speech recogniser available: install whisper-cpp + a model in data/models/, or set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_TOKEN");
-  const t0 = Date.now();
-  const r = backend === "local" ? await transcribeLocal(file, o) : await transcribeCloudflare(file, o);
-  return { ...r, backend, seconds: Math.round((Date.now() - t0) / 100) / 10 };
+  const first = await asrBackend(o.dataDir);
+  const local = Boolean(localModel(o.dataDir)) && (await hasBinary());
+  const cf = Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_TOKEN);
+  // the chosen backend first, then the other one standing in (whatever OPUMIA_ASR asked for)
+  const order = ([first, first === "local" ? "cloudflare" : "local"] as const).filter((b): b is "local" | "cloudflare" => b !== null && (b === "local" ? local : cf) && !asrDown.has(b));
+  if (!order.length) throw new Error(`no speech recogniser available${asrDown.size ? ` (down this run: ${[...asrDown].map(([b, w]) => `${b} — ${w}`).join("; ")})` : ""}: install whisper-cpp + a model in data/models/, or set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_TOKEN`);
+  let last: unknown;
+  for (const backend of order) {
+    const t0 = Date.now();
+    try {
+      // with the other backend standing by, a failing one is switched away from at once; alone, the cloud backend waits
+      // out a rate limit or an outage like every provider call
+      const r = backend === "local" ? await transcribeLocal(file, o) : order.length > 1 ? await transcribeCloudflare(file, o) : await withOutside("cloudflare-ai", () => transcribeCloudflare(file, o));
+      return { ...r, backend, seconds: Math.round((Date.now() - t0) / 100) / 10 };
+    } catch (e) {
+      last = e;
+      if (order.length > 1) asrDown.set(backend, (e as Error).message.slice(0, 120));
+    }
+  }
+  throw last;
 }
 
 async function toWav(file: string, dir: string): Promise<string> {
@@ -76,7 +96,7 @@ async function transcribeCloudflare(file: string, o: TranscribeOptions): Promise
     const audio = (await readFile(mp3)).toString("base64");
     const url = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/openai/whisper-large-v3-turbo`;
     const res = await fetch(url, { method: "POST", headers: { authorization: `Bearer ${process.env.CLOUDFLARE_AI_TOKEN}`, "content-type": "application/json" }, body: JSON.stringify({ audio, language: o.language ?? "en", ...(o.prompt ? { initial_prompt: o.prompt.slice(0, 800) } : {}) }), signal: AbortSignal.timeout(180_000) });
-    if (!res.ok) throw new Error(`Workers AI whisper ${res.status}`);
+    if (!res.ok) throw new ProviderHttpError("cloudflare-ai", res.status, await res.text().catch(() => ""));
     const j = (await res.json()) as { result?: { text?: string; segments?: Array<{ words?: Array<{ word: string; start: number; end: number }> }>; words?: Array<{ word: string; start: number; end: number }> } };
     const words = (j.result?.words ?? j.result?.segments?.flatMap((s) => s.words ?? []) ?? []).map((w) => ({ word: w.word.trim(), start: w.start, end: w.end })).filter((w) => w.word);
     return { text: j.result?.text?.trim() ?? words.map((w) => w.word).join(" "), words };

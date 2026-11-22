@@ -45,7 +45,7 @@ export class D1CatalogDb<T extends { id: string }> implements CatalogDb<T> {
   }
 }
 
-export type JobStatus = "queued" | "running" | "done" | "failed";
+export type JobStatus = "queued" | "running" | "paused" | "done" | "failed";
 export interface JobRow {
   id: string;
   topic: string;

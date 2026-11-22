@@ -23,6 +23,8 @@ interface StageResult {
   verdict?: string;
   finalKey?: string;
   error?: string;
+  /** Paused by a failure outside the platform (build list 3, part D). */
+  paused?: { provider: string; kind: string; resumeAt: string; message: string };
 }
 
 /**
@@ -41,20 +43,29 @@ export class ProductionWorkflow extends WorkflowEntrypoint<Env, ProductionParams
     let last: StageResult | null = null;
     for (const stage of STAGES) {
       const cfg = STAGE_CONFIG[stage];
-      last = await step.do(stage, { retries: { limit: cfg.retries, delay: "30 seconds", backoff: "exponential" }, timeout: cfg.timeout as never }, async () => {
-        await jobs.update(p.jobId, { stage });
-        const container = getContainer(this.env.RENDERER, p.jobId);
-        const res = await container.fetch(
-          new Request("http://renderer/stage", {
-            method: "POST",
-            headers: { "content-type": "application/json", authorization: `Bearer ${this.env.INTERNAL_TOKEN}` },
-            body: JSON.stringify({ ...p, stage }),
-          }),
-        );
-        const body = (await res.json()) as StageResult;
-        if (!res.ok || !body.ok) throw new Error(`${stage} failed: ${body.error ?? res.status}`);
-        return body;
-      });
+      // build list 3, part D: a stage paused by a failure outside the platform (usage limit, expired key, outage)
+      // sleeps durably until access is expected back and runs again; cached work is not repeated.
+      for (let n = 0; n < 200; n++) {
+        last = await step.do(n ? `${stage} (after pause ${n})` : stage, { retries: { limit: cfg.retries, delay: "30 seconds", backoff: "exponential" }, timeout: cfg.timeout as never }, async () => {
+          await jobs.update(p.jobId, { stage, status: "running" });
+          const container = getContainer(this.env.RENDERER, p.jobId);
+          const res = await container.fetch(
+            new Request("http://renderer/stage", {
+              method: "POST",
+              headers: { "content-type": "application/json", authorization: `Bearer ${this.env.INTERNAL_TOKEN}` },
+              body: JSON.stringify({ ...p, stage }),
+            }),
+          );
+          const body = (await res.json()) as StageResult;
+          if (body.paused) return body;
+          if (!res.ok || !body.ok) throw new Error(`${stage} failed: ${body.error ?? res.status}`);
+          return body;
+        });
+        if (!last?.paused) break;
+        const until = new Date(Math.max(Date.now() + 60_000, Date.parse(last.paused.resumeAt) || Date.now() + 900_000));
+        await step.do(`${stage} paused ${n + 1}`, async () => (await jobs.update(p.jobId, { status: "paused" }), true));
+        await step.sleepUntil(`${stage} sleeps until ${until.toISOString()} (${last.paused.provider} ${last.paused.kind})`, until);
+      }
     }
     await step.do("mark done", async () => {
       await jobs.update(p.jobId, { status: last?.verdict === "fail" ? "failed" : "done", verdict: last?.verdict ?? null, final_key: last?.finalKey ?? null });

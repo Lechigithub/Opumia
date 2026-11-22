@@ -57,6 +57,10 @@ async function pushJob(jobId: string) {
   return pushed;
 }
 
+// In the container a long wait would outlive the workflow step's timeout: pauses longer than ~9 minutes are handed to
+// the workflow, which sleeps durably (step.sleepUntil) and runs the stage again.
+process.env.OPUMIA_MAX_PAUSE_H ??= "0.15";
+
 const server = createServer(async (req, res) => {
   const send = (code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
@@ -80,6 +84,14 @@ const server = createServer(async (req, res) => {
     const finalKey = "finalPath" in r && r.finalPath ? `jobs/${b.jobId}/${path.basename(r.finalPath)}` : undefined;
     send(200, { ok: true, stage: b.stage, outputs, ...("report" in r && r.report ? { verdict: r.report.verdict } : {}), ...(finalKey ? { finalKey } : {}), log: logs.slice(-40) });
   } catch (err) {
+    // build list 3, part D: a pause outside the platform is not a failure — the progress is pushed (stages are cached)
+    // and the workflow sleeps until access is expected back, then runs the stage again.
+    const pe = err as { resumeAt?: string; failure?: { provider: string; kind: string; message: string } };
+    if (pe?.resumeAt && pe.failure) {
+      const b2 = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { jobId: string };
+      await pushJob(b2.jobId).catch(() => null);
+      return send(200, { ok: false, paused: { provider: pe.failure.provider, kind: pe.failure.kind, resumeAt: pe.resumeAt, message: pe.failure.message.slice(0, 300) } });
+    }
     send(500, { ok: false, error: (err as Error).message.slice(0, 2000) });
   } finally {
     busy = false;

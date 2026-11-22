@@ -40,19 +40,40 @@ export interface SearchOpts {
 const UA = "Opumia/0.1 (documentary pipeline)";
 /** Searches a source refused (HTTP 429: rate limit), by host — reported, never silently counted as "nothing found". */
 export const refused = new Map<string, number>();
+/**
+ * Build list 3, item 29: provider health for this run. A source that rejects its key (401/403) is down at once; one
+ * that keeps failing (rate limit after a retry, 5xx, timeouts) is down after three failures in a row. A down source is
+ * skipped for the rest of the run, and the other sources take over its searches (they are pooled).
+ */
+const HOST_OF: Record<string, string> = { pexels: "api.pexels.com", pixabay: "pixabay.com", coverr: "api.coverr.co", vecteezy: "api.vecteezy.com", vimeo: "api.vimeo.com", europeana: "api.europeana.eu", nara: "catalog.archives.gov", commons: "commons.wikimedia.org", openverse: "api.openverse.org", archive: "archive.org" };
+const strikes = new Map<string, number>();
+export const downHosts = new Map<string, string>(); // host → why
+const strike = (host: string, why: string, now = false) => {
+  const n = (strikes.get(host) ?? 0) + 1;
+  strikes.set(host, n);
+  if ((now || n >= 3) && !downHosts.has(host)) downHosts.set(host, why);
+};
+/** Providers that are down for this run, with why. */
+export const providerHealth = () => Object.fromEntries([...Object.entries(HOST_OF)].filter(([, h]) => downHosts.has(h)).map(([p, h]) => [p, downHosts.get(h)!]));
 const get = async <T>(url: string, headers: Record<string, string> = {}): Promise<T | null> => {
+  const h = new URL(url).hostname;
+  if (downHosts.has(h)) return null;
   try {
     let r = await fetch(url, { headers: { "user-agent": UA, ...headers }, signal: AbortSignal.timeout(20_000) });
     if (r.status === 429) {
       await new Promise((res) => setTimeout(res, 2000));
       r = await fetch(url, { headers: { "user-agent": UA, ...headers }, signal: AbortSignal.timeout(20_000) });
       if (r.status === 429) {
-        const h = new URL(url).hostname;
         refused.set(h, (refused.get(h) ?? 0) + 1);
+        strike(h, "rate limit");
       }
     }
+    if (r.status === 401 || r.status === 403) strike(h, `key rejected (HTTP ${r.status})`, true);
+    else if (r.status >= 500) strike(h, `outage (HTTP ${r.status})`);
+    else if (r.ok) strikes.set(h, 0);
     return r.ok ? ((await r.json()) as T) : null;
-  } catch {
+  } catch (e) {
+    strike(h, `unreachable (${(e as Error).message.slice(0, 60)})`);
     return null;
   }
 };
@@ -219,7 +240,8 @@ export function allProviders(o: { kind: "video" | "image"; period: boolean }): s
 }
 
 export async function searchStock(q: string, o: SearchOpts & { providers: string[] }): Promise<StockCandidate[]> {
-  const res = await Promise.all(o.providers.map((p) => PROVIDERS[p]!(q, o).catch(() => [] as StockCandidate[])));
+  const live = o.providers.filter((p) => !downHosts.has(HOST_OF[p] ?? ""));
+  const res = await Promise.all(live.map((p) => PROVIDERS[p]!(q, o).catch(() => [] as StockCandidate[])));
   return res.flat().filter((c) => !c.aiGenerated);
 }
 

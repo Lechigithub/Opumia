@@ -104,11 +104,15 @@ not measured across runs.
 
 ## D. Pause and resume (failures outside the platform)
 
-27. ☐ **Checkpoint every stage** (already cached) and make every stage resumable from its last finished step.
-28. ☐ **Outside failures recognised:** an API usage limit, an expired key, a provider rate limit or outage. The run
+Done 2026-11-22 (CLAUDE.md, **Pause and resume**). Verified with simulated failures (12/12 regressions). Not yet seen
+against a real usage limit or outage; the ASR stand-in and the cloud Workflow sleep are not exercised on real
+backends. A process that dies mid-stage restarts that stage's agent.
+
+27. ☑ **Checkpoint every stage** (already cached) and make every stage resumable from its last finished step.
+28. ☑ **Outside failures recognised:** an API usage limit, an expired key, a provider rate limit or outage. The run
     pauses, records why, and resumes on its own when access returns: scheduled retries with backoff, and a resume
     after a limit's reset time.
-29. ☐ **Provider switching where an alternative exists:**
+29. ☑ **Provider switching where an alternative exists:**
     - stock sources take over for each other (Commons refusing, Europeana's rejected key);
     - local and cloud speech recognition stand in for each other.
     Failing providers are skipped for the rest of the run.

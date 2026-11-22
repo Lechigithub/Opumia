@@ -1,19 +1,20 @@
-import { copyFile, readFile, stat, writeFile, mkdir, readdir } from "node:fs/promises";
+import { rm, appendFile, copyFile, readFile, stat, writeFile, mkdir, readdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
+import { loadKeys } from "./keys.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
 import { makeLikeness, runFilmDesigner } from "./film-kit.js";
-import { run } from "@opumia/senses";
+import { run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
 import { FINISHED_LADDERS, PREFLIGHT_LADDERS, type Act } from "./ladders.js";
@@ -94,9 +95,36 @@ export async function produce(o: ProduceOptions) {
     }
     baseLog(line);
   };
+  // Build list 3, part D: failures outside the platform (usage limits, expired keys, rate limits, outages) pause the run
+  // where it is and resume on their own; the pause is written to paused.json and every pause to pauses.jsonl.
+  await mkdir(jobDir, { recursive: true });
+  const pausedFile = path.join(jobDir, "paused.json");
+  const openStage = () => (open as { stage: string } | null)?.stage ?? null;
+  setPauseHooks({
+    onPause: async (f, until) => {
+      log(`  ⏸ PAUSED — ${f.provider}: ${f.kind}${f.status ? ` (HTTP ${f.status})` : ""}; trying again at ${until.replace("T", " ").slice(0, 16)} UTC (${f.message.slice(0, 120)})`);
+      await writeFile(pausedFile, JSON.stringify({ at: new Date().toISOString(), stage: openStage(), provider: f.provider, kind: f.kind, status: f.status ?? null, until, message: f.message }, null, 2) + "\n");
+    },
+    onResume: async (f, waitedS) => {
+      log(`  ▶ RESUMED — ${f.provider} answers again after ${Math.round(waitedS / 60)} min`);
+      await appendFile(path.join(jobDir, "pauses.jsonl"), JSON.stringify({ at: new Date().toISOString(), stage: openStage(), provider: f.provider, kind: f.kind, waitedS: Math.round(waitedS) }) + "\n");
+      await rm(pausedFile, { force: true });
+    },
+    // a key rotated in Keychain during the pause reaches this process
+    reloadCredentials: () => (loadKeys(o.root), resetClient()),
+  });
   try {
-    return await produceStages({ ...o, job: jobId, log });
+    const out = await produceStages({ ...o, job: jobId, log });
+    await rm(pausedFile, { force: true });
+    return out;
+  } catch (err) {
+    if (err instanceof PausedError) {
+      await writeFile(pausedFile, JSON.stringify({ at: new Date().toISOString(), stage: openStage(), provider: err.failure.provider, kind: err.failure.kind, resumeAt: err.resumeAt, gaveUpAfterS: Math.round(err.waitedS), message: err.failure.message, resume: `pnpm opumia resume ${jobId}` }, null, 2) + "\n");
+      log(`\n⏸ The run is paused (${err.failure.provider}: ${err.failure.kind}); access is expected back at ${err.resumeAt}. Resume with: pnpm opumia resume ${jobId}`);
+    }
+    throw err;
   } finally {
+    setPauseHooks({});
     closeStage();
     setBudget(null);
     if (stages.length) {

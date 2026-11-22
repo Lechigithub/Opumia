@@ -9,3 +9,4 @@ export * from "./design.js";
 export * from "./seams.js";
 export * from "./jumps.js";
 export * from "./legibility.js";
+export * from "./outside.js";

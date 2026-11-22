@@ -193,7 +193,7 @@ Deploy:
 cd packages/cloudflare
 npx wrangler r2 bucket create opumia-media
 npx wrangler d1 create opumia            # put the id in wrangler.toml
-pnpm db:migrate                          # applies migrations/0001_init.sql remotely
+pnpm db:migrate                          # applies migrations/0001–0003 remotely
 # Upload data/ (and the Library subset you want available) to R2, e.g. rclone sync data r2:opumia-media/data
 for s in API_TOKEN INTERNAL_TOKEN ANTHROPIC_API_KEY ELEVENLABS_API_KEY PEXELS_API_KEY PIXABAY_API_KEY COVERR_API_KEY VECTEEZY_API_KEY VECTEEZY_ACCOUNT_ID VIMEO_ACCESS_TOKEN EUROPEANA_API_KEY NARA_API_KEY WIKIMEDIA_ACCESS_TOKEN; do npx wrangler secret put $s; done
 pnpm deploy                              # builds containers/renderer/Dockerfile (needs Docker)
@@ -353,6 +353,32 @@ appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds)
 - What every ladder leaves unresolved still blocks the render (preflight) or the verdict (QA); pause and resume and
   provider switching are build list 3 part D.
 - Tests: `npx tsx apps/cli/src/dev/ladder-test.ts` (engine), `npx tsx apps/cli/src/dev/stretch-test.ts` (after the smoke render), both in `dev/regressions.ts`.
+
+## Pause and resume (build list 3, part D, 2026-11-22)
+
+A failure outside the platform never stops a film (`senses/outside.ts`):
+- **Recognised** (`classifyOutside`): a usage limit or quota (HTTP 402, or 429/400/403 naming a limit, credit or quota),
+  a rejected or expired key (401/403), a rate limit (429), an outage (5xx, 529), a dropped connection.
+- **The call waits and continues where it was** (`withOutside`, around every Claude call in `agents/llm.ts`, ElevenLabs
+  speech and Workers AI Whisper). An agent mid-conversation keeps its state. A usage limit waits until the reset time
+  the provider states ("regain access on … UTC", `retry-after`, the rate-limit reset header), otherwise 15 min polls;
+  an expired key is retried every 30 min after reloading the keys from Keychain (`loadKeys` + `resetClient`), so a key
+  rotated during the pause reaches the running process; outages and rate limits back off 5 s → 15 min.
+- **Visible:** a pause longer than a blip is logged ("⏸ PAUSED … trying again at …"), written to `out/<job>/paused.json`,
+  and every pause is appended to `pauses.jsonl` when access returns ("▶ RESUMED").
+- **Only a pause longer than `OPUMIA_MAX_PAUSE_H` (default 72 h)** ends the process with a `PausedError` (exit code 3);
+  `pnpm opumia resume <job>` continues from the cached stages with the job's own options.
+- **Cloud:** the container hands any pause over ~9 minutes (`OPUMIA_MAX_PAUSE_H=0.15` there) to the Workflow, which
+  marks the job `paused` (D1 `migrations/0003_paused_status.sql`), sleeps durably (`step.sleepUntil`) until access is
+  expected back, and runs the stage again.
+- **Providers stand in for each other:** a stock or archive source whose key is rejected is down at once, one that
+  keeps failing (rate limit after a retry, 5xx, unreachable) after three failures in a row; a down source is skipped
+  for the rest of the run while the pooled search goes on with the others (`resolver/stock.ts:providerHealth`, logged
+  and written to `sourcing.json.providersDown`). Local whisper.cpp and Workers AI Whisper stand in for each other
+  (`senses/asr.ts`); with the other one available a failing backend is switched away from at once.
+- Stages are checkpointed by their cached outputs (`out/<job>/`); within a stage, the waiting call keeps the work. If the
+  process itself dies mid-stage, that stage's agent starts again on resume (its finished stages do not).
+- Test: `npx tsx apps/cli/src/dev/outside-test.ts` (simulated failures, no network; in `dev/regressions.ts`).
 
 ## Prevention: the gate's measures run where the work is done (build list 3, part C, 2026-11-22)
 

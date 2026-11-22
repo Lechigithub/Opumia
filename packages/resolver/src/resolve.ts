@@ -9,7 +9,7 @@ import { isUsable, MODELS, plain, structured } from "@opumia/agents";
 import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
-import { allProviders, archiveAt, downloadCandidate, providersFor, refused, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
+import { allProviders, archiveAt, downloadCandidate, providerHealth, providersFor, refused, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
 import { measureCraft } from "@opumia/senses";
 import { archiveMoment, periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
 import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
@@ -501,6 +501,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     log(`  resolver: ${pending.filter((n) => chosen.has(n.shot.id)).length}/${pending.length} shot(s) placed by eye — ${src("local")} library, ${src("stock")} stock/archive, ${src("press")} real footage`);
     await saveDisk();
     const silent = [...yieldBy.entries()].filter(([, y]) => y.asked >= 6 && y.got === 0).map(([k, y]) => `${k} (${y.asked} searches)`);
+    if (Object.keys(providerHealth()).length) log(`  ! resolver: sources down for this run (the others took over their searches): ${Object.entries(providerHealth()).map(([p, w]) => `${p} — ${w}`).join("; ")}`);
     if (refused.size) log(`  ! resolver: searches refused by rate limit — ${[...refused.entries()].map(([h, n]) => `${h} ${n}`).join(", ")}; coverage below is understated`);
     if (silent.length) log(`  ! resolver: no results at all from ${silent.join(", ")} — rate limit or outage; coverage below is understated`);
   };
@@ -860,7 +861,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     });
     const wanted = rows.filter((r) => r.need !== "none");
     const real = rows.filter((r) => r.need === "real");
-    const report = { seconds: Object.fromEntries(laps.map((l) => [l.phase, l.s])), kit: plan.kit, refusedByRateLimit: Object.fromEntries(refused), sources: Object.fromEntries([...yieldBy.entries()].map(([k, y]) => [k, { searches: y.asked, results: y.got }])), shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
+    const report = { seconds: Object.fromEntries(laps.map((l) => [l.phase, l.s])), kit: plan.kit, refusedByRateLimit: Object.fromEntries(refused), providersDown: providerHealth(), sources: Object.fromEntries([...yieldBy.entries()].map(([k, y]) => [k, { searches: y.asked, results: y.got }])), shots: rows.length, needPicture: wanted.length, withFootage: wanted.filter((r) => r.footage).length, withScenePictureOnly: wanted.filter((r) => !r.footage && r.scenePictures).length, missing: wanted.filter((r) => r.missing).map((r) => r.shotId), realNeeded: real.length, realMet: real.filter((r) => r.footage?.origin === "press" || r.footage?.origin === "archival" || r.scenePictures).length, rows };
     const file = path.join(o.jobDir, "sourcing.json");
     await writeFile(`${file}.tmp`, JSON.stringify(report, null, 2));
     await rename(`${file}.tmp`, file);

@@ -32,6 +32,7 @@ const HELP = `opumia <command>
   inspect-reference    Check done*.txt vs disk per channel → data/reference-status.json
   analyze-styles       Draft StyleProfiles → data/style-profiles/<channel>.json
   all                  index-library + inspect-reference + analyze-styles
+  resume <job>         Continue a paused or stopped job from its cached stages (same topic, channel, aspect, duration)
   keys                 Show which API keys are available and from where (names only, never values)
   produce             Topic → researched, narrated, rendered, QA'd film (stage outputs cached in out/<job>/)
       --topic "…"        required
@@ -119,6 +120,18 @@ async function main() {
       if (report && report.verdict === "fail") process.exitCode = 2;
       return;
     }
+    case "resume": {
+      // build list 3, part D: continue a paused (or stopped) job from its cached stages, with the options it was started with
+      const job = (rest[0] && !rest[0].startsWith("--") ? rest[0] : undefined) ?? opt("job");
+      if (!job) throw new Error("usage: opumia resume <job>");
+      const { readFile } = await import("node:fs/promises");
+      const j = JSON.parse(await readFile(path.join(ROOT, "out", job, "job.json"), "utf8")) as { topic: string; channel: string; aspect: "9:16" | "16:9"; durationS: number };
+      const p = await readFile(path.join(ROOT, "out", job, "paused.json"), "utf8").then((t) => JSON.parse(t) as { stage?: string; provider?: string; kind?: string }, () => null);
+      log(`Resuming ${job}${p ? ` (paused at ${p.stage ?? "?"}: ${p.provider} ${p.kind})` : ""}`);
+      const { report } = await produce({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic: j.topic, channel: j.channel, aspect: j.aspect, durationS: j.durationS, job, redo: [], log });
+      if (report && report.verdict === "fail") process.exitCode = 2;
+      return;
+    }
     case "keys": {
       const entries = Object.entries(KEY_SOURCES);
       for (const [name, src] of entries) log(`  ${src === "missing" ? "✗" : "✓"} ${name.padEnd(24)} ${src}`);
@@ -161,5 +174,6 @@ async function main() {
 
 main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
-  process.exitCode = 1;
+  // 3 = paused by a failure outside the platform (resumable with `opumia resume <job>`), 1 = an error
+  process.exitCode = (err as { name?: string; resumeAt?: string })?.resumeAt ? 3 : 1;
 });

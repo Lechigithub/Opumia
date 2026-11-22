@@ -1,3 +1,4 @@
+import { withOutside } from "@opumia/senses";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import * as z4 from "zod/v4";
@@ -14,6 +15,10 @@ const PRICE: Record<ModelId, { in: number; out: number; cacheRead: number }> = {
 };
 
 let _client: Anthropic | null = null;
+/** Drop the cached client (after credentials were reloaded during a pause). */
+export function resetClient() {
+  _client = null;
+}
 export function client(): Anthropic {
   guardBudget();
   if (_client) return _client;
@@ -115,7 +120,7 @@ export async function structured<S extends z4.ZodType>(o: StructuredOpts<S>): Pr
     ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
   };
   if (maxTokens <= 16000) {
-    const msg = await client().beta.messages.parse(params);
+    const msg = await withOutside("anthropic", () => client().beta.messages.parse(params));
     const usage = record(o.stage, o.model, msg);
     if (msg.stop_reason === "refusal") throw new RefusalError(o.stage, msg.stop_details?.category ?? null);
     if (msg.stop_reason === "max_tokens") throw new Error(`${o.stage}: output truncated at max_tokens`);
@@ -124,7 +129,7 @@ export async function structured<S extends z4.ZodType>(o: StructuredOpts<S>): Pr
   }
   // Large outputs (long-form scripts, chunked shot lists) must stream; the format still constrains the
   // JSON server-side, and we validate the final text with the same Zod schema.
-  const msg = await client().beta.messages.stream(params).finalMessage();
+  const msg = await withOutside("anthropic", () => client().beta.messages.stream(params).finalMessage());
   const usage = record(o.stage, o.model, msg);
   if (msg.stop_reason === "refusal") throw new RefusalError(o.stage, msg.stop_details?.category ?? null);
   if (msg.stop_reason === "max_tokens") throw new Error(`${o.stage}: output truncated at max_tokens`);
@@ -157,7 +162,8 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   let nudges = 0;
   const spent = () => ledger.slice(from).reduce((t, r) => t + r.usd, 0);
   for (let turn = 1; turn <= (o.maxTurns ?? 24); turn++) {
-    const msg = await client()
+    // build list 3, part D: a usage limit, outage or rate limit waits here and the agent continues with its state intact
+    const msg = await withOutside("anthropic", () => client()
       .beta.messages.stream({
         model: o.model,
         max_tokens: o.maxTokens ?? 32000,
@@ -169,7 +175,7 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
         ...(fb.betas.length ? { betas: fb.betas } : {}),
         ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
       })
-      .finalMessage();
+      .finalMessage());
     record(o.stage, o.model, msg);
     if (msg.stop_reason === "refusal") throw new RefusalError(o.stage, msg.stop_details?.category ?? null);
     if (msg.stop_reason === "max_tokens") throw new Error(`${o.stage}: output truncated at max_tokens`);
@@ -212,7 +218,7 @@ export async function webResearch(o: { stage: string; system: Anthropic.Beta.Bet
   const urls = new Map<string, string | undefined>();
   let text = "";
   for (let turn = 0; turn < 6; turn++) {
-    const stream = client().beta.messages.stream({
+    const stream = () => client().beta.messages.stream({
       model,
       max_tokens: model === MODELS.sonnet ? 32000 : 6000,
       system: o.system,
@@ -225,7 +231,7 @@ export async function webResearch(o: { stage: string; system: Anthropic.Beta.Bet
       betas: fb.betas,
       ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
     });
-    const msg = await stream.finalMessage();
+    const msg = await withOutside("anthropic", () => stream().finalMessage());
     record(o.stage, model, msg);
     for (const b of msg.content) {
       if (b.type === "text") {
