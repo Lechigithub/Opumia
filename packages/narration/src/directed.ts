@@ -338,10 +338,20 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
         }
         const spoken = lineSounds.get(u)!;
         if (!spoken) continue;
-        // Position of the word in the line by characters (closer to time than a word count).
-        const chars = uw.map((x) => x.length + 1);
-        const before = chars.slice(0, at).reduce((n, x) => n + x, 0) + chars.slice(at, at + tw.length).reduce((n, x) => n + x, 0) / 2;
-        const m = phonemeMatch(target, spoken, { frac: before / Math.max(1, chars.reduce((n, x) => n + x, 0)) });
+        // Position of the word in the line by its own aligned time in the take (film 1: by characters, "1975" — four
+        // characters, but "nineteen seventy-five" spoken — sent the check for "Kodak" to the sounds of the year).
+        // Character counts remain the fallback when the alignment does not cover the line word for word.
+        const ws = asm.timed.filter((w) => w.unit === u);
+        let frac: number;
+        if (ws.length === uw.length && ws[at] && ws[at + tw.length - 1]) {
+          const from = Math.max(0, ws[0]!.startS - 0.05), to = ws.at(-1)!.endS + 0.12;
+          frac = ((ws[at]!.startS + ws[at + tw.length - 1]!.endS) / 2 - from) / Math.max(0.1, to - from);
+        } else {
+          const chars = uw.map((x) => x.length + 1);
+          const before = chars.slice(0, at).reduce((n, x) => n + x, 0) + chars.slice(at, at + tw.length).reduce((n, x) => n + x, 0) / 2;
+          frac = before / Math.max(1, chars.reduce((n, x) => n + x, 0));
+        }
+        const m = phonemeMatch(target, spoken, { frac });
         const form = respellFor.get(u)?.has(term) || e.works === "respelling" ? "respelling" : "plain";
         const ok = m.score >= 0.55 && m.consonants >= 0.8;
         checks.push({ word: term, score: m.score, consonants: m.consonants, target: m.target, spoken: m.spoken.slice(0, 80), ok, form });

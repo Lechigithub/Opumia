@@ -62,3 +62,35 @@ Items 1–3 are platform bugs that would block any film. Items 4–7 are quality
 
 Not changed (to measure on the rerun): the scene with unreadable text, voice expressiveness, and the Commons rate
 limit.
+
+## Rerun on `platform-frozen-film1b` (`out/film1-kodak-2/`)
+
+**Still no film.** Every stage ran on its own. The showrunner approved the plan (film score 84, structure 91) after
+sending the editor and the sound designer back once each. Preflight then refused the render on 2 blockers (down
+from 5). Time to the gate about 28 min, spend $3.38.
+
+New platform bugs found:
+
+1. **The pronunciation check looks in the wrong place when a line has figures.** The line was "In December 1975, a
+   Kodak engineer…". The checker guesses where "Kodak" sits in the line from character counts. "1975" is 4 written
+   characters but "nineteen seventy-five" spoken, so it compared "Kodak" against the sounds of the year and failed a
+   correctly spoken word (consonants 0.33).
+   → Place each risky word by its own aligned time in the take, not by character counts.
+2. **The editor can split a still picture into an empty second half.** sh003 was a still (a Pexels image of a
+   cassette deck). The editor split it as a punch-in with the elements on the first half only, so the second half
+   is a bare still. That is a dead frame, and the gate's repair cannot add content to it.
+   → The editor may split a still only with elements on both halves (or not at all). Preflight's repair for a
+   dead editor half is to merge it back into its first half.
+
+Quality, not blocking: Commons refused about 140 searches and Europeana and Coverr returned nothing. Research could
+not read NYT, Reuters, SEC or The Atlantic (403/401). Pauses were 5.5 a minute (narrator ≤ 4.7). The scene designer
+was slightly over budget ($0.49 of $0.45).
+
+### Fixed after the rerun (platform tag `platform-frozen-film1c`)
+
+1. **Sound check placement:** each risky word is found by its own aligned time in the take; character counts are only
+   a fallback. On the failing line, "Kodak" now scores consonants 1.0 (it scored 0.33 by characters).
+2. **Editor and stills:** `split_shot` refuses to split a still picture unless its elements stay on both halves, and
+   refuses a bare still outright.
+3. **Gate repair `merge_split`:** an editor half the gate finds frozen (`dead_frames`) is merged back into the shot
+   before it, undoing that cut. The sound is laid again afterwards.

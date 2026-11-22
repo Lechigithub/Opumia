@@ -663,8 +663,29 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
           for (const id of ids) stale.add(id);
           done.push(`drop_picture: ${[...drop.shots].join(", ")}${refilled.size ? ` (${refilled.size} given period-correct footage)` : ""}`);
         }
+        // An editor half ("sh003_2") that is a frozen frame (dead_frames) goes back into the shot before it: the cut
+        // the editor added is undone, the first half runs to the end of the second (film 1 rerun: a split still).
+        {
+          const deadHalves = fixable.filter((c) => c.id === "dead_frames").flatMap((c) => c.shots ?? []).filter((id) => /_\d+$/.test(id));
+          const merged: string[] = [];
+          for (const id of deadHalves) {
+            const k = board.shots.findIndex((x) => x.id === id);
+            if (k <= 0) continue;
+            const prev = board.shots[k - 1]!, half = board.shots[k]!;
+            board = Storyboard.parse({ ...board, shots: [...board.shots.slice(0, k - 1), { ...prev, endS: half.endS, sfx: [...prev.sfx, ...half.sfx] }, ...board.shots.slice(k + 1)] });
+            scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.filter((x) => x.shotId !== id) });
+            resolution = { ...resolution, media: resolution.media.filter((m) => m.shotId !== id) };
+            stale.add(prev.id);
+            merged.push(`${id}→${prev.id}`);
+          }
+          if (merged.length) {
+            await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
+            await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+            done.push(`merge_split: ${merged.join(", ")}`);
+          }
+        }
         // safe_scene: a scene that is still visibly wrong after its revision is reduced to its clean core.
-        const unsafe = new Set(fixable.filter((c) => c.repair === "safe_scene").flatMap((c) => c.shots ?? []));
+        const unsafe = new Set(fixable.filter((c) => c.repair === "safe_scene").flatMap((c) => c.shots ?? []).filter((id) => scenePlan.scenes.some((x) => x.shotId === id)));
         if (unsafe.size) {
           scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (unsafe.has(sc.shotId) ? safeScene(sc) : sc)) });
           for (const id of unsafe) stale.add(id);
@@ -709,7 +730,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
           done.push("reseed_sound: effects and music picked again");
         }
         // Sound follows what is on screen: when scenes changed, the sound timeline is laid again on the final scenes.
-        if (done.some((d) => /^(drop_picture|safe_scene|prune_shapes)/.test(d)) && !done.some((d) => d.startsWith("reseed_sound"))) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId);
+        if (done.some((d) => /^(drop_picture|safe_scene|prune_shapes|merge_split)/.test(d)) && !done.some((d) => d.startsWith("reseed_sound"))) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId);
         if (done.length) {
           await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
           await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");

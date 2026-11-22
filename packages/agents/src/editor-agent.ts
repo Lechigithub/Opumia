@@ -129,7 +129,7 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
     },
     {
       name: "split_shot",
-      description: "Split a shot in two at a time inside it. The second part continues the same clip (a punch-in: tighter frame, or a pull-out: wider). Designed elements (text, pictures) stay on the part you choose; the other part plays clean footage. Only shots with footage can be split.",
+      description: "Split a shot in two at a time inside it. The second part continues the same clip (a punch-in: tighter frame, or a pull-out: wider). Designed elements (text, pictures) stay on the part you choose; the other part plays clean footage. Only shots with footage can be split; a still picture only with elements on both parts.",
       schema: z.object({ shotId: z.string(), atS: z.number(), second: z.enum(["punch_in", "pull_out"]), elementsOn: z.enum(["first", "second", "both"]).default("first") }),
       run: (async (i: { shotId: string; atS: number; second: "punch_in" | "pull_out"; elementsOn: "first" | "second" | "both" }) => {
         const k = find(i.shotId);
@@ -139,6 +139,13 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         if (at - s.startS < MIN_SHOT || s.endS - at < MIN_SHOT) return `refused: both parts must be at least ${MIN_SHOT} s`;
         const prim = resolution.media.find((m) => m.shotId === s.id && m.role === "primary");
         if (!prim) return "refused: this shot has no footage of its own (a designed stage) — split only shots with footage";
+        // A still picture never plays clean: a half without the shot's elements would be a frozen frame (film 1:
+        // a cassette-deck photo split with its elements on the first half left a bare still, which the gate refused).
+        if (prim.kind === "image") {
+          const els = scenes.scenes.find((x) => x.shotId === s.id)?.elements ?? [];
+          if (!els.length) return "refused: this shot is a still picture with nothing on it — a split would leave two frozen frames";
+          if (i.elementsOn !== "both") return "refused: this shot is a still picture — split it only with elementsOn \"both\" (a half without elements would be a frozen frame)";
+        }
         let n = 2;
         while (board.shots.some((x) => x.id === `${s.id}_${n}`)) n++;
         const id2 = `${s.id}_${n}`;
