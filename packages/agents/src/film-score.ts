@@ -16,6 +16,31 @@ import type { ChannelId } from "@opumia/contracts";
 import type { ReferenceShot } from "@opumia/ingest";
 import { flat, loadChannelProfile, measure, segmentOfShot, SEGMENTS, type Band, type ChannelProfile, type Measures, type Segment } from "./channel-profile.js";
 import { scoreTaste } from "./taste.js";
+import { DIM, embedPictures } from "./reference-index.js";
+
+/** D38: a film's look as the mean SigLIP vector of its scene previews (the channel's films: of their shots). */
+async function lookOf(o: { root: string; data: string; files: string[]; log?: (s: string) => void }): Promise<{ all: Float32Array; a: Float32Array; b: Float32Array } | null> {
+  const vs = (await embedPictures({ root: o.root, data: o.data, items: o.files.map((file) => ({ file })), ...(o.log ? { log: o.log } : {}) }).catch(() => [] as Array<Float32Array | null>)).flatMap((v) => (v ? [v] : []));
+  if (vs.length < 4) return null;
+  const c = (xs: Float32Array[]) => { const m = new Float32Array(DIM); for (const v of xs) for (let d = 0; d < DIM; d++) m[d]! += v[d]!; let n = 0; for (let d = 0; d < DIM; d++) n += m[d]! ** 2; n = Math.sqrt(n) || 1; for (let d = 0; d < DIM; d++) m[d]! /= n; return m; };
+  const h = Math.floor(vs.length / 2);
+  return { all: c(vs), a: c(vs.slice(0, h)), b: c(vs.slice(h)) };
+}
+const cosDist = (a: Float32Array | number[], b: Float32Array | number[]) => { let s = 0; for (let d = 0; d < DIM; d++) s += a[d]! * b[d]!; return 1 - s; };
+
+/** Looks of our earlier films (data/looks/<channel>.json: job → rounded centroid). */
+async function ourLooks(data: string, channel: string): Promise<Record<string, number[]>> {
+  return readFile(path.join(data, "looks", `${channel}.json`), "utf8").then((t) => JSON.parse(t) as Record<string, number[]>, () => ({}));
+}
+async function saveLook(data: string, channel: string, job: string, v: Float32Array) {
+  const all = await ourLooks(data, channel);
+  all[job] = Array.from(v, (x) => Math.round(x * 1e4) / 1e4);
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir(path.join(data, "looks"), { recursive: true });
+  const f = path.join(data, "looks", `${channel}.json`);
+  await writeFile(`${f}.tmp`, JSON.stringify(all) + "\n");
+  await rename(`${f}.tmp`, f);
+}
 
 interface PlanShot { id: string; startS: number; endS: number; source: { kind: string } }
 interface PlanScene { shotId: string; backdrop: string; elements: Array<{ type: string }> }
@@ -39,7 +64,7 @@ const WEIGHTS: Record<string, { w: number; owner: string; what: string }> = {
 };
 
 export interface FilmGap { key: string; what: string; owner: string; segment: Segment | "film"; ours: number; band: Band; outside: number }
-export interface FilmScore { job: string; channel: ChannelId; profileVersion: string; score: number; structure: number; taste: { median: number; realMedian: number; n: number } | null; measures: Measures; byPosition: Partial<Record<Segment, Measures>>; gaps: FilmGap[]; scoredAt: string }
+export interface FilmScore { job: string; channel: ChannelId; profileVersion: string; score: number; structure: number; taste: { median: number; realMedian: number; n: number } | null; look: { nearestOurs: { job: string; distance: number } | null; withinFilm: number; minBetween: number; minWithin: number } | null; measures: Measures; byPosition: Partial<Record<Segment, Measures>>; gaps: FilmGap[]; scoredAt: string }
 
 /** Merge picture kinds into the comparable families (stock actor + stock b-roll are one family for us: we cannot tell them apart). */
 function family(m: Measures): Record<string, number> {
@@ -171,8 +196,27 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
   const { structure, gaps, measures: m, byPosition } = structureOf(prof, shots, hits, durS);
 
   let taste: FilmScore["taste"] = null;
+  let look: FilmScore["look"] = null;
+  const pdir = ["previews_final", "previews_agent", "previews"].map((d) => path.join(o.jobDir, d)).find((d) => existsSync(d));
+  if (pdir && prof.variety.lookDistance) {
+    const { readdirSync } = await import("node:fs");
+    const files = readdirSync(pdir).filter((x) => /\.(jpg|png)$/.test(x) && !/sheet/.test(x)).sort().map((x) => path.join(pdir, x));
+    const l = await lookOf({ root: o.root, data: o.data, files, ...(o.log ? { log: o.log } : {}) });
+    if (l) {
+      const job = path.basename(o.jobDir);
+      const others = Object.entries(await ourLooks(o.data, o.channel)).filter(([j]) => j !== job).map(([j, v]) => ({ job: j, distance: Math.round(cosDist(l.all, v) * 1e3) / 1e3 })).sort((a, b) => a.distance - b.distance);
+      look = { nearestOurs: others[0] ?? null, withinFilm: Math.round(cosDist(l.a, l.b) * 1e3) / 1e3, minBetween: prof.variety.lookDistance.betweenFilms.p10, minWithin: prof.variety.lookDistance.withinFilm.p10 };
+      await saveLook(o.data, o.channel, job, l.all);
+      const ld = prof.variety.lookDistance;
+      const gapOf = (key: string, what: string, owner: string, ours: number, band: Band): FilmGap => ({ key, what, owner, segment: "film", ours, band, outside: Math.round(((band.p10 - ours) / Math.max(1e-6, band.p90 - band.p10)) * 100) / 100 });
+      // Too close to an earlier film of ours: closer than two of the channel's films usually are.
+      if (look.nearestOurs && look.nearestOurs.distance < ld.betweenFilms.p10) gaps.push(gapOf("look.nearestOurs", `look too close to our film "${look.nearestOurs.job}" (distance)`, "art director/scene designer", look.nearestOurs.distance, ld.betweenFilms));
+      // A film whose two halves look the same: less variety within it than the channel's films have.
+      if (look.withinFilm < ld.withinFilm.p10) gaps.push(gapOf("look.withinFilm", "look of the first and second half the same (distance)", "art director/scene designer", look.withinFilm, ld.withinFilm));
+    }
+  }
   if (o.taste !== false) {
-    const dir = ["previews_final", "previews_agent", "previews"].map((d) => path.join(o.jobDir, d)).find((d) => existsSync(d));
+    const dir = pdir;
     if (dir) {
       const { readdirSync } = await import("node:fs");
       const files = readdirSync(dir).filter((x) => /\.(jpg|png)$/.test(x) && !/sheet/.test(x)).sort().map((x) => path.join(dir, x));
@@ -185,7 +229,7 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
   }
   const tastePart = taste ? Math.min(100, (taste.median / Math.max(0.1, taste.realMedian)) * 100) : null;
   const score = Math.round(tastePart === null ? structure : 0.6 * structure + 0.4 * tastePart);
-  const res: FilmScore = { job: path.basename(o.jobDir), channel: o.channel, profileVersion: prof.version, score, structure, taste, measures: m, byPosition, gaps, scoredAt: new Date().toISOString() };
+  const res: FilmScore = { job: path.basename(o.jobDir), channel: o.channel, profileVersion: prof.version, score, structure, taste, look, measures: m, byPosition, gaps, scoredAt: new Date().toISOString() };
   const file = path.join(o.jobDir, "film-score.json");
   await writeFile(`${file}.tmp`, JSON.stringify(res, null, 1) + "\n");
   await rename(`${file}.tmp`, file);
@@ -194,7 +238,7 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
 
 export function filmScoreText(s: FilmScore): string {
   return [
-    `Film score ${s.score}/100 (structure ${s.structure}${s.taste ? `, taste of previews ${s.taste.median}/10 vs the real channel's ${s.taste.realMedian}` : ""}) — channel profile v${s.profileVersion}`,
+    `Film score ${s.score}/100 (structure ${s.structure}${s.taste ? `, taste of previews ${s.taste.median}/10 vs the real channel's ${s.taste.realMedian}` : ""}${s.look ? `, look ${s.look.nearestOurs ? `${s.look.nearestOurs.distance} from our nearest film "${s.look.nearestOurs.job}"` : "first of ours"}, halves ${s.look.withinFilm} apart` : ""}) — channel profile v${s.profileVersion}`,
     ...s.gaps.map((g) => `- ${g.segment === "film" ? "whole film" : g.segment}: ${g.what} ${g.ours} — channel ${g.band.p10}–${g.band.p90} (median ${g.band.median}) → ${g.owner}`),
   ].join("\n");
 }

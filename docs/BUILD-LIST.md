@@ -23,7 +23,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ C12 `watch.ts:listen` from stems (voice over bed, floor, hits on cuts, drops, gaps).
 
 ## D. Learning from the reference (including the style profile)
-- ◐ D13 Full-reference embedding index (SigLIP 2 so400m, the Library's footage space): every reference shot and thumbnail.
+- ☑ D13 Full-reference embedding index (SigLIP 2 so400m, the Library's footage space): every reference shot and thumbnail.
 - ☐ D14 Trained taste scorer: real vs ours vs degraded.
 - ☑ D15 Edit-rhythm library: cuts against words and music (`reference-library.ts:findPassages`, `edl`).
 - ☑ D16 Sound against picture: hits, beds, drops and cues per shot in the index; `relations.hitOnScreen`, passages show them.
@@ -32,7 +32,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ D35 One unified, versioned channel profile — every band in one place, all on the `senses` method, read by every agent.
 - ☑ D36 Profile by position in the film: cold open, chapter openings, middle, turns, ending.
 - ☑ D37 Relationship measures: line → picture, cut → word/beat, hit → visual event, music → story moment.
-- ◐ D38 Variety range (look distance waits on embeddings): how far the channel's films differ from each other, so each of ours lands somewhere different.
+- ☑ D38 Variety range: look distance between and within films in every channel profile; ours measured in the film score (data/looks) and blocked in preflight (`unique_look`) when closer to an earlier film than two channel films usually are.
 - ☑ D39 Real technique frequencies counted from every reference shot (the old profile's counts were example-clip counts).
 - ☑ D40 Short-form: the reference has 1 film under 3 min and no real shorts — recorded in the profile; shorts follow the cold-open segment until real shorts are added (owner decision needed to source them).
 - ◐ D41 Weighting by views: rank correlations and top-quartile band in the profile (later: our own click-through).

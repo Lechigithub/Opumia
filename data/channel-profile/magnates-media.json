@@ -2093,7 +2093,18 @@
    "hitOnCutShare": 0.401,
    "bedDb": 0.107
   },
-  "lookDistance": null
+  "lookDistance": {
+   "betweenFilms": {
+    "p10": 0.046,
+    "median": 0.072,
+    "p90": 0.11
+   },
+   "withinFilm": {
+    "p10": 0.01,
+    "median": 0.021,
+    "p90": 0.039
+   }
+  }
  },
  "grade": {
   "arc": [
@@ -3694,7 +3705,7 @@
    }
   }
  },
- "version": "ed12a5307105",
+ "version": "532ecf28d4ee",
  "directives": [
   "Pace: 10.73–26.68 cuts a minute across the channel's films (median 16.96); median shot 2.002 s; shot lengths vary a lot (CV 1.254).",
   "By position: cold open 24.76 cuts/min with text on 49% of shots; chapter openings 15.15; middle 17.87; ending 16.65.",
@@ -3704,9 +3715,9 @@
   "Lines with a number get text on screen 1.57× as often as average; lines naming someone show real footage/photos 7% of the time.",
   "Sound: 3.08 strong hits a minute, 26% of them on a cut; hit classes thud/hit 56%, boom/impact 27%, click/pop 8%.",
   "Music: a cue change within 6 s of 54% of chapter starts; a drop-out just before 32% of them; 10.008 cue changes per 10 min.",
-  "Variety: the channel's films differ — e.g. text share varies by 30% across films. Land each film somewhere different inside the band, not on the average.",
+  "Variety: the channel's films differ — e.g. text share varies by 30% across films; two films' looks differ by 0.072 (within one film 0.021). Land each film somewhere different inside the band, not on the average.",
   "Grade: the look moves between chapters — saturation shifts by about 0.164 and brightness by 0.116 (0–1 scale) between a film's chapters; across the film saturation runs 0.368 → 0.378 → 0.391 → 0.358 → 0.375 → 0.366 → 0.392 → 0.395 → 0.381 → 0.372.",
   "Short-form: the reference holds 1 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T07:50:58.092Z"
+ "generatedAt": "2026-11-22T12:58:48.021Z"
 }

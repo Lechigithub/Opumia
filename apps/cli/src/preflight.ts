@@ -289,6 +289,10 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const fp = await readJson<{ closest: { to: string; over: string[] } | null }>(path.join(o.jobDir, "fingerprint.json"));
     const over = fp?.closest?.over ?? [];
     const soundOnly = over.length > 0 && over.every((x) => x.startsWith("sound"));
+    // D38: the look of the scenes (SigLIP centroid, film-score.ts) against our earlier films, in the channel's own range.
+    const fs = await readJson<{ look: { nearestOurs: { job: string; distance: number } | null; minBetween: number } | null }>(path.join(o.jobDir, "film-score.json"));
+    const nl = fs?.look?.nearestOurs;
+    if (nl && fs?.look) add({ id: "unique_look", label: `Look of the scenes against our nearest film (${nl.job})`, value: nl.distance, target: `≥ ${fs.look.minBetween} (two of the channel's films rarely sit closer)`, pass: nl.distance >= fs.look.minBetween, level: "blocker" });
     add({ id: "unique_plan", label: `Respects in which the plan is too close to ${fp?.closest?.to ?? "an earlier film"}`, value: over.length, target: "0", pass: over.length === 0, level: "blocker", ...(soundOnly ? { repair: "reseed_sound" as const } : {}), ...(over.length ? { note: over.join("; ") } : {}) });
   }
 

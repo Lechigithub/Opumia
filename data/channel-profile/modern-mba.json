@@ -1768,7 +1768,89 @@
    "hitOnCutShare": 0.374,
    "bedDb": 0.066
   },
-  "lookDistance": null
+  "lookDistance": {
+   "betweenFilms": {
+    "p10": 0.092,
+    "median": 0.14,
+    "p90": 0.197
+   },
+   "withinFilm": {
+    "p10": 0.011,
+    "median": 0.022,
+    "p90": 0.041
+   }
+  }
+ },
+ "grade": {
+  "arc": [
+   {
+    "sat": 0.301,
+    "luma": 0.37,
+    "contrast": 0.438
+   },
+   {
+    "sat": 0.284,
+    "luma": 0.389,
+    "contrast": 0.435
+   },
+   {
+    "sat": 0.28,
+    "luma": 0.402,
+    "contrast": 0.45
+   },
+   {
+    "sat": 0.304,
+    "luma": 0.37,
+    "contrast": 0.428
+   },
+   {
+    "sat": 0.29,
+    "luma": 0.371,
+    "contrast": 0.438
+   },
+   {
+    "sat": 0.28,
+    "luma": 0.399,
+    "contrast": 0.425
+   },
+   {
+    "sat": 0.284,
+    "luma": 0.394,
+    "contrast": 0.432
+   },
+   {
+    "sat": 0.306,
+    "luma": 0.375,
+    "contrast": 0.426
+   },
+   {
+    "sat": 0.291,
+    "luma": 0.387,
+    "contrast": 0.433
+   },
+   {
+    "sat": 0.28,
+    "luma": 0.376,
+    "contrast": 0.411
+   }
+  ],
+  "chapterShift": {
+   "sat": {
+    "p10": 0.066,
+    "median": 0.126,
+    "p90": 0.187
+   },
+   "luma": {
+    "p10": 0.069,
+    "median": 0.117,
+    "p90": 0.186
+   },
+   "contrast": {
+    "p10": 0.034,
+    "median": 0.102,
+    "p90": 0.147
+   }
+  }
  },
  "techniques": {
   "pictureText": {
@@ -1926,7 +2008,7 @@
    }
   }
  },
- "version": "40f19de67fd4",
+ "version": "e89d39d870c7",
  "directives": [
   "Pace: 17.03–32.97 cuts a minute across the channel's films (median 24.65); median shot 1.418 s; shot lengths vary a lot (CV 1.441).",
   "By position: cold open 27.77 cuts/min with text on 43% of shots; chapter openings 27.16; middle 28.37; ending 30.04.",
@@ -1936,8 +2018,9 @@
   "Lines with a number get text on screen 1.57× as often as average; lines naming someone show real footage/photos 1% of the time.",
   "Sound: 3.52 strong hits a minute, 21% of them on a cut; hit classes thud/hit 61%, click/pop 14%, boom/impact 10%.",
   "Music: a cue change within 6 s of 27% of chapter starts; a drop-out just before 1% of them; 14.195 cue changes per 10 min.",
-  "Variety: the channel's films differ — e.g. text share varies by 24% across films. Land each film somewhere different inside the band, not on the average.",
+  "Variety: the channel's films differ — e.g. text share varies by 24% across films; two films' looks differ by 0.14 (within one film 0.022). Land each film somewhere different inside the band, not on the average.",
+  "Grade: the look moves between chapters — saturation shifts by about 0.126 and brightness by 0.117 (0–1 scale) between a film's chapters; across the film saturation runs 0.301 → 0.284 → 0.28 → 0.304 → 0.29 → 0.28 → 0.284 → 0.306 → 0.291 → 0.28.",
   "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T07:47:59.548Z"
+ "generatedAt": "2026-11-22T12:58:59.289Z"
 }
