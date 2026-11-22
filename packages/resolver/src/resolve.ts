@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -135,7 +136,7 @@ export async function materialize(src: string, kind: "video" | "image", out: str
   if (await exists(out)) return;
   if (kind === "video") {
     // Broadcaster graphics (lower third, ticker, channel bug) are cropped away: bottom 22 %, a little off each side and the top.
-    await ffmpeg(["-ss", inS.toFixed(3), "-stream_loop", "-1", "-i", src, "-t", (durationS + 0.8).toFixed(3), "-an", "-vf", (cropBanner ? "crop=iw*0.9:ih*0.74:iw*0.05:ih*0.04," : "") + "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-movflags", "+faststart", out]);
+    await ffmpeg(["-ss", inS.toFixed(3), "-stream_loop", "-1", "-i", src, "-t", (durationS + 0.8).toFixed(3), "-an", "-vf", (cropBanner ? "crop=iw*0.9:ih*0.74:iw*0.05:ih*0.04," : "") + "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps=" + PLATFORM_FPS + ",format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-movflags", "+faststart", out]);
   } else {
     await ffmpeg(["-i", src, "-vf", "scale='min(2400,iw)':-2", ...(srcHasAlpha ? [] : ["-q:v", "3"]), "-frames:v", "1", out]);
   }

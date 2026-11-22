@@ -1,4 +1,5 @@
 import { ASPECT_DIMENSIONS, RenderManifest, type ResolutionReport, type ResolvedMedia, type Storyboard, type TimedScript } from "@opumia/contracts";
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { captionGroups } from "./captions.js";
 import { cameraAt } from "./motion.js";
 import { projectMap, type MapPoint } from "./map.js";
@@ -24,7 +25,7 @@ export interface BuildManifestOptions {
   libraryRoot: string;
   outputPath: string;
   narrationPath: string;
-  fps?: 30;
+  fps?: 24 | 25 | 30 | 60;
   tailS?: number;
   log?: (s: string) => void;
   /** Scene grammar: minimum seconds before a designed layout may repeat (FilmDesignSystem.sceneGrammar). */
@@ -37,7 +38,7 @@ export interface BuildManifestOptions {
 
 /** Storyboard + TimedScript + resolved media → frame-exact RenderManifest (validated). */
 export async function buildManifest(o: BuildManifestOptions): Promise<RenderManifest> {
-  const fps = o.fps ?? 30;
+  const fps = o.fps ?? PLATFORM_FPS;
   const F = (s: number) => Math.max(0, Math.round(s * fps));
   const durationFrames = F(o.script.durationS + (o.tailS ?? 0.6));
   const { width, height } = ASPECT_DIMENSIONS[o.storyboard.aspect];

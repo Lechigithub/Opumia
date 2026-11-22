@@ -9,6 +9,7 @@
  * overall and by position in the film, plus the trained taste of the scene previews when the taste model exists.
  * Every gap is listed with the channel's range and ours, so the showrunner can send it to the agent that owns it.
  */
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { existsSync } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -115,7 +116,7 @@ export function ourShotsFrom(st: PlanState, film = "ours"): { shots: ReferenceSh
   const media = st.media;
   const man = st.manifest ?? null;
   const words = st.words.map((w) => ({ w: (w.word ?? w.text ?? "").trim(), s: w.startS ?? w.start ?? 0, e: w.endS ?? w.end ?? 0 }));
-  const fps = man?.fps ?? 30;
+  const fps = man?.fps ?? PLATFORM_FPS;
   const hits = (man?.audio ?? []).filter((a) => a.role === "sfx").map((a) => ({ t: a.startFrame / fps }));
   const music = (man?.audio ?? []).filter((a) => a.role === "music");
   const dips = music.flatMap((m) => (m.dips ?? []).map((d) => [d.fromFrame / fps, d.toFrame / fps] as [number, number]));

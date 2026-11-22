@@ -1,4 +1,5 @@
 // Offline render smoke test: every scene primitive, real Library media, no paid APIs.
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -60,7 +61,7 @@ const mat = (shotId: string, role: "primary" | "overlay" | "sfx" | "music", a: t
   const ext = kind === "video" ? "mp4" : kind === "audio" ? "mp3" : a.ext === "png" ? "png" : "jpg";
   const file = `${role}_${shotId}.${ext}`;
   const out = kind === "audio" ? path.join(job, "audio", file) : path.join(pub, "media", file);
-  if (kind === "video") ff(["-ss", String(inS), "-stream_loop", "-1", "-i", path.join(LIB, a.relPath), "-t", String(shotLen + 1), "-an", "-vf", "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", out]);
+  if (kind === "video") ff(["-ss", String(inS), "-stream_loop", "-1", "-i", path.join(LIB, a.relPath), "-t", String(shotLen + 1), "-an", "-vf", "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps=" + PLATFORM_FPS + ",format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", out]);
   else if (kind === "image") ff(["-i", path.join(LIB, a.relPath), "-vf", "scale='min(2400,iw)':-2", "-frames:v", "1", out]);
   else ff(["-i", path.join(LIB, a.relPath), "-c:a", "libmp3lame", "-q:a", "3", out]);
   media.push({ shotId, role, origin: "library", ref: a.id, provider: "library", kind, localPath: out, publicPath: kind === "audio" ? `../audio/${file}` : `media/${file}`, durationS: kind === "audio" ? a.probe?.durationS : shotLen, license: a.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: role });

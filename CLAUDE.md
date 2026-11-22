@@ -529,5 +529,6 @@ Credentials are loaded by `pnpm opumia …` (see **Secrets** above; check with `
 ## Conventions
 
 - Node ≥ 20, pnpm workspaces, ESM, TypeScript `strict` + `noUncheckedIndexedAccess`. Run with `tsx`.
+- **Frame rate: 24 fps** (`contracts/render.ts:PLATFORM_FPS`, owner decision 2026-11-22): the documentary standard and the reference channel's most common rate (MagnatesMedia: 14 of 37 films at 24, 11 at 25, 10 at 30, 2 at 60). Every clip is conformed to it; never hard-code a frame rate.
 - Keep CLI output short. Write details to `data/`.
 - Never print API keys. Never put user data in URLs.

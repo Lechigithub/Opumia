@@ -12,6 +12,7 @@
  *  memory   <memoryDir>/<channel>.md, owner-notes.md (data/agents/sound/)
  *  output   storyboard shots with sfx and music cues (the same shape the timeline returns)
  */
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -56,7 +57,7 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
   const draft = designSoundTimeline({ ...o, log: () => {} });
   const kit = soundKit(o);
   const dur = o.script.durationS;
-  const fps = 30;
+  const fps = PLATFORM_FPS;
   // Working state: hits by the moment their peak lands, music cues as the timeline made them.
   let n = 0;
   const hits: Hit[] = [];

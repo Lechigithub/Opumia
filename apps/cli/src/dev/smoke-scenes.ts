@@ -2,6 +2,7 @@
 // world, particles, cutouts, photo styles, Three.js type and cards). No paid APIs. Renders previews + a short
 // video and measures it against the reference band.
 //   npx tsx apps/cli/src/dev/smoke-scenes.ts [treatmentIndex]
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -45,7 +46,7 @@ const base = { origin: "library" as const, provider: "library" as const, license
 for (const i of [0, 3, 4, 5]) {
   const a = cines[(i * 7 + variant * 11) % cines.length]!;
   const out = path.join(pub, "media", `v${i}.mp4`);
-  if (!existsSync(out)) ff(["-stream_loop", "-1", "-i", path.join(LIB, a.relPath), "-t", String(SHOT + 1), "-an", "-vf", "scale=1920:-2,fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", out]);
+  if (!existsSync(out)) ff(["-stream_loop", "-1", "-i", path.join(LIB, a.relPath), "-t", String(SHOT + 1), "-an", "-vf", "scale=1920:-2,fps=" + PLATFORM_FPS + ",format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", out]);
   media.push({ ...base, shotId: shots[i]!.id, role: "primary", ref: `${a.id}#${i}`, kind: "video", localPath: out, publicPath: `media/v${i}.mp4`, durationS: SHOT });
 }
 const layer = (shot: number, slot: number, a: typeof cutout, name: string) => {

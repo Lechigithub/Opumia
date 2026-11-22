@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { PLATFORM_FPS } from "@opumia/contracts";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -133,8 +134,8 @@ async function ytSection(id: string, atS: number, lenS: number, out: string): Pr
   const tmp = `${out}.part.mp4`;
   try {
     await run("yt-dlp", ["-q", "--no-warnings", "--no-playlist", "-f", "bv*[height<=720][ext=mp4]/bv*[height<=720]/b[height<=720]", "--download-sections", `*${atS.toFixed(1)}-${(atS + lenS).toFixed(1)}`, "-o", tmp, `https://www.youtube.com/watch?v=${id}`], { timeout: 120_000 });
-    // Normalise: muted, 30 fps, H.264, exact length.
-    await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", tmp, "-t", lenS.toFixed(2), "-an", "-vf", "scale='min(1920,iw)':-2,fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", out], { timeout: 120_000 });
+    // Normalise: muted, the platform frame rate, H.264, exact length.
+    await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", tmp, "-t", lenS.toFixed(2), "-an", "-vf", "scale='min(1920,iw)':-2,fps=" + PLATFORM_FPS + ",format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", out], { timeout: 120_000 });
     return exists(out);
   } catch {
     return false;

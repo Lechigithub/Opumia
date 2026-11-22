@@ -71,3 +71,7 @@ export const RenderManifest = z
     });
   });
 export type RenderManifest = z.infer<typeof RenderManifest>;
+
+/** The platform's frame rate (owner decision 2026-11-22): 24 fps — the documentary standard and the most common rate of the
+ *  reference channel (14 of 37 MagnatesMedia films; 25 fps 11, 30 fps 10, 60 fps 2). Every clip is conformed to it. */
+export const PLATFORM_FPS = 24 as const;

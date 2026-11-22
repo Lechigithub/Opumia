@@ -11,8 +11,8 @@ const emptyManifest = {
   aspect: "9:16",
   width: 1080,
   height: 1920,
-  fps: 30,
-  durationFrames: 30,
+  fps: 24,
+  durationFrames: 24,
   video: [],
   audio: [],
   captions: [],
@@ -29,8 +29,8 @@ const Root: React.FC = () => (
       component={Documentary}
       width={1080}
       height={1920}
-      fps={30}
-      durationInFrames={30}
+      fps={24}
+      durationInFrames={24}
       defaultProps={{ manifest: emptyManifest, look: { accent: "#f5c518", saturate: 1.05, contrast: 1.06, vignette: 0.55, grain: 0.25 } } satisfies DocProps}
       calculateMetadata={({ props }) => ({ durationInFrames: props.manifest.durationFrames, width: props.manifest.width, height: props.manifest.height, fps: props.manifest.fps })}
     />
@@ -39,7 +39,7 @@ const Root: React.FC = () => (
       component={ThumbnailScene}
       width={1280}
       height={720}
-      fps={30}
+      fps={24}
       durationInFrames={90}
       defaultProps={{ spec: { backdrop: "world" as const, camera: { fromScale: 1, toScale: 1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [] }, slots: {}, w: 1280, h: 720 }}
       calculateMetadata={({ props }) => ({ width: props.w, height: props.h })}
