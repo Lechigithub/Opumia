@@ -9,3 +9,4 @@ export * from "./compose.js";
 export * from "./parity.js";
 export * from "./gate.js";
 export * from "./preview.js";
+export * from "./watch.js";

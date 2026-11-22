@@ -45,7 +45,7 @@ async function overallRmsDb(file: string): Promise<number | null> {
   return all.length ? all[all.length - 1]! : null;
 }
 
-function mixGraph(m: RenderManifest, toneDb: number | null = null) {
+function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" | "voice" | "bed" = "all") {
   const fps = m.fps;
   const durS = m.durationFrames / fps;
   const voice = m.audio.find((a) => a.role === "narration");
@@ -93,6 +93,16 @@ function mixGraph(m: RenderManifest, toneDb: number | null = null) {
     mixIns.push("[tone]");
     idx++;
   }
+  if (stem !== "all") {
+    // One stem only (listen-back): the voice alone, or everything but the voice (music ducked by the voice, effects,
+    // room tone). Unused branches go to a null sink.
+    const voiceLabel = music.length ? "[vomix]" : "[vo]";
+    const keep = stem === "voice" ? [voiceLabel] : mixIns.filter((l) => l !== voiceLabel);
+    for (const l of mixIns.filter((l) => !keep.includes(l))) chains.push(`${l}anullsink`);
+    if (!keep.length) keep.push("[silent]"), chains.push(`anullsrc=r=48000:cl=stereo,atrim=0:${durS.toFixed(3)}[silent]`);
+    chains.push(`${keep.join("")}amix=inputs=${keep.length}:duration=longest:dropout_transition=0:normalize=0,apad=whole_dur=${durS.toFixed(3)},atrim=0:${durS.toFixed(3)}[mix]`);
+    return { inputs, graph: chains.join(";") };
+  }
   chains.push(`${mixIns.join("")}amix=inputs=${mixIns.length}:duration=first:dropout_transition=0:normalize=0,atrim=0:${durS.toFixed(3)}[mix]`);
   return { inputs, graph: chains.join(";") };
 }
@@ -112,6 +122,22 @@ export async function masterAudio(m: RenderManifest, outWav: string, truePeak = 
   const ln2 = `${LN(m.loudnessTargetLufs, truePeak)}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true,alimiter=limit=${Math.pow(10, (truePeak - 0.3) / 20).toFixed(4)}:level=false`;
   await ff([...inputs, "-filter_complex", `${graph};[mix]${ln2},aresample=48000[out]`, "-map", "[out]", "-c:a", "pcm_s24le", outWav]);
   return measureLoudness(outWav);
+}
+
+/**
+ * Pre-master stems for listening back (no loudness normalisation, fast): the full mix, the voice alone and the bed
+ * (music + effects + room tone) alone, as 48 kHz WAVs in dir. Same graph as the master.
+ */
+export async function premixStems(m: RenderManifest, dir: string): Promise<{ mix: string; voice: string; bed: string }> {
+  const voice = m.audio.find((a) => a.role === "narration");
+  const vRms = voice && process.env.OPUMIA_ROOM_TONE !== "off" ? await overallRmsDb(voice.src) : null;
+  const tone = vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB;
+  const out = { mix: `${dir}/premix.wav`, voice: `${dir}/stem-voice.wav`, bed: `${dir}/stem-bed.wav` };
+  for (const [stem, file] of [["all", out.mix], ["voice", out.voice], ["bed", out.bed]] as const) {
+    const { inputs, graph } = mixGraph(m, tone, stem);
+    await ff([...inputs, "-filter_complex", graph, "-map", "[mix]", "-c:a", "pcm_s16le", file]);
+  }
+  return out;
 }
 
 export async function measureLoudness(file: string): Promise<LoudnessStats> {
