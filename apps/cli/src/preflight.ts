@@ -225,7 +225,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       if (sc.backdrop !== "footage" && sc.backdrop !== "split") worst = Math.max(worst, run);
     }
     add({ id: "bare_backdrop_run", label: "Longest run of scenes on the same picture-less backdrop", value: worst, target: "≤ 2", pass: worst <= 2, level: "blocker" });
-    const bare = order.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).length / Math.max(1, order.length);
+    const bare = order.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || e.type === "counter" || e.type === "steps" || e.type === "icongrid" || e.type === "newspaper" || e.type === "screen")).length / Math.max(1, order.length);
     add({ id: "picture_less_scenes", label: "Scenes with no picture at all (text and shapes on colour)", value: bare, target: "≤ 0.35", pass: bare <= 0.35, level: "blocker", note: "more of these and the film reads as a slide deck" });
   }
 

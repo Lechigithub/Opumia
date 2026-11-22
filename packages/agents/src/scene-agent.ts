@@ -124,19 +124,29 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     // Picture-less scenes: a word or two on a plain stage is a slide, and a stage that ignores its pictures is a waste.
     const slotsOf = (id: string) => o.resolution.media.filter((m) => m.shotId === id && m.role === "layer");
     const staged = plan.scenes.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split");
-    const hasPicture = (sc: (typeof staged)[number]) => sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d");
+    const hasPicture = (sc: (typeof staged)[number]) => sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || e.type === "counter" || e.type === "steps" || e.type === "icongrid" || e.type === "newspaper" || e.type === "screen");
+    // G25: what a footage-less shot could be built around, read from its own line.
+    const said = (id: string) => { const sh = o.storyboard.shots.find((x) => x.id === id); return sh ? o.script.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; };
+    const suggest = (id: string) => {
+      const l = said(id).toLowerCase();
+      if (/\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|hundred|thousand|million|billion|half|percent)\b/.test(l)) return "a counter of the spoken figure";
+      if (/\b(first|then|after|before|step|so|which led|turned into|became|from .* to)\b/.test(l)) return "steps (the chain the line describes)";
+      if (/\b(reported|announced|headline|news|filed|court|ruled|sued|declared|bankrupt|press)\b/.test(l)) return "a newspaper layout with the narrator's words as headline";
+      if (/\b(website|app|online|internet|email|post|tweet|instagram|facebook|google|screen|search)\b/.test(l)) return "a screen with a real page screenshot (find_picture)";
+      return "a picture (find_picture) or library objects in an icon grid";
+    };
     const unused = staged.filter((sc) => !hasPicture(sc) && slotsOf(sc.shotId).length > 0);
     if (unused.length) issues.push({ kind: "unused_picture", detail: `these shots have real pictures available and show none: ${unused.map((sc) => `${sc.shotId} (${slotsOf(sc.shotId).map((m) => `[${m.slot}] ${(m.depicts ?? m.query).slice(0, 40)}`).join("; ")})`).join(", ")}. Build the scene around the picture.` });
     // A shot with no footage must be built around a picture, unless the designer really tried to get one
     // (two different requests that found nothing). With the picture tools there is no excuse for a bare stage.
     if (o.pictures) {
       const bareStage = staged.filter((sc) => !hasPicture(sc) && !sc.elements.some((e) => e.type === "text3d") && (triedPicture.get(sc.shotId) ?? 0) < 2);
-      if (bareStage.length) issues.push({ kind: "stage_without_picture", detail: `these shots have no footage and show no picture: ${bareStage.map((sc) => sc.shotId).join(", ")}. For each, get one: find_picture as footage (moving video of what the line is about) or as a slot to compose, or a library object or icon that makes the idea visible — then redesign the shot around it. Only after two different requests found nothing may a shot stay without a picture.` });
+      if (bareStage.length) issues.push({ kind: "stage_without_picture", detail: `these shots have no footage and show no picture: ${bareStage.map((sc) => `${sc.shotId} (try ${suggest(sc.shotId)})`).join(", ")}. For each, get one: find_picture as footage (moving video of what the line is about) or as a slot to compose, or a library object or icon that makes the idea visible — then redesign the shot around it. Only after two different requests found nothing may a shot stay without a picture.` });
     }
     const wordsOn = (sc: (typeof staged)[number]) => sc.elements.filter((e) => e.type === "text" || e.type === "phrase" || e.type === "text3d").reduce((n, e) => n + ("text" in e ? e.text.trim().split(/\s+/).length : 0), 0);
     const bare = staged.filter((sc) => !hasPicture(sc) && wordsOn(sc) <= 3 && !sc.elements.some((e) => e.type === "text3d"));
     const allow = Math.max(1, Math.floor(plan.scenes.length * 0.08));
-    if (bare.length > allow) issues.push({ kind: "bare_word_cards", detail: `${bare.length} shots are a word or two on a plain stage (${bare.map((sc) => sc.shotId).join(", ")}); at most ${allow} in a film this long. A lone word on colour is a slide: carry the line with more of the narration's words set with intent, a drawn shape that means something, the film's motif, or 3D type for the one biggest moment.` });
+    if (bare.length > allow) issues.push({ kind: "bare_word_cards", detail: `${bare.length} shots are a word or two on a plain stage (${bare.map((sc) => sc.shotId).join(", ")}); at most ${allow} in a film this long. A lone word on colour is a slide: build it around a counter, steps, an icon grid, a newspaper layout or a screen when the line allows (${bare.map((sc) => `${sc.shotId}: ${suggest(sc.shotId)}`).join("; ")}), or carry the line with more of the narration's words set with intent, a drawn shape that means something, the film's motif, or 3D type for the one biggest moment.` });
     // Readability: text that cannot be read at a glance (labelled on the rendered frame, like everything else).
     const hard = ids.filter((id, k) => labels[k] && labels[k]!.words > 0 && !labels[k]!.readable);
     if (hard.length) issues.push({ kind: "hard_to_read", detail: `text is hard to read at a glance in ${hard.join(", ")} (too small, low contrast against what is behind it, across a busy area, cut off, or overlapping). Make it larger, move it to a calm part of the frame, or dim the footage under it — then look again.` });
