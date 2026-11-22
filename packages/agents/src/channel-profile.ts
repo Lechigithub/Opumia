@@ -72,7 +72,7 @@ export interface ChannelProfile {
    * the grade moves from chapter to chapter inside one film (median of per-film spread of chapter medians). */
   grade: { arc: Array<{ sat: number; luma: number; contrast: number }>; chapterShift: { sat: Band; luma: Band; contrast: Band } };
   techniques: { pictureText: Record<string, number>; transitions: Record<string, number>; perFilmRange: Record<string, Band> };
-  views: { rankCorrelation: Record<string, number>; topQuartile: Record<string, number>; note: string };
+  views: { rankCorrelation: Record<string, number>; topQuartile: Record<string, number>; /** correlations a permutation test says are not noise (p < 0.05) */ significant?: Record<string, { rho: number; p: number; topQuartile: number; median: number }>; note: string };
   shortForm: { available: boolean; films: number; note: string };
   bands: Record<string, unknown>;
   directives: string[];
@@ -285,6 +285,22 @@ export async function buildChannelProfile(o: { data: string; channel: ChannelId;
   const q = pct(filmRows.map((f) => f.views), 0.75);
   const top = filmRows.filter((f) => f.views >= q);
   const topQuartile = Object.fromEntries(keys.map((k) => [k, r(pct(top.map((f) => flat(f.m)[k] ?? 0), 0.5))]));
+  // D41: which correlations are more than noise — a seeded permutation test (2000 shuffles of the views).
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const significant: Record<string, { rho: number; p: number; topQuartile: number; median: number }> = {};
+  for (const [k, rho] of Object.entries(rankCorrelation) as Array<[string, number]>) {
+    const xs = filmRows.map((f) => flat(f.m)[k] ?? 0);
+    let hits = 0;
+    const N = 2000;
+    for (let t = 0; t < N; t++) {
+      const y = [...lv];
+      for (let i = y.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [y[i], y[j]] = [y[j]!, y[i]!]; }
+      if (Math.abs(spearman(xs, y)) >= Math.abs(rho)) hits++;
+    }
+    const pv = (hits + 1) / (N + 1);
+    if (pv < 0.05) significant[k] = { rho, p: Math.round(pv * 1e3) / 1e3, topQuartile: topQuartile[k] ?? 0, median: r(pct(xs, 0.5)) };
+  }
 
   const shorts = films.filter((f) => f.durS < 180);
   const bands = {
@@ -308,7 +324,7 @@ export async function buildChannelProfile(o: { data: string; channel: ChannelId;
     variety: { acrossFilms, lookDistance },
     grade: { arc: gArc.map((g) => ({ sat: r(pct(g.sat, 0.5)), luma: r(pct(g.luma, 0.5)), contrast: r(pct(g.contrast, 0.5)) })), chapterShift: { sat: band(shift.sat), luma: band(shift.luma), contrast: band(shift.contrast) } },
     techniques,
-    views: { rankCorrelation, topQuartile, note: `${filmRows.length} films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = ${top.length} films with ≥ ${q} views` },
+    views: { rankCorrelation, topQuartile, significant, note: `${filmRows.length} films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = ${top.length} films with ≥ ${q} views` },
     shortForm: { available: shorts.length >= 5, films: shorts.length, note: shorts.length >= 5 ? "real shorts present" : `the reference holds ${shorts.length} film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/` },
     bands,
   };
@@ -350,6 +366,8 @@ export function directivesOf(p: ChannelProfile): string[] {
     `Variety: the channel's films differ — e.g. text share varies by ${Math.round((p.variety.acrossFilms.textSlam ?? 0) * 100)}% across films${p.variety.lookDistance ? `; two films' looks differ by ${p.variety.lookDistance.betweenFilms.median} (within one film ${p.variety.lookDistance.withinFilm.median})` : ""}. Land each film somewhere different inside the band, not on the average.`,
   ];
   out.push(`Grade: the look moves between chapters — saturation shifts by about ${p.grade.chapterShift.sat.median} and brightness by ${p.grade.chapterShift.luma.median} (0–1 scale) between a film's chapters; across the film saturation runs ${p.grade.arc.map((g) => g.sat).join(" → ")}.`);
+  const sig = Object.entries(p.views.significant ?? {}).filter(([k]) => !["seconds", "shots"].includes(k));
+  if (sig.length) out.push(`Views (a weak, observational tie-breaker inside the band, not a target): the channel's more-watched films have ${sig.map(([k, v]) => `${v.rho > 0 ? "more" : "less"} ${k} (top quartile ${v.topQuartile} vs median ${v.median})`).join("; ")}.`);
   if (!p.shortForm.available) out.push(`Short-form: ${p.shortForm.note}.`);
   return out;
 }

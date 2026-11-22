@@ -2301,6 +2301,20 @@
    "hitOnCutShare": 0.273,
    "bedDb": -34.2
   },
+  "significant": {
+   "seconds": {
+    "rho": 0.6,
+    "p": 0,
+    "topQuartile": 2030,
+    "median": 1256
+   },
+   "shots": {
+    "rho": 0.43,
+    "p": 0.009,
+    "topQuartile": 736,
+    "median": 413
+   }
+  },
   "note": "37 films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = 10 films with ≥ 3999862 views"
  },
  "shortForm": {
@@ -3705,7 +3719,7 @@
    }
   }
  },
- "version": "532ecf28d4ee",
+ "version": "fe95e8bd110d",
  "directives": [
   "Pace: 10.73–26.68 cuts a minute across the channel's films (median 16.96); median shot 2.002 s; shot lengths vary a lot (CV 1.254).",
   "By position: cold open 24.76 cuts/min with text on 49% of shots; chapter openings 15.15; middle 17.87; ending 16.65.",
@@ -3719,5 +3733,5 @@
   "Grade: the look moves between chapters — saturation shifts by about 0.164 and brightness by 0.116 (0–1 scale) between a film's chapters; across the film saturation runs 0.368 → 0.378 → 0.391 → 0.358 → 0.375 → 0.366 → 0.392 → 0.395 → 0.381 → 0.372.",
   "Short-form: the reference holds 1 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T12:58:48.021Z"
+ "generatedAt": "2026-11-22T13:02:27.195Z"
 }

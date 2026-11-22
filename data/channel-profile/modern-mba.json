@@ -1975,6 +1975,14 @@
    "hitOnCutShare": 0.217,
    "bedDb": -66
   },
+  "significant": {
+   "picture.stock_broll": {
+    "rho": 0.4,
+    "p": 0.038,
+    "topQuartile": 0.403,
+    "median": 0.305
+   }
+  },
   "note": "27 films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = 7 films with ≥ 1208446 views"
  },
  "shortForm": {
@@ -2008,7 +2016,7 @@
    }
   }
  },
- "version": "e89d39d870c7",
+ "version": "1cbbcfc05e9e",
  "directives": [
   "Pace: 17.03–32.97 cuts a minute across the channel's films (median 24.65); median shot 1.418 s; shot lengths vary a lot (CV 1.441).",
   "By position: cold open 27.77 cuts/min with text on 43% of shots; chapter openings 27.16; middle 28.37; ending 30.04.",
@@ -2020,7 +2028,8 @@
   "Music: a cue change within 6 s of 27% of chapter starts; a drop-out just before 1% of them; 14.195 cue changes per 10 min.",
   "Variety: the channel's films differ — e.g. text share varies by 24% across films; two films' looks differ by 0.14 (within one film 0.022). Land each film somewhere different inside the band, not on the average.",
   "Grade: the look moves between chapters — saturation shifts by about 0.126 and brightness by 0.117 (0–1 scale) between a film's chapters; across the film saturation runs 0.301 → 0.284 → 0.28 → 0.304 → 0.29 → 0.28 → 0.284 → 0.306 → 0.291 → 0.28.",
+  "Views (a weak, observational tie-breaker inside the band, not a target): the channel's more-watched films have more picture.stock_broll (top quartile 0.403 vs median 0.305).",
   "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T12:58:59.289Z"
+ "generatedAt": "2026-11-22T13:02:37.913Z"
 }

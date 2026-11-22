@@ -24,7 +24,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 
 ## D. Learning from the reference (including the style profile)
 - ☑ D13 Full-reference embedding index (SigLIP 2 so400m, the Library's footage space): every reference shot and thumbnail.
-- ☐ D14 Trained taste scorer: real vs ours vs degraded.
+- ☑ D14 Trained taste scorer (`agents/taste.ts`): two SigLIP heads per kind, grouped hold-out. Thumbs: AUC 0.93 (real 6.3 / ours 5.1 / degraded 3.1). Shots: AUC 0.89 (6.1 / 4.9 / 3.5). In the film score, packaging renders (`taste_far`). It does not separate the two owner-rejected films from our other old films (all ours 3.6–5.2): it measures distance to the reference, and our old jobs were training negatives.
 - ☑ D15 Edit-rhythm library: cuts against words and music (`reference-library.ts:findPassages`, `edl`).
 - ☑ D16 Sound against picture: hits, beds, drops and cues per shot in the index; `relations.hitOnScreen`, passages show them.
 - ☑ D17 Colour grade per act: `grade.arc` and chapter-to-chapter shift in the channel profile.
@@ -35,7 +35,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☑ D38 Variety range: look distance between and within films in every channel profile; ours measured in the film score (data/looks) and blocked in preflight (`unique_look`) when closer to an earlier film than two channel films usually are.
 - ☑ D39 Real technique frequencies counted from every reference shot (the old profile's counts were example-clip counts).
 - ☑ D40 Short-form: the reference has 1 film under 3 min and no real shorts — recorded in the profile; shorts follow the cold-open segment until real shorts are added (owner decision needed to source them).
-- ◐ D41 Weighting by views: rank correlations and top-quartile band in the profile (later: our own click-through).
+- ☑ D41 Weighting by views: rank correlations, top-quartile band, permutation test (p < 0.05) — MagnatesMedia: only length goes with views beyond noise; Moon: less designed, more staged stock. A tie-breaker directive, not a target. Our own click-through: needs published films.
 - ◐ D42 Other channels: unified profiles built for four (Big Company has no shot analysis); story/visual/thumbnail bands still MagnatesMedia only.
 - ☐ D43 Profile version tied to the evaluation set.
 

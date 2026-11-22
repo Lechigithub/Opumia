@@ -2024,6 +2024,20 @@
    "hitOnCutShare": 0.278,
    "bedDb": -47.3
   },
+  "significant": {
+   "picture.stock_actor": {
+    "rho": 0.5,
+    "p": 0.006,
+    "topQuartile": 0.672,
+    "median": 0.625
+   },
+   "faceShare": {
+    "rho": 0.4,
+    "p": 0.029,
+    "topQuartile": 0.773,
+    "median": 0.733
+   }
+  },
   "note": "30 films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = 8 films with ≥ 1295625 views"
  },
  "shortForm": {
@@ -2032,10 +2046,1150 @@
   "note": "the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/"
  },
  "bands": {
-  "story": null,
-  "visual": null,
-  "thumbnail": null,
-  "quality": null,
+  "story": {
+   "schemaVersion": 1,
+   "channel": "how-money-works",
+   "films": 30,
+   "kinds": {
+    "scene": {
+     "p10": 0,
+     "p50": 0.011,
+     "p90": 0.033
+    },
+    "story": {
+     "p10": 0.038,
+     "p50": 0.089,
+     "p90": 0.178
+    },
+    "fact": {
+     "p10": 0.078,
+     "p50": 0.156,
+     "p90": 0.256
+    },
+    "explain": {
+     "p10": 0.378,
+     "p50": 0.467,
+     "p90": 0.5
+    },
+    "motive": {
+     "p10": 0.011,
+     "p50": 0.022,
+     "p90": 0.044
+    },
+    "quote": {
+     "p10": 0.011,
+     "p50": 0.044,
+     "p90": 0.144
+    },
+    "question": {
+     "p10": 0,
+     "p50": 0.022,
+     "p90": 0.056
+    },
+    "address": {
+     "p10": 0.036,
+     "p50": 0.089,
+     "p90": 0.144
+    },
+    "tease": {
+     "p10": 0.022,
+     "p50": 0.044,
+     "p90": 0.08
+    },
+    "maxim": {
+     "p10": 0.022,
+     "p50": 0.044,
+     "p90": 0.111
+    }
+   },
+   "viewer": {
+    "p10": 0.1,
+    "p50": 0.244,
+    "p90": 0.4
+   },
+   "structures": [
+    "\"Being Single Is Now An Unaffordable Luxury\": Holiday hook and premise → Couples share expenses → Marriage earnings premium (NLSY) → Married women earn less → Dating costs lock out singles",
+    "\"Has LinkedIn Ruined Your Career?\": Strange platform, ruined career? → LinkedIn vs Twitter acquisition value → Way 1: marketplace that hands hiring power to employers → Way 2: information imbalance → Way 3: forced self-comparison → Way 4: corporate worship",
+    "\"Most People Alive Today Will Work Until They Die\": Retirement savings crisis → Reason 1: cost of living and debt → Reason 2: nobody wants to think about it → Reason 3: investors mess it up → What realistic returns do to the math",
+    "\"The 40 Year Career Is Dead... And That's a Good Thing\": The old career model is ending → Workers are less ambitious → Remote work and bullshit jobs → Reason 1: no financial payoff for promotion → Reason 2: entrepreneurial ambitions → Reason 3: promotions slow your pay → Reason 4: they just do not want them → Problems for companies",
+    "\"The Real Reason Companies Have Become Obsessed With Your Data\": Data as a trillion-dollar account → Big data as an asset → Cheap storage and the data bet → Data moats → Cheaper to analyze: off-the-shelf tools → Hedge funds buying card data",
+    "\"What You Need To Know About SVB, Silvergate & Signature Bank Collapses\": Second-largest bank collapse → Silvergate: the crypto bank → Bitcoin crash and Silvergate liquidation → SVB: the startup bank → Rising rates and the bond losses → Bank run and government backstop",
+    "\"Why Corporate America Is Obsessed With \"Company Culture\"\": Culture obsession and its cost → Reason 1: a company cult → Reason 2: workplace pushback and PR → Reason 3: everyone else is doing it → How culture hurts careers",
+    "\"Why Do Tech Companies Hire and Fire So Much?\": Tech layoff wave → Hire reason 1: diversification and growth → Fire reason 1: because they can → Hire reason 2: monopoly and non-competes → Fire reason 2: no startup threat → Fire reason 3 and hire reason 3: cheap talent, bad management"
+   ]
+  },
+  "visual": {
+   "schemaVersion": 1,
+   "channel": "how-money-works",
+   "films": 10,
+   "shots": 296,
+   "mix": {
+    "plain_footage": 0.402,
+    "words_over_footage": 0.098,
+    "caption_on_footage": 0.068,
+    "title_card": 0.044,
+    "picture_composition": 0.051,
+    "logo": 0.034,
+    "number_stat": 0.01,
+    "chart": 0.047,
+    "document_or_screen": 0.203,
+    "map": 0.003,
+    "comparison": 0.003,
+    "infographic": 0.017,
+    "quote_card": 0.02
+   },
+   "distinctKinds": {
+    "p10": 4,
+    "p50": 7,
+    "p90": 8
+   },
+   "topShare": {
+    "p10": 0.267,
+    "p50": 0.385,
+    "p90": 0.6
+   },
+   "textShare": {
+    "p10": 0.438,
+    "p50": 0.615,
+    "p90": 0.714
+   },
+   "pictureShare": {
+    "p10": 0,
+    "p50": 0.067,
+    "p90": 0.154
+   },
+   "wordsMedian": {
+    "p10": 5,
+    "p50": 12,
+    "p90": 60
+   },
+   "plainFootage": {
+    "p10": 0.25,
+    "p50": 0.385,
+    "p90": 0.6
+   },
+   "wordsOverFootage": {
+    "p10": 0,
+    "p50": 0.118,
+    "p90": 0.286
+   },
+   "titleCard": {
+    "p10": 0,
+    "p50": 0.059,
+    "p90": 0.167
+   }
+  },
+  "thumbnail": {
+   "channel": "how-money-works",
+   "count": 30,
+   "hero": {
+    "person": 0.5,
+    "product": 0.033,
+    "logo": 0,
+    "object": 0.067,
+    "building": 0.033,
+    "place": 0.167,
+    "text": 0.2,
+    "none": 0
+   },
+   "background": {
+    "colour_field": 0.067,
+    "gradient": 0.033,
+    "photo_scene": 0.667,
+    "split_colour": 0.067,
+    "pattern": 0.133,
+    "texture": 0.033
+   },
+   "makeable": {
+    "real_pictures": 0.933,
+    "needs_retouch": 0,
+    "needs_invention": 0.067,
+    "illustration": 0
+   },
+   "reach": {
+    "reachable": 1,
+    "face_alteration": 0,
+    "new_painting": 0
+   },
+   "marks": {
+    "arrow": 0.133,
+    "circle": 0,
+    "cross": 0,
+    "strike": 0.033,
+    "box": 0.133,
+    "burst": 0,
+    "money": 0.1,
+    "fire": 0,
+    "glow": 0,
+    "outline": 0.067
+   },
+   "heroShare": {
+    "p10": 0.3,
+    "median": 0.4,
+    "p90": 0.9
+   },
+   "cutoutShare": 0.3,
+   "faceShare": 0.6333333333333333,
+   "strongExpressionShare": 0.2631578947368421,
+   "words": {
+    "median": 5,
+    "p90": 9,
+    "max": 22,
+    "noTextShare": 0
+   },
+   "textHeight": {
+    "p10": 0.1,
+    "median": 0.15
+   },
+   "textStyle": {
+    "none": 0,
+    "label_box": 0.033,
+    "outlined": 0.667,
+    "plain": 0.3,
+    "gradient": 0,
+    "glow": 0
+   },
+   "textLooks": [
+    "white heavy sans-serif with black outline and shadow",
+    "white heavy sans-serif on black boxes",
+    "white heavy sans-serif with black shadow, red strike lines",
+    "yellow and white heavy sans-serif with shadow",
+    "white and yellow heavy sans-serif with dark outline",
+    "white and yellow heavy sans-serif with black outline",
+    "white and yellow heavy condensed sans-serif with black outline",
+    "white heavy condensed sans-serif with black outline",
+    "white and yellow heavy sans-serif with black outline",
+    "white heavy sans-serif with black outline and shadow",
+    "white condensed heavy sans-serif with black outline and shadow",
+    "white and yellow heavy sans-serif with black outline",
+    "white heavy sans-serif with soft shadow",
+    "white heavy sans-serif with yellow smaller line",
+    "white heavy sans-serif with dark shadow",
+    "white and yellow heavy sans-serif",
+    "white heavy sans-serif with dark shadow",
+    "white heavy sans-serif with dark shadow",
+    "white heavy sans-serif with black outline, red brush stroke behind PRICE",
+    "white and yellow heavy sans-serif with black shadow",
+    "white and yellow heavy sans-serif with black outline",
+    "white and yellow heavy sans-serif with black shadow",
+    "white heavy sans-serif with black outline",
+    "white and yellow heavy sans-serif with black outline"
+   ],
+   "elements": {
+    "median": 3,
+    "max": 10
+   },
+   "colourfulness": {
+    "p25": 38,
+    "median": 47,
+    "p90": 59.2
+   },
+   "luma": {
+    "p10": 0.277,
+    "p90": 0.516
+   },
+   "items": [
+    {
+     "file": "data/exemplars/how-money-works/thumbs/b0h7pRbk4AI.jpg",
+     "title": "Being Single Is Now An Unaffordable Luxury",
+     "views": 305214,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 5,
+      "textHeight": 0.14,
+      "textStyle": "outlined",
+      "textLook": "white heavy sans-serif with black outline and shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A single stock-style photo with text added on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 41.7,
+     "luma": 0.564
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/iYqVNrI-pKk.jpg",
+     "title": "BlackStone and BlackRock aRE ThE MOST eViL cOmPaNiEs in tHe WoRLd!!!",
+     "views": 713839,
+     "label": {
+      "hero": "building",
+      "heroShare": 0.5,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 5,
+      "textHeight": 0.14,
+      "textStyle": "label_box",
+      "textLook": "white heavy sans-serif on black boxes",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Night photo of towers with company names and text boxes added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 22.9,
+     "luma": 0.227
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/-34rDklImXY.jpg",
+     "title": "How Everything Became A Subscription.",
+     "views": 519657,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.3,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 13,
+      "textHeight": 0.09,
+      "textStyle": "outlined",
+      "textLook": "white heavy sans-serif with black shadow, red strike lines",
+      "marks": [
+       "strike"
+      ],
+      "makeable": "real_pictures",
+      "why": "Stock photo of hands on a laptop with text and red strikes drawn on.",
+      "reach": "reachable"
+     },
+     "colourfulness": 29.4,
+     "luma": 0.27
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/TqZgWHWv6lY.jpg",
+     "title": "The Problem With Really Smart People",
+     "views": 785604,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 5,
+      "expression": "strong",
+      "background": "pattern",
+      "elements": 6,
+      "words": 6,
+      "textHeight": 0.16,
+      "textStyle": "plain",
+      "textLook": "yellow and white heavy sans-serif with shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Cut-out photos of five real people on a grid background with text.",
+      "reach": "reachable"
+     },
+     "colourfulness": 66,
+     "luma": 0.439
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/gs8mBQkdQ8Q.jpg",
+     "title": "The 40 Year Career Is Dead... And That's a Good Thing",
+     "views": 1817149,
+     "label": {
+      "hero": "place",
+      "heroShare": 0.9,
+      "heroCutout": false,
+      "faces": 6,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 6,
+      "textHeight": 0.12,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with dark outline",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A real crowd photo with text on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 35.9,
+     "luma": 0.322
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/try_2pyPCb8.jpg",
+     "title": "The Predatory Gamification of Investing",
+     "views": 821337,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.25,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "pattern",
+      "elements": 9,
+      "words": 4,
+      "textHeight": 0.15,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black outline",
+      "marks": [
+       "arrow",
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "Collage of coin, cash, phone and cartoon images cut out over a grid.",
+      "reach": "reachable"
+     },
+     "colourfulness": 50.1,
+     "luma": 0.449
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/3VqjOgPHVdg.jpg",
+     "title": "How The Adani Fraud Actually Works (Allegedly)",
+     "views": 782916,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 3,
+      "words": 4,
+      "textHeight": 0.15,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy condensed sans-serif with black outline",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Cut-out press photo of a man composited over a port photo and an org chart, all real pictures.",
+      "reach": "reachable"
+     },
+     "colourfulness": 58.2,
+     "luma": 0.525
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/sONZNcqiofQ.jpg",
+     "title": "Your Coffee Did Not Cost You Your Financial Future (Here's What Did)",
+     "views": 902546,
+     "label": {
+      "hero": "product",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 0,
+      "expression": "none",
+      "background": "colour_field",
+      "elements": 2,
+      "words": 4,
+      "textHeight": 0.13,
+      "textStyle": "outlined",
+      "textLook": "white heavy condensed sans-serif with black outline",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A product photo of a held coffee cup placed on a green grid background with text.",
+      "reach": "reachable"
+     },
+     "colourfulness": 44,
+     "luma": 0.5
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/xK037bOz0PU.jpg",
+     "title": "Why Do Tech Companies Hire and Fire So Much?",
+     "views": 529358,
+     "label": {
+      "hero": "place",
+      "heroShare": 0.9,
+      "heroCutout": false,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 6,
+      "textHeight": 0.15,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black outline",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A real office photo with big text overlaid.",
+      "reach": "reachable"
+     },
+     "colourfulness": 49.9,
+     "luma": 0.445
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/fu6x6dy7oKA.jpg",
+     "title": "How America Got Hooked On Useless Corporate Consulting",
+     "views": 918199,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.5,
+      "heroCutout": false,
+      "faces": 2,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 8,
+      "textHeight": 0.09,
+      "textStyle": "outlined",
+      "textLook": "white heavy sans-serif with black outline and shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A real photo of two men in an office with text on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 38,
+     "luma": 0.593
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/bkBlBjYy8XQ.jpg",
+     "title": "Why America Is Giving Away Its Emergency Water Reserves To Saudi Arabia",
+     "views": 212985,
+     "label": {
+      "hero": "place",
+      "heroShare": 0.9,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 6,
+      "textHeight": 0.16,
+      "textStyle": "outlined",
+      "textLook": "white condensed heavy sans-serif with black outline and shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A real photo of a dry lakebed with text overlaid.",
+      "reach": "reachable"
+     },
+     "colourfulness": 43.8,
+     "luma": 0.516
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/xq_rhcx02Xc.jpg",
+     "title": "How The Business Deals in Succession Actually Work",
+     "views": 744914,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.6,
+      "heroCutout": true,
+      "faces": 6,
+      "expression": "neutral",
+      "background": "colour_field",
+      "elements": 4,
+      "words": 8,
+      "textHeight": 0.1,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black outline",
+      "marks": [
+       "arrow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out cast photos placed on a green diagram background with logos and text.",
+      "reach": "reachable"
+     },
+     "colourfulness": 68.3,
+     "luma": 0.345
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/3EE9bOeQskc.jpg",
+     "title": "What You Need To Know About SVB, Silvergate & Signature Bank Collapses (In 7 Minutes)",
+     "views": 219160,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 9,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif with soft shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Real bank building photos and logos composited with type over a green grid.",
+      "reach": "reachable"
+     },
+     "colourfulness": 47,
+     "luma": 0.436
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/BO6KH9ucfrY.jpg",
+     "title": "The Fascinating Finances of Mega Churches",
+     "views": 308494,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 4,
+      "words": 10,
+      "textHeight": 0.17,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif with yellow smaller line",
+      "marks": [
+       "arrow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out photo of a man pointing, placed over a temple photo and a chart, with type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 55.6,
+     "luma": 0.466
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/aVZ1sSnIKrg.jpg",
+     "title": "Why Dumb People Earn More Than Smart People",
+     "views": 1959072,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.25,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 3,
+      "textHeight": 0.15,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif with dark shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A stock-style photo of a surgeon in a hallway with text added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 30.3,
+     "luma": 0.44
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/4FWv9qZAJGc.jpg",
+     "title": "Another Week... Another Multi-Billion Dollar Fraud (Allegedly)",
+     "views": 889317,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "split_colour",
+      "elements": 5,
+      "words": 8,
+      "textHeight": 0.14,
+      "textStyle": "plain",
+      "textLook": "white and yellow heavy sans-serif",
+      "marks": [
+       "arrow"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out portrait, app logo, phone photo and a red arrow composited on a green grid.",
+      "reach": "reachable"
+     },
+     "colourfulness": 76.3,
+     "luma": 0.363
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/4X2droxtGbQ.jpg",
+     "title": "Most People Alive Today Will Work Until They Die",
+     "views": 1180715,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 5,
+      "textHeight": 0.17,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif with dark shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A real store photo of a worker seen from behind with text added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 35.9,
+     "luma": 0.446
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/sj-sTy109yA.jpg",
+     "title": "I Don't Care If You Get Rich.",
+     "views": 344875,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.3,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 2,
+      "textHeight": 0.2,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif with dark shadow",
+      "marks": [
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "A real photo of hands holding cash with text laid on top.",
+      "reach": "reachable"
+     },
+     "colourfulness": 31.6,
+     "luma": 0.354
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/repYOmCh8t4.jpg",
+     "title": "How Influencer Businesses Actually (Don't) Work",
+     "views": 1445891,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.45,
+      "heroCutout": true,
+      "faces": 5,
+      "expression": "strong",
+      "background": "texture",
+      "elements": 7,
+      "words": 5,
+      "textHeight": 0.17,
+      "textStyle": "outlined",
+      "textLook": "white heavy sans-serif with black outline, red brush stroke behind PRICE",
+      "marks": [
+       "outline",
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Cut-out real photos of people and products composited on a textured grid background with type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 47.7,
+     "luma": 0.471
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/nd5OA02kbq0.jpg",
+     "title": "WTF Do Investment Bankers Actually Do?",
+     "views": 1883360,
+     "label": {
+      "hero": "place",
+      "heroShare": 0.9,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 5,
+      "textHeight": 0.15,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A stock photo of a trading floor with text over it.",
+      "reach": "reachable"
+     },
+     "colourfulness": 40.3,
+     "luma": 0.421
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/88SGfykwt8g.jpg",
+     "title": "Why Corporate America Is Obsessed With \"Company Culture\"",
+     "views": 1549727,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.45,
+      "heroCutout": false,
+      "faces": 5,
+      "expression": "strong",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 3,
+      "textHeight": 0.16,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black outline",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A stock photo of cheering coworkers with text added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 39.1,
+     "luma": 0.443
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/-RzVk3vBB-k.jpg",
+     "title": "There Are FAR More Billionaires Than We Think!",
+     "views": 1317175,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": true,
+      "faces": 5,
+      "expression": "neutral",
+      "background": "gradient",
+      "elements": 5,
+      "words": 5,
+      "textHeight": 0.14,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black shadow",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "Cut-out portraits of real people on a green grid background, some blurred, with type.",
+      "reach": "reachable"
+     },
+     "colourfulness": 48.3,
+     "luma": 0.421
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/ZkA5WP7spQ8.jpg",
+     "title": "How To Make $279,000,000 By Being A Little Snitch",
+     "views": 155032,
+     "label": {
+      "hero": "object",
+      "heroShare": 0.5,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 5,
+      "textHeight": 0.12,
+      "textStyle": "outlined",
+      "textLook": "white heavy sans-serif with black outline",
+      "marks": [
+       "money"
+      ],
+      "makeable": "real_pictures",
+      "why": "A stock photo of handcuffed hands holding cash with text over it.",
+      "reach": "reachable"
+     },
+     "colourfulness": 29.2,
+     "luma": 0.362
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/-oWqKz-PLlQ.jpg",
+     "title": "WTF Do Venture Capitalists Actually Do?",
+     "views": 285821,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.35,
+      "heroCutout": true,
+      "faces": 3,
+      "expression": "neutral",
+      "background": "pattern",
+      "elements": 10,
+      "words": 9,
+      "textHeight": 0.1,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif with black outline",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "Collage of cut-out real photos, products and paper label strips on a green grid.",
+      "reach": "reachable"
+     },
+     "colourfulness": 50.9,
+     "luma": 0.482
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/IFg_JD79OKs.jpg",
+     "title": "The Real Reason Companies Have Become Obsessed With Your Data",
+     "views": 240493,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.6,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 1,
+      "words": 22,
+      "textHeight": 0.11,
+      "textStyle": "plain",
+      "textLook": "white and yellow heavy sans-serif, all caps",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A data centre photo with a list of text over it.",
+      "reach": "reachable"
+     },
+     "colourfulness": 49.4,
+     "luma": 0.297
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/AtYmlna6BUo.jpg",
+     "title": "How HR Came To Rule Corporate America",
+     "views": 341517,
+     "label": {
+      "hero": "place",
+      "heroShare": 0.9,
+      "heroCutout": false,
+      "faces": 4,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 5,
+      "textHeight": 0.13,
+      "textStyle": "plain",
+      "textLook": "white heavy sans-serif, with 'RESOURCE' in red on a black brush box",
+      "marks": [
+       "box"
+      ],
+      "makeable": "real_pictures",
+      "why": "A real photo of a crowded subway platform with text added.",
+      "reach": "reachable"
+     },
+     "colourfulness": 43.4,
+     "luma": 0.277
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/jrsRvozsUQ8.jpg",
+     "title": "Why Companies NEED People Back In The Office",
+     "views": 1737783,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.35,
+      "heroCutout": false,
+      "faces": 1,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 2,
+      "words": 4,
+      "textHeight": 0.17,
+      "textStyle": "outlined",
+      "textLook": "white and yellow heavy sans-serif, black outline",
+      "marks": [
+       "outline"
+      ],
+      "makeable": "real_pictures",
+      "why": "A stock photo of an empty office with a lone worker and big text over it.",
+      "reach": "reachable"
+     },
+     "colourfulness": 45.7,
+     "luma": 0.442
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/OAkmoUDaalM.jpg",
+     "title": "Is It Too Late For Young People To Get Ahead Financially?",
+     "views": 399989,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.4,
+      "heroCutout": false,
+      "faces": 4,
+      "expression": "neutral",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 9,
+      "textHeight": 0.12,
+      "textStyle": "outlined",
+      "textLook": "yellow and white heavy sans-serif, black outline",
+      "marks": [],
+      "makeable": "needs_invention",
+      "why": "The vintage family photo looks AI-generated, a staged scene that was never photographed.",
+      "reach": "reachable"
+     },
+     "colourfulness": 59.2,
+     "luma": 0.466
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/r2GzzjSysPA.jpg",
+     "title": "Has LinkedIn Ruined Your Career?",
+     "views": 1295625,
+     "label": {
+      "hero": "person",
+      "heroShare": 0.3,
+      "heroCutout": false,
+      "faces": 0,
+      "expression": "none",
+      "background": "photo_scene",
+      "elements": 3,
+      "words": 2,
+      "textHeight": 0.12,
+      "textStyle": "outlined",
+      "textLook": "blue and white heavy sans-serif, black outline",
+      "marks": [],
+      "makeable": "needs_invention",
+      "why": "An AI-style crowd scene with a faceless man whose head is replaced by a LinkedIn logo.",
+      "reach": "reachable"
+     },
+     "colourfulness": 50.2,
+     "luma": 0.22
+    },
+    {
+     "file": "data/exemplars/how-money-works/thumbs/TbBEScH-is4.jpg",
+     "title": "The AI Hustle - No... ChatGPT Will NOT Make You $300 A Day.",
+     "views": 1001113,
+     "label": {
+      "hero": "text",
+      "heroShare": 0.3,
+      "heroCutout": false,
+      "faces": 8,
+      "expression": "strong",
+      "background": "pattern",
+      "elements": 2,
+      "words": 4,
+      "textHeight": 0.2,
+      "textStyle": "outlined",
+      "textLook": "white extra-heavy sans-serif, black outline",
+      "marks": [],
+      "makeable": "real_pictures",
+      "why": "A grid of real YouTube thumbnails with big text laid over it.",
+      "reach": "reachable"
+     },
+     "colourfulness": 52.2,
+     "luma": 0.431
+    }
+   ],
+   "generatedAt": "2026-11-22T13:10:05.512Z"
+  },
+  "quality": {
+   "channel": "how-money-works",
+   "thumbs": {
+    "count": 30,
+    "sharpTop": {
+     "p10": 3557.2,
+     "median": 5045.3
+    },
+    "sharpMedian": {
+     "p10": 252.3,
+     "median": 1360.1
+    },
+    "contrast": {
+     "p10": 225,
+     "median": 245
+    },
+    "grain": {
+     "p10": 3.6,
+     "median": 14.1,
+     "p90": 28.4
+    }
+   },
+   "frames": {
+    "count": 296,
+    "sharpTop": {
+     "p10": 138.7,
+     "median": 1761.1
+    },
+    "sharpMedian": {
+     "p10": 4.1,
+     "median": 98.5
+    },
+    "contrast": {
+     "p10": 107,
+     "median": 178
+    },
+    "grain": {
+     "p10": 0.3,
+     "median": 2,
+     "p90": 8.1
+    }
+   },
+   "design": {
+    "thumbs": {
+     "count": 30,
+     "focus": {
+      "p10": 0.187,
+      "median": 0.248,
+      "p90": 0.302
+     },
+     "focusX": {
+      "p10": 0.453,
+      "median": 0.494,
+      "p90": 0.527
+     },
+     "focusY": {
+      "p10": 0.367,
+      "median": 0.489,
+      "p90": 0.573
+     },
+     "depth": {
+      "p10": 2.534,
+      "median": 5.399,
+      "p90": 17.95
+     },
+     "separation": {
+      "p10": 0.043,
+      "median": 0.1,
+      "p90": 0.235
+     },
+     "hueContrast": {
+      "p10": 0.014,
+      "median": 0.106,
+      "p90": 0.403
+     },
+     "oneColour": {
+      "p10": 0.379,
+      "median": 0.512,
+      "p90": 0.915
+     },
+     "light": {
+      "p10": 0.157,
+      "median": 0.384,
+      "p90": 0.851
+     },
+     "lightDeg": {
+      "p10": 58,
+      "median": 99,
+      "p90": 260
+     },
+     "keyRatio": {
+      "p10": 2.087,
+      "median": 2.585,
+      "p90": 5.756
+     }
+    },
+    "frames": {
+     "count": 296,
+     "focus": {
+      "p10": 0.218,
+      "median": 0.285,
+      "p90": 0.411
+     },
+     "focusX": {
+      "p10": 0.426,
+      "median": 0.492,
+      "p90": 0.55
+     },
+     "focusY": {
+      "p10": 0.433,
+      "median": 0.51,
+      "p90": 0.576
+     },
+     "depth": {
+      "p10": 3.858,
+      "median": 11.517,
+      "p90": 50
+     },
+     "separation": {
+      "p10": 0.029,
+      "median": 0.112,
+      "p90": 0.256
+     },
+     "hueContrast": {
+      "p10": 0,
+      "median": 0.024,
+      "p90": 0.212
+     },
+     "oneColour": {
+      "p10": 0.401,
+      "median": 0.642,
+      "p90": 0.937
+     },
+     "light": {
+      "p10": 0.111,
+      "median": 0.358,
+      "p90": 0.921
+     },
+     "lightDeg": {
+      "p10": 39,
+      "median": 131,
+      "p90": 298
+     },
+     "keyRatio": {
+      "p10": 1.211,
+      "median": 2.368,
+      "p90": 6.26
+     }
+    }
+   },
+   "generatedAt": "2026-11-22T13:10:34.385Z"
+  },
   "voice": {
    "RolvCZ4e0AkAR2dzyTx0|eleven_v4": {
     "wpm": 171.1,
@@ -2057,7 +3211,7 @@
    }
   }
  },
- "version": "75eca383c4f2",
+ "version": "25343fe013a4",
  "directives": [
   "Pace: 14.65–19.43 cuts a minute across the channel's films (median 16.76); median shot 2.566 s; shot lengths vary a lot (CV 1.066).",
   "By position: cold open 17.63 cuts/min with text on 57% of shots; chapter openings 16.62; middle 16.91; ending 17.99.",
@@ -2069,7 +3223,8 @@
   "Music: a cue change within 6 s of 31% of chapter starts; a drop-out just before 45% of them; 10.145 cue changes per 10 min.",
   "Variety: the channel's films differ — e.g. text share varies by 12% across films; two films' looks differ by 0.05 (within one film 0.02). Land each film somewhere different inside the band, not on the average.",
   "Grade: the look moves between chapters — saturation shifts by about 0.086 and brightness by 0.105 (0–1 scale) between a film's chapters; across the film saturation runs 0.272 → 0.298 → 0.279 → 0.277 → 0.299 → 0.295 → 0.29 → 0.296 → 0.311 → 0.3.",
+  "Views (a weak, observational tie-breaker inside the band, not a target): the channel's more-watched films have more picture.stock_actor (top quartile 0.672 vs median 0.625); more faceShare (top quartile 0.773 vs median 0.733).",
   "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T12:58:51.648Z"
+ "generatedAt": "2026-11-22T13:10:36.079Z"
 }

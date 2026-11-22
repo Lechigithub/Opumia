@@ -2120,6 +2120,56 @@
    "hitOnCutShare": 0.306,
    "bedDb": -33.9
   },
+  "significant": {
+   "picture.designed": {
+    "rho": -0.62,
+    "p": 0,
+    "topQuartile": 0.162,
+    "median": 0.264
+   },
+   "picture.stock_actor": {
+    "rho": 0.53,
+    "p": 0.004,
+    "topQuartile": 0.545,
+    "median": 0.396
+   },
+   "seconds": {
+    "rho": 0.49,
+    "p": 0.005,
+    "topQuartile": 1297,
+    "median": 1160
+   },
+   "shots": {
+    "rho": 0.47,
+    "p": 0.01,
+    "topQuartile": 584,
+    "median": 472
+   },
+   "luma": {
+    "rho": -0.47,
+    "p": 0.008,
+    "topQuartile": 0.321,
+    "median": 0.347
+   },
+   "wordsPerShot": {
+    "rho": -0.43,
+    "p": 0.018,
+    "topQuartile": 9.212,
+    "median": 9.87
+   },
+   "cutsPerMin": {
+    "rho": 0.41,
+    "p": 0.023,
+    "topQuartile": 29.44,
+    "median": 23.14
+   },
+   "faceShare": {
+    "rho": 0.4,
+    "p": 0.031,
+    "topQuartile": 0.628,
+    "median": 0.571
+   }
+  },
   "note": "30 films; rank correlation of each measure with log views (|ρ| ≥ 0.2 shown) — a weak, observational signal, not a cause; top quartile = 8 films with ≥ 981052 views"
  },
  "shortForm": {
@@ -2153,7 +2203,7 @@
    }
   }
  },
- "version": "0fe9a328e4e5",
+ "version": "e26218ce0fc3",
  "directives": [
   "Pace: 15.32–29.44 cuts a minute across the channel's films (median 23.14); median shot 0.733 s; shot lengths vary a lot (CV 1.784).",
   "By position: cold open 18.36 cuts/min with text on 56% of shots; chapter openings 22.16; middle 22.35; ending 26.81.",
@@ -2165,7 +2215,8 @@
   "Music: a cue change within 6 s of 46% of chapter starts; a drop-out just before 23% of them; 10.774 cue changes per 10 min.",
   "Variety: the channel's films differ — e.g. text share varies by 11% across films; two films' looks differ by 0.074 (within one film 0.036). Land each film somewhere different inside the band, not on the average.",
   "Grade: the look moves between chapters — saturation shifts by about 0.148 and brightness by 0.144 (0–1 scale) between a film's chapters; across the film saturation runs 0.291 → 0.297 → 0.29 → 0.297 → 0.311 → 0.346 → 0.293 → 0.298 → 0.311 → 0.293.",
+  "Views (a weak, observational tie-breaker inside the band, not a target): the channel's more-watched films have less picture.designed (top quartile 0.162 vs median 0.264); more picture.stock_actor (top quartile 0.545 vs median 0.396); less luma (top quartile 0.321 vs median 0.347); less wordsPerShot (top quartile 9.212 vs median 9.87); more cutsPerMin (top quartile 29.44 vs median 23.14); more faceShare (top quartile 0.628 vs median 0.571).",
   "Short-form: the reference holds 0 film(s) under 3 minutes and no real 9:16 shorts — the short-form style cannot be learned from it; shorts follow the long-form profile's cold-open segment until real shorts are added to Reference/."
  ],
- "generatedAt": "2026-11-22T12:59:02.284Z"
+ "generatedAt": "2026-11-22T13:02:42.687Z"
 }
