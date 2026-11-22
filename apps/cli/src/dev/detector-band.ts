@@ -8,7 +8,7 @@ import { measureJumps } from "@opumia/senses";
 const folder = process.argv[2] ?? "MagnatesMedia";
 const want = Number(process.argv[3] ?? 12);
 const root = path.join("Reference", folder);
-const dirs = readdirSync(root).filter((d) => readdirSync(path.join(root, d), { withFileTypes: true }).length && !d.startsWith(".")).sort();
+const dirs = readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".")).map((d) => d.name).sort();
 const step = Math.max(1, Math.floor(dirs.length / want));
 const rows: Array<{ film: string; cutsPerMin: number; unbridgedPerMin: number; bridgedPerMin: number; popsPerMin: number; flashPerMin: number; blurPerMin: number; dissolvePerMin: number }> = [];
 for (const d of dirs.filter((_, i) => i % step === 0).slice(0, want)) {

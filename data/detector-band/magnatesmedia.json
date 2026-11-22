@@ -1,0 +1,164 @@
+{
+ "channelFolder": "MagnatesMedia",
+ "films": 12,
+ "measuredAt": "2026-11-22T18:19:06.142Z",
+ "band": {
+  "cutsPerMin": {
+   "p10": 14.4,
+   "median": 25,
+   "p90": 28.4
+  },
+  "unbridgedPerMin": {
+   "p10": 0.2,
+   "median": 1.2,
+   "p90": 2.8
+  },
+  "bridgedPerMin": {
+   "p10": 4.4,
+   "median": 8.6,
+   "p90": 11.2
+  },
+  "popsPerMin": {
+   "p10": 0,
+   "median": 0.8,
+   "p90": 1.4
+  },
+  "flashPerMin": {
+   "p10": 13.2,
+   "median": 15.2,
+   "p90": 21.2
+  },
+  "blurPerMin": {
+   "p10": 1,
+   "median": 1.8,
+   "p90": 4
+  },
+  "dissolvePerMin": {
+   "p10": 0.2,
+   "median": 0.8,
+   "p90": 2.6
+  }
+ },
+ "rows": [
+  {
+   "film": "20210812 - How WhatsApp Makes Money： The INSANE Story of WhatsApp",
+   "cutsPerMin": 25,
+   "unbridgedPerMin": 0.8,
+   "bridgedPerMin": 5.4,
+   "popsPerMin": 1.4,
+   "flashPerMin": 15.2,
+   "blurPerMin": 3.6,
+   "dissolvePerMin": 0.4
+  },
+  {
+   "film": "20220731 - Why Netflix is Collapsing： The Truth About Netflix's Empire",
+   "cutsPerMin": 16.4,
+   "unbridgedPerMin": 4.4,
+   "bridgedPerMin": 8.2,
+   "popsPerMin": 3.2,
+   "flashPerMin": 14.4,
+   "blurPerMin": 2,
+   "dissolvePerMin": 2.6
+  },
+  {
+   "film": "20220930 - The Man Who Robbed An Entire Country",
+   "cutsPerMin": 26.4,
+   "unbridgedPerMin": 2.2,
+   "bridgedPerMin": 6.4,
+   "popsPerMin": 1,
+   "flashPerMin": 16.4,
+   "blurPerMin": 1.8,
+   "dissolvePerMin": 1
+  },
+  {
+   "film": "20221031 - The Poor Boy Who Created Honda",
+   "cutsPerMin": 28.2,
+   "unbridgedPerMin": 0.4,
+   "bridgedPerMin": 4.4,
+   "popsPerMin": 1.4,
+   "flashPerMin": 14.2,
+   "blurPerMin": 6.2,
+   "dissolvePerMin": 0.4
+  },
+  {
+   "film": "20221115 - The Craziest CEO Ever： War, Drugs & Time Machines",
+   "cutsPerMin": 31,
+   "unbridgedPerMin": 0.6,
+   "bridgedPerMin": 9.2,
+   "popsPerMin": 0.8,
+   "flashPerMin": 21.2,
+   "blurPerMin": 4,
+   "dissolvePerMin": 0.4
+  },
+  {
+   "film": "20221209 - The Disturbing Story Of Hugo Boss",
+   "cutsPerMin": 25.6,
+   "unbridgedPerMin": 0.6,
+   "bridgedPerMin": 11.2,
+   "popsPerMin": 0,
+   "flashPerMin": 22,
+   "blurPerMin": 1,
+   "dissolvePerMin": 0.2
+  },
+  {
+   "film": "20221223 - The INSANE Reason That MySpace Lost Everything",
+   "cutsPerMin": 20,
+   "unbridgedPerMin": 1.2,
+   "bridgedPerMin": 9.8,
+   "popsPerMin": 1.4,
+   "flashPerMin": 17.4,
+   "blurPerMin": 0,
+   "dissolvePerMin": 1
+  },
+  {
+   "film": "20221229 - How Chicken Tenders Made Him A Millionaire 🍗",
+   "cutsPerMin": 19.6,
+   "unbridgedPerMin": 0.2,
+   "bridgedPerMin": 3,
+   "popsPerMin": 0.6,
+   "flashPerMin": 13.2,
+   "blurPerMin": 1,
+   "dissolvePerMin": 0.2
+  },
+  {
+   "film": "20230116 - The Disturbing Story of Coco Chanel",
+   "cutsPerMin": 28.4,
+   "unbridgedPerMin": 0.2,
+   "bridgedPerMin": 11.2,
+   "popsPerMin": 0.2,
+   "flashPerMin": 20.6,
+   "blurPerMin": 1.8,
+   "dissolvePerMin": 0.2
+  },
+  {
+   "film": "20230224 - The Secret Chinese Company That Owns Everything",
+   "cutsPerMin": 17.8,
+   "unbridgedPerMin": 1.6,
+   "bridgedPerMin": 8.6,
+   "popsPerMin": 0,
+   "flashPerMin": 15.2,
+   "blurPerMin": 1,
+   "dissolvePerMin": 0.8
+  },
+  {
+   "film": "20230327 - How Facebook Destroyed Google",
+   "cutsPerMin": 14.4,
+   "unbridgedPerMin": 2.8,
+   "bridgedPerMin": 13.4,
+   "popsPerMin": 0.2,
+   "flashPerMin": 11.4,
+   "blurPerMin": 2.4,
+   "dissolvePerMin": 6.8
+  },
+  {
+   "film": "20230601 - How MagnatesMedia Almost Got DELETED",
+   "cutsPerMin": 14.2,
+   "unbridgedPerMin": 1.4,
+   "bridgedPerMin": 7.2,
+   "popsPerMin": 0,
+   "flashPerMin": 13.8,
+   "blurPerMin": 1,
+   "dissolvePerMin": 0.8
+  }
+ ]
+}

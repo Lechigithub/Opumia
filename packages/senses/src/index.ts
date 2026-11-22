@@ -8,3 +8,4 @@ export * from "./craft.js";
 export * from "./design.js";
 export * from "./seams.js";
 export * from "./jumps.js";
+export * from "./legibility.js";

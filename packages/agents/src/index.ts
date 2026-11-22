@@ -45,3 +45,5 @@ export * from "./sourcing-agent.js";
 export * from "./colourist-agent.js";
 export * from "./qa-agent.js";
 export * from "./produced.js";
+export * from "./clip-judge.js";
+export * from "./uniqueness.js";

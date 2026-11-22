@@ -15,13 +15,26 @@ structural:
 
 Order (each step depends on the ones before it). Status: ☐ open · ◐ in progress · ☑ done.
 
-1. ☐ **Measuring tools** (B, C, F measuring half):
-   - audio seam detector;
-   - picture jump, jump-cut, pop and flicker detector;
-   - text legibility at phone size;
-   - video-based taste judge against real channel clips;
-   - pixel uniqueness against all our produced films, in the band real channel films keep between each other;
-   - film 1 scored with all of them as the baseline.
+1. ☑ **Measuring tools.** All five are built, and film 1 is scored as the baseline (`dev/film-baseline.ts` →
+   `out/film1-kodak-3/baseline.json`).
+   - **Seams** (`senses/seams.ts`): dead air, hard onsets and cutoffs, room jumps. Film 1's narration: 43 seams
+     (32 dead air), 29.5 a minute. The final mix hides dead air under the music, so the check runs on the narration
+     track.
+   - **Jumps** (`senses/jumps.ts`): a same-picture change with nothing bridging it, against a flash, blur or dissolve
+     bridge. Band from 12 real MagnatesMedia films (`dev/detector-band.ts` → `data/detector-band/`):
+     - the channel changes the same picture 4.4–11.2 times a minute, always bridged, mostly by flashes;
+     - its unbridged jumps are median 1.2 a minute.
+     Film 1: 0 bridged and 2 unbridged a minute. It caught 3 of the 4 editor splits; the miss had a heavy overlay.
+   - **Legibility** (`senses/legibility.ts`): WCAG contrast of the letters against what is behind them, and cap height
+     at phone size. Film 1: 3 of 19 text elements fail. Limit: text on a drawn label box is measured against the box's
+     surroundings, so "HOLDING STILL" was missed.
+   - **Video taste judge** (`agents/clip-judge.ts`): 8-frame strips judged blind beside two real stretches close in
+     meaning, plus the trained taste heads. Calibration: a real stretch was called the imitation 4 of 9 times (fair is
+     3 of 9; the judge leans to "imitation"). Film 1 was picked out in 7 of 11 stretches; realness 0.43, trained taste
+     4.4.
+   - **Uniqueness** (`agents/uniqueness.ts`): mean nearest-neighbour similarity of frame vectors. Real film pairs sit
+     at 0.652–0.706 (p10–p90). Film 1 is 0.72 from the earlier Kodak film, too close; it sits at 0.64–0.67 from our
+     films on other topics.
 2. ☐ **Eyes and ears in the agents** (C, agent half): real-speed clip watching and the step-1 detectors as tools for
    the scene designer, editor, colourist, showrunner and viewer QA.
 3. ☐ **Seamless voice** (D): narration in long passages with request continuity, joins only at breaths with
