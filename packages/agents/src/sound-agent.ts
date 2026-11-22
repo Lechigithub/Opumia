@@ -7,7 +7,8 @@
  *
  *  skill    packages/agents/skills/sound.md
  *  tools    read_sound, study_real_sound, add_hit, move_hit, remove_hit, change_hit, music_options, change_bed,
- *           add_drop, remove_drop, listen, submit_sound, note_lesson
+ *           add_drop, remove_drop, snap_cue_changes, land_ending (the music editor's tools, B6), listen, submit_sound,
+ *           note_lesson
  *  memory   <memoryDir>/<channel>.md, owner-notes.md (data/agents/sound/)
  *  output   storyboard shots with sfx and music cues (the same shape the timeline returns)
  */
@@ -22,6 +23,7 @@ import { ourShotsFrom, structureOf, type FilmGap } from "./film-score.js";
 import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
 import { edl, findPassages } from "./reference-library.js";
 import { chapterMoods, type Mood } from "./sound-design.js";
+import { arcDistance, bedArc, endingGap, landEnding, offBar, snapCueChanges } from "./music-edit.js";
 import { designSoundTimeline, soundKit, SOUND_FAMILIES, STRONG_FAMILIES, visualEvents, type SoundFamily, type SoundTimelineOptions } from "./sound-timeline.js";
 
 export const SOUND_KEYS = ["hitsPerMin", "hitOnCutShare"];
@@ -119,6 +121,18 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
       if (dur >= 120) add("music.cuesPer10Min", "music cue changes per 10 min", cues10, mus.cuesPer10Min);
       const drops10 = (music.reduce((t2, m) => t2 + (m.drops?.length ?? 0), 0) / dur) * 600;
       add("music.dropsPer10Min", "music drop-outs per 10 min", drops10, mus.dropsPer10Min);
+    }
+    // B6 music editing: cue changes on a bar line, the ending landing with the film, the energy arc.
+    const mp = (id: string) => kit.musicProfile(id);
+    if (music.length > 1) {
+      const off = music.slice(1).map((c, k) => offBar(music[k]!, mp(music[k]!.assetId)!, c.startS)).filter((x) => Number.isFinite(x));
+      add("music.cutOffBar", "worst distance of a cue change from a bar line (s)", Math.max(0, ...off), { p10: 0, median: 0, p90: 0.15 });
+    }
+    const eg = endingGap(music, mp);
+    if (eg !== null) add("music.endingGapS", "seconds between the last bed's own ending and the film's end", Math.min(eg, 30), { p10: 0, median: 0, p90: 2 });
+    if (prof) {
+      const ad = arcDistance(bedArc(music, mp, dur), prof.relations.music.bedArc);
+      if (ad !== null) add("music.arc", "music energy arc against the channel's (mean dB apart, levelled)", ad, { p10: 0, median: 1, p90: 2.5 });
     }
     const spacing = strongHits().map((h) => h.momentS).sort((a, b) => a - b).reduce((mn, t2, i, a) => (i ? Math.min(mn, t2 - a[i - 1]!) : mn), 99);
     if (strongHits().length > 1) add("minGapS", "closest two strong hits (s)", Math.min(spacing, 6), { p10: 1.2, median: 4, p90: 6 });
@@ -269,6 +283,29 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
       run: (async (i: { startS: number }) => {
         for (const m of music) { const k = (m.drops ?? []).findIndex((d) => Math.abs(d.startS - i.startS) < 0.3); if (k >= 0) { m.drops!.splice(k, 1); ops.push(`undrop ${i.startS}`); return `removed\n${rowsText(measureNow())}`; } }
         return "no drop-out there";
+      }) as AgentTool["run"],
+    },
+    {
+      name: "snap_cue_changes",
+      description: "Music editor: move every cue change onto a bar line of the outgoing bed (at most half a bar) and enter each new bed on its own downbeat — so the music changes on a phrase, not mid-bar. Cue changes are kept out of the middle of a word.",
+      schema: z.object({}),
+      run: (async () => {
+        const words = o.script.segments.flatMap((s) => s.words);
+        const inWord = (t: number) => words.some((w) => t > w.startS + 0.05 && t < w.endS - 0.05);
+        const r = snapCueChanges(music, (id) => kit.musicProfile(id), inWord);
+        music = r.cues;
+        ops.push(`snap cue changes (${r.moved.length} moved)`);
+        return `${r.moved.length ? r.moved.map((m) => `${m.from} → ${m.to} s`).join(", ") : "no change needed"}\n${rowsText(measureNow())}`;
+      }) as AgentTool["run"],
+    },
+    {
+      name: "land_ending",
+      description: "Music editor: place the last bed so its own ending arrives with the film's last frame (instead of a fade mid-phrase). Needs a bed at least as long as its span.",
+      schema: z.object({}),
+      run: (async () => {
+        const r = landEnding(music, (id) => kit.musicProfile(id));
+        if (r.ok) { music = r.cues; ops.push("land ending"); }
+        return `${r.why}\n${rowsText(measureNow())}`;
       }) as AgentTool["run"],
     },
     {

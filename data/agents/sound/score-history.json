@@ -12,5 +12,20 @@
    "mix.thud/hit",
    "hitOnText"
   ]
+ },
+ {
+  "job": "preview-kodak",
+  "at": "2026-11-22T13:22:52.050Z",
+  "pass": true,
+  "before": 86,
+  "after": 97,
+  "ops": 12,
+  "seconds": 45,
+  "usd": 0.0867,
+  "outside": [
+   "hitsPerMin",
+   "mix.thud/hit",
+   "music.arc"
+  ]
  }
 ]
