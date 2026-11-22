@@ -90,6 +90,8 @@ export interface PackagingAgentOptions {
   /** Renders a thumbnail spec + finish with the film's scene engine into `out` (1280×720 jpg). */
   render: (i: { spec: unknown; finish: unknown; design: FilmDesignSystem; slots: Record<string, string>; fresh: boolean; out: string; grain: number; sharpen: number }) => Promise<void>;
   avoidConcepts?: string[];
+  /** The packaging ladder (build list 3, item 18): why the last package was not good enough, and what to change. */
+  brief?: string;
   memoryDir?: string;
   onReport?: (r: PackagingReport) => void;
   log?: (s: string) => void;
@@ -723,7 +725,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   ];
 
   const people = (o.facts.story?.characters ?? []).map((c) => `${c.name} (${c.role})`).join("; ");
-  const user = `Package this film.\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
+  const user = `Package this film.${o.brief ? `\n\nTHE LAST PACKAGE WAS NOT GOOD ENOUGH — ${o.brief}` : ""}\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
   let grace = 1;
   const runRes = await agentLoop({ stage: "publish.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 56, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
 

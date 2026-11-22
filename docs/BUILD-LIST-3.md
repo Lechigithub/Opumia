@@ -44,32 +44,36 @@ the owner approves the inventory (item 1).
 
 ## B. Self-healing: escalation ladders (a stronger fix each step, never a weaker look)
 
-11. ☐ **A ladder engine:** each failed check becomes a precise problem (what, where, measured value, the band,
+Done 2026-11-22 (CLAUDE.md, **Escalation ladders**). Deviations: "the director re-cuts the stretch" (16) is the editor's
+second rung, re-cutting the stretch with split, join and move; the director has no stretch tool yet. Verified offline:
+engine unit test, stretch re-render, pause refit on film 2's narration. Not yet exercised on a full film.
+
+11. ☑ **A ladder engine:** each failed check becomes a precise problem (what, where, measured value, the band,
     evidence frames) sent to its owner. Each step is bounded in turns and dollars, the cheapest first, and every
     attempt is logged.
-12. ☐ **Pictures:**
+12. ☑ **Pictures:**
     - wrong period → search again with the line's year → a timeless close-up that tells the same line → a designed
       shot from the kit;
     - picture does not fit its line → a different picture → the director re-plans the shot → the writer rewrites the
       line so it can be shown;
     - stand-in face, repeat in the film, shared with a recent film, soft footage → replaced, not dropped.
-13. ☐ **Scenes:**
+13. ☑ **Scenes:**
     - below the channel's taste → variants → a different kind of shot from the kit → the art director adds a
       component the film was missing;
     - visible defect or unreadable text → the scene designer fixes it with the defect named → a different component.
-14. ☐ **Look:** too close to an earlier film → the kit is redesigned against what made it close → a new visual
+14. ☑ **Look:** too close to an earlier film → the kit is redesigned against what made it close → a new visual
     concept for the film.
-15. ☐ **Voice:**
+15. ☑ **Voice:**
     - narration too long or short → pauses adjusted inside silence → a sentence trimmed or extended in the script;
     - a seam, an unresolved word, or word error → a retake of that passage → a respelling → the writer rewords the
       line.
-16. ☐ **Edit and sound:**
+16. ☑ **Edit and sound:**
     - unbridged jump → bridge it with the film's transition → undo the split;
     - pace outside the band → the editor's own tools → the director re-cuts the stretch;
     - sound outside the band → the sound designer.
-17. ☐ **After the render:** the final-cut judge's tells, the viewer QA's issues and failed QA checks go back to
+17. ☑ **After the render:** the final-cut judge's tells, the viewer QA's issues and failed QA checks go back to
     their owners, and only the affected shots are re-rendered (stretch rendering), not the whole film.
-18. ☐ **Packaging:** a thumbnail outside the channel's band or below the critic's bar, or a package claim the film
+18. ☑ **Packaging:** a thumbnail outside the channel's band or below the critic's bar, or a package claim the film
     does not make → its own ladder (another concept, another picture, rewording).
 
 ## C. Prevention: the same measures run where the work is done

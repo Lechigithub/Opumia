@@ -42,6 +42,11 @@ let budget: { limitUsd: number; from: number } | null = null;
 export function setBudget(limitUsd: number | null) {
   budget = limitUsd === null ? null : { limitUsd, from: ledger.length };
 }
+/** What the film may still spend (null = no limit set). */
+export function budgetLeft(): number | null {
+  if (!budget) return null;
+  return budget.limitUsd - ledger.slice(budget.from).reduce((t, r) => t + r.usd, 0);
+}
 const guardBudget = () => {
   if (!budget) return;
   const spent = ledger.slice(budget.from).reduce((t, r) => t + r.usd, 0);

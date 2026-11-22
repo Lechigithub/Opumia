@@ -56,6 +56,9 @@ export interface FilmDesignerOptions {
   /** Render the film transition across a cut (a strip of frames). */
   renderTransition: () => Promise<{ strip: string; text: string } | null>;
   memoryDir?: string;
+  /** Ladder rungs (build list 3, items 13–14): change an accepted kit (add a component, retune the tokens, move away
+   * from an earlier film) or, with `fresh`, design a new visual concept from a blank slate. */
+  change?: { request: string; fresh: boolean; tokens?: KitTokens };
   log?: (s: string) => void;
 }
 export interface FilmDesignerReport { pass: boolean; fonts: string[]; components: string[]; roles: Record<string, string>; transition: string | null; renders: number; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
@@ -87,9 +90,12 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const made = await producedJobs(o.data);
   const earlier = await readFile(path.join(o.data, "film-kits.json"), "utf8").then((t) => (JSON.parse(t) as Array<{ job: string; fonts: string[]; palette: string[]; concept: string; transition: string }>).filter((k) => made.has(k.job) && k.job !== o.job), () => []);
   const usedFonts = new Set(earlier.flatMap((k) => k.fonts));
-  let code: string | null = existsSync(kitFile) ? await readFile(kitFile, "utf8") : null;
+  let code: string | null = existsSync(kitFile) && !o.change?.fresh ? await readFile(kitFile, "utf8") : null;
   let studied = 0, renders = 0, transitionSeen = false, lastRenderOk = false, accepted: string | null = null, noteSaved = false;
-  let tokens: KitTokens | null = null;
+  // a change to an accepted kit starts from it: studied, transition seen, tokens set — the change still has to be
+  // rendered, looked at and submitted again
+  let tokens: KitTokens | null = o.change && !o.change.fresh && o.change.tokens ? o.change.tokens : null;
+  if (o.change && !o.change.fresh && code) (studied = 2), (transitionSeen = true);
   let roles: Record<string, string> = {};
   const fontStack = (re: RegExp, fallback: string) => {
     const m = re.exec(code ?? "");
@@ -257,7 +263,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const earlierText = earlier.length ? `## Our earlier films (do not repeat their look)\n${earlier.slice(-8).map((k) => `- ${k.job}: fonts ${k.fonts.join(", ")}; palette ${k.palette.join(" ")}; ${k.concept.slice(0, 160)}; transition ${k.transition}`).join("\n")}\n\n` : "";
   const system = [cached(skill), plain(`${earlierText}${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}`)];
   const contract = KIT_ROLES.map((r) => `- ${r}: ${ROLE_CONTRACT[r]}`).join("\n");
-  const user = `Design the look of "${o.title}" from a blank slate.\n\nROLES your kit must play (one component each; the engine passes these props):\n${contract}\n\nBRIEF:\n${o.brief.slice(0, 5000)}\n\nSHOTS you can render samples on (id — line — picture):\n${o.shots.map((s) => `${s.id} — "${s.line.slice(0, 90)}" — ${s.picture.slice(0, 70)}`).join("\n")}\n\nStart by studying the reference.`;
+  const user = `${o.change ? `${o.change.fresh ? "START AGAIN with a NEW visual concept (the current one must not be reused)" : "CHANGE the accepted kit (design/film/index.tsx is loaded; keep every component and prop the scene designer already uses unless the change says otherwise)"}: ${o.change.request}\n\n` : ""}Design the look of "${o.title}"${o.change && !o.change.fresh ? "" : " from a blank slate"}.\n\nROLES your kit must play (one component each; the engine passes these props):\n${contract}\n\nBRIEF:\n${o.brief.slice(0, 5000)}\n\nSHOTS you can render samples on (id — line — picture):\n${o.shots.map((s) => `${s.id} — "${s.line.slice(0, 90)}" — ${s.picture.slice(0, 70)}`).join("\n")}\n\nStart by studying the reference.`;
   const model = process.env.OPUMIA_DESIGN_MODEL === "sonnet" ? MODELS.sonnet : MODELS.opus;
   log(`  art director (blank slate): ${o.title.slice(0, 60)} (${model})…`);
   let grace = 1;

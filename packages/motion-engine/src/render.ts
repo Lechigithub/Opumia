@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { unlink, writeFile } from "node:fs/promises";
+import { rename, unlink, writeFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
@@ -127,6 +127,52 @@ export async function renderVideo(o: { manifest: RenderManifest; look: Look; des
   }
   log(`  render: ${o.manifest.durationFrames} frames in ${((Date.now() - t0) / 1000).toFixed(0)} s (${(o.manifest.durationFrames / ((Date.now() - t0) / 1000)).toFixed(1)} fps)`);
   return o.out;
+}
+
+/**
+ * Build list 3, item 17: re-render only the frame ranges that changed and splice them into the film's existing silent
+ * video (frame-exact trims, one re-encode of the whole picture at the manifest's quality). The ranges are merged when
+ * they touch; the manifest must have the same length as the film it replaces.
+ */
+export async function renderStretches(o: { manifest: RenderManifest; look: Look; design?: FilmDesignSystem; publicDir: string; previous: string; out: string; ranges: Array<[number, number]>; log?: (s: string) => void }): Promise<{ out: string; frames: number }> {
+  const log = o.log ?? (() => {});
+  const last = o.manifest.durationFrames - 1;
+  const ranges = [...o.ranges].map(([a, b]) => [Math.max(0, a), Math.min(last, b)] as [number, number]).filter(([a, b]) => b >= a).sort((x, y) => x[0] - y[0]);
+  const merged: Array<[number, number]> = [];
+  for (const r of ranges) {
+    const m = merged.at(-1);
+    if (m && r[0] <= m[1] + 1) m[1] = Math.max(m[1], r[1]);
+    else merged.push([...r]);
+  }
+  if (!merged.length) return { out: o.previous, frames: 0 };
+  const url = await serveUrl(o.publicDir, log, true);
+  const inputProps = { manifest: o.manifest, look: o.look, ...(o.design ? { design: o.design } : {}) };
+  const composition = await selectComposition({ serveUrl: url, id: "Documentary", inputProps });
+  const part = (i: number) => o.out.replace(/\.mp4$/, `.stretch${String(i + 1).padStart(2, "0")}.mp4`);
+  const t0 = Date.now();
+  for (const [i, range] of merged.entries()) {
+    await renderMedia({ chromiumOptions: GL, composition, serveUrl: url, codec: "h264", crf: o.manifest.output.crf, pixelFormat: "yuv420p", muted: true, frameRange: range, outputLocation: part(i), inputProps, concurrency: Math.max(2, availableParallelism() - 1), timeoutInMilliseconds: 180_000 });
+  }
+  // [old 0..a) [new a..b] [old b+1..c) … [old ..end]
+  const inputs = ["-i", o.previous, ...merged.flatMap((_, i) => ["-i", part(i)])];
+  const pieces: string[] = [];
+  const filters: string[] = [];
+  let at = 0;
+  merged.forEach(([a, b], i) => {
+    if (a > at) (filters.push(`[0:v]trim=start_frame=${at}:end_frame=${a},setpts=PTS-STARTPTS[o${i}]`), pieces.push(`[o${i}]`));
+    filters.push(`[${i + 1}:v]setpts=PTS-STARTPTS[n${i}]`);
+    pieces.push(`[n${i}]`);
+    at = b + 1;
+  });
+  if (at <= last) (filters.push(`[0:v]trim=start_frame=${at}:end_frame=${last + 1},setpts=PTS-STARTPTS[oz]`), pieces.push("[oz]"));
+  filters.push(`${pieces.join("")}concat=n=${pieces.length}:v=1:a=0,fps=${o.manifest.fps}[v]`);
+  const tmp = o.out.replace(/\.mp4$/, ".splice.mp4");
+  await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...inputs, "-filter_complex", filters.join(";"), "-map", "[v]", "-c:v", "libx264", "-crf", String(o.manifest.output.crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart", tmp], { timeout: 900_000 });
+  await rename(tmp, o.out);
+  await Promise.all(merged.map((_, i) => unlink(part(i)).catch(() => {})));
+  const frames = merged.reduce((n, [a, b]) => n + b - a + 1, 0);
+  log(`  render: ${frames} of ${o.manifest.durationFrames} frames re-rendered in ${merged.length} stretch(es), ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  return { out: o.out, frames };
 }
 
 /** Thumbnail from a composed scene spec (real cutouts on the film's colour world), frozen after its entrances. */

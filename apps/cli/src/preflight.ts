@@ -102,6 +102,8 @@ export interface PreflightInput {
   /** Step 4: trained taste of the final scene frames (median) against the channel's real shots. */
   taste?: { median: number; realP10: number; realMedian: number; low: string[] };
   jobDir: string;
+  /** The channel's cut rate (cuts a minute), as the director is held to it. */
+  cutBand?: { lo: number; hi: number };
   board: Storyboard;
   scenes: ScenePlan;
   resolution: ResolutionReport;
@@ -250,6 +252,26 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     }
   }
 
+  // --- Fit: footage rated below 6/10 against its own line (the picture review's score) is replaced.
+  {
+    const weak = o.resolution.media.filter((m) => m.role === "primary" && m.origin !== "press" && typeof m.seen?.fit === "number" && m.seen.fit < 6).map((m) => m.shotId);
+    add({ id: "weak_fit", label: "Footage rated below 6/10 against its own line", value: weak.length, target: "0", pass: weak.length === 0, level: "blocker", repair: "replace_picture", shots: weak });
+  }
+
+  // --- Edit: the cut rate inside the channel's band.
+  if (o.cutBand) {
+    const cpm = o.board.shots.length / Math.max(0.1, o.timed.durationS / 60);
+    add({ id: "cut_pace", label: "Cuts a minute against the channel's band", value: Math.round(cpm * 10) / 10, target: `${o.cutBand.lo.toFixed(0)}–${o.cutBand.hi.toFixed(0)}`, pass: cpm >= o.cutBand.lo && cpm <= o.cutBand.hi, level: "blocker" });
+  }
+
+  // --- Edit: a shot the editor split in two (the same picture on both sides of the cut) is bridged, never a jump.
+  {
+    const sh = o.board.shots;
+    const prim = (id: string) => o.resolution.media.find((m) => m.shotId === id && m.role === "primary");
+    const jumps = sh.filter((x, k) => k > 0 && x.transitionIn === "cut" && (/_\d+$/.test(x.id) && x.id.replace(/_\d+$/, "") === sh[k - 1]!.id.replace(/_\d+$/, "") || (prim(x.id) && prim(sh[k - 1]!.id) && baseRef(prim(x.id)!.ref) === baseRef(prim(sh[k - 1]!.id)!.ref)))).map((x) => x.id);
+    add({ id: "unbridged_split", label: "Cuts inside one picture with nothing bridging them (a jump)", value: jumps.length, target: "0", pass: jumps.length === 0, level: "blocker", repair: "redesign_scene", shots: jumps });
+  }
+
   // --- Sharpness: footage far softer than the channel's own frames (an upscaled or smeared source) is replaced.
   if (o.quality) {
     const soft: string[] = [];
@@ -368,7 +390,8 @@ export function dropPictures(resolution: ResolutionReport, checks: PreflightChec
   const repeat = want("repeat_in_film");
   const shared = want("shared_pictures");
   const press = new Set(failing.filter((c) => c.id.startsWith("fair_use")).flatMap((c) => c.shots ?? []));
-  const late = new Set([...want("period_footage"), ...want("soft_footage")]);
+  const late = new Set([...want("period_footage"), ...want("soft_footage"), ...want("weak_fit")]);
+  const face = want("stand_in_face");
   const first = new Map<string, string>();
   const keepWiki = new Map<string, Set<string>>(); // the first two shots a portrait or logo appears in
   for (const m of [...resolution.media].filter((x) => x.role === "primary" || x.role === "layer").sort((x, y) => x.shotId.localeCompare(y.shotId))) {
@@ -383,7 +406,7 @@ export function dropPictures(resolution: ResolutionReport, checks: PreflightChec
   const media = resolution.media.filter((m) => {
     if (m.role !== "primary" && m.role !== "layer") return true;
     const wiki = m.role === "layer" && m.provider === "wikipedia";
-    const gone = (repeat.has(m.shotId) && !wiki && first.get(baseRef(m.ref)) !== m.shotId) || (repeat.has(m.shotId) && wiki && !keepWiki.get(baseRef(m.ref))?.has(m.shotId)) || (shared.has(m.shotId) && !wiki && recent.has(baseRef(m.ref))) || (press.has(m.shotId) && m.role === "primary" && m.origin === "press") || (late.has(m.shotId) && m.role === "primary" && m.origin !== "press");
+    const gone = (repeat.has(m.shotId) && !wiki && first.get(baseRef(m.ref)) !== m.shotId) || (repeat.has(m.shotId) && wiki && !keepWiki.get(baseRef(m.ref))?.has(m.shotId)) || (shared.has(m.shotId) && !wiki && recent.has(baseRef(m.ref))) || (press.has(m.shotId) && m.role === "primary" && m.origin === "press") || (late.has(m.shotId) && m.role === "primary" && m.origin !== "press") || (face.has(m.shotId) && m.role === "primary");
     if (gone) shots.add(m.shotId);
     return !gone;
   });

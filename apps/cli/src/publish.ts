@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { producedJobs, checkPackage, withoutClaims, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport } from "@opumia/agents";
+import { Ladders, producedJobs, checkPackage, withoutClaims, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport } from "@opumia/agents";
 import type { FactSheet, FilmDesignSystem, LibraryIndex, ResolutionReport, Storyboard, TimedScript } from "@opumia/contracts";
 import { renderThumbnailScene } from "@opumia/motion-engine";
 import { closeBrowser, makeThumbnailTools, visionCheck, wikipediaImages, type ThumbCredit, type ThumbPicture } from "@opumia/resolver";
@@ -107,7 +107,9 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
   const made = await producedJobs(o.data);
   const concepts = ((await readJson<Array<{ job: string; concept: string }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? []).filter((c) => made.has(c.job));
   const before = await import("@opumia/agents").then((m) => m.usageLedger().reduce((t, r) => t + r.usd, 0));
-  const report: PackagingReport = await packagingAgent({
+  const qualityBand = await ensureQualityBand({ data: o.data, channel: o.channel, log }).catch(() => null);
+  const runAgent = (brief?: string): Promise<PackagingReport> => packagingAgent({
+    ...(brief ? { brief } : {}),
     channel: o.channel,
     jobDir: o.jobDir,
     facts: o.facts,
@@ -115,7 +117,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
     design: o.design,
     band,
     craft,
-    quality: await ensureQualityBand({ data: o.data, channel: o.channel, log }).catch(() => null),
+    quality: qualityBand,
     references: ex.packaging ?? [],
     // The agent only hands back pictures from this same list.
     pictures: { ...tools, brief: (p) => tools.brief(p as ThumbPicture) },
@@ -133,6 +135,25 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
     memoryDir: path.join(o.data, "agents", "packaging"),
     log,
   });
+  // The packaging ladder (build list 3, item 18): a thumbnail outside the channel's band or below the critic's bar
+  // gets another concept, then another hero picture; the best render of every attempt is kept.
+  let report = await runAgent();
+  const tried: PackagingReport[] = [report];
+  {
+    type PA = Record<string, never>;
+    const why = (r: PackagingReport) => [`concept "${r.thumbnail?.concept ?? "none"}"`, ...(r.thumbnail?.issues ?? []).map((x) => `outside the band: ${x.kind}`), ...(r.thumbnail?.imposter?.spotted ? [`picked out blind: ${r.thumbnail.imposter.tells.slice(0, 3).join("; ")}`] : [])].join("; ");
+    const pl = new Ladders<PA>({ jobDir: o.jobDir, stage: "packaging", log, table: { thumbnail: [
+      { name: "another concept", owner: "packaging agent", maxUsd: 1.5, run: async () => { report = await runAgent(`Make a DIFFERENT concept (not a variation). Last time: ${why(report)}`); tried.push(report); return `"${report.thumbnail?.concept ?? "none"}" — ${report.pass ? "accepted" : "not accepted"}`; } },
+      { name: "another hero picture", owner: "packaging agent", maxUsd: 1.5, run: async () => { report = await runAgent(`Build the thumbnail around a DIFFERENT hero picture than before (find_picture, find_expression, film_footage), and a different concept. Last time: ${why(report)}`); tried.push(report); return `"${report.thumbnail?.concept ?? "none"}" — ${report.pass ? "accepted" : "not accepted"}`; } },
+    ] } });
+    for (let k = 0; k < 2 && !report.pass; k++) {
+      const done = await pl.step([{ check: "thumbnail", shots: [], what: "thumbnail not accepted", measured: why(report).slice(0, 200), band: "inside the channel's band, past the critic and the blind test" }], {});
+      if (!done.length) break;
+    }
+    await pl.close(report.pass ? [] : [{ check: "thumbnail", shots: [], what: "thumbnail not accepted", measured: "", band: "" }]);
+    // none accepted: the attempt with the fewest problems is kept
+    if (!report.pass) report = [...tried].sort((x, y) => (x.thumbnail?.issues.length ?? 99) + (x.thumbnail?.imposter?.spotted ? 2 : 0) - ((y.thumbnail?.issues.length ?? 99) + (y.thumbnail?.imposter?.spotted ? 2 : 0)))[0]!;
+  }
   await closeBrowser();
   let usd = (await import("@opumia/agents").then((m) => m.usageLedger().reduce((t, r) => t + r.usd, 0))) - before;
   const th = report.thumbnail;

@@ -7,7 +7,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { embedPictures, filmDesignerAgent, filmLook, loadTaste, producedJobs, scoreTaste, type FilmDesignerReport } from "@opumia/agents";
+import { embedPictures, filmDesignerAgent, filmLook, loadTaste, producedJobs, scoreTaste, type FilmDesignerReport, type KitTokens } from "@opumia/agents";
 import { rename, writeFile } from "node:fs/promises";
 import type { ChannelId, FilmDesignSystem, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
 import { buildManifest, renderShotPreviews, watchClip, type Look } from "@opumia/motion-engine";
@@ -38,9 +38,9 @@ async function paletteOf(files: string[]): Promise<string[]> {
   return groups.sort((a, b) => b.n - a.n).slice(0, 8).map((g) => `#${hex(g.c[0])}${hex(g.c[1])}${hex(g.c[2])} (${Math.round((g.n / Math.max(1, cols.length)) * 100)} %)`);
 }
 
-export async function runFilmDesigner(o: { root: string; data: string; library: string; jobDir: string; job: string; channel: ChannelId; title: string; topic: string; acts: number; brief: string; board: Storyboard; scenes: ScenePlan | null; resolution: ResolutionReport; timed: TimedScript; look: (d: FilmDesignSystem) => Look; log: (s: string) => void }): Promise<{ report: FilmDesignerReport; design: FilmDesignSystem | null }> {
+export async function runFilmDesigner(o: { root: string; data: string; library: string; jobDir: string; job: string; channel: ChannelId; title: string; topic: string; acts: number; brief: string; board: Storyboard; scenes: ScenePlan | null; resolution: ResolutionReport; timed: TimedScript; look: (d: FilmDesignSystem) => Look; change?: { request: string; fresh: boolean; tokens?: KitTokens }; log: (s: string) => void }): Promise<{ report: FilmDesignerReport; design: FilmDesignSystem | null }> {
   // design.json is written from the kit's own tokens (build list 3, L1): the art director sets them, nothing else does
-  let design: FilmDesignSystem | null = null;
+  let design: FilmDesignSystem | null = o.change?.tokens && !o.change.fresh && existsSync(path.join(o.jobDir, "design.json")) ? (JSON.parse(await readFile(path.join(o.jobDir, "design.json"), "utf8")) as FilmDesignSystem) : null;
   const designFile = path.join(o.jobDir, "design.json");
   const onDesign = async (d: FilmDesignSystem) => {
     design = d;
@@ -72,7 +72,7 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
   const manifestFor = (plan: ScenePlan, board: Storyboard) => buildManifest({ storyboard: board, script: o.timed, resolution: o.resolution, libraryRoot: o.library, outputPath: path.join(o.jobDir, "_kit.mp4"), narrationPath: o.timed.voice.audioPath, burnCaptions: false, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
   const basePlan = (): ScenePlan => o.scenes ?? { schemaVersion: 2, storyboardId: o.board.id, scenes: [], generatedAt: new Date().toISOString() };
   const report = await filmDesignerAgent({
-    channel: o.channel, topic: o.topic, acts: o.acts, onDesign, job: o.job, title: o.title, data: o.data, kitDir, brief: o.brief, shots, fonts: googleFonts(), reference,
+    channel: o.channel, topic: o.topic, acts: o.acts, onDesign, job: o.job, ...(o.change ? { change: o.change } : {}), title: o.title, data: o.data, kitDir, brief: o.brief, shots, fonts: googleFonts(), reference,
     palette: () => paletteOf(o.resolution.media.filter((m) => m.role === "primary" || m.role === "layer").map((m) => m.localPath).filter((f) => existsSync(f))),
     renderSamples: async (samples) => {
       round++;

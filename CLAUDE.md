@@ -328,9 +328,35 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Preflight** — a portrait or logo may appear in at most two scenes; a shot that loses its footage or sits on a bare stage is refilled through `find_picture` (`refill`).
 - **Measured on Kodak after these changes (fresh scene pass + gate):** scenes accepted in 162 s for $0.30; the gate passed after one repair (a repeated picture). In the frames: no modern offices under 1975 lines, a period photo of the young Sasson with the prototype, a library icon in use; still two or three red-tinted footage shots, one weak stand-in for the prototype (a rusty electrical box) and one lone-word card.
 
+## Escalation ladders (build list 3, part B, 2026-11-22)
+
+A failed check never stops a film and never makes it weaker: it becomes a **problem** (check, shots, measured value,
+band, evidence frames) that climbs its own **ladder** — the owner's cheapest fix first, a stronger one each round it
+still fails. Engine: `agents/ladder.ts` (`Ladders`: one rung per round per problem, a fixed shot stops climbing, a rung
+the film's remaining budget cannot cover is skipped and logged). Every attempt, skip, outcome and unresolved problem is
+appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds).
+
+| Where | Problems | Rungs (cheapest first) |
+| --- | --- | --- |
+| A3 narration | length outside the window | pauses re-timed inside the silence (`narration/refit.ts:refitPauses`, no model, no take) → the writer trims or extends sentences → the writer again with the exact word count |
+| A3 narration | lines unresolved after retakes and respellings | the writer rewords them → again, more plainly |
+| B6 preflight (`apps/cli/src/ladders.ts:PREFLIGHT_LADDERS`) | pictures: repeats, cooldown, fair use, period, softness, stand-in faces, weak fit (< 6/10, `weak_fit`), no picture | replace the picture → a timeless close-up → the director re-plans the shot (`replanShots`) → a designed shot from the kit (weak fit: → the writer rewords the line) |
+| | scenes: visible defects, dead frames, taste | the scene designer with the defect named → variants (`try_variants`) → a different kind of shot → the art director adds the component the film was missing (`film-designer-agent.ts` change mode) |
+| | look too close to an earlier film | the kit redesigned against what made it close → a new visual concept (every scene redesigned) |
+| | colour (luma, colourfulness, hue spread, one colour) | the colourist with what was measured → the art director retunes the palette, then the colourist |
+| | edit: unbridged split (`unbridged_split`), cut pace (`cut_pace`), slow zoom | bridge with the film's transition → undo the split; the editor → the editor re-cutting the stretch |
+| | sound: shared effects or music, one family | the sound designer → a fresh selection |
+| C5 finished film (`FINISHED_LADDERS`) | QA picture faults, the viewer's issues by owner, the final-cut judge's tells | the same owners' ladders; then **only the shots whose layers changed are rendered again** (`motion-engine/render.ts:renderStretches`, ±12 frames, spliced frame-exact into the film) unless the kit, grade or edit changed; remaster, mux, review again (3 rounds) |
+| C3 packaging | thumbnail not accepted | another concept → another hero picture; the best attempt is kept. Package text: rewording → sentences carrying unsupported claims removed |
+
+- The writer is reachable once per film (it re-plans the film from the script, `pass: 2`).
+- What every ladder leaves unresolved still blocks the render (preflight) or the verdict (QA); pause and resume and
+  provider switching are build list 3 part D.
+- Tests: `npx tsx apps/cli/src/dev/ladder-test.ts` (engine), `npx tsx apps/cli/src/dev/stretch-test.ts` (after the smoke render), both in `dev/regressions.ts`.
+
 ## Preflight gate (2026-11-22)
 
-`produce` stage **B6** (`apps/cli/src/preflight.ts`, wired in `produce.ts`) runs every release-gate check that can be computed before the render, on the plan, the final scene previews and the narration. **A failing check goes to its owner, which replaces or redesigns — nothing is ever reduced to a weaker look** (build list 3, L8: the old `safe_scene`, `prune_shapes`, `soften_wash`, `vary_stage` reductions and dropping a picture without a replacement were removed). Three rounds; what still fails is written to `out/<job>/preflight.json` and the render is refused (the escalation ladders of build list 3 part B take over from there).
+`produce` stage **B6** (`apps/cli/src/preflight.ts`, wired in `produce.ts`) runs every release-gate check that can be computed before the render, on the plan, the final scene previews and the narration. **A failing check goes to its owner, which replaces or redesigns — nothing is ever reduced to a weaker look** (build list 3, L8: the old `safe_scene`, `prune_shapes`, `soften_wash`, `vary_stage` reductions and dropping a picture without a replacement were removed). Up to eight rounds, each failing check one rung higher on its ladder (see **Escalation ladders**); what every ladder leaves unresolved is written to `out/<job>/preflight.json` and the render is refused.
 
 | Check (blocker unless noted) | Owner |
 | --- | --- |
@@ -338,7 +364,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 | scene with a visible defect on its **final** preview; clean shot without moving footage; film taste below the channel's lowest tenth | `redesign_scene`: the scene designer, told the defect (an editor's frozen split half is first merged back) |
 | previews too dark, dull, or carried by one colour (`one_colour_film`, against the channel's own films — `data/.cache/hue-dominance-<channel>.json`) | `regrade`: the colourist, told what the previews measured (a one-colour film's picture-less stage shots also get real footage) |
 | effects or music a recent film used; one sound family > 60 %; plan too close to an earlier film in sound only | `reseed_sound`: the sound designer |
-| picture coverage < 60 %; designed share < 70 %; slow-zoom share > 20 %; plan too close to an earlier film in colour/treatment/layout/story/words; unresolved narration words; word error > 1 %; pace outside the voice's natural band | none yet — the render is refused with the reason (ladders: build list 3 part B) |
+| picture coverage < 60 %; designed share < 70 %; slow-zoom share > 20 %; plan too close to an earlier film in colour/treatment/layout/story/words; unresolved narration words; word error > 1 %; pace outside the voice's natural band | picture coverage → the picture ladder; designed share → the scene designer; slow zoom → the editor; the rest are refused with the reason |
 | voice expressiveness against the reference narrator (pace variety, pitch travel, melody, dynamics, pauses) | **advisory**: reported |
 
 - After scene repairs the sound timeline is laid again on the final scenes; the manifest and fingerprint are rebuilt.

@@ -6,6 +6,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { checkKitCode, filmLook, lookSimilarity, uniquenessBand } from "@opumia/agents";
 import { diffSpeech, measureJumps, measureLegibility, measureSeams } from "@opumia/senses";
+import { ladderTest } from "./ladder-test.js";
 
 type Case = { id: string; defect: string; run: () => Promise<boolean> };
 const F1 = "out/film1-kodak-3";
@@ -19,6 +20,7 @@ const cases: Case[] = [
   { id: "jumps-caught", defect: "film 1: editor punch-ins with nothing bridging them (43.0, 52.6, 85.4 s)", run: async () => { const v = film(F1); if (!v) return true; const j = await measureJumps(v, { ss: 40, t: 15 }); return j.events.some((e) => e.kind === "jump_cut"); } },
   { id: "legibility-caught", defect: "film 1: labels at 2.4–2.9:1 contrast", run: async () => { const f = `${F1}/previews/sh001_2.jpg`; if (!existsSync(f)) return true; const plan = JSON.parse(readFileSync(`${F1}/scenes.json`, "utf8")) as { scenes: Array<{ shotId: string; elements: Array<Record<string, unknown>> }> }; const { textBoxesOf } = await import("@opumia/senses"); const sc = plan.scenes.find((x) => x.shotId === "sh001"); return !sc || (await measureLegibility(f, textBoxesOf(sc))).some((l) => l.issues.length > 0); } },
   { id: "sameness-caught", defect: "film 1 looks like the earlier Kodak film (0.72; channel p90 0.706)", run: async () => { const a = film(F1), b = film("out/eval-quick-kodak"); if (!a || !b) return true; const band = await uniquenessBand({ data: "data", channel: "magnates-media" }); const s = lookSimilarity(await filmLook({ root: process.cwd(), data: "data", video: a, film: "f1" }), await filmLook({ root: process.cwd(), data: "data", video: b, film: "eqk" })); return s > band.p90; } },
+  { id: "ladder-escalates", defect: "build list 3: a failing check must climb its ladder one rung a round, stop when fixed, and be logged", run: async () => (await ladderTest()).length === 0 },
   { id: "kit-safety", defect: "a film kit may not reach the network or the file system", run: async () => checkKitCode(`import fs from "fs";\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`import React from "react";\nexport const FILM = { components: {} };`, new Set()).length === 0 },
 ];
 let failed = 0;

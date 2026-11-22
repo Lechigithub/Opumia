@@ -5,9 +5,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta } from "@opumia/agents";
-import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
-import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung } from "@opumia/agents";
+import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
+import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
@@ -16,7 +16,8 @@ import { runFilmDesigner } from "./film-kit.js";
 import { run } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
-import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
+import { FINISHED_LADDERS, PREFLIGHT_LADDERS, type Act } from "./ladders.js";
+import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, renderShotPreviews, renderVideo, runQA, toSrt, renderStretches } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -216,20 +217,56 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const maxS = short ? o.durationS - 1 : o.durationS * 1.1;
   const minS = short ? o.durationS - 8 : o.durationS * 0.9;
   if (fresh) await recordCalibration(timed);
-  // Length is fitted with words, never by stretching the voice: outside the window the script is re-written once
-  // at this narration's own measured pace (takes are cached per line, so only changed lines are recorded again).
-  if (timed.durationS > maxS || timed.durationS < minS) {
-    const words = timed.segments.reduce((n, sg) => n + sg.words.length, 0);
-    const span = (timed.segments.at(-1)?.endS ?? timed.durationS) - (timed.segments[0]?.startS ?? 0);
-    const measured = (words / Math.max(1, span)) * 60; // this script's own pace is the best predictor for its re-write
-    log(`  ! narration ${timed.durationS.toFixed(1)} s outside ${minS}–${maxS} s; voice spoke ${measured.toFixed(1)} wpm → re-writing to fit and re-narrating once`);
-    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
-    log(`  "${draft.title}" — ${draft.wordCount} words`);
-    timed = await cachedJson(timedPath, TimedScript, true, doNarrate, log);
-    await recordCalibration(timed);
+  // The voice ladder (build list 3, item 15): length is fitted first inside the pauses (no new take, no model), then
+  // by the writer trimming or extending a sentence (takes are cached per passage, so only changed ones are recorded
+  // again); lines the listen-back still could not resolve after their retakes and respellings are reworded by the
+  // writer. The voice's speed is never touched.
+  {
+    type VoiceAct = { note: string[] };
+    const readUnresolved = async () => (await readFile(path.join(jobDir, "narration.report.json"), "utf8").then((t) => JSON.parse(t) as { unresolved?: string[] }, () => ({ unresolved: [] as string[] }))).unresolved ?? [];
+    const paceOf = (t: TimedScript) => {
+      const words = t.segments.reduce((n, sg) => n + sg.words.length, 0);
+      const span = (t.segments.at(-1)?.endS ?? t.durationS) - (t.segments[0]?.startS ?? 0);
+      return (words / Math.max(1, span)) * 60;
+    };
+    const mid = (minS + maxS) / 2;
+    const rewriteFor = async (brief: string) => {
+      const measured = paceOf(timed);
+      draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ brief, pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
+      timed = await cachedJson(timedPath, TimedScript, true, doNarrate, log);
+      await recordCalibration(timed);
+      return `${draft.wordCount} words → ${timed.durationS.toFixed(1)} s`;
+    };
+    const wordsOff = () => Math.round(((timed.durationS - mid) * paceOf(timed)) / 60);
+    const lengthLadder: Array<Rung<VoiceAct>> = [
+      { name: "pauses adjusted inside the silence", owner: "voice director", maxUsd: 0, run: async () => {
+        const pauseTotal = timed.segments.flatMap((sg) => sg.words).reduce((t, w, k, ws) => (k + 1 < ws.length && /[.?!]["”')\]]*$/.test(w.word) ? t + Math.max(0, ws[k + 1]!.startS - w.endS) : t), 0);
+        if (pauseTotal < 0.5) return null;
+        const scale = Math.max(0.5, Math.min(2.2, 1 + (mid - timed.durationS) / pauseTotal));
+        const r = await refitPauses(timed, scale, path.join(jobDir, "narration.mp3"));
+        timed = r.script;
+        await writeFile(timedPath, JSON.stringify(timed, null, 2) + "\n");
+        return `${r.pauses} pause(s) ×${scale.toFixed(2)}: ${r.before.toFixed(1)} → ${r.after.toFixed(1)} s`;
+      } },
+      { name: "the writer trims or extends a sentence", owner: "writer", maxUsd: 1.5, run: async () => rewriteFor(`The narration runs ${timed.durationS.toFixed(1)} s; it must land between ${minS} and ${maxS} s. ${wordsOff() > 0 ? `Cut about ${wordsOff()} words` : `Add about ${-wordsOff()} words`} — trim or extend sentences, keep the story and every verified fact.`) },
+      { name: "the writer again, with the exact word count", owner: "writer", maxUsd: 1.5, run: async () => rewriteFor(`Still ${timed.durationS.toFixed(1)} s against ${minS}–${maxS} s at the voice's measured ${paceOf(timed).toFixed(0)} wpm: the script must be ${Math.round((mid * paceOf(timed)) / 60)} words (it is ${timed.segments.reduce((n, sg) => n + sg.words.length, 0)}).`) },
+    ];
+    const wordsLadder: Array<Rung<VoiceAct>> = [1, 2].map((k) => ({ name: k === 1 ? "the writer rewords the lines the voice could not say" : "the writer rewords them again, more plainly", owner: "writer", maxUsd: 1.5, run: async () => { const un = await readUnresolved(); return un.length ? rewriteFor(`After retakes and respellings these lines still were not said cleanly: ${un.slice(0, 8).map((x) => `"${x}"`).join("; ")}. Reword them ${k === 2 ? "in the plainest words, avoiding the names or terms that fail" : ""} (same facts).`) : null; } }));
+    const voiceLadders = new Ladders<VoiceAct>({ jobDir, stage: "narration", table: { narration_length: lengthLadder, voice_unresolved: wordsLadder }, log });
+    let problems: Problem[] = [];
+    for (let round = 0; round < 5; round++) {
+      const un = await readUnresolved();
+      problems = [
+        ...(timed.durationS > maxS || timed.durationS < minS ? [{ check: "narration_length", shots: [], what: "narration outside the length window", measured: `${timed.durationS.toFixed(1)} s`, band: `${minS}–${maxS} s` }] : []),
+        ...(un.length ? [{ check: "voice_unresolved", shots: [], what: `${un.length} line(s) not said cleanly after retakes`, measured: String(un.length), band: "0" }] : []),
+      ];
+      if (!problems.length) break;
+      if (!(await voiceLadders.step(problems, { note: [] })).length) break;
+    }
+    await voiceLadders.close(problems);
   }
-  // A small miss after the re-fit is accepted as it is (the voice is not touched); a large one stops the job.
-  if (timed.durationS > maxS * 1.05) throw new Error(`narration still ${timed.durationS.toFixed(1)} s after one re-fit (limit ${maxS.toFixed(1)} s); the script needs cutting`);
+  // A small miss left after the ladder is accepted (the voice is not touched); a large one stops the job.
+  if (timed.durationS > maxS * 1.05) throw new Error(`narration still ${timed.durationS.toFixed(1)} s after every rung of the voice ladder (limit ${maxS.toFixed(1)} s) — see ladders.jsonl`);
   if (timed.durationS > maxS) log(`  narration runs ${(timed.durationS - maxS).toFixed(1)} s over the target and is kept at its natural pace`);
   log(`  narration ${timed.durationS.toFixed(2)} s, ${timed.segments.length} segments`);
   if (stop("narration")) return { jobDir };
@@ -290,7 +327,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     if (!kr.report.pass) throw new Error(`art director: the film's kit was not accepted (${kr.report.note.slice(0, 200)}) — see film-kit.report.json`);
   }
   let design = FilmDesignSystem.parse(JSON.parse(await readFile(designFile, "utf8")));
-  const filmKit = JSON.parse(await readFile(kitMetaFile, "utf8")) as FilmKitMeta;
+  let filmKit = JSON.parse(await readFile(kitMetaFile, "utf8")) as FilmKitMeta;
   log(`  the film's look: "${design.concept.slice(0, 90)}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}; ${Object.keys(filmKit.components).length} kit components`);
   // [B2s] Picture researcher (B8): looks at what the pooled search placed, beside each line, and fixes what a viewer
   // would catch (contradicting pictures, stand-ins for named subjects, wrong period) — or gives the shot to the
@@ -560,52 +597,148 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   };
   await writeFingerprint();
 
+  // ---- The ladders' tools (build list 3, part B), shared by the preflight gate (B6) and the finished film (C5): what
+  // each rung can ask for, and the queued work done once per round.
+  const allW = timed.segments.flatMap((sg) => sg.words);
+  const lineOf = (id: string) => {
+    const sh = board.shots.find((x) => x.id === id);
+    return sh ? allW.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : "";
+  };
+  const recent = await cooldownRefs(o.data, jobId);
+  const srcRows = new Map<string, { must?: string; when?: string; need?: string }>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; must?: string; when?: string; need?: string }> }).rows.map((r) => [r.shotId, r] as [string, { must?: string; when?: string; need?: string }]), () => []));
+  const eraG = eraOfFacts(facts);
+  const gateTools = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: allW, era: eraG ? `${eraG.min}–${eraG.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...recent.pictures]), iconColor: design.palette.text, whenOf: (id) => srcRows.get(id)?.when });
+  // New footage through the same tool the scene designer uses — searched, rated by eye, dated against the line's year.
+  const refill = async (ids: string[], wantOf?: (id: string) => string) => {
+    const got: string[] = [];
+    for (const id of ids) {
+      const want = (wantOf?.(id) ?? srcRows.get(id)?.must ?? board.shots.find((x) => x.id === id)?.intent ?? "").replace(/^(the|a|an)\s+/i, "");
+      // Two tries: what was asked for, then a timeless close-up of it.
+      for (const w of [want, `${want.split(/\s+/).slice(0, 3).join(" ")} close up hands`]) {
+        const r = await gateTools.findPicture({ shotId: id, want: w, as: "footage", kind: "video" }).catch(() => ({ ok: false as const, why: "" }));
+        if (r.ok) {
+          got.push(id);
+          break;
+        }
+      }
+    }
+    return got;
+  };
+  // The undo of an editor's split (the half goes back into the shot before it).
+  const mergeSplit = (ids: string[], touched: Set<string>) => {
+    const merged: string[] = [];
+    for (const id of ids) {
+      const k = board.shots.findIndex((x) => x.id === id);
+      if (k <= 0) continue;
+      const prev = board.shots[k - 1]!, half = board.shots[k]!;
+      board = Storyboard.parse({ ...board, shots: [...board.shots.slice(0, k - 1), { ...prev, endS: half.endS, sfx: [...prev.sfx, ...half.sfx] }, ...board.shots.slice(k + 1)] });
+      scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.filter((x) => x.shotId !== id) });
+      resolution.media.splice(0, resolution.media.length, ...resolution.media.filter((m) => m.shotId !== id)); // in place: the picture tools hold this object
+      touched.add(prev.id);
+      merged.push(`${id}→${prev.id}`);
+    }
+    return merged;
+  };
+  let soundRound = 0;
+  let rewriteBrief: string | null = null;
+  interface Queue { revise: Map<string, string>; all: string | null; colour: string[]; sound: string[]; edit: string[]; soundFresh: boolean; kitChanged: boolean; touched: Set<string> }
+  const newQueue = (): Queue => ({ revise: new Map(), all: null, colour: [], sound: [], edit: [], soundFresh: false, kitChanged: false, touched: new Set() });
+  const makeAct = (q: Queue, checksNow: () => PreflightCheck[], defects: Map<string, string[]>): Act => ({
+    dropOffending: async (p) => {
+      const c = checksNow().find((x) => x.id === p.check || (p.check === "unique_plan_sound" && x.id === "unique_plan"));
+      // a check of the finished film (QA, viewer) names a shot, not a rule: its footage is the offending picture
+      const drop = c ? dropPictures(resolution, [{ ...c, pass: false, repair: "replace_picture", shots: p.shots }], recent.pictures) : { media: resolution.media.filter((m) => !(p.shots.includes(m.shotId) && m.role === "primary")), shots: new Set(p.shots.filter((id) => resolution.media.some((m) => m.shotId === id && m.role === "primary"))) };
+      if (drop.shots.size) resolution.media.splice(0, resolution.media.length, ...drop.media);
+      for (const id of drop.shots) q.touched.add(id);
+      return [...drop.shots];
+    },
+    refill: async (ids, want) => { const got = await refill(ids, want); for (const id of got) q.touched.add(id); return got; },
+    replan: async (ids) => {
+      const plans = await replanShots({ shots: ids.map((id) => ({ id, line: `${lineOf(id)}${srcRows.get(id)?.when ? ` [set in ${srcRows.get(id)!.when}]` : ""}`, need: (srcRows.get(id)?.need ?? "staged") as never, must: srcRows.get(id)?.must ?? "", seen: [] })), spares: [], placed: resolution.media.filter((m) => m.role === "primary").map((m) => m.depicts ?? m.query).slice(0, 40), subjects: people, era: eraG ? `${eraG.min}–${eraG.max}` : "unspecified" });
+      return new Map(plans.map((pl) => [pl.shot, { action: pl.action, must: pl.must }] as [string, { action: "search" | "spare" | "design"; must: string }]));
+    },
+    stripFootage: (ids) => { const set = new Set(ids); resolution.media.splice(0, resolution.media.length, ...resolution.media.filter((m) => !(set.has(m.shotId) && m.role === "primary"))); for (const id of ids) q.touched.add(id); },
+    scene: (id, note) => { if (board.shots.some((x) => x.id === id && x.source.kind === "designed" && x.source.designed === "scene")) q.revise.set(id, [q.revise.get(id), note].filter(Boolean).join("; ").slice(0, 500)); },
+    allScenes: (note) => { q.all = note; },
+    mergeSplit: (ids) => mergeSplit(ids, q.touched),
+    bridge: (ids) => { const out: string[] = []; board = Storyboard.parse({ ...board, shots: board.shots.map((x) => (ids.includes(x.id) && x.transitionIn === "cut" ? (out.push(x.id), { ...x, transitionIn: "film" as const }) : x)) }); for (const id of out) q.touched.add(id); return out; },
+    colour: (b) => void q.colour.push(b),
+    sound: (b, fresh) => { q.sound.push(b); q.soundFresh ||= fresh; },
+    editor: (b) => void q.edit.push(b),
+    kit: async (request, fresh) => {
+      const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: design.acts.length, brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: scenePlan, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), change: { request, fresh, tokens: { palette: design.palette, texture: design.texture, acts: design.acts } }, log });
+      await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(kr.report, null, 2) + "\n");
+      if (!kr.report.pass) return `the art director did not get the change accepted (${kr.report.note.slice(0, 120)})`;
+      design = FilmDesignSystem.parse(JSON.parse(await readFile(designFile, "utf8")));
+      filmKit = JSON.parse(await readFile(kitMetaFile, "utf8")) as FilmKitMeta;
+      q.kitChanged = true;
+      return `kit ${fresh ? "redesigned from a new concept" : "changed"}: ${kr.report.note.slice(0, 160)}`;
+    },
+    rewrite: (b) => { if ((o.pass ?? 1) !== 1) return false; rewriteBrief = b; return true; },
+    touch: (ids) => { for (const id of ids) q.touched.add(id); },
+    line: lineOf,
+    defects: (id) => defects.get(id) ?? [],
+  });
+  /** Do the round's queued work once; returns the shots whose picture changed (every shot when the kit, the grade or the edit changed). */
+  const flush = async (q: Queue, done: string[]): Promise<{ shots: Set<string>; all: boolean }> => {
+    const shots = new Set(q.touched);
+    let all = q.kitChanged;
+    if (q.all || q.revise.size) {
+      const list = q.all ? scenePlan.scenes.map((sc) => ({ shotId: sc.shotId, note: [q.revise.get(sc.shotId), q.all].filter(Boolean).join("; ") })) : [...q.revise.entries()].map(([shotId, note]) => ({ shotId, note }));
+      log(`  ladder → scene designer: ${list.map((u) => u.shotId).join(", ")}`);
+      scenePlan = ScenePlan.parse(await runSceneAgent({ previous: scenePlan, revise: list }));
+      for (const u of list) shots.add(u.shotId);
+    }
+    if (q.edit.length) (await runEditor(q.edit.join("; ")), (all = true));
+    if (q.colour.length) {
+      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+      await runColourist(q.colour.join("; "));
+      all = true;
+    }
+    // Sound follows what is on screen: when anything on screen changed, the sound timeline is laid again.
+    if (q.sound.length || q.soundFresh) soundRound++;
+    if (q.sound.length || shots.size || all) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId, q.sound.length ? q.sound.join("; ") : undefined);
+    if (done.length) {
+      await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
+      await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+      await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+      await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+      await writeFingerprint();
+    }
+    return { shots, all };
+  };
+  const toWriter = () => {
+    log("  ladder → the writer: planning the film again from the script (once)");
+    return produceStages({ ...o, redo: [...new Set([...o.redo, "script", "narration", "storyboard", "resolve", "manifest", "render"] as Stage[])], writerBrief: rewriteBrief!, pass: 2 });
+  };
+
   // [B6] Preflight gate: every release-gate check that can be computed before the render runs here, on the plan,
-  // the final scene previews and the narration. A failing check with a repair is repaired and checked again
-  // (two rounds); what still fails is written down and the render is refused.
+  // the final scene previews and the narration. Every failing check climbs its own escalation ladder (ladders.ts):
+  // its owner's cheapest fix first, a stronger one each round it still fails; every attempt is logged.
   const preFile = path.join(jobDir, "preflight.json");
   if (scenePlan.scenes.length && (freshScenes || redo("render") || !(await exists(preFile)))) {
     log("\n[B6] preflight gate (checked before any render)");
     const ex = await loadExemplars(o.data, channel);
-    const recent = await cooldownRefs(o.data, jobId);
     const hueRef = ex ? await referenceHueDominance(o.data, ex) : null;
     const lookP = lookFromProfile(pack.profile.look, design.palette.primarySoft);
-    const allW = timed.segments.flatMap((sg) => sg.words);
-    const lineOf = (id: string) => {
-      const sh = board.shots.find((x) => x.id === id);
-      return sh ? allW.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : "";
-    };
     const prevDir = path.join(jobDir, "previews");
-    const people = (facts.story?.characters ?? []).map((c) => c.name);
     // The scene designer's own previews are still right; only missing ones are rendered.
     let stale = new Set(scenePlan.scenes.map((x) => x.shotId).filter((id) => !existsSync(path.join(prevDir, `${id}_sheet.jpg`))));
     let look2 = new Set(scenePlan.scenes.map((x) => x.shotId)); // scenes whose final preview the critic has not seen yet
     const defects = new Map<string, string[]>();
-    // Refill: a shot that lost its footage (too modern for its line) or sits on a bare stage gets a new picture
-    // through the same tool the scene designer uses — searched, rated by eye and dated against the line's year.
-    const srcRows = new Map<string, { must?: string; when?: string }>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; must?: string; when?: string }> }).rows.map((r) => [r.shotId, r] as [string, { must?: string; when?: string }]), () => []));
-    const eraG = eraOfFacts(facts);
-    const gateTools = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: allW, era: eraG ? `${eraG.min}–${eraG.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...recent.pictures]), iconColor: design.palette.text, whenOf: (id) => srcRows.get(id)?.when });
-    const refill = async (ids: string[]) => {
-      const got: string[] = [];
-      for (const id of ids) {
-        const want = (srcRows.get(id)?.must ?? board.shots.find((x) => x.id === id)?.intent ?? "").replace(/^(the|a|an)\s+/i, "");
-        // Two tries: what the shot asked for, then a timeless close-up of it.
-        for (const w of [want, `${want.split(/\s+/).slice(0, 3).join(" ")} close up hands`]) {
-          const r = await gateTools.findPicture({ shotId: id, want: w, as: "footage", kind: "video" }).catch(() => ({ ok: false as const, why: "" }));
-          if (r.ok) {
-            got.push(id);
-            break;
-          }
-        }
-      }
-      return got;
-    };
     const qualityBand = await ensureQualityBand({ data: o.data, channel, log }).catch(() => null);
     const rounds: Array<{ round: number; failing: string[]; repairs: string[] }> = [];
     let checks: PreflightCheck[] = [];
-    let soundRound = 0;
-    for (let round = 0; ; round++) {
+    const ladders = new Ladders<Act>({ jobDir, stage: "preflight", table: PREFLIGHT_LADDERS, log });
+    const problemsOf = (cs: PreflightCheck[]): Problem[] => cs.filter((c) => !c.pass && c.level === "blocker").map((c) => {
+      let shots = c.shots ?? [];
+      if (c.id === "picture_coverage") shots = scenePlan.scenes.filter((sc) => !resolution.media.some((m) => m.shotId === sc.shotId && m.role === "primary") && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId);
+      if (c.id === "designed_share") shots = board.shots.filter((sh) => sh.source.kind === "designed" && sh.source.designed === "scene" && !scenePlan.scenes.some((x) => x.shotId === sh.id)).map((sh) => sh.id);
+      return { check: c.id === "unique_plan" && c.repair === "reseed_sound" ? "unique_plan_sound" : c.id, shots, what: `${c.label}${c.note ? ` — ${c.note}` : ""}`, measured: String(c.value), band: c.target, evidence: shots.map((id) => path.join(prevDir, `${id}_1.jpg`)).filter((f) => existsSync(f)) };
+    });
+    let problems: Problem[] = [];
+    for (let round = 0; round < 8; round++) {
       if (stale.size) {
         await renderShotPreviews({ manifest, look: lookP, design, publicDir: pub, outDir: prevDir, shotIds: [...stale], log });
         for (const id of stale) look2.add(id);
@@ -622,88 +755,21 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const pfTaste = tasteModel && pfFrames.length ? (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: pfFrames.map((x) => ({ file: x.f })) }).catch(() => [])).map((x, k) => ({ id: pfFrames[k]!.id, v: x?.score ?? null })).filter((x): x is { id: string; v: number } => x.v !== null) : [];
       const pfSorted = [...pfTaste].sort((a2, b2) => a2.v - b2.v);
       const tasteIn = tasteModel && pfSorted.length ? { taste: { median: pfSorted[Math.floor(pfSorted.length / 2)]!.v, realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median, low: pfSorted.filter((x) => x.v < tasteModel.calibration.real.p10).map((x) => `${x.id} ${x.v}`) } } : {};
-      checks = await preflightChecks({ ...tasteIn, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
+      checks = await preflightChecks({ ...tasteIn, cutBand: { lo: (pack.profile.pacing.cutsPerMin?.p25 ?? 12) * 0.85, hi: (pack.profile.pacing.cutsPerMin?.p75 ?? 21) * 1.15 }, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
+      problems = problemsOf(checks);
+      const q = newQueue();
+      const done = problems.length ? await ladders.step(problems, makeAct(q, () => checks, defects)) : [];
+      if (rewriteBrief) break;
+      if (q.kitChanged) for (const sc of scenePlan.scenes) stale.add(sc.shotId);
+      const changed = await flush(q, done);
+      for (const id of changed.all ? scenePlan.scenes.map((x) => x.shotId) : changed.shots) (stale.add(id), look2.add(id));
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
-      const fixable = failing.filter((c) => c.repair);
-      const done: string[] = [];
-      // build list 3 (L8): every failing check goes to its OWNER, which replaces or redesigns — nothing is reduced.
-      if (fixable.length && round < 3) {
-        const revise = new Map<string, string>(); // shot → what its scene designer must fix
-        const toScene = (id: string, note: string) => { if (scenePlan.scenes.some((x) => x.shotId === id)) revise.set(id, [revise.get(id), note].filter(Boolean).join("; ").slice(0, 400)); };
-        // replace_picture: the offending picture leaves its shot; lost footage is replaced through the picture tools
-        // (searched, rated by eye, dated against the line), then the scene is designed again for what it now has.
-        const drop = dropPictures(resolution, fixable, recent.pictures);
-        if (drop.shots.size) {
-          resolution.media.splice(0, resolution.media.length, ...drop.media); // in place: the picture tools hold this object
-          const lost = [...drop.shots].filter((id) => !resolution.media.some((m) => m.shotId === id && m.role === "primary"));
-          const refilled = new Set(lost.length ? await refill(lost) : []);
-          for (const id of drop.shots) toScene(id, refilled.has(id) ? "this shot's footage was replaced (the old one broke a sourcing rule): design the scene for the new footage — let it play clean if it carries the line" : "a picture was taken out of this shot (it repeated, was used by a recent film, broke a fair-use rule or was too soft or too modern): get another with find_picture and design the scene around it");
-          done.push(`replace_picture: ${[...drop.shots].join(", ")}${refilled.size ? ` (${refilled.size} given new footage)` : ""}`);
-        }
-        // An editor half ("sh003_2") that is a frozen frame goes back into the shot before it: the split is undone.
-        {
-          const deadHalves = fixable.filter((c) => c.id === "dead_frames").flatMap((c) => c.shots ?? []).filter((id) => /_\d+$/.test(id));
-          const merged: string[] = [];
-          for (const id of deadHalves) {
-            const k = board.shots.findIndex((x) => x.id === id);
-            if (k <= 0) continue;
-            const prev = board.shots[k - 1]!, half = board.shots[k]!;
-            board = Storyboard.parse({ ...board, shots: [...board.shots.slice(0, k - 1), { ...prev, endS: half.endS, sfx: [...prev.sfx, ...half.sfx] }, ...board.shots.slice(k + 1)] });
-            scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.filter((x) => x.shotId !== id) });
-            resolution = { ...resolution, media: resolution.media.filter((m) => m.shotId !== id) };
-            stale.add(prev.id);
-            merged.push(`${id}→${prev.id}`);
-          }
-          if (merged.length) {
-            await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
-            await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
-            done.push(`undo_split: ${merged.join(", ")}`);
-          }
-        }
-        // redesign_scene: the scene designer fixes the scene with the defect named.
-        for (const c of fixable.filter((x) => x.repair === "redesign_scene")) for (const id of c.shots ?? []) if (!/_\d+$/.test(id) || scenePlan.scenes.some((x) => x.shotId === id)) toScene(id, `${c.label}${c.note ? ` — ${c.note}` : ""}${defects.get(id)?.length ? ` — the critic saw: ${defects.get(id)!.join("; ")}` : ""}`);
-        // Too many picture-less stage shots (or a one-colour film carried by them): those get real footage first.
-        {
-          const named = fixable.filter((c) => c.id === "bare_backdrop_run" || c.id === "picture_less_scenes").flatMap((c) => c.shots ?? []);
-          const bare = fixable.some((c) => c.id === "one_colour_film") ? scenePlan.scenes.filter((sc) => sc.backdrop !== "footage" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId) : [...new Set(named)];
-          const filled = bare.length ? await refill(bare) : [];
-          for (const id of filled) toScene(id, "this shot now has real footage: design the scene for it — let it play clean if it carries the line");
-          if (filled.length) done.push(`refill_stage: ${filled.join(", ")}`);
-        }
-        if (revise.size) {
-          log(`  preflight → scene designer: ${[...revise.keys()].join(", ")}`);
-          scenePlan = ScenePlan.parse(await runSceneAgent({ previous: scenePlan, revise: [...revise.entries()].map(([shotId, note]) => ({ shotId, note })) }));
-          for (const id of revise.keys()) (stale.add(id), look2.add(id));
-          done.push(`redesign_scene: ${[...revise.keys()].join(", ")}`);
-        }
-        // regrade: the colourist, told what the previews measured.
-        const colour = fixable.filter((c) => c.repair === "regrade");
-        if (colour.length) {
-          manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
-          await runColourist(colour.map((c) => `${c.label}: ${c.value} (target ${c.target})`).join("; "));
-          for (const sc of scenePlan.scenes) stale.add(sc.shotId);
-          done.push(`regrade: ${colour.map((c) => c.id).join(", ")}`);
-        }
-        // reseed_sound: the sound designer picks the effects and music again.
-        if (fixable.some((c) => c.repair === "reseed_sound")) {
-          soundRound++;
-          await designSound(`${jobId}#${soundRound}`, fixable.filter((c) => c.repair === "reseed_sound").map((c) => `${c.label}: ${c.value} (target ${c.target})`).join("; "));
-          done.push("reseed_sound: effects and music picked again");
-        }
-        // Sound follows what is on screen: when scenes changed, the sound timeline is laid again on the final scenes.
-        if (done.some((d) => /^(replace_picture|redesign_scene|undo_split|refill_stage)/.test(d)) && !done.some((d) => d.startsWith("reseed_sound"))) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId);
-        if (done.length) {
-          await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
-          await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
-          manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
-          await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-          await writeFingerprint();
-        }
-      }
       rounds.push({ round, failing: failing.map((c) => c.id), repairs: done });
-      log(`  preflight round ${round + 1}: ${checks.filter((c) => c.pass).length}/${checks.length} checks pass${failing.length ? ` — failing: ${failing.map((c) => c.id).join(", ")}` : ""}${done.length ? ` → repaired: ${done.map((d) => d.split(":")[0]).join(", ")}` : ""}`);
+      log(`  preflight round ${round + 1}: ${checks.filter((c) => c.pass).length}/${checks.length} checks pass${failing.length ? ` — failing: ${failing.map((c) => c.id).join(", ")}` : ""}${done.length ? ` → ${done.join(", ")}` : ""}`);
       if (!done.length) break;
     }
+    await ladders.close(problems);
+    if (rewriteBrief) return toWriter();
     const blockers = checks.filter((c) => !c.pass && c.level === "blocker");
     const advisory = checks.filter((c) => !c.pass && c.level === "advisory");
     await writeFile(preFile, JSON.stringify({ at: new Date().toISOString(), pass: blockers.length === 0, rounds, blockers: blockers.map((c) => c.id), advisory: advisory.map((c) => c.id), checks }, null, 2) + "\n");
@@ -765,46 +831,98 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     Object.assign(resolution, repaired);
   }
 
-  log("\n[C4] QA");
-  let qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest, resolution, script: timed, facts, profile: pack.profile, index, jobDir, log });
-  // [C4v] Viewer QA (B10): an agent watches the finished file start to end like a viewer and notes what a viewer
-  // would notice. Its verdict can only make the film's verdict stricter.
-  if (existsSync(finalPath)) {
-    log("\n[C4v] viewer QA");
-    const qaText = qa.report.checks.map((c) => `${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`).join("\n");
-    const v = await qaAgent({ channel, title: draft.title, durationS: timed.durationS, qaText, shots: board.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), words: timed.segments.flatMap((sg) => sg.words), watch: async (a, b) => {
-      const w = await watchFile({ video: finalPath, fromS: a, toS: b, outDir: path.join(jobDir, "watch") });
-      // step 2: the detectors on the finished file's stretch (cut out once, measured like any other stretch)
-      const seg = path.join(jobDir, "watch", `final_${a.toFixed(1)}_${b.toFixed(1)}.mp4`);
-      if (!existsSync(seg)) await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", a.toFixed(2), "-t", (b - a).toFixed(2), "-i", finalPath, "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-an", seg]).catch(() => null);
-      const ins = existsSync(seg) ? await inspectStretch({ clip: { file: seg, fromS: a, toS: b }, scenes: scenePlan.scenes as never, shots: board.shots, narration: timed.voice.audioPath, root: o.root, data: o.data, channel, aspect: o.aspect as "16:9" | "9:16" }).catch(() => null) : null;
-      return { strip: w.strip, text: `${w.text}${ins ? `\n${ins.text}` : ""}` };
-    }, memoryDir: path.join(o.data, "agents", "qa"), log });
-    await writeFile(path.join(jobDir, "qa.viewer.json"), JSON.stringify(v, null, 2) + "\n");
-    const rank = { pass: 0, review: 1, fail: 2 } as const;
-    const worst = (rank[v.verdict] > rank[qa.report.verdict] ? v.verdict : qa.report.verdict);
-    qa.report.checks.push({ id: "viewer", severity: v.verdict === "fail" ? "blocker" : "major", passed: v.verdict === "pass", message: `${v.summary.slice(0, 300)}${v.issues.length ? ` — ${v.issues.length} issue(s): ${v.issues.slice(0, 4).map((x) => `${x.atS.toFixed(1)} s ${x.what.slice(0, 60)} (${x.owner})`).join("; ")}` : ""}`, measured: v.watchedShare, atFrames: v.issues.map((x) => Math.round(x.atS * manifest.fps)) });
-    qa.report.verdict = worst;
-  }
-  // [C4j] Final-cut judge (build list 2, step 7): independent of every agent that made the film — the finished film in
-  // 8-second stretches, each blind beside two real channel stretches close in meaning. A film the judge picks out
-  // clearly more often than it picks out real stretches is not released.
-  if (existsSync(finalPath)) {
-    log("\n[C4j] final-cut judge");
-    const allW = timed.segments.flatMap((sg) => sg.words);
-    const clips: Array<{ fromS: number; toS: number; said: string }> = [];
-    for (let t = 0; t + 6 < timed.durationS; t += 8) clips.push({ fromS: t, toS: Math.min(timed.durationS, t + 8), said: allW.filter((w) => w.startS >= t && w.startS < t + 8).map((w) => w.word).join(" ") });
-    const fj = await judgeClips({ data: o.data, reference: o.reference, root: o.root, channel, video: finalPath, clips, workDir: path.join(jobDir, "final-judge"), log: () => {} }).catch(() => null);
-    if (fj && fj.clips.length) {
-      const picked = fj.clips.filter((c) => c.picked).length / fj.clips.length;
-      const fair = fj.calibration?.realPickedAsImitation ?? 1 / 3;
-      const pass = picked <= fair + 0.2;
-      await writeFile(path.join(jobDir, "final-judge.json"), JSON.stringify(fj, null, 2) + "\n");
-      qa.report.checks.push({ id: "final_cut", severity: "major", passed: pass, message: `picked out as the imitation in ${fj.clips.filter((c) => c.picked).length} of ${fj.clips.length} stretches (a real stretch: ${Math.round(fair * 100)} %); realness ${fj.realness}, trained taste ${fj.taste ?? "?"}${pass ? "" : ` — tells: ${[...new Set(fj.clips.flatMap((c) => c.tells))].slice(0, 4).join("; ")}`}`, measured: Math.round(picked * 100) / 100, atFrames: fj.clips.filter((c) => c.picked).map((c) => Math.round(c.fromS * manifest.fps)) });
-      if (!pass && qa.report.verdict === "pass") qa.report.verdict = "review";
-      log(`  final-cut judge: ${pass ? "PASS" : "VETO"} — picked out in ${Math.round(picked * 100)} % of stretches (real: ${Math.round(fair * 100)} %)`);
+  // The finished film is reviewed (C4 QA, C4v viewer, C4j final-cut judge); what they find climbs the finished film's
+  // ladders (C5): its owner fixes it and only the stretches that changed are rendered again, then it is reviewed again.
+  const review = async () => {
+    let viewer: Awaited<ReturnType<typeof qaAgent>> | null = null;
+    let fj: Awaited<ReturnType<typeof judgeClips>> | null = null;
+    log("\n[C4] QA");
+    const qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest, resolution, script: timed, facts, profile: pack.profile, index, jobDir, log });
+    // [C4v] Viewer QA (B10): an agent watches the finished file start to end like a viewer and notes what a viewer
+    // would notice. Its verdict can only make the film's verdict stricter.
+    if (existsSync(finalPath)) {
+      log("\n[C4v] viewer QA");
+      const qaText = qa.report.checks.map((c) => `${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`).join("\n");
+      viewer = await qaAgent({ channel, title: draft.title, durationS: timed.durationS, qaText, shots: board.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), words: timed.segments.flatMap((sg) => sg.words), watch: async (a, b) => {
+        const w = await watchFile({ video: finalPath, fromS: a, toS: b, outDir: path.join(jobDir, "watch") });
+        // step 2: the detectors on the finished file's stretch (cut out once, measured like any other stretch)
+        const seg = path.join(jobDir, "watch", `final_${a.toFixed(1)}_${b.toFixed(1)}.mp4`);
+        if (!existsSync(seg)) await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", a.toFixed(2), "-t", (b - a).toFixed(2), "-i", finalPath, "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-an", seg]).catch(() => null);
+        const ins = existsSync(seg) ? await inspectStretch({ clip: { file: seg, fromS: a, toS: b }, scenes: scenePlan.scenes as never, shots: board.shots, narration: timed.voice.audioPath, root: o.root, data: o.data, channel, aspect: o.aspect as "16:9" | "9:16" }).catch(() => null) : null;
+        return { strip: w.strip, text: `${w.text}${ins ? `\n${ins.text}` : ""}` };
+      }, memoryDir: path.join(o.data, "agents", "qa"), log });
+      await writeFile(path.join(jobDir, "qa.viewer.json"), JSON.stringify(viewer, null, 2) + "\n");
+      const rank = { pass: 0, review: 1, fail: 2 } as const;
+      const v = viewer;
+      const worst = (rank[v.verdict] > rank[qa.report.verdict] ? v.verdict : qa.report.verdict);
+      qa.report.checks.push({ id: "viewer", severity: v.verdict === "fail" ? "blocker" : "major", passed: v.verdict === "pass", message: `${v.summary.slice(0, 300)}${v.issues.length ? ` — ${v.issues.length} issue(s): ${v.issues.slice(0, 4).map((x) => `${x.atS.toFixed(1)} s ${x.what.slice(0, 60)} (${x.owner})`).join("; ")}` : ""}`, measured: v.watchedShare, atFrames: v.issues.map((x) => Math.round(x.atS * manifest.fps)) });
+      qa.report.verdict = worst;
     }
+    // [C4j] Final-cut judge (build list 2, step 7): independent of every agent that made the film — the finished film in
+    // 8-second stretches, each blind beside two real channel stretches close in meaning. A film the judge picks out
+    // clearly more often than it picks out real stretches is not released.
+    if (existsSync(finalPath)) {
+      log("\n[C4j] final-cut judge");
+      const allW = timed.segments.flatMap((sg) => sg.words);
+      const clips: Array<{ fromS: number; toS: number; said: string }> = [];
+      for (let t = 0; t + 6 < timed.durationS; t += 8) clips.push({ fromS: t, toS: Math.min(timed.durationS, t + 8), said: allW.filter((w) => w.startS >= t && w.startS < t + 8).map((w) => w.word).join(" ") });
+      fj = await judgeClips({ data: o.data, reference: o.reference, root: o.root, channel, video: finalPath, clips, workDir: path.join(jobDir, "final-judge"), log: () => {} }).catch(() => null);
+      if (fj && fj.clips.length) {
+        const picked = fj.clips.filter((c) => c.picked).length / fj.clips.length;
+        const fair = fj.calibration?.realPickedAsImitation ?? 1 / 3;
+        const pass = picked <= fair + 0.2;
+        await writeFile(path.join(jobDir, "final-judge.json"), JSON.stringify(fj, null, 2) + "\n");
+        qa.report.checks.push({ id: "final_cut", severity: "major", passed: pass, message: `picked out as the imitation in ${fj.clips.filter((c) => c.picked).length} of ${fj.clips.length} stretches (a real stretch: ${Math.round(fair * 100)} %); realness ${fj.realness}, trained taste ${fj.taste ?? "?"}${pass ? "" : ` — tells: ${[...new Set(fj.clips.flatMap((c) => c.tells))].slice(0, 4).join("; ")}`}`, measured: Math.round(picked * 100) / 100, atFrames: fj.clips.filter((c) => c.picked).map((c) => Math.round(c.fromS * manifest.fps)) });
+        if (!pass && qa.report.verdict === "pass") qa.report.verdict = "review";
+        log(`  final-cut judge: ${pass ? "PASS" : "VETO"} — picked out in ${Math.round(picked * 100)} % of stretches (real: ${Math.round(fair * 100)} %)`);
+      }
+    }
+    return { qa, viewer, fj };
+  };
+  let rv = await review();
+  {
+    const post = new Ladders<Act>({ jobDir, stage: "finished film", table: FINISHED_LADDERS, log });
+    const fps = manifest.fps;
+    const shotAt = (sec: number) => board.shots.find((x) => sec >= x.startS && sec < x.endS)?.id ?? board.shots.at(-1)!.id;
+    const problemsOf = (r: typeof rv): Problem[] => {
+      const out: Problem[] = [];
+      for (const c of r.qa.report.checks.filter((x) => !x.passed && (x.severity === "blocker" || x.severity === "major") && ["black_frames", "frozen_frames", "blank_frames"].includes(x.id))) out.push({ check: "qa_picture", shots: [...new Set(c.atFrames.map((f) => shotAt(f / fps)))], what: c.message.slice(0, 200), measured: String(c.measured ?? ""), band: c.expected ?? "" });
+      const byOwner = new Map<string, Array<{ atS: number; what: string; shotId: string | null }>>();
+      for (const i of (r.viewer?.issues ?? []).filter((x) => x.severity >= 5 && x.fix !== "none")) (byOwner.get(i.owner) ?? byOwner.set(i.owner, []).get(i.owner)!).push(i);
+      for (const [owner, is] of byOwner) out.push({ check: `viewer_${owner.replace(/\s+/g, "_")}`, shots: [...new Set(is.map((i) => i.shotId ?? shotAt(i.atS)))], what: is.map((i) => `${i.atS.toFixed(1)} s: ${i.what}`).join("; ").slice(0, 400), measured: `${is.length} issue(s)`, band: "0" });
+      const fjc = r.qa.report.checks.find((x) => x.id === "final_cut" && !x.passed);
+      if (fjc && r.fj) out.push({ check: "final_cut", shots: [...new Set(r.fj.clips.filter((c) => c.picked).flatMap((c) => board.shots.filter((x) => x.endS > c.fromS && x.startS < c.toS).map((x) => x.id)))], what: `picked out as the imitation — tells: ${[...new Set(r.fj.clips.flatMap((c) => c.tells))].slice(0, 4).join("; ")}`, measured: String(fjc.measured ?? ""), band: "≤ a real stretch + 0.2" });
+      return out.filter((p) => p.shots.length);
+    };
+    let problems = problemsOf(rv);
+    for (let round = 0; round < 3 && problems.length && existsSync(finalPath); round++) {
+      log(`\n[C5.${round + 1}] the finished film's ladders: ${problems.map((p) => `${p.check} (${p.shots.join(", ")})`).join("; ")}`);
+      const q = newQueue();
+      const viewerNotes = new Map<string, string[]>();
+      for (const i of rv.viewer?.issues ?? []) { const id = i.shotId ?? shotAt(i.atS); viewerNotes.set(id, [...(viewerNotes.get(id) ?? []), i.what]); }
+      const sig = (m: RenderManifest) => new Map(board.shots.map((x) => [x.id, JSON.stringify(m.video.filter((l) => l.shotId === x.id))] as [string, string]));
+      const before = sig(manifest);
+      const beforeFrames = manifest.durationFrames;
+      const done = await post.step(problems, makeAct(q, () => [], viewerNotes));
+      if (rewriteBrief) return toWriter();
+      if (!done.length) break;
+      const ch = await flush(q, done);
+      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+      await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+      const after = sig(manifest);
+      const changed = board.shots.filter((x) => before.get(x.id) !== after.get(x.id) || ch.shots.has(x.id));
+      const lookR = lookFromProfile(pack.profile.look, design.palette.primarySoft);
+      if (ch.all || manifest.durationFrames !== beforeFrames || changed.length > board.shots.length * 0.6) await renderVideo({ manifest, look: lookR, design, publicDir: pub, out: silent, log });
+      else if (changed.length) await renderStretches({ manifest, look: lookR, design, publicDir: pub, previous: silent, out: silent, ranges: changed.map((x) => [Math.round(x.startS * fps) - 12, Math.round(x.endS * fps) + 12] as [number, number]), log });
+      const loud = await masterAudio(manifest, master);
+      log(`  master: ${loud.integratedLufs} LUFS, TP ${loud.truePeakDb} dBTP`);
+      await muxFinal(silent, master, finalPath);
+      rv = await review();
+      problems = problemsOf(rv);
+    }
+    await post.close(problems);
   }
+  const qa = rv.qa;
   // Step 7: every defect the finished film still has is logged — each becomes a regression case (dev/regressions.ts).
   {
     const failedChecks = qa.report.checks.filter((c) => !c.passed && (c.severity === "blocker" || c.severity === "major"));
