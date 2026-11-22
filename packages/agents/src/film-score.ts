@@ -66,16 +66,30 @@ const outside = (x: number, b: Band) => {
   return x < b.p10 ? (b.p10 - x) / w : x > b.p90 ? (x - b.p90) / w : 0;
 };
 
-/** Our film's shots as reference-index rows. */
+export interface PlanState {
+  storyboard: { shots: PlanShot[]; durationS: number };
+  scenes: PlanScene[];
+  media: Media[];
+  words: Word[];
+  manifest?: { fps: number; audio: Array<{ role: string; startFrame: number; endFrame: number; dips?: Array<{ fromFrame: number; toFrame: number }> }> } | null;
+}
+
+/** Our film's shots as reference-index rows, read from a job folder. */
 export async function ourShots(jobDir: string): Promise<{ shots: ReferenceShot[]; hits: Array<{ t: number }>; durS: number }> {
   const j = async <T>(f: string): Promise<T | null> => readFile(path.join(jobDir, f), "utf8").then((t) => JSON.parse(t) as T, () => null);
   const sb = await j<{ shots: PlanShot[]; durationS: number }>("storyboard.json");
   if (!sb) throw new Error(`no storyboard in ${jobDir}`);
-  const scenes = new Map(((await j<{ scenes: PlanScene[] }>("scenes.json"))?.scenes ?? []).map((s) => [s.shotId, s]));
-  const media = (await j<{ media: Media[] }>("resolution.json"))?.media ?? [];
   const ts = await j<{ segments: Array<{ words: Word[] }> }>("timed-script.json");
-  const man = await j<{ fps: number; audio: Array<{ role: string; startFrame: number; endFrame: number; dips?: Array<{ fromFrame: number; toFrame: number }> }> }>("manifest.json");
-  const words = (ts?.segments ?? []).flatMap((s) => s.words).map((w) => ({ w: (w.word ?? w.text ?? "").trim(), s: w.startS ?? w.start ?? 0, e: w.endS ?? w.end ?? 0 }));
+  return ourShotsFrom({ storyboard: sb, scenes: (await j<{ scenes: PlanScene[] }>("scenes.json"))?.scenes ?? [], media: (await j<{ media: Media[] }>("resolution.json"))?.media ?? [], words: (ts?.segments ?? []).flatMap((s) => s.words), manifest: await j("manifest.json") }, path.basename(jobDir));
+}
+
+/** Our film's shots as reference-index rows, from a plan held in memory (the editor's working state). */
+export function ourShotsFrom(st: PlanState, film = "ours"): { shots: ReferenceShot[]; hits: Array<{ t: number }>; durS: number } {
+  const sb = st.storyboard;
+  const scenes = new Map(st.scenes.map((s) => [s.shotId, s]));
+  const media = st.media;
+  const man = st.manifest ?? null;
+  const words = st.words.map((w) => ({ w: (w.word ?? w.text ?? "").trim(), s: w.startS ?? w.start ?? 0, e: w.endS ?? w.end ?? 0 }));
   const fps = man?.fps ?? 30;
   const hits = (man?.audio ?? []).filter((a) => a.role === "sfx").map((a) => ({ t: a.startFrame / fps }));
   const music = (man?.audio ?? []).filter((a) => a.role === "music");
@@ -99,7 +113,7 @@ export async function ourShots(jobDir: string): Promise<{ shots: ReferenceShot[]
     const said = words.filter((w) => (w.s + w.e) / 2 >= sh.startS && (w.s + w.e) / 2 < sh.endS).map((w) => w.w);
     const near = bounds.reduce((best, b) => Math.min(best, Math.abs(b - sh.startS)), 9);
     return {
-      id: `${path.basename(jobDir)}:${i}`, channel: "magnates-media", film: path.basename(jobDir), i, t0: sh.startS, t1: sh.endS, pos: sh.startS / dur,
+      id: `${sh.id}`, channel: "magnates-media", film, i, t0: sh.startS, t1: sh.endS, pos: sh.startS / dur,
       chapter: 0, chapterPos: sh.startS / dur, sinceChapter: sh.startS, line: said.join(" "), words: said.length, picture, overlay: textOn ? "text_slam" : "none",
       transitionIn: i === 0 ? "start" : "cut", faces: 0, faceH: 0, sat: 0, grey: 0, luma: 0, contrast: 0, motion: 0, text: "", textArea: 0,
       cutToWord: Math.round(near * 1000) / 1000, cutInPause: pauses.some(([a, b]) => sh.startS >= a - 0.03 && sh.startS <= b + 0.03),
@@ -110,16 +124,15 @@ export async function ourShots(jobDir: string): Promise<{ shots: ReferenceShot[]
   return { shots, hits, durS: dur };
 }
 
-export async function scoreFilm(o: { root: string; data: string; jobDir: string; channel: ChannelId; taste?: boolean; log?: (s: string) => void }): Promise<FilmScore> {
-  const prof = await loadChannelProfile(o.data, o.channel);
-  if (!prof) throw new Error(`no channel profile for ${o.channel} — run build-channel-profile`);
-  const { shots, hits, durS } = await ourShots(o.jobDir);
+/** Structure score and gaps of a film (shots as reference rows) against the channel profile; `only` limits the measures. */
+export function structureOf(prof: ChannelProfile, shots: ReferenceShot[], hits: Array<{ t: number }>, durS: number, only?: string[]): { structure: number; gaps: FilmGap[]; measures: Measures; byPosition: Partial<Record<Segment, Measures>> } {
+  const WEIGHTS_ = only ? Object.fromEntries(Object.entries(WEIGHTS).filter(([k]) => only.includes(k))) : WEIGHTS;
   const m = measure(shots, hits, durS);
   const f = family(m);
   const band = familyBand(prof.band, prof.films);
   const gaps: FilmGap[] = [];
   let num = 0, den = 0;
-  for (const [k, spec] of Object.entries(WEIGHTS)) {
+  for (const [k, spec] of Object.entries(WEIGHTS_)) {
     const b = band[k];
     if (!b || f[k] === undefined) continue;
     const out = Math.min(2, outside(f[k]!, b));
@@ -138,7 +151,7 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
     byPosition[seg] = sm;
     const sf = family(sm);
     const sb = familyBand(prof.byPosition[seg].band);
-    for (const k of ["cutsPerMin", "textSlam", "picture.designed"]) {
+    for (const k of ["cutsPerMin", "textSlam", "picture.designed"].filter((k) => !only || only.includes(k))) {
       const b = sb[k];
       if (!b || sf[k] === undefined) continue;
       const out = Math.min(2, outside(sf[k]!, b));
@@ -148,6 +161,15 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
     }
   }
   const structure = Math.round(100 * (1 - num / Math.max(1, den * 2)));
+  return { structure, gaps: gaps.sort((a, b) => b.outside - a.outside), measures: m, byPosition };
+}
+
+export async function scoreFilm(o: { root: string; data: string; jobDir: string; channel: ChannelId; taste?: boolean; log?: (s: string) => void }): Promise<FilmScore> {
+  const prof = await loadChannelProfile(o.data, o.channel);
+  if (!prof) throw new Error(`no channel profile for ${o.channel} — run build-channel-profile`);
+  const { shots, hits, durS } = await ourShots(o.jobDir);
+  const { structure, gaps, measures: m, byPosition } = structureOf(prof, shots, hits, durS);
+
   let taste: FilmScore["taste"] = null;
   if (o.taste !== false) {
     const dir = ["previews_final", "previews_agent", "previews"].map((d) => path.join(o.jobDir, d)).find((d) => existsSync(d));
@@ -163,7 +185,7 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
   }
   const tastePart = taste ? Math.min(100, (taste.median / Math.max(0.1, taste.realMedian)) * 100) : null;
   const score = Math.round(tastePart === null ? structure : 0.6 * structure + 0.4 * tastePart);
-  const res: FilmScore = { job: path.basename(o.jobDir), channel: o.channel, profileVersion: prof.version, score, structure, taste, measures: m, byPosition, gaps: gaps.sort((a, b) => b.outside - a.outside), scoredAt: new Date().toISOString() };
+  const res: FilmScore = { job: path.basename(o.jobDir), channel: o.channel, profileVersion: prof.version, score, structure, taste, measures: m, byPosition, gaps, scoredAt: new Date().toISOString() };
   const file = path.join(o.jobDir, "film-score.json");
   await writeFile(`${file}.tmp`, JSON.stringify(res, null, 1) + "\n");
   await rename(`${file}.tmp`, file);

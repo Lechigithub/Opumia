@@ -97,7 +97,8 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         src: primary.publicPath,
         startFrame: start,
         endFrame: end,
-        trimStartFrame: 0,
+        // The editor may start a shot later inside its clip (a split shot's second half, a moved cut).
+        trimStartFrame: primary.kind === "video" ? F(s.trimInS ?? 0) : 0,
         zIndex: 0,
         blend: "normal",
         keyframes: kfs,

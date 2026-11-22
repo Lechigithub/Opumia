@@ -1,0 +1,36 @@
+[
+ {
+  "job": "preview-kodak",
+  "at": "2026-11-22T08:00:53.167Z",
+  "pass": true,
+  "editorBefore": 68,
+  "editorAfter": 89,
+  "filmBefore": 80,
+  "filmAfter": 89,
+  "ops": 29,
+  "seconds": 34,
+  "usd": 0.0947,
+  "remaining": [
+   "film:cutToWordMedianS",
+   "film:shotCv",
+   "film:cutInPause"
+  ]
+ },
+ {
+  "job": "preview-kodak",
+  "at": "2026-11-22T08:02:45.184Z",
+  "pass": true,
+  "editorBefore": 68,
+  "editorAfter": 83,
+  "filmBefore": 80,
+  "filmAfter": 85,
+  "ops": 24,
+  "seconds": 66,
+  "usd": 0.0718,
+  "remaining": [
+   "film:cutToWordMedianS",
+   "film:shotCv",
+   "film:shotMedianS"
+  ]
+ }
+]

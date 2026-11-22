@@ -7,10 +7,10 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 ## A. Orchestration
 - ☐ A1 Showrunner agent: holds the film's central idea as a contract, reads every stage's report, sends work back.
 - ☐ A2 Backward loops: scenes → writer (a line no picture can show), sound → narration/edit (held beat), packaging ↔ script.
-- ☐ A3 Whole-film score: a change to one agent is kept only if the film measures closer to the reference.
+- ☑ A3 Whole-film score (`film-score.ts`, `dev/film-score.ts`): our plan measured with the channel's own function, gaps named with their owner. Kodak 84, Theranos 77 (structure only until the taste model is trained).
 
 ## B. Agents
-- ☐ B4 Editor (new): rhythm, trims, holds, J/L cuts, shot-size progression.
+- ☑ B4 Editor agent (`editor-agent.ts`, skill `editor.md`, stage B4e in produce, `dev/editor-score.ts`): Kodak editor measures 68 → 83, film 80 → 85, 66 s, $0.07. Limit: designed stage shots cannot be split (no footage), so shot-length variety stays under the band.
 - ☐ B5 Sound designer as an agent.
 - ☐ B6 Music editor (new): cut on phrases, endings that land, energy arc.
 - ☐ B7 Voice director as an agent that hears its own takes.
@@ -19,8 +19,8 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 - ☐ B10 Final QA as an agent that watches the film like a viewer.
 
 ## C. Senses
-- ☐ C11 Watch a low-resolution clip of a stretch of the film with its audio.
-- ☐ C12 Listen to the mix.
+- ☑ C11 `motion-engine/watch.ts:watchClip` (12 s clip in 30 s).
+- ☑ C12 `watch.ts:listen` from stems (voice over bed, floor, hits on cuts, drops, gaps).
 
 ## D. Learning from the reference (including the style profile)
 - ◐ D13 Full-reference embedding index (SigLIP 2 so400m, the Library's footage space): every reference shot and thumbnail.

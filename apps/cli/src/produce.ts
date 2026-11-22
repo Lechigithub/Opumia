@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { editFilmAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -13,7 +13,7 @@ import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, pruneEmptyFrames, referenceHueDominance, safeScene, type PreflightCheck } from "./preflight.js";
-import { type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
+import { listen, listeningText, watchClip, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -376,6 +376,29 @@ async function produceStages(o: ProduceOptions) {
       await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     }
     await writeFile(reviewFile, JSON.stringify({ previewed: prev.length, flagged: Object.fromEntries(issues) }, null, 2) + "\n");
+  }
+  // [B4e] Editor: the rhythm of the cut (where cuts fall against the voice, holds, splits, joins, transitions), set
+  // after the scenes and before sound, studied against the channel's real passages and measured with its function.
+  const editFile = path.join(jobDir, "edit.json");
+  if (process.env.OPUMIA_EDITOR !== "off" && (freshScenes || !(await exists(editFile)))) {
+    log("\n[B4e] editor (rhythm of the cut)");
+    const lookE = lookFromProfile(pack.profile.look, design.palette.primarySoft);
+    const watch = async (st: { storyboard: Storyboard; scenes: ScenePlan; resolution: ResolutionReport }, fromS: number, toS: number) => {
+      const m = await buildManifest({ storyboard: st.storyboard, script: timed, resolution: st.resolution, ...mopts(), outputPath: path.join(jobDir, "_edit.mp4"), scenes: new Map<string, unknown>(st.scenes.scenes.map((x) => [x.shotId, x])) });
+      const c = await watchClip({ manifest: m, look: lookE, design, publicDir: pub, jobDir, fromS, toS });
+      const l = await listen({ manifest: m, jobDir, fromS, toS, cutsS: m.video.map((v) => v.startFrame / m.fps) });
+      return { strip: c.strip, text: `${c.fromS.toFixed(1)}–${c.toS.toFixed(1)} s, frames left to right, top to bottom: ${c.frames.join(", ")}; measured motion ${JSON.stringify(c.motion)}\n${listeningText(l)}` };
+    };
+    const ed = await editFilmAgent({ channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch, memoryDir: path.join(o.data, "agents", "editor"), log });
+    board = Storyboard.parse(ed.storyboard);
+    scenePlan = ScenePlan.parse(ed.scenes);
+    resolution = ed.resolution;
+    await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
+    await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+    await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+    manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+    await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+    await writeFile(editFile, JSON.stringify(ed.report, null, 2) + "\n");
   }
   // [B5] Timeline sound design: sound goes on what the viewer sees, once the scenes are final.
   const soundFile = path.join(jobDir, "sound.json");
