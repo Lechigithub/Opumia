@@ -130,6 +130,8 @@ const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").
 const baseRef = (ref: string) => ref.split("#")[0]!.split("@")[0]!;
 
 export interface PreflightInput {
+  /** Step 7: every real person the film names (no stranger's face under a line naming one). */
+  people?: string[];
   /** Step 4: trained taste of the final scene frames (median) against the channel's real shots. */
   taste?: { median: number; realP10: number; realMedian: number; low: string[] };
   jobDir: string;
@@ -184,6 +186,24 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     add({ id: "repeat_in_film", label: "Pictures used more than once in the film", value: dupShots.length, target: "0", pass: dupShots.length === 0, level: "blocker", repair: "drop_picture", shots: dupShots });
     const shared = pics.filter((m) => !(m.provider === "wikipedia") && o.recent.pictures.has(baseRef(m.ref))).map((m) => m.shotId);
     add({ id: "shared_pictures", label: "Pictures a recent film already used", value: shared.length, target: "0", pass: shared.length === 0, level: "blocker", repair: "drop_picture", shots: shared });
+  }
+
+  // --- Step 7 (film 1: a staged actress under lines about Joy Marshall): a shot whose NARRATION names a real person
+  // may not show a face unless the picture is verified press of that person.
+  if (o.people?.length) {
+    const words = o.timed.segments.flatMap((sg) => sg.words);
+    const stand: string[] = [];
+    for (const sh of shots) {
+      const said = words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ").toLowerCase();
+      const named = o.people.filter((p) => { const last = p.toLowerCase().split(/\s+/).at(-1) ?? ""; return last.length > 2 && new RegExp(`\\b${last.replace(/[^a-z]/g, "")}\\b`).test(said); });
+      if (!named.length) continue;
+      for (const m of o.resolution.media.filter((x) => x.shotId === sh.id && (x.role === "primary" || x.role === "layer"))) {
+        const verified = m.origin === "press" && named.some((p) => (m.depicts ?? "").toLowerCase().includes(p.toLowerCase().split(/\s+/).at(-1)!));
+        if (!verified && m.seen?.face) stand.push(sh.id);
+      }
+    }
+    const uniq = [...new Set(stand)];
+    add({ id: "stand_in_face", label: "Shots where the narration names a real person over a face that is not verified as them", value: uniq.length, target: "0", pass: uniq.length === 0, level: "blocker", repair: "drop_picture", shots: uniq });
   }
 
   // --- Fair use: one clip per source video, clips ≤ 7.5 s, press footage ≤ 45 % of the runtime.

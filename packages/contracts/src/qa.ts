@@ -4,6 +4,7 @@ import { IsoDateTime } from "./common.js";
 export const QACheckId = z.enum([
   "no_ai_video", // every video layer traces to library/stock/archival/designed
   "viewer", // B10: the viewer QA agent watched the finished film start to end
+  "final_cut", // build list 2 step 7: an independent judge, blind, finished film against real channel stretches
   "license_coverage", // every non-designed layer has a licence + credit when required
   "loudness", // integrated LUFS within target ±1
   "true_peak",

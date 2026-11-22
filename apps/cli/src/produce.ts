@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -630,6 +630,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const revised = await readFile(reviewFile, "utf8").then((t) => Object.keys((JSON.parse(t) as { flagged: Record<string, unknown> }).flagged), () => [] as string[]);
     let stale = new Set(scenePlan.scenes.map((x) => x.shotId).filter((id) => revised.includes(id) || !existsSync(path.join(prevDir, `${id}_sheet.jpg`))));
     let look2 = new Set(scenePlan.scenes.map((x) => x.shotId)); // scenes whose final preview the critic has not seen yet
+    let ownerRounds = 0; // step 7: rounds that sent failures back to the scene designer
     const defects = new Map<string, string[]>();
     // Refill: a shot that lost its footage (too modern for its line) or sits on a bare stage gets a new picture
     // through the same tool the scene designer uses — searched, rated by eye and dated against the line's year.
@@ -677,7 +678,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const pfTaste = tasteModel && pfFrames.length ? (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: pfFrames.map((x) => ({ file: x.f })) }).catch(() => [])).map((x, k) => ({ id: pfFrames[k]!.id, v: x?.score ?? null })).filter((x): x is { id: string; v: number } => x.v !== null) : [];
       const pfSorted = [...pfTaste].sort((a2, b2) => a2.v - b2.v);
       const tasteIn = tasteModel && pfSorted.length ? { taste: { median: pfSorted[Math.floor(pfSorted.length / 2)]!.v, realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median, low: pfSorted.filter((x) => x.v < tasteModel.calibration.real.p10).map((x) => `${x.id} ${x.v}`) } } : {};
-      checks = await preflightChecks({ ...tasteIn, jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
+      checks = await preflightChecks({ ...tasteIn, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       const fixable = failing.filter((c) => c.repair);
       const done: string[] = [];
@@ -769,6 +770,22 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
           manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
           await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
           await writeFingerprint();
+        }
+      }
+      // Step 7: failures go back to their OWNER with a budget, instead of being degraded in place. Scenes the taste gate
+      // or the defect check still fails go back to the scene designer (once), with what was found.
+      if (!done.length && sceneAgent && ownerRounds < 1) {
+        const back = failing.filter((c) => c.id === "film_taste" || c.id === "scene_defects" || c.id === "dead_frames").flatMap((c) => (c.shots ?? []).map((id) => ({ shotId: id, note: `${c.label}: ${c.note ?? c.value}`.slice(0, 300) })));
+        const uniq = [...new Map(back.filter((b) => scenePlan.scenes.some((x) => x.shotId === b.shotId)).map((b) => [b.shotId, b])).values()].slice(0, 10);
+        if (uniq.length) {
+          ownerRounds++;
+          log(`  preflight → scene designer: ${uniq.map((u) => u.shotId).join(", ")}`);
+          scenePlan = ScenePlan.parse(await runSceneAgent({ previous: scenePlan, revise: uniq }));
+          await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+          manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+          await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+          for (const u of uniq) (stale.add(u.shotId), look2.add(u.shotId));
+          done.push(`owner: scene designer redesigned ${uniq.map((u) => u.shotId).join(", ")}`);
         }
       }
       rounds.push({ round, failing: failing.map((c) => c.id), repairs: done });
@@ -921,6 +938,34 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const worst = (rank[v.verdict] > rank[qa.report.verdict] ? v.verdict : qa.report.verdict);
     qa.report.checks.push({ id: "viewer", severity: v.verdict === "fail" ? "blocker" : "major", passed: v.verdict === "pass", message: `${v.summary.slice(0, 300)}${v.issues.length ? ` — ${v.issues.length} issue(s): ${v.issues.slice(0, 4).map((x) => `${x.atS.toFixed(1)} s ${x.what.slice(0, 60)} (${x.owner})`).join("; ")}` : ""}`, measured: v.watchedShare, atFrames: v.issues.map((x) => Math.round(x.atS * manifest.fps)) });
     qa.report.verdict = worst;
+  }
+  // [C4j] Final-cut judge (build list 2, step 7): independent of every agent that made the film — the finished film in
+  // 8-second stretches, each blind beside two real channel stretches close in meaning. A film the judge picks out
+  // clearly more often than it picks out real stretches is not released. OPUMIA_FINAL_JUDGE=off skips it.
+  if (process.env.OPUMIA_FINAL_JUDGE !== "off" && existsSync(finalPath)) {
+    log("\n[C4j] final-cut judge");
+    const allW = timed.segments.flatMap((sg) => sg.words);
+    const clips: Array<{ fromS: number; toS: number; said: string }> = [];
+    for (let t = 0; t + 6 < timed.durationS; t += 8) clips.push({ fromS: t, toS: Math.min(timed.durationS, t + 8), said: allW.filter((w) => w.startS >= t && w.startS < t + 8).map((w) => w.word).join(" ") });
+    const fj = await judgeClips({ data: o.data, reference: o.reference, root: o.root, channel, video: finalPath, clips, workDir: path.join(jobDir, "final-judge"), log: () => {} }).catch(() => null);
+    if (fj && fj.clips.length) {
+      const picked = fj.clips.filter((c) => c.picked).length / fj.clips.length;
+      const fair = fj.calibration?.realPickedAsImitation ?? 1 / 3;
+      const pass = picked <= fair + 0.2;
+      await writeFile(path.join(jobDir, "final-judge.json"), JSON.stringify(fj, null, 2) + "\n");
+      qa.report.checks.push({ id: "final_cut", severity: "major", passed: pass, message: `picked out as the imitation in ${fj.clips.filter((c) => c.picked).length} of ${fj.clips.length} stretches (a real stretch: ${Math.round(fair * 100)} %); realness ${fj.realness}, trained taste ${fj.taste ?? "?"}${pass ? "" : ` — tells: ${[...new Set(fj.clips.flatMap((c) => c.tells))].slice(0, 4).join("; ")}`}`, measured: Math.round(picked * 100) / 100, atFrames: fj.clips.filter((c) => c.picked).map((c) => Math.round(c.fromS * manifest.fps)) });
+      if (!pass && qa.report.verdict === "pass") qa.report.verdict = "review";
+      log(`  final-cut judge: ${pass ? "PASS" : "VETO"} — picked out in ${Math.round(picked * 100)} % of stretches (real: ${Math.round(fair * 100)} %)`);
+    }
+  }
+  // Step 7: every defect the finished film still has is logged — each becomes a regression case (dev/regressions.ts).
+  {
+    const failedChecks = qa.report.checks.filter((c) => !c.passed && (c.severity === "blocker" || c.severity === "major"));
+    if (failedChecks.length) {
+      const { appendFile: af, mkdir: md } = await import("node:fs/promises");
+      await md(o.data, { recursive: true });
+      await af(path.join(o.data, "defects.jsonl"), failedChecks.map((c) => JSON.stringify({ job: jobId, at: new Date().toISOString(), check: c.id, message: c.message.slice(0, 400) })).join("\n") + "\n");
+    }
   }
   const { report, licenseMarkdown } = qa;
   // Memory: footage the judge wanted replaced is blocked for future films.

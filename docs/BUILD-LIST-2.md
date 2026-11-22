@@ -80,9 +80,17 @@ Order (each step depends on the ones before it). Status: ☐ open · ◐ in prog
    - **Beats:** `cut_on_beat` lands a cut on the music's beat grid (the beds' measured beats in film time).
    - **Skill:** craft cuts — bridge the same picture, cut on the music, cut ahead of the word.
    - **Not built:** match cuts and cutting on action (no motion analysis of the footage yet), and speed ramps.
-7. ☐ **A reliable sandbox** (G):
-   - failures go back to their owner, with a budget for retries;
-   - an independent final-cut judge with a veto;
-   - every defect becomes an automatic test;
-   - regular test runs on a fixed set of topics.
+7. ☑ **A reliable sandbox.**
+   - **Back to the owner:** taste, defect and dead-frame failures go back to the scene designer once, with what was
+     found, before the render is refused; they are no longer degraded in place.
+   - **Stand-in faces:** preflight `stand_in_face` blocks a face under a line whose narration names a real person,
+     unless it is verified press of them (film 1's staged actress under Joy Marshall).
+   - **Final-cut judge:** an independent judge (stage C4j) watches the finished film in 8-second stretches, blind
+     against real stretches. It vetoes a film picked out more than 20 points above how often it picks real stretches.
+   - **Defect log and regressions:** every defect the finished film still has goes to `data/defects.jsonl`.
+     `dev/regressions.ts` re-runs each known defect against its detector on the artefact that showed it (7 of 7 pass)
+     and lists logged defects that have no case yet.
+   - **Topic suite:** `eval/sets/suite.json` + `dev/topic-suite.ts` are frozen runs on fixed topics, including the
+     same topic twice (their similarity must stay inside the channel's band). About $5 a film; run only from a frozen
+     tag.
 8. ☐ **Frozen production runs:** the same topic twice must look different and share only the style.

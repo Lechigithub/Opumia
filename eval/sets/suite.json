@@ -1,0 +1,12 @@
+{
+  "note": "Fixed topic suite for frozen production runs (build list 2, step 7). The first two are the SAME topic on purpose: the two films must share only the channel's style (uniqueness between them inside the channel's band). Run on a frozen platform tag only: npx tsx apps/cli/src/dev/topic-suite.ts",
+  "channel": "magnates-media",
+  "aspect": "16:9",
+  "durationS": 90,
+  "films": [
+    { "job": "suite-kodak-a", "topic": "How Kodak invented the digital camera and still went bankrupt" },
+    { "job": "suite-kodak-b", "topic": "How Kodak invented the digital camera and still went bankrupt" },
+    { "job": "suite-theranos", "topic": "How Theranos fooled Silicon Valley" },
+    { "job": "suite-nokia", "topic": "How Nokia lost the smartphone war" }
+  ]
+}
