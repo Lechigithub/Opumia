@@ -94,3 +94,34 @@ was slightly over budget ($0.49 of $0.45).
    refuses a bare still outright.
 3. **Gate repair `merge_split`:** an editor half the gate finds frozen (`dead_frames`) is merged back into the shot
    before it, undoing that cut. The sound is laid again afterwards.
+
+## Third run on `platform-frozen-film1c` (`out/film1-kodak-3/`) — the first produced film
+
+**Produced end to end with no intervention:** "Kodak Invented the Future, Then Hid It", 88.2 s, 1920×1080, 24 fps,
+−12.5 LUFS / −1.8 dBTP. It comes with a thumbnail (passed the blind imposter test), a description, tags and a pinned
+comment. Time 31 min, spend $4.62 of $5. Preflight passed after one repair round; film score 82 (structure 91,
+trained taste 4.2 against the channel's 6.1). **Final verdict: REVIEW** (the stills judge said fail; the viewer QA
+said review).
+
+What the film shows (fix after the run):
+
+1. **A staged actress stands in for a real person.** 1970s office footage of an actress runs under lines about Joy
+   Marshall, a real lab technician. The rule "no stand-in face under a line naming a person" was not enforced for
+   this picture. The name guard checks only on-screen text, not the narration's named people.
+2. **The QA check and preflight disagree on editor splits.** QA `fair_use` counts the editor's split of one press clip
+   (sh006, sh006_2, one source video) as the video used twice. Preflight was fixed for splits; `motion-engine/qa.ts`
+   was not.
+3. **Weak or unrelated b-roll:** a running track behind the bankruptcy-court card, and a modern Fujifilm camera
+   close-up. The picture researcher and gate passed both.
+4. **Text readability:** "HOLDING STILL" is dark text on a maroon box, and "FIRST PORTABLE DIGITAL CAMERA" is faded on
+   beige. The scene critic and the gate's defect check missed both.
+5. **Pacing:** 12.9 cuts a minute, just under the channel's 12.95 floor. The editor's merges and the gate's repairs
+   lowered it after the director's 17.
+6. **The script asserts causation:** "keeping the camera quiet" caused the later cash shortage and Chapter 11, stated
+   without a hedge. The package check caught it; the writer's `motive_as_fact` check does not look at cause-and-effect
+   claims.
+7. **The thumbnail is outside the band** (sparse frame, pasted on a void, text too small) after 12 renders. It passed
+   blind anyway. Packaging was the most expensive stage ($1.08, 456 s).
+8. **Unexplained cost and size:** the render stage spent $0.34 of Claude (the pre-render frame gate) against a
+   budget of $0.05. The master is 155 MB (14 Mbit/s for 88 s); YouTube needs far less.
+9. **Sources:** Commons refused about 180 searches; Europeana and Coverr returned nothing all run.
