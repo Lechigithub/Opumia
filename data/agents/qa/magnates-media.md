@@ -1,0 +1,1 @@
+- LOG 2026-11-22 "How Kodak Invented the Digital Camera and Still Died": review; 3 issue(s) (worst 4); The film is technically clean. Sound is even and there are no black or frozen frames. The structure and the on-screen name and "15 to 20 years" graphics work. Many b-roll shots are only loosely tied t

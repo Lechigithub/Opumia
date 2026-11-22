@@ -43,3 +43,4 @@ export * from "./music-edit.js";
 export * from "./voice-agent.js";
 export * from "./sourcing-agent.js";
 export * from "./colourist-agent.js";
+export * from "./qa-agent.js";

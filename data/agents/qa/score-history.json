@@ -1,0 +1,13 @@
+[
+ {
+  "job": "eval-quick-kodak",
+  "at": "2026-11-22T13:39:25.342Z",
+  "knownBad": true,
+  "verdict": "review",
+  "issues": 3,
+  "worst": 4,
+  "watched": 1,
+  "seconds": 26,
+  "usd": 0.0437
+ }
+]
