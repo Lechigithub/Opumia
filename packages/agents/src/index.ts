@@ -38,3 +38,4 @@ export * from "./film-score.js";
 export * from "./editor-agent.js";
 export * from "./showrunner-agent.js";
 export * from "./lessons.js";
+export * from "./sound-agent.js";

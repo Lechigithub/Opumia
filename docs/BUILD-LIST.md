@@ -11,7 +11,7 @@ Each item is committed and measured as it lands. Status: ☐ open · ◐ in prog
 
 ## B. Agents
 - ☑ B4 Editor agent (`editor-agent.ts`, skill `editor.md`, stage B4e in produce, `dev/editor-score.ts`): Kodak editor measures 68 → 83, film 80 → 85, 66 s, $0.07. Limit: designed stage shots cannot be split (no footage), so shot-length variety stays under the band.
-- ☐ B5 Sound designer as an agent.
+- ☑ B5 Sound designer agent (`sound-agent.ts`, skill `sound.md`, stage B5 in produce, `dev/sound-score.ts`; `OPUMIA_SOUND=legacy` = timeline only): starts from the timeline kit, measures hits/min overall and by position, hits on cuts, hit mix, hits on text, drop-outs; studies real passages, listens, revises; the showrunner's sound send-back goes to it with a brief. Kodak: 98 → 98 (the timeline already sat in band), 18 placement changes, 57 s, $0.10.
 - ☐ B6 Music editor (new): cut on phrases, endings that land, energy arc.
 - ☐ B7 Voice director as an agent that hears its own takes.
 - ☐ B8 Sourcing as an agent.

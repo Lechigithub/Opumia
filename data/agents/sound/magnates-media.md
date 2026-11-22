@@ -1,0 +1,2 @@
+- LESSON (preview-kodak): Adding a hit on every visual moment pushes hits per minute well above the band and drags the score down. Add a few hits on the strongest moments, then check the measures after each change.
+- LOG 2026-11-22 preview-kodak: sound 98 → 98; 18 change(s); Added hits on photo/cutout/headline landings, kept the sub-boom and riser on the 55.6 cut, and removed the hits that sat on nothing. Score is 98. Two measures are still slightly outside the band: thud

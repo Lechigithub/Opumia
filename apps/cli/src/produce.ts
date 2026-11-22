@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, soundAgent, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -414,11 +414,21 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   }
   // [B5] Timeline sound design: sound goes on what the viewer sees, once the scenes are final.
   const soundFile = path.join(jobDir, "sound.json");
-  const designSound = async (seed: string) => {
+  const designSound = async (seed: string, brief?: string) => {
     const ap = await buildAudioProfile({ data: o.data, library: o.library, index, log });
     const cool = await cooldownRefs(o.data, jobId);
     const usable = index.assets.filter(isUsable);
-    const sd = designSoundTimeline({ storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed, drops: board.music.flatMap((m) => m.drops ?? []), log });
+    const sopts = { storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed, drops: board.music.flatMap((m) => m.drops ?? []), log };
+    // B5 agent (default): starts from the timeline's pass, measures against the channel, listens, revises.
+    // OPUMIA_SOUND=legacy keeps the rule-based timeline alone.
+    const listenSound = async (st: { shots: Storyboard["shots"]; music: Storyboard["music"] }, a: number, b: number) => {
+      const sb = Storyboard.parse({ ...board, shots: st.shots, music: st.music });
+      const res = await resolveAudio({ storyboard: sb, index, libraryRoot: o.library, jobDir, resolution });
+      return watchPlan({ storyboard: sb, scenes: scenePlan, resolution: res }, a, b);
+    };
+    const sd = process.env.OPUMIA_SOUND === "legacy"
+      ? designSoundTimeline(sopts)
+      : await soundAgent({ ...sopts, channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
     board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
     await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
     resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
@@ -469,8 +479,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         return `editor: structure ${r.before.structure} → ${r.after.structure}; ${r.ops.length} edits. ${r.note}`;
       },
       redoSound: async (note) => {
-        await designSound(`${jobId}-${Date.now() % 100000}`);
-        return `sound designed again (fresh selection) for: ${note.slice(0, 120)}`;
+        await designSound(`${jobId}-${Date.now() % 100000}`, note);
+        const rp = await readFile(soundFile, "utf8").then((t) => JSON.parse(t) as { before?: { score: number }; after?: { score: number }; note?: string }, () => null);
+        return `sound designer: ${rp?.after ? `score ${rp.before?.score} → ${rp.after.score}; ${rp.note ?? ""}` : "designed again (fresh selection)"} — for: ${note.slice(0, 120)}`;
       },
       memoryDir: path.join(o.data, "agents", "showrunner"), log,
     });
