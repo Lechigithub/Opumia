@@ -89,7 +89,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   let last: { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null = null;
   const evaluate = async (segments: z.infer<typeof Segment>[]) => {
     const lines = segments.flatMap((sg) => sentencesOf(sg.text));
-    const story = storyIssues(lines, await labelLines(lines), band);
+    const labels = await labelLines(lines);
+    const story = storyIssues(lines, labels, band);
     const issues: Array<{ kind: string; detail: string }> = story.issues.map((x) => ({ kind: x.kind, detail: `${x.detail}${x.lines.length ? ` Lines: ${x.lines.slice(0, 8).map((k) => `"${lines[k]}"`).join(" | ")}` : ""}` }));
     const words = segments.reduce((n, sg) => n + countWords(sg.text), 0);
     if (Math.abs(words - targetWords) / targetWords > 0.05) issues.push({ kind: "length", detail: `${words} words; this film needs ${targetWords} (±5%) — at ${o.narrationWpm} words a minute that is ${Math.round((words / o.narrationWpm) * 60)} s against ${o.durationS} s.` });
@@ -102,6 +103,18 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     if (figures.length) issues.push({ kind: "unsupported_figure", detail: `these figures are not in the fact sheet: ${figures.slice(0, 8).join(", ")}. Use only figures from the fact sheet, exactly as given.` });
     const quotes = [...text.matchAll(/["“]([^"”]{18,})["”]/g)].map((m) => m[1]!).filter((q) => !factText.includes(norm(q).replace(/,/g, "").replace(/[.!?]$/, "")));
     if (quotes.length) issues.push({ kind: "unsupported_quote", detail: `these quotations are not in the fact sheet word for word: ${quotes.slice(0, 4).map((q) => `"${q}"`).join(" | ")}. Quote exactly or tell it in your own words without quotation marks.` });
+    // H29: a motive (what someone wanted, feared, believed) is a claim. A motive line must be hedged ("reportedly",
+    // "he later said", "it seems") or carried by a fact-sheet claim that says it (most of its content words in one claim).
+    const HEDGE = /\b(reportedly|allegedly|apparently|seemingly|seems?|seemed|appears?|appeared|may have|might have|probably|perhaps|likely|according to|(he|she|they|it) (later )?(said|says|told|wrote|claimed|admitted|insisted|recalled|explained)|in (his|her|their) words|as (he|she|they) put it|by (his|her|their) own account|believed by|critics|insiders|employees said|people close)\b/i;
+    const STOPW = new Set(["the", "and", "that", "this", "with", "from", "they", "them", "their", "have", "had", "was", "were", "would", "could", "about", "into", "than", "what", "when", "which", "wanted", "want", "feared", "thought", "believed", "knew", "felt", "hated", "loved"]);
+    const content = (t: string) => norm(t).split(" ").filter((w) => w.length > 3 && !STOPW.has(w));
+    const claimWords = claims.map((c) => new Set(content(c.text)));
+    const motives = lines.map((t, k) => ({ t, k })).filter(({ k }) => (labels[k] as unknown as string) === "motive").filter(({ t }) => {
+      if (HEDGE.test(t)) return false;
+      const cw = content(t);
+      return !cw.length || !claimWords.some((set) => cw.filter((w) => set.has(w)).length / cw.length >= 0.6);
+    });
+    if (motives.length) issues.push({ kind: "motive_as_fact", detail: `these lines state what someone wanted, feared or believed as fact, and no claim in the fact sheet says it: ${motives.slice(0, 5).map((x) => `"${x.t}"`).join(" | ")}. A motive is a claim: tell it as what they did, hedge it in plain words ("it seems", "he later said"), or ask the researcher for evidence.` });
     const badIds = [...new Set(segments.flatMap((sg) => sg.claimIds).filter((c) => !known.has(c)))];
     if (badIds.length) issues.push({ kind: "unknown_claim", detail: `claim ids not in the fact sheet: ${badIds.join(", ")}` });
     rounds.push({ issues: issues.map((x) => x.kind), profile: story.profile });
