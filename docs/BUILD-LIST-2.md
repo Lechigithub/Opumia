@@ -68,11 +68,25 @@ Order (each step depends on the ones before it). Status: ☐ open · ◐ in prog
      only within 3.2–4.1. The final median is 4.5, with 9 of 23 scenes below 4.4. Rearranging the same menu pieces
      does not reach the channel; the renderer is the ceiling, and step 5 is the lever. The gates are in place to
      measure it.
-5. ☐ **Blank-slate design per film** (A) **and pixel memory** (F):
-   - a visual concept, typefaces and palette for each film;
-   - motion components written as code for each film;
-   - no stock fallback cards;
-   - the looks of produced films stored and enforced, including the same topic made twice.
+5. ☑ **Blank-slate design per film and pixel memory.**
+   - **Engine:** a job's own kit (`design/film/index.tsx`) is bundled as `@film`. Scenes place its components
+     (element `component`), cuts marked `film` get its transition, and its typefaces replace the menu's for every
+     word.
+   - **Art director** (`agents/film-designer-agent.ts`, skill `film-designer.md`, stage B2d, Opus): studies the
+     channel's real frames, picks fonts from about 920 Google fonts (never an earlier produced film's), takes its
+     palette from the film's own pictures, and writes the kit as code. Imports are limited to react, remotion and
+     the fonts; no network or eval; a syntax check runs first. It renders samples on the film's own shots, with
+     legibility, design, taste and likeness to earlier films, and revises until it submits.
+   - **Hand-over:** the scene designer is told the kit and builds from it. Component props must be spoken words and
+     spoken figures.
+   - **Design memory:** `data/film-kits.json` (fonts, palette, concept, transition) for produced films.
+   - **Kodak test** (`out/kit-test`):
+     - kit accepted on the second run, after an image-size crash in the first: 11 components and a light-leak
+       transition, from the concept "light through Kodak film… warm film world cools into the digital one";
+     - 39 renders, about $9 across both runs;
+     - sample taste 4.0–5.0 (film 1's scenes: median 4.4; the channel's median 6.1).
+   - **Limits:** the cost of design. The scene-designer guard and preflight still have to prove that no test-style
+     invented words reach a film. The pixel memory starts empty: no produced film has a kit yet.
 6. ☑ **A real editor.**
    - **Watching:** it watches its own cuts at speed, with the measured report (step 2).
    - **Bridging:** `submit_cut` is refused while a same-picture change is unbridged, and `set_transition` gains `film`,
