@@ -22,12 +22,18 @@ import { fitLayout } from "./scene-designer.js";
 import { labelThumbnails, THUMB_BACKGROUNDS, THUMB_HEROES, THUMB_MARKS, thumbIssues, type ThumbBand, type ThumbIssue } from "./thumbnail-measure.js";
 
 /** The picture tools (resolver/thumbnail-tools.ts), handed in as functions. */
-export interface PackagingPicture { slot: number; pub: string; file: string; depicts: string; kind: "photo" | "cutout" | "logo" | "object" | "icon" | "overlay"; aspect: number; face: boolean; named: boolean; fit?: number }
+export interface PackagingPicture { slot: number; pub: string; file: string; depicts: string; kind: "photo" | "cutout" | "logo" | "object" | "icon" | "overlay"; aspect: number; width?: number; face: boolean; named: boolean; fit?: number; mean?: string }
 type Fail = { ok: false; why: string };
 export interface PackagingPictureTools {
   pics: PackagingPicture[];
   brief: (p: PackagingPicture) => string;
   findPicture: (i: { want: string; subject?: string; type: "person" | "company" | "product" | "object" | "place" | "texture" }) => Promise<{ ok: true; added: PackagingPicture[]; previews: string[]; looked: number } | Fail>;
+  findOverlay: (i: { want: string }) => Promise<{ ok: true; added: PackagingPicture[] } | Fail>;
+  findExpression: (i: { subject: string; mood?: string }) => Promise<{ ok: true; sheet: string; frames: Array<{ id: string; expression: string; score: number }> } | Fail>;
+  usePressStill: (i: { id: string }) => Promise<{ ok: true; pic: PackagingPicture } | Fail>;
+  findTexture: (i: { want: string }) => Promise<{ ok: true; added: PackagingPicture[] } | Fail>;
+  findIllustration: (i: { want: string; style?: "illustration" | "vector" }) => Promise<{ ok: true; added: PackagingPicture[] } | Fail>;
+  stylise: (i: { slot: number; style: "painterly" | "posterise" | "ink" | "halftone" | "sharpen" }) => Promise<{ ok: true; pic: PackagingPicture } | Fail>;
   filmShots: () => Array<{ shotId: string; kind: string; origin: string; depicts: string; seconds: number }>;
   filmStrip: (i: { shotId: string }) => Promise<{ ok: true; strip: string; times: number[] } | Fail>;
   useFilmFrame: (i: { shotId: string; atS: number }) => Promise<{ ok: true; pic: PackagingPicture } | Fail>;
@@ -79,8 +85,19 @@ export interface PackagingAgentOptions {
 const COLORS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"] as const;
 const HEX = z.string().describe("#RRGGBB");
 const Element = z.object({
-  type: z.enum(["cutout", "photo", "text", "shape", "texture"]),
-  slot: z.number().optional().describe("picture number for cutout/photo"),
+  type: z.enum(["cutout", "photo", "card3d", "text", "shape", "texture"]).describe("card3d = a picture (a logo, a product, a document) as a lit card in real 3D perspective — depth for flat logos"),
+  slot: z.number().optional().describe("picture number for cutout/photo/card3d"),
+  tilt: z.number().optional().describe("card3d: -40…40 degrees"),
+  spin: z.number().optional().describe("card3d: -40…40 degrees of turn"),
+  matchBackground: z.boolean().optional().describe("cut-out: light it with the background photo's colour so it sits in the scene"),
+  contactShadow: z.number().optional().describe("cut-out: 0–1, a soft shadow on the ground under it, so it stands IN the background photo"),
+  soften: z.number().optional().describe("cut-out: 0–2 px, softens a hard cut edge"),
+  turnX: z.number().optional().describe("cut-out: -25…25 degrees perspective tilt"),
+  turnY: z.number().optional().describe("cut-out: -35…35 degrees perspective turn"),
+  textureSlot: z.number().optional().describe("cut-out: a texture picture (blood, cracks, burns, dirt) laid on the subject only"),
+  textureBlend: z.enum(["multiply", "screen", "overlay", "darken"]).optional(),
+  textureOpacity: z.number().optional(),
+  brightness: z.number().optional().describe("cut-out: 0.7–1.4"),
   x: z.number().describe("left edge, 0–1 of the frame width"),
   y: z.number().describe("top edge, 0–1 of the frame height"),
   w: z.number().describe("width, 0–1 of the frame width (a hero is 0.4–0.8)"),
@@ -108,6 +125,13 @@ const Element = z.object({
   color: z.enum(COLORS).optional(),
   box: z.enum(COLORS).optional().describe("a solid box behind the text"),
   word: z.string().optional().describe("one word drawn in the accent colour"),
+  font: z.enum(["heavy_sans", "wide_heavy", "condensed", "tall_condensed", "narrow", "slab", "serif"]).optional().describe("typeface: heavy_sans (Montserrat Black), wide_heavy (Archivo Black), condensed (Anton), tall_condensed (Bebas Neue), narrow (Oswald Bold), slab (Roboto Slab Black), serif (Playfair Black)"),
+  letter: z.enum(["label_box", "outlined", "plain", "glow", "gradient"]).optional().describe("how the letters are drawn: label_box = letters on a solid colour box"),
+  fill: HEX.optional().describe("letter colour"),
+  boxFill: HEX.optional().describe("box colour for label_box (or the gradient's end colour)"),
+  strokeColor: HEX.optional(),
+  highlightFill: HEX.optional().describe("colour of `word`"),
+  italic: z.boolean().optional(),
   // shape
   shape: z.enum(["underline", "circle", "arrow", "bar", "rect", "cross"]).optional(),
   x2: z.number().optional(),
@@ -122,6 +146,7 @@ const Finish = z.object({
   rays: z.object({ color: HEX, x: z.number(), y: z.number(), opacity: z.number().optional(), count: z.number().optional() }).optional().describe("light burst behind the hero"),
   overlays: z.array(z.object({ slot: z.number(), blend: z.enum(["screen", "lighten", "multiply", "overlay"]).optional(), opacity: z.number().optional(), under: z.boolean().optional().describe("behind the composition"), x: z.number().optional(), y: z.number().optional(), w: z.number().optional(), h: z.number().optional() })).optional().describe("fire, smoke, sparks or light filmed on black (library overlays), blended with screen"),
   vignette: z.number().optional(),
+  grade: z.object({ contrast: z.number().optional().describe("0.8–1.6"), saturation: z.number().optional().describe("0.6–2"), brightness: z.number().optional().describe("0.7–1.4"), warmth: z.number().optional().describe("-1 cold … 1 warm") }).optional().describe("whole-image grade (default: saturation 1.35, contrast 1.08)"),
 });
 const Draft = z.object({
   concept: z.string().describe("one sentence: the hero and the twist"),
@@ -148,6 +173,16 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
   const used = new Set<number>();
   for (const e of d.elements) {
     const box = { x: clamp(e.x, -0.2, 0.98, 0.1), y: clamp(e.y, -0.2, 0.98, 0.1), w: clamp(e.w, 0.03, 1.4, 0.4), rot: clamp(e.rot, -20, 20, 0), z: 0.5, at: 0, enter: "fade" };
+    if (e.type === "card3d") {
+      const p = pic(e.slot);
+      if (!p) {
+        dropped.push(`card3d with no picture ${e.slot}`);
+        continue;
+      }
+      used.add(p.slot);
+      els.push({ type: "card3d", slot: p.slot, ...box, tilt: clamp(e.tilt, -40, 40, -12), spin: clamp(e.spin, -40, 40, 10) });
+      continue;
+    }
     if (e.type === "cutout" || e.type === "photo") {
       const p = pic(e.slot);
       if (!p) {
@@ -156,8 +191,12 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
       }
       used.add(p.slot);
       // A photo with a transparent background drawn as "photo" loses its point; a jpg as "cutout" keeps its box.
+      const bgMean = d.finish?.background ? pics[d.finish.background.slot]?.mean : undefined;
+      const light = e.matchBackground && bgMean ? { matchColor: bgMean, matchStrength: 0.55 } : {};
+      const tex = e.textureSlot !== undefined && pic(e.textureSlot) ? (used.add(e.textureSlot), { textureSlot: e.textureSlot, textureBlend: e.textureBlend ?? "multiply", textureOpacity: clamp(e.textureOpacity, 0, 1, 0.8) }) : {};
+      const comp = { ...(e.contactShadow ? { contactShadow: clamp(e.contactShadow, 0, 1, 0.5) } : {}), ...(e.soften ? { soften: clamp(e.soften, 0, 2, 0.6) } : {}), ...(e.turnX ? { turnX: clamp(e.turnX, -25, 25, 0) } : {}), ...(e.turnY ? { turnY: clamp(e.turnY, -35, 35, 0) } : {}) };
       if (e.type === "cutout" || p.kind !== "photo")
-        els.push({ type: "cutout", slot: p.slot, ...box, shadow: e.shadow ?? true, outline: e.outline ?? false, ...(validHex(e.outlineColor) ? { outlineColor: e.outlineColor } : {}), ...(validHex(e.glowColor) ? { glowColor: e.glowColor, glowSize: clamp(e.glowSize, 0.3, 3, 1) } : {}), ...(validHex(e.tint) ? { tint: e.tint, tintStrength: clamp(e.tintStrength, 0, 1, 0.6) } : {}), ...(e.look ? { look: e.look } : {}), ...(e.half ? { half: e.half } : {}), ...(e.flip ? { flip: true } : {}) });
+        els.push({ type: "cutout", slot: p.slot, ...box, ...light, ...tex, ...comp, ...(e.brightness ? { brightness: clamp(e.brightness, 0.7, 1.4, 1) } : {}), shadow: e.shadow ?? true, outline: e.outline ?? false, ...(validHex(e.outlineColor) ? { outlineColor: e.outlineColor } : {}), ...(validHex(e.glowColor) ? { glowColor: e.glowColor, glowSize: clamp(e.glowSize, 0.3, 3, 1) } : {}), ...(validHex(e.tint) ? { tint: e.tint, tintStrength: clamp(e.tintStrength, 0, 1, 0.6) } : {}), ...(e.look ? { look: e.look } : {}), ...(e.half ? { half: e.half } : {}), ...(e.flip ? { flip: true } : {}) });
       else els.push({ type: "photo", slot: p.slot, ...box, frame: e.frame ?? "none", grade: e.grade ?? "natural", ...(e.h ? { h: clamp(e.h, 0.05, 1.2, 0.5) } : {}) });
     } else if (e.type === "text") {
       const t = (e.text ?? "").trim();
@@ -166,7 +205,7 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
         dropped.push(`text "${t.slice(0, 30)}…" (too long for a thumbnail)`);
         continue;
       }
-      els.push({ type: "text", text: t, role: e.role === "label" ? "label" : e.role === "stamp" ? "stamp" : "display", ...box, size: clamp(e.size, 0.05, 0.3, 0.16), align: e.align ?? "center", color: e.color ?? "text", ...(e.box ? { box: e.box } : {}), ...(e.word?.trim() ? { highlightWord: e.word.trim() } : {}) });
+      els.push({ type: "text", text: t, role: e.role === "label" ? "label" : e.role === "stamp" ? "stamp" : "display", ...box, size: clamp(e.size, 0.05, 0.3, 0.16), align: e.align ?? "center", color: e.color ?? "text", ...(e.box ? { box: e.box } : {}), ...(e.word?.trim() ? { highlightWord: e.word.trim() } : {}), ...(e.font ? { font: e.font } : {}), ...(e.letter ? { letter: e.letter } : {}), ...(validHex(e.fill) ? { fill: e.fill } : {}), ...(validHex(e.boxFill) ? { boxFill: e.boxFill } : {}), ...(validHex(e.strokeColor) ? { strokeColor: e.strokeColor } : {}), ...(validHex(e.highlightFill) ? { highlightFill: e.highlightFill } : {}), ...(e.italic ? { italic: true } : {}) });
     } else if (e.type === "shape" && e.shape) els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h, 0.005, 0.6, 0.014), color: e.color ?? "accent", ...(e.shape === "arrow" ? { x2: clamp(e.x2, 0, 1, 0.5), y2: clamp(e.y2, 0, 1, 0.5) } : {}) });
     else if (e.type === "texture" && e.texture) els.push({ type: "texture", texture: e.texture, opacity: clamp(e.opacity, 0, 1, 0.3), at: 0 });
   }
@@ -192,6 +231,7 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
     });
   }
   if (f?.vignette) finish.vignette = clamp(f.vignette, 0, 1, 0.4);
+  if (f?.grade) finish.grade = f.grade;
   const p = base.palette;
   const design: FilmDesignSystem = {
     ...base,
@@ -199,7 +239,13 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
     treatment: { ...(base.treatment ?? { phrase: "boxed", label: "tag", photo: "none", particles: "none", wash: "none", washStrength: 0.3, glow: 0.7, motif: "", transition: "whip" as const }), headline: d.headlineStyle, world: d.world, particles: "none", photo: "none", wash: "none", washStrength: 0.3, glow: Math.max(0.6, base.treatment?.glow ?? 0.6) } as FilmDesignSystem["treatment"],
   };
   const spec = { shotId: "thumbnail", idea: d.concept.slice(0, 200), backdrop: "world", dim: 0.3, camera: { fromScale: 1, toScale: 1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: els };
-  return { spec, finish, design, used: [...used], dropped, texts: texts.map((t) => (t as { text: string }).text) };
+  // A picture blown up well past its own pixels looks soft next to the channel's crisp composites.
+  const soft = els
+    .filter((e) => (e.type === "cutout" || e.type === "photo" || e.type === "card3d") && typeof e.slot === "number")
+    .map((e) => ({ p: pics[e.slot as number], shown: (e.w as number) * 1280 }))
+    .filter((x): x is { p: PackagingPicture; shown: number } => Boolean(x.p?.width && x.p.kind !== "logo" && x.p.kind !== "icon" && x.shown / x.p.width! > 1.7))
+    .map((x) => `picture ${x.p.slot} is ${x.p.width} px wide but shown ${Math.round(x.shown)} px wide (${(x.shown / x.p.width!).toFixed(1)}×)`);
+  return { spec, finish, design, used: [...used], dropped, soft, texts: texts.map((t) => (t as { text: string }).text) };
 }
 
 export async function packagingAgent(o: PackagingAgentOptions): Promise<PackagingReport> {
@@ -231,7 +277,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     `- text drawn as: ${Object.entries(b.textStyle).filter(([k, v]) => k !== "none" && v > 0).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k.replace("_", " ")} ${pc(v)}`).join(", ")}; looks like: ${b.textLooks.slice(0, 8).join("; ")}`,
     `- focal elements: median ${b.elements.median}, never more than ${b.elements.max}`,
     `- colourfulness ${Math.round(b.colourfulness.p25)}–${Math.round(b.colourfulness.p90)} (median ${Math.round(b.colourfulness.median)}); brightness ${b.luma.p10.toFixed(2)}–${b.luma.p90.toFixed(2)}`,
-    `- made of: real pictures only ${pc(b.makeable.real_pictures)}, retouched faces/objects ${pc(b.makeable.needs_retouch)}, invented scenes ${pc(b.makeable.needs_invention)}, illustration ${pc(b.makeable.illustration)} — you make only the first kind`,
+    `- made of: real pictures only ${pc(b.makeable.real_pictures)}, retouched ${pc(b.makeable.needs_retouch)}, composited scenes ${pc(b.makeable.needs_invention)}, illustration ${pc(b.makeable.illustration)}; reachable with your tools ${pc(b.reach.reachable)} (the rest alter a real face ${pc(b.reach.face_alteration)} or need new painting ${pc(b.reach.new_painting)} — never do those)`,
   ].join("\n");
   const refTitles = [...o.references].sort((x, y) => (y.views ?? 0) - (x.views ?? 0)).slice(0, 30).map((r) => `- ${r.title} [${r.views ?? "?"}]`).join("\n");
   const system = [
@@ -264,16 +310,16 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     {
       name: "view_reference_thumbnails",
       description: "Real thumbnails of the channel with how each is made (hero, background, marks, words, makeable), most viewed first. Filter by what you are planning. Returns up to 6 images.",
-      schema: z.object({ hero: z.enum(THUMB_HEROES).optional(), background: z.enum(THUMB_BACKGROUNDS).optional(), mark: z.enum(THUMB_MARKS).optional(), realOnly: z.boolean().optional().describe("only those made from real pictures alone"), max: z.number().optional() }),
+      schema: z.object({ hero: z.enum(THUMB_HEROES).optional(), background: z.enum(THUMB_BACKGROUNDS).optional(), mark: z.enum(THUMB_MARKS).optional(), realOnly: z.boolean().optional().describe("only those your tools can reach without generation"), max: z.number().optional() }),
       run: async (i: { hero?: string; background?: string; mark?: string; realOnly?: boolean; max?: number }) => {
-        const hits = b.items.filter((x) => (!i.hero || x.label.hero === i.hero) && (!i.background || x.label.background === i.background) && (!i.mark || x.label.marks.includes(i.mark as never)) && (!i.realOnly || x.label.makeable === "real_pictures")).sort((x, y) => (y.views ?? 0) - (x.views ?? 0));
+        const hits = b.items.filter((x) => (!i.hero || x.label.hero === i.hero) && (!i.background || x.label.background === i.background) && (!i.mark || x.label.marks.includes(i.mark as never)) && (!i.realOnly || x.label.reach === "reachable")).sort((x, y) => (y.views ?? 0) - (x.views ?? 0));
         const fresh = [...hits.filter((x) => !seenRefs.has(x.file)), ...hits.filter((x) => seenRefs.has(x.file))].slice(0, clamp(i.max, 1, 6, 4));
         if (!fresh.length) return "no real thumbnail matches that filter — widen it";
         const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [];
         for (const x of fresh) {
           seenRefs.add(x.file);
           const l = x.label;
-          out.push({ type: "text", text: `"${x.title}" — ${x.views ?? "?"} views. hero ${l.hero} ${pc(l.heroShare)}${l.heroCutout ? " cut out" : ""}; background ${l.background}; ${l.words} word(s)${l.words ? ` drawn ${l.textStyle.replace("_", " ")} (${l.textLook})` : ""}; marks ${l.marks.join(", ") || "none"}; ${l.makeable.replace("_", " ")}: ${l.why}` }, await img(x.file));
+          out.push({ type: "text", text: `"${x.title}" — ${x.views ?? "?"} views. hero ${l.hero} ${pc(l.heroShare)}${l.heroCutout ? " cut out" : ""}; background ${l.background}; ${l.words} word(s)${l.words ? ` drawn ${l.textStyle.replace("_", " ")} (${l.textLook})` : ""}; marks ${l.marks.join(", ") || "none"}; ${l.makeable.replace("_", " ")}${l.reach && l.reach !== "reachable" ? ` — NOT for you (${l.reach.replace("_", " ")})` : ""}: ${l.why}` }, await img(x.file));
         }
         return out;
       },
@@ -297,6 +343,83 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
       },
     },
     {
+      name: "find_overlay",
+      description: "Drama from stock VIDEO filmed on black: fire, flames, inferno, explosion, smoke plume, sparks, embers, light. Several moments of each clip are measured and the densest frames are kept as overlays (blend with screen, under or over the composition).",
+      schema: z.object({ want: z.string() }),
+      run: async (i: { want: string }) => {
+        const r = await o.pictures.findOverlay(i);
+        if (!r.ok) return r.why;
+        const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text: r.added.map((p) => o.pictures.brief(p)).join("\n") }];
+        for (const p of r.added) out.push(await img(p.file));
+        return out;
+      },
+    },
+    {
+      name: "find_expression",
+      description: "Real expressions of a named person of the film: frames from press videos about them (interviews, news, speeches), checked to be them, face large, no captions over it, rated for how strong the expression is. Returns a numbered sheet; keep one with use_press_frame, then cut_out.",
+      schema: z.object({ subject: z.string(), mood: z.string().optional().describe("what the thumbnail needs the face to say: shock, anger, worry, triumph…") }),
+      run: async (i: { subject: string; mood?: string }) => {
+        const r = await o.pictures.findExpression(i);
+        if (!r.ok) return r.why;
+        return [{ type: "text", text: `frames in reading order on the sheet (left to right, top row first) — number: expression, score, id:\n${r.frames.map((f) => `${f.expression} — score ${f.score} — id ${f.id}`).join("\n")}` }, await img(r.sheet)];
+      },
+    },
+    {
+      name: "find_texture",
+      description: "Photographs of a real texture to lay over a subject (textureSlot on a cut-out) or the frame (finish overlay): blood splatter, cracked glass, burn marks, dirt, scratches, torn paper, rust.",
+      schema: z.object({ want: z.string() }),
+      run: async (i: { want: string }) => {
+        const r = await o.pictures.findTexture(i);
+        if (!r.ok) return r.why;
+        const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text: r.added.map((p) => o.pictures.brief(p)).join("\n") }];
+        for (const p of r.added) out.push(await img(p.file));
+        return out;
+      },
+    },
+    {
+      name: "find_illustration",
+      description: "Human-made, licensed illustrations or vector art from stock (Pixabay, Vecteezy) — a mascot, an icon scene, a drawn object. Anything AI-made is excluded. Cut it out if it sits on a plain ground.",
+      schema: z.object({ want: z.string(), style: z.enum(["illustration", "vector"]).optional() }),
+      run: async (i: { want: string; style?: "illustration" | "vector" }) => {
+        const r = await o.pictures.findIllustration(i);
+        if (!r.ok) return r.why;
+        const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text: r.added.map((p) => o.pictures.brief(p)).join("\n") }];
+        for (const p of r.added) out.push(await img(p.file));
+        return out;
+      },
+    },
+    {
+      name: "stylise",
+      description: "A fixed filter on one of your pictures (no model; transparency kept): painterly (oil-paint look), posterise (flat colour bands), ink (comic outlines), halftone (print dots), sharpen. Returns a new picture.",
+      schema: z.object({ slot: z.number(), style: z.enum(["painterly", "posterise", "ink", "halftone", "sharpen"]) }),
+      run: async (i: { slot: number; style: "painterly" | "posterise" | "ink" | "halftone" | "sharpen" }) => {
+        const r = await o.pictures.stylise(i);
+        return r.ok ? [{ type: "text", text: o.pictures.brief(r.pic) }, await img(r.pic.file)] : r.why;
+      },
+    },
+    {
+      name: "use_press_frame",
+      description: "Keep one frame found by find_expression (by its id) as a picture.",
+      schema: z.object({ id: z.string() }),
+      run: async (i: { id: string }) => {
+        const r = await o.pictures.usePressStill(i);
+        return r.ok ? [{ type: "text", text: o.pictures.brief(r.pic) }, await img(r.pic.file)] : r.why;
+      },
+    },
+    {
+      name: "compare",
+      description: "Two of your renders side by side, full size and at phone size, to choose between ideas by eye.",
+      schema: z.object({ a: z.string(), b: z.string() }),
+      run: async (i: { a: string; b: string }) => {
+        const ra = renders.find((x) => x.id === i.a);
+        const rb = renders.find((x) => x.id === i.b);
+        if (!ra || !rb) return "both ids must be renders";
+        const out = path.join(outDir, `cmp_${ra.id}_${rb.id}.jpg`);
+        await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", ra.file, "-i", rb.file, "-filter_complex", "[0]scale=640:-2[a];[1]scale=640:-2[b];[0]scale=168:-2[c];[1]scale=168:-2[d];[a][b]hstack=inputs=2[top];[c][d]hstack=inputs=2,pad=1280:120:0:13:0x202020[bot];[top][bot]vstack=inputs=2", "-frames:v", "1", "-update", "1", out]);
+        return [{ type: "text", text: `left ${ra.id} ("${ra.concept.slice(0, 60)}"), right ${rb.id} ("${rb.concept.slice(0, 60)}"); bottom row at phone size` }, await img(out)];
+      },
+    },
+    {
       name: "film_footage",
       description: "The film's own footage. Without shotId: a list of its shots (press clips of the real people first). With shotId: six frames of that shot side by side, each with its time — choose the strongest moment (a real expression) and call use_film_frame.",
       schema: z.object({ shotId: z.string().optional() }),
@@ -304,7 +427,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         if (!i.shotId) return o.pictures.filmShots().map((s) => `${s.shotId} ${s.kind} ${s.origin}${s.seconds ? ` ${s.seconds.toFixed(1)}s` : ""}: ${s.depicts}`).join("\n") || "the film has no footage";
         const r = await o.pictures.filmStrip({ shotId: i.shotId });
         if (!r.ok) return r.why;
-        return [{ type: "text", text: `frames at ${r.times.join(", ")} s (left to right, top row first)` }, await img(r.strip)];
+        return [{ type: "text", text: `six frames, left to right, top row first, at ${r.times.join(", ")} s` }, await img(r.strip)];
       },
     },
     {
@@ -370,7 +493,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", file, "-filter_complex", "[0]scale=360:-2[a];[0]scale=168:-2,pad=168:202:0:0:0x202020[b];[a]pad=376:202:0:0:0x202020[a2];[a2][b]hstack=inputs=2", "-frames:v", "1", "-update", "1", phone]);
         const [label] = await labelThumbnails([file]);
         const look = await measureLook(file, { fps: 1 });
-        const issues = [...textChecks(built.texts, built.used), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
+        const issues = [...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
         const r: ThumbRender = { id, file, phone, concept: d.concept, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness };
         renders.push(r);
         log(`    ${id}: "${d.concept.slice(0, 70)}" — ${issues.length ? issues.map((x) => x.kind).join(", ") : "inside the band"}`);
@@ -385,7 +508,13 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
       run: async (i: { id: string }) => {
         const r = renders.find((x) => x.id === i.id);
         if (!r) return `no render ${i.id}`;
-        const real = [...b.items].sort((x, y) => (y.views ?? 0) - (x.views ?? 0)).filter((_, k) => k % 3 === imposterRound % 3).slice(0, 4).map((x) => x.file);
+        // Fair: hidden among the channel's thumbnails made from real pictures alone (the only kind we may make);
+        // topped up with others when there are too few.
+        const pool = [...b.items].sort((x, y) => (y.views ?? 0) - (x.views ?? 0));
+        const ok = (x: (typeof pool)[number]) => (x.label.reach ? x.label.reach === "reachable" : x.label.makeable === "real_pictures");
+        const realOnes = pool.filter(ok);
+        const rot = (xs: typeof pool) => xs.map((_, k) => xs[(k + imposterRound * 4) % xs.length]!);
+        const real = [...rot(realOnes), ...rot(pool.filter((x) => !ok(x)))].slice(0, 4).map((x) => x.file);
         imposterRound++;
         const t = await thumbnailImposter({ channel: o.channel, candidate: r.file, real, seed: imposterRound * 2 + 1 });
         r.imposter = { spotted: t.spotted, confidence: t.spotted ? t.confidence : 0, tells: t.tells };
@@ -413,7 +542,10 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
           if (cw.length && cw.filter((w) => tw.has(w)).length / cw.length >= 0.6) refuse.push(`the thumbnail words "${texts}" repeat this title`);
           if (block.length) refuse.push(`blocking: ${block.map((x) => x.detail).join(" | ")}`);
           const soft = r.issues.filter((x) => !BLOCKERS.has(x.kind));
-          if (renders.length < 3 && (soft.length || (r.imposter?.spotted && r.imposter.confidence >= 0.7))) refuse.push(`it is still outside the channel's band or was picked out with confidence (${[...soft.map((x) => x.kind), ...(r.imposter?.spotted ? [`spotted ${r.imposter.confidence.toFixed(2)}`] : [])].join(", ")}). Fix it or try a different idea — you have rendered only ${renders.length}.`);
+          // Keep working while it is picked out or outside the band: at least five renders and two different ideas
+          // tested blind before a thumbnail that was picked out may be submitted.
+          const ideas = new Set(renders.filter((x) => x.imposter).map((x) => x.concept.slice(0, 40))).size;
+          if ((soft.length || r.imposter?.spotted) && (renders.length < 5 || ideas < 2)) refuse.push(`it is still outside the channel's band or was picked out (${[...soft.map((x) => x.kind), ...(r.imposter?.spotted ? [`spotted ${r.imposter.confidence.toFixed(2)}: ${r.imposter.tells.slice(0, 2).join("; ")}`] : [])].join(", ")}). Fix exactly that or try a different idea — ${renders.length} render(s), ${ideas} idea(s) tested blind so far; your other tools (find_expression, find_overlay, find_texture, find_illustration, stylise, compare, card3d, contactShadow, matchBackground) are there for this.`);
         }
         if (refuse.length) return `NOT ACCEPTED:\n${refuse.map((x) => `- ${x}`).join("\n")}`;
         accepted = { title: i.title.trim(), render: r! };
@@ -438,7 +570,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   const people = (o.facts.story?.characters ?? []).map((c) => `${c.name} (${c.role})`).join("; ");
   const user = `Package this film.\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
   let grace = 1;
-  const runRes = await agentLoop({ stage: "publish.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 36, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
+  const runRes = await agentLoop({ stage: "publish.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 44, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
 
   // Not submitted: the best render that carries no blocking issue (least confidently picked out), with the best title.
   const fallback = (): ThumbRender | null => {

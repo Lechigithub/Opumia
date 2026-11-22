@@ -144,6 +144,9 @@ importers:
       '@remotion/bundler':
         specifier: 4.0.539
         version: 4.0.539(postcss@8.5.33)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
+      '@remotion/google-fonts':
+        specifier: 4.0.539
+        version: 4.0.539(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       '@remotion/renderer':
         specifier: 4.0.539
         version: 4.0.539(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
@@ -992,6 +995,9 @@ packages:
 
   '@remotion/elevenlabs@4.0.539':
     resolution: {integrity: sha512-B/WswM4UWebc9kHhMGnFhQH13od27p6x480fe2UJCrljkCI5UZPKiRyzH6LIPAknyuYInds48DnQVNVaJwuqPg==}
+
+  '@remotion/google-fonts@4.0.539':
+    resolution: {integrity: sha512-mhpFjeSXkAB/nznbxZj6GCjul0bdHjLEFJU/naT2c7BEir8OWBCmqHBeXCGRlDMJCEwauSbetrZ230CzufUxHg==}
 
   '@remotion/licensing@4.0.539':
     resolution: {integrity: sha512-rkKXwA+iISnUma61TudwROPTIEl2MVmiNzdKJNCywkEL379k1FPVuK+P7VeQiAKcVDM9h/Lwq67ZMfdR4r20SA==}
@@ -2626,6 +2632,13 @@ snapshots:
     dependencies:
       '@remotion/captions': 4.0.539
       zod: 4.5.4
+
+  '@remotion/google-fonts@4.0.539(react-dom@19.2.9(react@19.2.9))(react@19.2.9)':
+    dependencies:
+      remotion: 4.0.539(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@remotion/licensing@4.0.539': {}
 

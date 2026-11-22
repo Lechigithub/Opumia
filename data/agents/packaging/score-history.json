@@ -32,5 +32,95 @@
         "usd": 0.417
       }
     ]
+  },
+  {
+    "at": "2026-11-22T00:58:09.983Z",
+    "commit": "92e80a8",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": true,
+        "passedBlind": true,
+        "spotted": 0,
+        "outsideBand": [],
+        "renders": 5,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 204,
+        "usd": 0.329
+      },
+      {
+        "job": "preview-theranos",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.6,
+        "outsideBand": [
+          "flat_face"
+        ],
+        "renders": 6,
+        "title": "How Theranos Fooled Silicon Valley",
+        "seconds": 151,
+        "usd": 0.339
+      }
+    ]
+  },
+  {
+    "at": "2026-11-22T01:05:03.662Z",
+    "commit": "92e80a8",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.6,
+        "outsideBand": [],
+        "renders": 3,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 121,
+        "usd": 0.222
+      },
+      {
+        "job": "preview-theranos",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.6,
+        "outsideBand": [
+          "flat_face"
+        ],
+        "renders": 4,
+        "title": "How Theranos Fooled Silicon Valley",
+        "seconds": 123,
+        "usd": 0.27
+      }
+    ]
+  },
+  {
+    "at": "2026-11-22T01:11:16.002Z",
+    "commit": "92e80a8",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": true,
+        "passedBlind": true,
+        "spotted": 0,
+        "outsideBand": [],
+        "renders": 5,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 144,
+        "usd": 0.294
+      },
+      {
+        "job": "preview-theranos",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.4,
+        "outsideBand": [
+          "flat_face"
+        ],
+        "renders": 7,
+        "title": "How Theranos Fooled Silicon Valley",
+        "seconds": 184,
+        "usd": 0.405
+      }
+    ]
   }
 ]

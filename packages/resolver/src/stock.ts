@@ -30,6 +30,8 @@ export interface SearchOpts {
   kind: "video" | "image";
   orientation: "landscape" | "portrait";
   perPage: number;
+  /** Images only: photos (default), or human-made illustrations / vector art (Pixabay, Vecteezy). */
+  imageType?: "photo" | "illustration" | "vector";
 }
 
 const UA = "Opumia/0.1 (documentary pipeline)";
@@ -83,7 +85,7 @@ async function pixabay(q: string, o: SearchOpts): Promise<StockCandidate[]> {
       return { provider: "pixabay" as const, externalId: String(v.id), kind: "video" as const, title: v.tags, tags: v.tags.split(",").map((t) => t.trim()), pageUrl: v.pageURL, fileUrl: f?.url || null, ...(f?.thumbnail ?? v.videos.tiny?.thumbnail ? { thumbUrl: (f?.thumbnail ?? v.videos.tiny?.thumbnail)! } : {}), width: f?.width, height: f?.height, durationS: v.duration, license: "Pixabay Content License", attributionRequired: false, attributionText: `Video by ${v.user} on Pixabay`, aiGenerated: AI_TAG.test(v.tags), archival: false };
     }).filter((c) => c.fileUrl && !c.aiGenerated);
   }
-  const j = await get<{ hits: Array<{ id: number; pageURL: string; tags: string; user: string; largeImageURL: string; webformatURL?: string; imageWidth: number; imageHeight: number }> }>(`https://pixabay.com/api/?${base}&image_type=photo&orientation=${o.orientation === "portrait" ? "vertical" : "horizontal"}`);
+  const j = await get<{ hits: Array<{ id: number; pageURL: string; tags: string; user: string; largeImageURL: string; webformatURL?: string; imageWidth: number; imageHeight: number }> }>(`https://pixabay.com/api/?${base}&image_type=${o.imageType ?? "photo"}&orientation=${o.orientation === "portrait" ? "vertical" : "horizontal"}`);
   return (j?.hits ?? []).map((p) => ({ provider: "pixabay" as const, externalId: String(p.id), kind: "image" as const, title: p.tags, tags: p.tags.split(",").map((t) => t.trim()), pageUrl: p.pageURL, fileUrl: p.largeImageURL, ...(p.webformatURL ? { thumbUrl: p.webformatURL } : {}), width: p.imageWidth, height: p.imageHeight, license: "Pixabay Content License", attributionRequired: false, attributionText: `Image by ${p.user} on Pixabay`, aiGenerated: AI_TAG.test(p.tags), archival: false })).filter((c) => !c.aiGenerated);
 }
 
@@ -97,10 +99,10 @@ async function coverr(q: string, o: SearchOpts): Promise<StockCandidate[]> {
 /* ---------------- Vecteezy ---------------- */
 async function vecteezy(q: string, o: SearchOpts): Promise<StockCandidate[]> {
   if (!env("VECTEEZY_API_KEY") || !env("VECTEEZY_ACCOUNT_ID")) return [];
-  const j = await get<{ resources: Array<{ id: number; title: string; tags: string[]; ai_generated: boolean | null; content_type: string; thumbnail_url?: string; preview_url?: string; file_metadata?: { available_download_sizes?: Array<{ width: number; height: number }> } }> }>(`https://api.vecteezy.com/v2/${env("VECTEEZY_ACCOUNT_ID")}/resources?term=${encodeURIComponent(q)}&content_type=${o.kind === "video" ? "video" : "photo"}&per_page=${o.perPage}`, { Authorization: `Bearer ${env("VECTEEZY_API_KEY")}` });
+  const j = await get<{ resources: Array<{ id: number; title: string; tags: string[]; ai_generated: boolean | null; content_type: string; thumbnail_url?: string; preview_url?: string; file_metadata?: { available_download_sizes?: Array<{ width: number; height: number }> } }> }>(`https://api.vecteezy.com/v2/${env("VECTEEZY_ACCOUNT_ID")}/resources?term=${encodeURIComponent(q)}&content_type=${o.kind === "video" ? "video" : o.imageType && o.imageType !== "photo" ? "vector" : "photo"}&per_page=${o.perPage}`, { Authorization: `Bearer ${env("VECTEEZY_API_KEY")}` });
   return (j?.resources ?? []).filter((r) => r.ai_generated !== true && !AI_TAG.test((r.tags ?? []).join(" "))).map((r) => {
     const big = r.file_metadata?.available_download_sizes?.[0];
-    return { provider: "vecteezy" as const, externalId: String(r.id), kind: o.kind, title: r.title, tags: r.tags ?? [], pageUrl: `https://www.vecteezy.com/${o.kind === "video" ? "video" : "photo"}/${r.id}`, fileUrl: null, ...(r.thumbnail_url ?? r.preview_url ? { thumbUrl: (r.thumbnail_url ?? r.preview_url)! } : {}), width: big?.width, height: big?.height, license: "Vecteezy License (API account)", attributionRequired: true, attributionText: "Stock media from Vecteezy.com", aiGenerated: false, archival: false };
+    return { provider: "vecteezy" as const, externalId: String(r.id), kind: o.kind, title: r.title, tags: r.tags ?? [], pageUrl: `https://www.vecteezy.com/${o.kind === "video" ? "video" : o.imageType && o.imageType !== "photo" ? "vector-art" : "photo"}/${r.id}`, fileUrl: null, ...(r.thumbnail_url ?? r.preview_url ? { thumbUrl: (r.thumbnail_url ?? r.preview_url)! } : {}), width: big?.width, height: big?.height, license: "Vecteezy License (API account)", attributionRequired: true, attributionText: "Stock media from Vecteezy.com", aiGenerated: false, archival: false };
   });
 }
 
@@ -222,7 +224,7 @@ export const archiveAt = (c: { durationS?: number }) => Math.max(5, Math.min((c.
 export async function downloadCandidate(c: StockCandidate, destDir: string): Promise<string> {
   let url = c.fileUrl;
   if (c.provider === "vecteezy") {
-    const j = await get<{ url: string }>(`https://api.vecteezy.com/v2/${env("VECTEEZY_ACCOUNT_ID")}/resources/${c.externalId}/download?file_type=${c.kind === "video" ? "mp4" : "jpg"}${c.kind === "video" ? "&size=medium" : ""}`, { Authorization: `Bearer ${env("VECTEEZY_API_KEY")}` });
+    const j = await get<{ url: string }>(`https://api.vecteezy.com/v2/${env("VECTEEZY_ACCOUNT_ID")}/resources/${c.externalId}/download?file_type=${c.kind === "video" ? "mp4" : c.pageUrl.includes("/vector-art/") ? "png" : "jpg"}${c.kind === "video" ? "&size=medium" : ""}`, { Authorization: `Bearer ${env("VECTEEZY_API_KEY")}` });
     url = j?.url ?? null;
   }
   if (!url) throw new Error(`no download URL for ${c.provider}:${c.externalId}`);

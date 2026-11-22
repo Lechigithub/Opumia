@@ -17,6 +17,8 @@ export const THUMB_HEROES = ["person", "product", "logo", "object", "building", 
 export const THUMB_BACKGROUNDS = ["colour_field", "gradient", "photo_scene", "split_colour", "pattern", "texture"] as const;
 export const THUMB_MAKEABLE = ["real_pictures", "needs_retouch", "needs_invention", "illustration"] as const;
 export const THUMB_MARKS = ["arrow", "circle", "cross", "strike", "box", "burst", "money", "fire", "glow", "outline"] as const;
+/** What it takes to make a thumbnail like this without any generative model (owner's rule, 2026-11-22). */
+export const THUMB_REACH = ["reachable", "face_alteration", "new_painting"] as const;
 export const THUMB_TEXT_STYLES = ["none", "label_box", "outlined", "plain", "gradient", "glow"] as const;
 
 const SYSTEM = `You label YouTube thumbnails, one label set per numbered image. Judge only what is visible; be literal.
@@ -34,7 +36,11 @@ makeable: could a designer make this exact thumbnail from real photographs alone
 - needs_retouch: real pictures, but a face or object is visibly altered (exaggerated expression, distorted, relit beyond grading, merged into a scene so seamlessly it reads as one photo).
 - needs_invention: it shows a scene that no photograph could have captured (a person in a place they never were, a building on fire that never burned, an impossible object) rendered photo-realistically.
 - illustration: drawn, painted, cartoon or 3D-rendered artwork rather than photos.
-why: one short sentence on what decided makeable.`;
+why: one short sentence on what decided makeable.
+reach: could a designer make it WITHOUT any generative model, using only: compositing real photos into one scene (cut-outs, matched light, shadows, perspective), real textures laid over things (blood splatter, cracks, burns, smoke, fire footage), recolouring and filters (tint, glitch, painterly, posterise, halftone), splitting two real faces into halves, and human-made licensed illustrations or vector art?
+- reachable: yes, all of it.
+- face_alteration: it depends on changing a real person's face itself — an expression they never made, features or make-up painted onto their skin, a distorted face.
+- new_painting: it depends on artwork painted or drawn specifically for this thumbnail that no licensed illustration would supply (a custom caricature, a painted portrait of the real person).`
 
 const Labels = z.object({
   thumbs: z.array(
@@ -54,6 +60,7 @@ const Labels = z.object({
       marks: z.array(z.enum(THUMB_MARKS)),
       makeable: z.enum(THUMB_MAKEABLE),
       why: z.string(),
+      reach: z.enum(THUMB_REACH),
     }),
   ),
 });
@@ -98,6 +105,8 @@ export interface ThumbBand {
   hero: Record<(typeof THUMB_HEROES)[number], number>;
   background: Record<(typeof THUMB_BACKGROUNDS)[number], number>;
   makeable: Record<(typeof THUMB_MAKEABLE)[number], number>;
+  /** Share the platform's toolkit can reach without generation. */
+  reach: Record<(typeof THUMB_REACH)[number], number>;
   marks: Record<(typeof THUMB_MARKS)[number], number>;
   heroShare: { p10: number; median: number; p90: number };
   cutoutShare: number;
@@ -125,6 +134,7 @@ export function thumbBand(channel: string, items: ThumbBand["items"]): ThumbBand
     hero: share(ls, (l) => l.hero, THUMB_HEROES),
     background: share(ls, (l) => l.background, THUMB_BACKGROUNDS),
     makeable: share(ls, (l) => l.makeable, THUMB_MAKEABLE),
+    reach: share(ls, (l) => l.reach, THUMB_REACH),
     marks: share(ls, (l) => l.marks, THUMB_MARKS),
     heroShare: { p10: q(ls.map((l) => l.heroShare), 0.1), median: q(ls.map((l) => l.heroShare), 0.5), p90: q(ls.map((l) => l.heroShare), 0.9) },
     cutoutShare: ls.filter((l) => l.heroCutout).length / Math.max(1, ls.length),
@@ -147,7 +157,7 @@ export async function ensureThumbBand(o: { data: string; channel: string; thumbs
   const file = path.join(o.data, "thumbnail-profile", `${o.channel}.json`);
   const prev = await readFile(file, "utf8").then((t) => JSON.parse(t) as ThumbBand, () => null);
   // Matched by file name: the same set reached through a relative or an absolute data path is the same set.
-  if (prev && prev.count > 0 && prev.textStyle && prev.items.length === o.thumbs.length && o.thumbs.every((t) => prev.items.some((x) => path.basename(x.file) === path.basename(t.file)))) {
+  if (prev && prev.count > 0 && prev.textStyle && prev.reach && prev.items.length === o.thumbs.length && o.thumbs.every((t) => prev.items.some((x) => path.basename(x.file) === path.basename(t.file)))) {
     const byName = new Map(o.thumbs.map((t) => [path.basename(t.file), t.file]));
     return { ...prev, items: prev.items.map((x) => ({ ...x, file: byName.get(path.basename(x.file)) ?? x.file })) };
   }
@@ -169,7 +179,7 @@ export interface ThumbIssue { kind: string; detail: string }
 export function thumbIssues(l: ThumbLabel, look: { colourfulness: number; luma: number }, band: ThumbBand): ThumbIssue[] {
   const out: ThumbIssue[] = [];
   const pct = (x: number) => `${Math.round(x * 100)} %`;
-  if (l.makeable !== "real_pictures") out.push({ kind: "not_real_pictures", detail: `it reads as ${l.makeable.replace("_", " ")} (${l.why}). Thumbnails here are composed from real pictures only.` });
+  if (l.reach !== "reachable") out.push({ kind: "not_real_pictures", detail: `it reads as needing ${l.reach.replace("_", " ")} (${l.why}). Nothing may alter a real face or be painted new.` });
   if (l.hero !== "text" && l.heroShare < band.heroShare.p10) out.push({ kind: "hero_too_small", detail: `the hero covers ${pct(l.heroShare)} of the frame; the channel's heroes cover ${pct(band.heroShare.p10)}–${pct(band.heroShare.p90)} (median ${pct(band.heroShare.median)}). Make it bigger — crop it with the frame edge if needed.` });
   if (l.words > Math.max(band.words.p90, 1)) out.push({ kind: "too_many_words", detail: `${l.words} words; the channel uses at most ${band.words.p90} on nine thumbnails in ten (median ${band.words.median}, ${pct(band.words.noTextShare)} have none).` });
   if (l.words > 0 && l.textHeight < band.textHeight.p10 * 0.9) out.push({ kind: "text_too_small", detail: `the text is ${pct(l.textHeight)} of the frame height; the channel's biggest text is ${pct(band.textHeight.p10)}+ (median ${pct(band.textHeight.median)}). Fewer words, bigger.` });

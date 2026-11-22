@@ -216,6 +216,58 @@ export async function youtubePress(o: { entity: { name: string; type: string; ye
 }
 
 // ---------------------------------------------------------------------------------------------------------
+// Real stills of a named person from press video (interviews, news, talks): for a thumbnail's expression.
+// Frames are grabbed straight from the stream at a few moments — no clip is downloaded. The same filters as press
+// footage apply: the title names the person, a namesake must also name another subject of the film, and no
+// documentary/essay channel, drama, trailer or reference channel is ever used.
+
+export interface PressStill { id: string; file: string; videoId: string; atS: number; title: string; channel: string; url: string }
+
+export async function youtubeStills(o: { name: string; world: string[]; dlDir: string; videos?: number; frames?: number; queries?: string[] }): Promise<PressStill[]> {
+  const world = o.world.filter((w) => w.toLowerCase() !== o.name.toLowerCase());
+  const queries = o.queries?.length ? o.queries : [`${o.name} interview`, `${o.name} news`, `${o.name} speech`];
+  const seen = new Set<string>();
+  const hits: YtEntry[] = [];
+  for (const q of queries) {
+    for (const e of await ytSearch(q, 8)) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
+      if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title) || DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title)) continue;
+      if (!e.duration || e.duration < 30 || e.duration > 5400) continue;
+      if (!namesAll(e.title, o.name)) continue;
+      if (world.length && !world.some((w) => namesAll(`${e.title} ${ch}`, w)) && o.name.split(/\s+/).length < 2) continue;
+      hits.push(e);
+    }
+    if (hits.length >= (o.videos ?? 3)) break;
+  }
+  await mkdir(o.dlDir, { recursive: true });
+  const n = o.frames ?? 8;
+  const out = await Promise.all(
+    hits.slice(0, o.videos ?? 3).map(async (e) => {
+      let stream: string | null = null;
+      try {
+        const { stdout } = await run("yt-dlp", ["--no-warnings", "--no-playlist", "-g", "-f", "bv*[height<=1080][ext=mp4]/bv*[height<=1080]/b[height<=1080]", `https://www.youtube.com/watch?v=${e.id}`], { timeout: 60_000 });
+        stream = stdout.trim().split("\n")[0] ?? null;
+      } catch {
+        return [];
+      }
+      if (!stream) return [];
+      const d = e.duration!;
+      const times = Array.from({ length: n }, (_, k) => Math.round(Math.max(6, Math.min(d - 6, d * (0.08 + (0.84 * k) / Math.max(1, n - 1)))) * 10) / 10);
+      const frames: PressStill[] = [];
+      for (const t of times) {
+        const file = path.join(o.dlDir, `ys_${e.id}_${Math.round(t * 10)}.jpg`);
+        if (!(await exists(file))) await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", t.toFixed(1), "-i", stream, "-frames:v", "1", "-update", "1", "-q:v", "2", file], { timeout: 45_000 }).catch(() => {});
+        if (await exists(file)) frames.push({ id: `${e.id}@${t}`, file, videoId: e.id, atS: t, title: e.title, channel: e.channel ?? e.uploader ?? "YouTube", url: `https://www.youtube.com/watch?v=${e.id}&t=${Math.round(t)}s` });
+      }
+      return frames;
+    }),
+  );
+  return out.flat();
+}
+
+// ---------------------------------------------------------------------------------------------------------
 // YouTube by what a line describes: real footage of the film's named subjects, found by description. Only a
 // preview frame is fetched per moment; the ≤ 6.5 s clip is downloaded once the candidate has been chosen.
 

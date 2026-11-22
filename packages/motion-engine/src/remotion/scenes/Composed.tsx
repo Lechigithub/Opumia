@@ -29,8 +29,38 @@ type El =
       half?: "left" | "right" | "top" | "bottom";
       flip?: boolean;
       outlineColor?: string;
+      /** Light from the scene behind: the background's colour laid over the subject at soft-light, so it sits in it. */
+      matchColor?: string;
+      matchStrength?: number;
+      brightness?: number;
+      /** Compositing into a real scene: a contact shadow on the ground, softened cut edges, a perspective turn. */
+      contactShadow?: number;
+      soften?: number;
+      turnX?: number;
+      turnY?: number;
+      /** A real texture (blood splatter, cracks, burns, dirt) laid on the subject only. */
+      textureSlot?: number;
+      textureBlend?: "multiply" | "screen" | "overlay" | "darken";
+      textureOpacity?: number;
     })
-  | (Box & { type: "text"; text: string; role: "display" | "headline" | "body" | "label" | "stamp" | "kicker"; size: number; align?: "left" | "center" | "right"; color?: Token; box?: Token; highlightWord?: string })
+  | (Box & {
+      type: "text";
+      text: string;
+      role: "display" | "headline" | "body" | "label" | "stamp" | "kicker";
+      size: number;
+      align?: "left" | "center" | "right";
+      color?: Token;
+      box?: Token;
+      highlightWord?: string;
+      /** Thumbnail lettering: a font family stack, a drawing style and exact colours (override the film treatment). */
+      fontFamily?: string;
+      letter?: "label_box" | "outlined" | "plain" | "glow" | "gradient";
+      fill?: string;
+      boxFill?: string;
+      strokeColor?: string;
+      highlightFill?: string;
+      italic?: boolean;
+    })
   | (Box & { type: "phrase"; text: string; size: number; align?: "left" | "center" | "right"; color?: Token; emphasis?: string; wordFrames?: number[] })
   | (Box & { type: "text3d"; text: string; color?: Token; spin?: number })
   | (Box & { type: "card3d"; slot: number; tilt?: number; spin?: number })
@@ -240,17 +270,24 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const gc = hex(el.glowColor);
     const gs = Math.max(0.3, Math.min(3, el.glowSize ?? 1));
     const glow = gc ? `drop-shadow(0 0 ${Math.round(w * 0.012 * gs)}px ${gc}) drop-shadow(0 0 ${Math.round(w * 0.04 * gs)}px ${gc}cc) ` : TREATMENT.glow > 0.3 ? `drop-shadow(0 0 ${28 * TREATMENT.glow}px ${PALETTE.gold}aa) ` : "";
-    const grade = el.look === "punch" ? "contrast(1.22) saturate(1.45) brightness(1.06)" : el.look === "mono" ? "grayscale(1) contrast(1.3) brightness(1.04)" : el.look === "glitch" ? "contrast(1.15) saturate(1.2)" : "none";
+    const bright = el.brightness ? ` brightness(${Math.max(0.6, Math.min(1.5, el.brightness))})` : "";
+    const soft = el.soften ? ` blur(${Math.max(0, Math.min(3, el.soften)).toFixed(2)}px)` : "";
+    const grade = (el.look === "punch" ? "contrast(1.22) saturate(1.45) brightness(1.06)" : el.look === "mono" ? "grayscale(1) contrast(1.3) brightness(1.04)" : el.look === "glitch" ? "contrast(1.15) saturate(1.2)" : "") + bright + soft || "none";
     const clip = el.half === "left" ? "inset(0 50% 0 0)" : el.half === "right" ? "inset(0 0 0 50%)" : el.half === "top" ? "inset(0 0 50% 0)" : el.half === "bottom" ? "inset(50% 0 0 0)" : undefined;
     const flip = el.flip ? "scaleX(-1)" : undefined;
     const mask = (extra: React.CSSProperties = {}): React.CSSProperties => ({ position: "absolute", inset: 0, WebkitMaskImage: `url(${staticFile(src)})`, maskImage: `url(${staticFile(src)})`, WebkitMaskSize: "100% 100%", maskSize: "100% 100%", ...(flip ? { transform: flip } : {}), ...extra });
     const tc = hex(el.tint);
     const off = Math.max(2, w * 0.012);
+    const texSrc = el.textureSlot !== undefined ? slots[String(el.textureSlot)] : undefined;
+    const turn = el.turnX || el.turnY ? `perspective(${Math.round(w * 2.2)}px) rotateY(${Math.max(-35, Math.min(35, el.turnY ?? 0))}deg) rotateX(${Math.max(-25, Math.min(25, el.turnX ?? 0))}deg)` : undefined;
     return wrap(
-      <div style={{ position: "relative", filter: `${outline}${glow}${el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.65))"}`.trim() || undefined }}>
+      <div style={{ position: "relative", ...(turn ? { transform: turn } : {}), filter: `${outline}${glow}${el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.65))"}`.trim() || undefined }}>
+        {el.contactShadow ? <div style={mask({ background: "#000", opacity: Math.max(0, Math.min(1, el.contactShadow)), top: "auto", height: "100%", transform: `translateY(48%) scaleY(0.12) ${flip ?? ""}`, filter: `blur(${Math.round(w * 0.02)}px)` })} /> : null}
         <div style={{ position: "relative", ...(clip ? { clipPath: clip } : {}) }}>
           <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: grade, ...(flip ? { transform: flip } : {}) }} />
           {tc ? <div style={mask({ background: tc, mixBlendMode: "color", opacity: Math.max(0, Math.min(1, el.tintStrength ?? 0.6)) })} /> : null}
+          {texSrc ? <div style={mask({ backgroundImage: `url(${staticFile(texSrc)})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: el.textureBlend ?? "multiply", opacity: Math.max(0, Math.min(1, el.textureOpacity ?? 0.8)) })} /> : null}
+          {hex(el.matchColor) ? <div style={mask({ background: `radial-gradient(ellipse at 50% 30%, transparent 20%, ${hex(el.matchColor)} 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.matchStrength ?? 0.55)) })} /> : null}
           {el.look === "glitch" ? (
             <>
               <div style={mask({ background: "#ff2a55", mixBlendMode: "screen", opacity: 0.55, left: -off, right: off })} />
@@ -307,15 +344,26 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const display = el.role === "display" || el.role === "headline" || el.role === "stamp";
     const longest = Math.max(1, ...el.text.split(/\s+/).map((x) => x.length));
     const em = display ? (TYPO.casing === "upper" ? 0.74 : 0.62) : 0.56;
-    const pad = el.role === "stamp" ? 1.25 : el.box || TREATMENT.headline === "boxed" ? 1.18 : 1;
+    const pad = el.role === "stamp" ? 1.25 : el.box || el.letter === "label_box" || (!el.letter && TREATMENT.headline === "boxed") ? 1.18 : 1;
     const size = Math.min(el.size * height, (w / (longest * em * pad)) * 0.96);
     const color = tok(el.color, PALETTE.text);
     const raw = (display || el.role === "kicker" || el.role === "label") && TYPO.casing === "upper" ? el.text.toUpperCase() : el.text;
     const shown = el.enter === "type" ? raw.slice(0, Math.ceil(raw.length * e.p)) : raw;
     const hw = el.highlightWord?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-    const content = shown.split(/(\s+)/).map((wd, k) => (hw && wd.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") === hw ? <span key={k} style={{ ...(TREATMENT.headline === "gradient" && display ? { WebkitTextFillColor: PALETTE.crimson } : { color: PALETTE.crimson }) }}>{wd}</span> : <span key={k}>{wd}</span>));
+    const hx = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
+    const hiColor = hx(el.highlightFill) ?? PALETTE.crimson;
+    const content = shown.split(/(\s+)/).map((wd, k) => (hw && wd.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") === hw ? <span key={k} style={{ ...((el.letter ?? (TREATMENT.headline === "gradient" ? "gradient" : "")) === "gradient" && display ? { WebkitTextFillColor: hiColor } : { color: hiColor }) }}>{wd}</span> : <span key={k}>{wd}</span>));
     let css: React.CSSProperties;
-    if (display && el.role !== "stamp") css = el.box ? { color, background: tok(el.box, PALETTE.ink), padding: `${size * 0.12}px ${size * 0.3}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties : textCss(TREATMENT.headline, color, size);
+    if (el.letter) {
+      const fill = hx(el.fill) ?? color;
+      const stroke = hx(el.strokeColor) ?? "#0a0a0a";
+      css =
+        el.letter === "label_box" ? ({ color: fill, background: hx(el.boxFill) ?? PALETTE.crimson, padding: `${size * 0.06}px ${size * 0.22}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", boxShadow: `0 ${size * 0.08}px ${size * 0.25}px rgba(0,0,0,0.45)` } as React.CSSProperties)
+        : el.letter === "outlined" ? ({ color: fill, WebkitTextStroke: `${Math.max(3, size * 0.08)}px ${stroke}`, paintOrder: "stroke fill", textShadow: `0 ${size * 0.05}px 0 ${stroke}, 0 ${size * 0.12}px ${size * 0.22}px rgba(0,0,0,0.6)` } as React.CSSProperties)
+        : el.letter === "glow" ? ({ color: fill, textShadow: `0 0 ${size * 0.12}px ${fill}, 0 0 ${size * 0.35}px ${fill}aa, 0 ${size * 0.05}px ${size * 0.1}px rgba(0,0,0,0.9)` } as React.CSSProperties)
+        : el.letter === "gradient" ? ({ backgroundImage: `linear-gradient(180deg, #ffffff 5%, ${fill} 60%, ${hx(el.boxFill) ?? PALETTE.crimson} 115%)`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", filter: `drop-shadow(0 ${size * 0.05}px ${size * 0.1}px rgba(0,0,0,0.8))` } as React.CSSProperties)
+        : { color: fill, textShadow: `0 ${size * 0.04}px ${size * 0.16}px rgba(0,0,0,0.85)` };
+    } else if (display && el.role !== "stamp") css = el.box ? { color, background: tok(el.box, PALETTE.ink), padding: `${size * 0.12}px ${size * 0.3}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties : textCss(TREATMENT.headline, color, size);
     else if (el.role === "stamp") css = { color, border: `${Math.max(4, size * 0.07)}px solid ${color}`, padding: `${size * 0.08}px ${size * 0.25}px`, display: "inline-block", textShadow: "0 3px 10px rgba(0,0,0,0.7)" };
     else if (el.role === "label" || el.role === "kicker") {
       const l = TREATMENT.label;
@@ -327,8 +375,8 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
         : { color, textShadow: "0 2px 12px rgba(0,0,0,0.95), 0 0 2px #000" };
     } else css = el.box ? { color, background: tok(el.box, PALETTE.ink), padding: `${size * 0.12}px ${size * 0.3}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties : { color, textShadow: "0 3px 18px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.9)" };
     return wrap(
-      <div style={{ textAlign: el.align ?? "left", lineHeight: display ? (TREATMENT.headline === "boxed" || TREATMENT.headline === "paper_cut" ? 1.45 : 1.0) : 1.2 }}>
-        <span style={{ display: "inline", fontFamily: display ? FONT : FONT_BODY, fontWeight: display ? 900 : el.role === "label" || el.role === "kicker" ? 800 : 600, fontSize: size, letterSpacing: display ? TYPO.tracking : el.role === "kicker" ? 4 : 0.5, ...css }}>{content}</span>
+      <div style={{ textAlign: el.align ?? "left", lineHeight: display ? (el.letter === "label_box" || (!el.letter && (TREATMENT.headline === "boxed" || TREATMENT.headline === "paper_cut")) ? 1.3 : 1.0) : 1.2 }}>
+        <span style={{ display: "inline", fontFamily: el.fontFamily ?? (display ? FONT : FONT_BODY), fontWeight: display ? 900 : el.role === "label" || el.role === "kicker" ? 800 : 600, fontStyle: el.italic ? "italic" : "normal", fontSize: size, letterSpacing: el.fontFamily ? 0 : display ? TYPO.tracking : el.role === "kicker" ? 4 : 0.5, ...css }}>{content}</span>
       </div>,
     );
   }

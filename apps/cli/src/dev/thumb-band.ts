@@ -14,5 +14,5 @@ const band = await ensureThumbBand({ data, channel, thumbs: ex.thumbs.map((t) =>
 if (!band) throw new Error("no band");
 const { items, ...rest } = band;
 console.log(JSON.stringify(rest, null, 1));
-for (const x of items.filter((i) => i.label.makeable !== "real_pictures")) console.log(`  ${x.label.makeable}: ${x.title} — ${x.label.why}`);
+for (const x of items.filter((i) => i.label.reach !== "reachable")) console.log(`  ${x.label.reach} (${x.label.makeable}): ${x.title} — ${x.label.why}`);
 console.log(`$${usageLedger().reduce((t, r) => t + r.usd, 0).toFixed(3)}`);

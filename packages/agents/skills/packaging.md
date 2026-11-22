@@ -6,13 +6,12 @@ comment are written after you, from your title.
 
 ## The one hard rule
 
-Every picture in the thumbnail is real: a photograph, a logo, a library object, a frame of the film's own footage,
-or a cut-out of one of these. You never invent a scene, never alter a face, never use an illustration. You may grade,
-tint, glow, outline, split, crop, mirror and layer real pixels — that is finishing, not generation.
-
-About a third of the channel's real thumbnails are made exactly this way. The others use painted-on wounds,
-merged faces, invented scenes or drawn artwork. You do not imitate those. You aim at the third that is real
-and make it as strong as the best of them.
+Nothing in the thumbnail comes from a generative model. Every picture is a real photograph, logo, library object,
+frame of real footage, real texture, or a human-made licensed illustration — or a cut-out of one of these. You may
+grade, tint, glow, outline, split, crop, mirror, filter (painterly, posterise, ink, halftone) and composite real
+pixels into a scene that never happened: that is photo manipulation, the way the channel's own designers work.
+You never alter a real person's face (expression, features, injuries painted onto skin by hand): to show a feeling,
+find a real frame where they show it; to show damage, lay a real texture over it.
 
 ## What the channel's thumbnails do (measured — the numbers you are given are the truth)
 
@@ -37,10 +36,12 @@ and make it as strong as the best of them.
    kind, the background kind, the marks.
 2. **Gather the pictures.** You start with the film's verified press stills and the subjects' Wikipedia photos and
    logos. Get what the idea needs:
-   - a real expression: `film_footage` → look at the strip of a press clip → `use_film_frame` at the strongest moment;
+   - a real expression: `find_expression` (frames from interviews, news and speeches about the person, rated) →
+     `use_press_frame`; or `film_footage` → `use_film_frame` from the film's own press clips;
    - a better photo of a subject: `find_picture` with the subject's name;
    - a place, a scene or an object behind or beside the hero: `find_picture` (stock and archives);
-   - fire, smoke, sparks, light: `search_library` kind `overlay` (filmed on black, blended with `screen`);
+   - fire, smoke, sparks, explosions, light: `find_overlay` (stock video filmed on black — dense, saturated frames)
+     or `search_library` kind `overlay`; blend with `screen`;
    - money, coins, everyday objects: `search_library` kind `object`;
    - then `cut_out` the subjects you want lifted off their backgrounds.
 3. **Write titles and test them** (`test_titles`): five or six candidates in different patterns of the channel's
@@ -51,6 +52,25 @@ and make it as strong as the best of them.
 5. **Test it blind** (`imposter_test`): it is hidden among real thumbnails of the channel and a judge who knows the
    channel picks the imitation. Fix what gave it away.
 6. **Submit** the title and the thumbnail that work together.
+
+## Compositing a scene from real pictures
+
+- **Stand the subject in the place:** a background photo, the subject cut out in front, `matchBackground` (light),
+  `contactShadow` (a shadow on the ground), `soften` (no hard cut edge), `turnX`/`turnY` (perspective to the scene).
+- **Damage and drama:** `find_texture` (blood splatter, cracked glass, burns, dirt) on a subject via `textureSlot`
+  or over the frame as an overlay; `find_overlay` for fire, smoke, explosions.
+- **Drawn looks:** `find_illustration` for human-made illustrations and vectors (mascots, drawn objects), or
+  `stylise` a real photo painterly, posterised or as ink.
+
+## Finishing tools
+
+- **Lettering:** `font` (heavy_sans, wide_heavy, condensed, tall_condensed, narrow, slab, serif), `letter`
+  (label_box, outlined, plain, glow, gradient) and exact colours (`fill`, `boxFill`, `strokeColor`,
+  `highlightFill`). Match the channel's lettering you are shown — the measurement names it.
+- **Depth for logos and documents:** `card3d` draws a picture as a lit card in real 3D perspective.
+- **Sit the subject in the scene:** `matchBackground` lights a cut-out with the background photo's colour;
+  `brightness` lifts a dark face; the whole-image `grade` sets contrast, saturation, brightness and warmth.
+- **Choose by eye:** `compare` puts two of your renders side by side, also at phone size.
 
 ## Craft notes
 

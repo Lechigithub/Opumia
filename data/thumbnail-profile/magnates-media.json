@@ -5,89 +5,93 @@
   "person": 0.514,
   "product": 0.135,
   "logo": 0.189,
-  "object": 0.135,
+  "object": 0.162,
   "building": 0,
   "place": 0,
-  "text": 0.027,
+  "text": 0,
   "none": 0
  },
  "background": {
-  "colour_field": 0.054,
+  "colour_field": 0.027,
   "gradient": 0.081,
-  "photo_scene": 0.486,
-  "split_colour": 0.081,
-  "pattern": 0.243,
+  "photo_scene": 0.514,
+  "split_colour": 0.108,
+  "pattern": 0.216,
   "texture": 0.054
  },
  "makeable": {
-  "real_pictures": 0.27,
-  "needs_retouch": 0.486,
-  "needs_invention": 0.054,
-  "illustration": 0.189
+  "real_pictures": 0.459,
+  "needs_retouch": 0.351,
+  "needs_invention": 0.027,
+  "illustration": 0.162
+ },
+ "reach": {
+  "reachable": 0.757,
+  "face_alteration": 0.135,
+  "new_painting": 0.108
  },
  "marks": {
   "arrow": 0.054,
   "circle": 0,
   "cross": 0,
   "strike": 0,
-  "box": 0.189,
-  "burst": 0.081,
+  "box": 0.216,
+  "burst": 0.108,
   "money": 0.297,
   "fire": 0.27,
-  "glow": 0.541,
+  "glow": 0.514,
   "outline": 0.135
  },
  "heroShare": {
   "p10": 0.3,
   "median": 0.4,
-  "p90": 0.6
+  "p90": 0.55
  },
- "cutoutShare": 0.918918918918919,
+ "cutoutShare": 0.8918918918918919,
  "faceShare": 0.5405405405405406,
- "strongExpressionShare": 0.4,
+ "strongExpressionShare": 0.3,
  "words": {
   "median": 1,
   "p90": 4,
   "max": 6,
-  "noTextShare": 0.35135135135135137
+  "noTextShare": 0.3783783783783784
  },
  "textHeight": {
-  "p10": 0.08,
-  "median": 0.17
+  "p10": 0.1,
+  "median": 0.15
  },
  "textStyle": {
-  "none": 0.042,
-  "label_box": 0.292,
-  "outlined": 0.083,
-  "plain": 0.583,
+  "none": 0,
+  "label_box": 0.348,
+  "outlined": 0.043,
+  "plain": 0.609,
   "gradient": 0,
   "glow": 0
  },
  "textLooks": [
   "white heavy sans-serif on green and red boxes",
   "white heavy sans-serif on red and black boxes",
-  "white serif on black bar with red swoosh",
-  "black heavy sans-serif on yellow road sign",
-  "white Nestle logo on red hat, no headline",
-  "yellow thin wide sans-serif capitals",
-  "white serif-like caps with a yellow outline beneath the logo",
-  "pale cyan heavy italic sans-serif, faded behind the shoe",
-  "red heavy condensed sans-serif on a white badge with a green border",
-  "chrome metallic sans-serif logo letters",
+  "white serif on black bar; white script logo",
+  "black heavy distressed sans-serif on yellow sign",
+  "yellow thin wide sans-serif",
+  "white heavy serif-like letters with outline under logo",
+  "pale cyan heavy italic sans-serif, faded",
+  "red heavy condensed sans-serif on white box with green banner",
+  "chrome metallic sans-serif logo lettering",
   "white dotted stud-style sans-serif",
-  "red dripping blood-style heavy serif",
-  "rainbow gradient thin sans-serif",
-  "red bold italic sans-serif on white brush stroke",
-  "white heavy sans-serif on black box, white Coca-Cola script on red box",
-  "white heavy script with dark outline on a red oval logo",
-  "blue and orange FedEx logotype on truck",
-  "dark brown heavy sans-serif on a building sign, with ornate gold lettering on the right",
-  "red heavy rounded sans-serif logo lettering",
-  "yellow-gold serif capitals with wide letter spacing",
-  "black serif letters in white on black bar with blue swoosh",
-  "yellow-orange heavy sans-serif letters",
-  "large white heavy sans-serif letters, semi-transparent",
-  "white heavy sans-serif on black and red boxes"
+  "red dripping blood-splatter serif lettering",
+  "rainbow gradient thin sans-serif letters",
+  "red bold italic sans-serif on white brush-stroke box",
+  "white heavy sans-serif on black box; white script logo on red box",
+  "white distressed script with black outline on a red oval",
+  "blue and orange FedEx logo lettering on the truck",
+  "dark brown heavy sans-serif on the Hershey sign, gold script on the factory sign",
+  "red heavy rounded sans-serif in logo, yellow and blue ring",
+  "yellow serif capitals, wide spacing",
+  "white serif on black box with blue swoosh",
+  "yellow-gold heavy sans-serif letters",
+  "white heavy sans-serif, semi-transparent over red",
+  "white heavy sans-serif on black box and red box"
  ],
  "elements": {
   "median": 4,
@@ -116,7 +120,7 @@
     "background": "pattern",
     "elements": 4,
     "words": 3,
-    "textHeight": 0.15,
+    "textHeight": 0.14,
     "textStyle": "label_box",
     "textLook": "white heavy sans-serif on green and red boxes",
     "marks": [
@@ -125,7 +129,8 @@
      "outline"
     ],
     "makeable": "real_pictures",
-    "why": "Logo, padlock and hand cutouts over a binary-code background can be composed from existing images."
+    "why": "Logo, padlock, hand cut-out and binary digits can all be composited from real assets.",
+    "reach": "reachable"
    },
    "colourfulness": 96.6,
    "luma": 0.332
@@ -136,14 +141,14 @@
    "views": 2966798,
    "label": {
     "hero": "logo",
-    "heroShare": 0.3,
+    "heroShare": 0.25,
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
     "background": "photo_scene",
     "elements": 5,
     "words": 5,
-    "textHeight": 0.14,
+    "textHeight": 0.13,
     "textStyle": "label_box",
     "textLook": "white heavy sans-serif on red and black boxes",
     "marks": [
@@ -151,7 +156,8 @@
      "box"
     ],
     "makeable": "real_pictures",
-    "why": "Uber logo, handcuffs, car images and an arrow are placed over a map background."
+    "why": "Logo, handcuffs, car images, arrow and map background are composited assets.",
+    "reach": "reachable"
    },
    "colourfulness": 88.7,
    "luma": 0.359
@@ -162,7 +168,7 @@
    "views": 7650608,
    "label": {
     "hero": "product",
-    "heroShare": 0.45,
+    "heroShare": 0.4,
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
@@ -171,12 +177,13 @@
     "words": 4,
     "textHeight": 0.1,
     "textStyle": "label_box",
-    "textLook": "white serif on black bar with red swoosh",
+    "textLook": "white serif on black bar; white script logo",
     "marks": [
      "box"
     ],
     "makeable": "real_pictures",
-    "why": "Coca-Cola glass, trucks and bottle packs are existing brand imagery composed on red."
+    "why": "Coca-Cola glass, trucks, bottle packs and red wave are composited brand imagery.",
+    "reach": "reachable"
    },
    "colourfulness": 135.9,
    "luma": 0.385
@@ -187,7 +194,7 @@
    "views": 6562655,
    "label": {
     "hero": "logo",
-    "heroShare": 0.4,
+    "heroShare": 0.3,
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
@@ -202,7 +209,8 @@
      "glow"
     ],
     "makeable": "real_pictures",
-    "why": "Netflix logo is placed over stock flame footage and a show-poster background."
+    "why": "Netflix logo over real fire footage and show posters is a simple composite.",
+    "reach": "reachable"
    },
    "colourfulness": 142.1,
    "luma": 0.405
@@ -212,22 +220,23 @@
    "title": "The Most Illegal Business In The World: Silk Road",
    "views": 6053699,
    "label": {
-    "hero": "text",
-    "heroShare": 0.3,
+    "hero": "object",
+    "heroShare": 0.25,
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
-    "background": "photo_scene",
+    "background": "gradient",
     "elements": 4,
     "words": 2,
-    "textHeight": 0.17,
+    "textHeight": 0.14,
     "textStyle": "plain",
-    "textLook": "black heavy sans-serif on yellow road sign",
+    "textLook": "black heavy distressed sans-serif on yellow sign",
     "marks": [
      "glow"
     ],
     "makeable": "illustration",
-    "why": "Stylised illustrated camel, landscape and helicopter are drawn artwork."
+    "why": "Stylised painted camel rider and landscape artwork is illustration.",
+    "reach": "new_painting"
    },
    "colourfulness": 121.8,
    "luma": 0.368
@@ -239,20 +248,21 @@
    "label": {
     "hero": "person",
     "heroShare": 0.4,
-    "heroCutout": true,
+    "heroCutout": false,
     "faces": 1,
     "expression": "neutral",
     "background": "pattern",
     "elements": 4,
-    "words": 2,
-    "textHeight": 0.08,
+    "words": 0,
+    "textHeight": 0,
     "textStyle": "none",
-    "textLook": "white Nestle logo on red hat, no headline",
+    "textLook": "none",
     "marks": [
      "arrow"
     ],
     "makeable": "needs_retouch",
-    "why": "The nurse's face is visibly altered with painted-on injuries and a branded hat, merged with the scene."
+    "why": "Face is painted with black tears, bandage and scars, altering the face itself.",
+    "reach": "face_alteration"
    },
    "colourfulness": 92.4,
    "luma": 0.393
@@ -272,12 +282,13 @@
     "words": 0,
     "textHeight": 0,
     "textStyle": "none",
-    "textLook": "",
+    "textLook": "none",
     "marks": [
      "money"
     ],
-    "makeable": "needs_retouch",
-    "why": "Three separate portraits and cash are composited and the middle face looks enlarged and merged into a grass scene."
+    "makeable": "real_pictures",
+    "why": "Three real portraits and cash photos composited over a sky and grass photo.",
+    "reach": "reachable"
    },
    "colourfulness": 95.1,
    "luma": 0.525
@@ -297,10 +308,11 @@
     "words": 2,
     "textHeight": 0.15,
     "textStyle": "plain",
-    "textLook": "yellow thin wide sans-serif capitals",
+    "textLook": "yellow thin wide sans-serif",
     "marks": [],
     "makeable": "needs_retouch",
-    "why": "A person is placed in front of a monogram pattern over brick with heavy grading, blending into one stylised scene."
+    "why": "The person is heavily graded and blended into a monogram wall and brick scene so it reads as one stylised image.",
+    "reach": "reachable"
    },
    "colourfulness": 74.3,
    "luma": 0.295
@@ -320,12 +332,13 @@
     "words": 0,
     "textHeight": 0,
     "textStyle": "none",
-    "textLook": "",
+    "textLook": "none",
     "marks": [
      "outline"
     ],
     "makeable": "real_pictures",
-    "why": "The logo, question mark and colour blocks are all flat graphics that can be composed directly."
+    "why": "Logo, question mark and colour splits with water droplet textures can be composed directly.",
+    "reach": "reachable"
    },
    "colourfulness": 141.4,
    "luma": 0.37
@@ -336,22 +349,23 @@
    "views": 1193584,
    "label": {
     "hero": "person",
-    "heroShare": 0.4,
+    "heroShare": 0.3,
     "heroCutout": true,
     "faces": 1,
     "expression": "neutral",
     "background": "photo_scene",
     "elements": 4,
     "words": 1,
-    "textHeight": 0.05,
-    "textStyle": "outlined",
-    "textLook": "white serif-like caps with a yellow outline beneath the logo",
+    "textHeight": 0.06,
+    "textStyle": "plain",
+    "textLook": "white heavy serif-like letters with outline under logo",
     "marks": [
      "glow",
      "outline"
     ],
     "makeable": "needs_retouch",
-    "why": "Photos of a child, a car, a wrench and a logo are combined with heavy glow and colour grading."
+    "why": "Photos are heavily relit and colour-graded with rim glow beyond ordinary grading.",
+    "reach": "reachable"
    },
    "colourfulness": 84.2,
    "luma": 0.448
@@ -366,17 +380,18 @@
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
-    "background": "gradient",
+    "background": "photo_scene",
     "elements": 4,
     "words": 1,
     "textHeight": 0.3,
     "textStyle": "plain",
-    "textLook": "pale cyan heavy italic sans-serif, faded behind the shoe",
+    "textLook": "pale cyan heavy italic sans-serif, faded",
     "marks": [
      "money"
     ],
-    "makeable": "needs_retouch",
-    "why": "The shoe with a hand is cut out and edited, with painted-in blood splatter and a recoloured swoosh."
+    "makeable": "real_pictures",
+    "why": "Shoe, hand, blood splatter textures and cash photos composited over a blueprint background.",
+    "reach": "reachable"
    },
    "colourfulness": 110.3,
    "luma": 0.55
@@ -389,20 +404,22 @@
     "hero": "logo",
     "heroShare": 0.4,
     "heroCutout": true,
-    "faces": 0,
-    "expression": "none",
+    "faces": 1,
+    "expression": "neutral",
     "background": "photo_scene",
-    "elements": 4,
+    "elements": 3,
     "words": 3,
     "textHeight": 0.17,
-    "textStyle": "plain",
-    "textLook": "red heavy condensed sans-serif on a white badge with a green border",
+    "textStyle": "label_box",
+    "textLook": "red heavy condensed sans-serif on white box with green banner",
     "marks": [
      "fire",
-     "money"
+     "money",
+     "box"
     ],
     "makeable": "real_pictures",
-    "why": "A logo, pizza photo, banknote and flame photos can be layered together."
+    "why": "Logo, pizza photo, fire footage and a banknote are all real elements composited.",
+    "reach": "reachable"
    },
    "colourfulness": 90.2,
    "luma": 0.425
@@ -413,7 +430,7 @@
    "views": 365294,
    "label": {
     "hero": "person",
-    "heroShare": 0.35,
+    "heroShare": 0.4,
     "heroCutout": true,
     "faces": 1,
     "expression": "neutral",
@@ -422,13 +439,14 @@
     "words": 1,
     "textHeight": 0.17,
     "textStyle": "plain",
-    "textLook": "chrome metallic sans-serif logo letters",
+    "textLook": "chrome metallic sans-serif logo lettering",
     "marks": [
      "glow",
      "outline"
     ],
     "makeable": "needs_retouch",
-    "why": "Face is heavily stylised and relit with coloured glow, and the scene is composited into a single graded image."
+    "why": "Heavily stylised, relit portrait with coloured rim glow merged with cars reads as one graded scene.",
+    "reach": "reachable"
    },
    "colourfulness": 112.5,
    "luma": 0.408
@@ -449,11 +467,10 @@
     "textHeight": 0,
     "textStyle": "none",
     "textLook": "none",
-    "marks": [
-     "glow"
-    ],
-    "makeable": "needs_retouch",
-    "why": "Statue photo is glitched and heavily recoloured with red eyes over a graded black and red scene."
+    "marks": [],
+    "makeable": "real_pictures",
+    "why": "A statue photo cut out over a red-tinted, glitch-filtered photo of a villa is achievable with recolouring and filters.",
+    "reach": "reachable"
    },
    "colourfulness": 53.3,
    "luma": 0.193
@@ -464,12 +481,12 @@
    "views": 712971,
    "label": {
     "hero": "object",
-    "heroShare": 0.45,
+    "heroShare": 0.5,
     "heroCutout": true,
-    "faces": 1,
-    "expression": "strong",
-    "background": "colour_field",
-    "elements": 4,
+    "faces": 0,
+    "expression": "none",
+    "background": "pattern",
+    "elements": 3,
     "words": 2,
     "textHeight": 0.2,
     "textStyle": "plain",
@@ -477,8 +494,9 @@
     "marks": [
      "fire"
     ],
-    "makeable": "illustration",
-    "why": "The Lego minifigure is a 3D-rendered character with rendered flames and bricks."
+    "makeable": "real_pictures",
+    "why": "A Lego minifigure photo or render with fire footage and brick piles can be composited from real pictures.",
+    "reach": "reachable"
    },
    "colourfulness": 138.9,
    "luma": 0.485
@@ -496,12 +514,13 @@
     "background": "texture",
     "elements": 2,
     "words": 2,
-    "textHeight": 0.22,
+    "textHeight": 0.2,
     "textStyle": "plain",
-    "textLook": "red dripping blood-style heavy serif",
+    "textLook": "red dripping blood-splatter serif lettering",
     "marks": [],
     "makeable": "needs_retouch",
-    "why": "Colourised portrait with added stitches and bruise edits, plus blood splatter text on a concrete wall."
+    "why": "Stitches and bruise are painted onto the real person's face, and the photo is colourised.",
+    "reach": "face_alteration"
    },
    "colourfulness": 61.2,
    "luma": 0.454
@@ -521,10 +540,11 @@
     "words": 2,
     "textHeight": 0.2,
     "textStyle": "plain",
-    "textLook": "rainbow gradient thin sans-serif",
+    "textLook": "rainbow gradient thin sans-serif letters",
     "marks": [],
     "makeable": "needs_retouch",
-    "why": "Child's face is dirtied and altered, and the cars are recoloured in rainbow tones."
+    "why": "The child's face has dirt and smudges painted on, and the cars are recoloured in rainbow gradients.",
+    "reach": "face_alteration"
    },
    "colourfulness": 109.7,
    "luma": 0.305
@@ -542,15 +562,16 @@
     "background": "colour_field",
     "elements": 5,
     "words": 3,
-    "textHeight": 0.08,
+    "textHeight": 0.07,
     "textStyle": "label_box",
-    "textLook": "red bold italic sans-serif on white brush stroke",
+    "textLook": "red bold italic sans-serif on white brush-stroke box",
     "marks": [
      "money",
      "box"
     ],
     "makeable": "real_pictures",
-    "why": "A cut-out old photo, money photos, pyramid icons and a brush-stroke text label can all be composed from real pictures."
+    "why": "A cut-out vintage portrait, money photo, pyramid diagrams and a brush label can all be composited.",
+    "reach": "reachable"
    },
    "colourfulness": 85.3,
    "luma": 0.408
@@ -561,7 +582,7 @@
    "views": 1007111,
    "label": {
     "hero": "person",
-    "heroShare": 0.4,
+    "heroShare": 0.3,
     "heroCutout": true,
     "faces": 1,
     "expression": "neutral",
@@ -577,7 +598,8 @@
      "glow"
     ],
     "makeable": "needs_retouch",
-    "why": "The face is painted into a Joker makeup look and heavily stylised, so it needs retouching beyond a simple cut-out."
+    "why": "A real person's face is repainted with Joker makeup and a stylised painterly look, which alters the face itself.",
+    "reach": "face_alteration"
    },
    "colourfulness": 119.3,
    "luma": 0.504
@@ -595,14 +617,15 @@
     "background": "photo_scene",
     "elements": 4,
     "words": 5,
-    "textHeight": 0.12,
+    "textHeight": 0.11,
     "textStyle": "label_box",
-    "textLook": "white heavy sans-serif on black box, white Coca-Cola script on red box",
+    "textLook": "white heavy sans-serif on black box; white script logo on red box",
     "marks": [
      "box"
     ],
     "makeable": "real_pictures",
-    "why": "A can, a polar bear photo, logos and text boxes can all be composed from real photos."
+    "why": "Can, polar bear, ice and logo are all real photos or logos composited with red tint and text boxes.",
+    "reach": "reachable"
    },
    "colourfulness": 94.6,
    "luma": 0.505
@@ -613,7 +636,7 @@
    "views": 126190,
    "label": {
     "hero": "person",
-    "heroShare": 0.35,
+    "heroShare": 0.3,
     "heroCutout": true,
     "faces": 1,
     "expression": "strong",
@@ -627,7 +650,8 @@
      "glow"
     ],
     "makeable": "needs_retouch",
-    "why": "The face is dressed in a Santa outfit and blended seamlessly into a stylised winter scene."
+    "why": "The face looks altered into a tearful or laughing expression and blended into a Santa scene.",
+    "reach": "face_alteration"
    },
    "colourfulness": 99.8,
    "luma": 0.56
@@ -642,18 +666,19 @@
     "heroCutout": true,
     "faces": 1,
     "expression": "strong",
-    "background": "pattern",
+    "background": "photo_scene",
     "elements": 4,
     "words": 4,
     "textHeight": 0.2,
     "textStyle": "outlined",
-    "textLook": "white heavy script with dark outline on a red oval logo",
+    "textLook": "white distressed script with black outline on a red oval",
     "marks": [
-     "money",
-     "burst"
+     "burst",
+     "money"
     ],
     "makeable": "real_pictures",
-    "why": "The man, the food plate, the logo and the money stacks are all real photos that can be cut out and composed."
+    "why": "Portrait, food plate, logo and cash photos can be cut out and composited over a sunburst brick wall.",
+    "reach": "reachable"
    },
    "colourfulness": 93.9,
    "luma": 0.479
@@ -671,15 +696,16 @@
     "background": "photo_scene",
     "elements": 4,
     "words": 1,
-    "textHeight": 0.2,
+    "textHeight": 0.25,
     "textStyle": "plain",
-    "textLook": "blue and orange FedEx logotype on truck",
+    "textLook": "blue and orange FedEx logo lettering on the truck",
     "marks": [
      "fire",
      "glow"
     ],
-    "makeable": "needs_retouch",
-    "why": "The truck is merged with casino chips and a fiery backdrop in a heavily graded composite."
+    "makeable": "real_pictures",
+    "why": "A truck photo, casino chips, dice and boxes are composited with fiery colour grading.",
+    "reach": "reachable"
    },
    "colourfulness": 102.3,
    "luma": 0.502
@@ -690,7 +716,7 @@
    "views": 1367189,
    "label": {
     "hero": "person",
-    "heroShare": 0.45,
+    "heroShare": 0.4,
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
@@ -701,11 +727,11 @@
     "textStyle": "none",
     "textLook": "none",
     "marks": [
-     "money",
-     "glow"
+     "money"
     ],
-    "makeable": "needs_retouch",
-    "why": "A masked hooded figure, miniature towers, tags and a code overlay are blended into one stylised scene."
+    "makeable": "real_pictures",
+    "why": "A hooded figure in a mask, Eiffel Tower models, price tags, cash and code overlay can be composed from real photos and vector shapes.",
+    "reach": "reachable"
    },
    "colourfulness": 110.9,
    "luma": 0.479
@@ -716,7 +742,7 @@
    "views": 1673065,
    "label": {
     "hero": "person",
-    "heroShare": 0.6,
+    "heroShare": 0.5,
     "heroCutout": true,
     "faces": 1,
     "expression": "neutral",
@@ -731,7 +757,8 @@
      "fire"
     ],
     "makeable": "needs_invention",
-    "why": "A woman is placed on a throne amid bombed ruins with a swastika armband, and the scene is graded pink so seamlessly it reads as one invented picture."
+    "why": "A woman in a suit with a swastika armband on a throne before a ruined, burning city with brand items on pedestals is a composite scene that was never photographed.",
+    "reach": "reachable"
    },
    "colourfulness": 82.9,
    "luma": 0.437
@@ -744,19 +771,21 @@
     "hero": "person",
     "heroShare": 0.55,
     "heroCutout": true,
-    "faces": 1,
+    "faces": 2,
     "expression": "neutral",
     "background": "split_colour",
     "elements": 4,
     "words": 6,
     "textHeight": 0.1,
     "textStyle": "plain",
-    "textLook": "dark brown heavy sans-serif on a building sign, with ornate gold lettering on the right",
+    "textLook": "dark brown heavy sans-serif on the Hershey sign, gold script on the factory sign",
     "marks": [
-     "glow"
+     "glow",
+     "burst"
     ],
     "makeable": "needs_retouch",
-    "why": "Two different men's faces are merged down the middle into one painted-looking face, which means heavy blending is needed."
+    "why": "Two real faces are split down the middle into one face with a painterly treatment, and the two sides sit in different settings.",
+    "reach": "reachable"
    },
    "colourfulness": 103.8,
    "luma": 0.54
@@ -772,7 +801,7 @@
     "faces": 0,
     "expression": "none",
     "background": "texture",
-    "elements": 2,
+    "elements": 1,
     "words": 0,
     "textHeight": 0,
     "textStyle": "none",
@@ -781,7 +810,8 @@
      "glow"
     ],
     "makeable": "illustration",
-    "why": "A cartoon-style glowing poison bottle with a skull stopper is drawn artwork, not a photograph."
+    "why": "A cartoon-style poison bottle with a skull stopper is a rendered illustration.",
+    "reach": "reachable"
    },
    "colourfulness": 99,
    "luma": 0.204
@@ -797,7 +827,7 @@
     "faces": 0,
     "expression": "none",
     "background": "pattern",
-    "elements": 4,
+    "elements": 3,
     "words": 0,
     "textHeight": 0,
     "textStyle": "none",
@@ -808,7 +838,8 @@
      "burst"
     ],
     "makeable": "illustration",
-    "why": "The QQ penguin is a cartoon mascot altered with angry laser eyes and set on a flame illustration, so it is drawn artwork."
+    "why": "The QQ penguin mascot is a cartoon given glowing laser eyes against illustrated flames and stars.",
+    "reach": "reachable"
    },
    "colourfulness": 135.2,
    "luma": 0.343
@@ -819,22 +850,23 @@
    "views": 2314483,
    "label": {
     "hero": "person",
-    "heroShare": 0.65,
+    "heroShare": 0.6,
     "heroCutout": true,
     "faces": 1,
     "expression": "neutral",
-    "background": "pattern",
+    "background": "split_colour",
     "elements": 4,
     "words": 4,
     "textHeight": 0.2,
     "textStyle": "plain",
-    "textLook": "red heavy rounded sans-serif logo lettering",
+    "textLook": "red heavy rounded sans-serif in logo, yellow and blue ring",
     "marks": [
      "money",
      "glow"
     ],
     "makeable": "needs_retouch",
-    "why": "The mascot is painted and warped, and the burger is filled with cash, so the picture goes beyond a simple composite of real photos."
+    "why": "The Burger King mascot is a real costumed character, but the stylised painterly look and the burger made of cash are combined into one blended image.",
+    "reach": "reachable"
    },
    "colourfulness": 164.5,
    "luma": 0.521
@@ -845,7 +877,7 @@
    "views": 1260320,
    "label": {
     "hero": "person",
-    "heroShare": 0.55,
+    "heroShare": 0.45,
     "heroCutout": true,
     "faces": 1,
     "expression": "strong",
@@ -854,12 +886,13 @@
     "words": 1,
     "textHeight": 0.14,
     "textStyle": "plain",
-    "textLook": "yellow-gold serif capitals with wide letter spacing",
+    "textLook": "yellow serif capitals, wide spacing",
     "marks": [
      "glow"
     ],
     "makeable": "needs_retouch",
-    "why": "The screaming face is stylised and relit in red and green, and it is composited into a staged curtain and pillar scene."
+    "why": "A screaming face is combined with a stylised, painterly colour treatment and a staged theatre set.",
+    "reach": "reachable"
    },
    "colourfulness": 126.1,
    "luma": 0.283
@@ -873,7 +906,7 @@
     "heroShare": 0.4,
     "heroCutout": true,
     "faces": 1,
-    "expression": "strong",
+    "expression": "neutral",
     "background": "photo_scene",
     "elements": 3,
     "words": 0,
@@ -886,7 +919,8 @@
      "glow"
     ],
     "makeable": "needs_retouch",
-    "why": "Real face and logos are composed, but the face is heavily stylised and the flaming Google logo is a composite effect."
+    "why": "Real photo and logos composited, but the face is heavily painterly-retouched and the fire is attached to the logo.",
+    "reach": "reachable"
    },
    "colourfulness": 132.3,
    "luma": 0.435
@@ -902,16 +936,17 @@
     "faces": 0,
     "expression": "none",
     "background": "pattern",
-    "elements": 4,
-    "words": 6,
+    "elements": 3,
+    "words": 4,
     "textHeight": 0.12,
     "textStyle": "label_box",
-    "textLook": "black serif letters in white on black bar with blue swoosh",
+    "textLook": "white serif on black box with blue swoosh",
     "marks": [
      "box"
     ],
     "makeable": "real_pictures",
-    "why": "Pepsi logo, glass, trucks and bottles are all real pictures that can be cut out and arranged on blue."
+    "why": "Pepsi logo, cola glass, trucks and bottles are all composable real images with a text bar.",
+    "reach": "reachable"
    },
    "colourfulness": 115.7,
    "luma": 0.354
@@ -922,7 +957,7 @@
    "views": 1768296,
    "label": {
     "hero": "person",
-    "heroShare": 0.65,
+    "heroShare": 0.6,
     "heroCutout": true,
     "faces": 1,
     "expression": "strong",
@@ -938,7 +973,8 @@
      "glow"
     ],
     "makeable": "illustration",
-    "why": "The screaming bloodied old man is a painted, stylised artwork, not a photo."
+    "why": "The painted, stylised screaming old man with blood is artwork rather than a photograph.",
+    "reach": "new_painting"
    },
    "colourfulness": 112,
    "luma": 0.436
@@ -949,22 +985,23 @@
    "views": 656386,
    "label": {
     "hero": "logo",
-    "heroShare": 0.3,
+    "heroShare": 0.4,
     "heroCutout": false,
     "faces": 0,
     "expression": "none",
     "background": "photo_scene",
     "elements": 2,
     "words": 1,
-    "textHeight": 0.09,
+    "textHeight": 0.1,
     "textStyle": "plain",
-    "textLook": "yellow-orange heavy sans-serif letters",
+    "textLook": "yellow-gold heavy sans-serif letters",
     "marks": [
      "fire",
      "glow"
     ],
-    "makeable": "needs_invention",
-    "why": "A burning tombstone with an engraved logo is a scene that never existed, rendered realistically."
+    "makeable": "real_pictures",
+    "why": "Fire footage behind a dark tombstone shape with a logo and text can be composited from stock elements.",
+    "reach": "reachable"
    },
    "colourfulness": 140.7,
    "luma": 0.321
@@ -982,12 +1019,13 @@
     "background": "split_colour",
     "elements": 2,
     "words": 2,
-    "textHeight": 0.3,
+    "textHeight": 0.28,
     "textStyle": "plain",
-    "textLook": "large white heavy sans-serif letters, semi-transparent",
+    "textLook": "white heavy sans-serif, semi-transparent over red",
     "marks": [],
     "makeable": "illustration",
-    "why": "The monster-faced pizza slice is a painted, fantastical artwork."
+    "why": "The pizza slice with a monster face is a painted, fantastical creation.",
+    "reach": "new_painting"
    },
    "colourfulness": 129.7,
    "luma": 0.341
@@ -1009,11 +1047,12 @@
     "textStyle": "none",
     "textLook": "none",
     "marks": [
-     "glow",
-     "money"
+     "money",
+     "glow"
     ],
     "makeable": "illustration",
-    "why": "The angry old man is a painted, stylised illustration over a flag and piles of cash."
+    "why": "The old man is a painterly stylised portrait rather than a photo, with glowing green eyes.",
+    "reach": "new_painting"
    },
    "colourfulness": 127.9,
    "luma": 0.349
@@ -1024,7 +1063,7 @@
    "views": 631314,
    "label": {
     "hero": "product",
-    "heroShare": 0.25,
+    "heroShare": 0.3,
     "heroCutout": true,
     "faces": 0,
     "expression": "none",
@@ -1033,18 +1072,20 @@
     "words": 2,
     "textHeight": 0.17,
     "textStyle": "label_box",
-    "textLook": "white heavy sans-serif on black and red boxes",
+    "textLook": "white heavy sans-serif on black box and red box",
     "marks": [
-     "box",
      "burst",
-     "outline"
+     "glow",
+     "outline",
+     "box"
     ],
     "makeable": "needs_retouch",
-    "why": "The cup is a real product photo with a painterly filter, set over a green-tinted logo and bean pattern with burst rays, so it needs stylised retouching."
+    "why": "The cup is a real product photo given a painterly filter and placed over a tinted logo and coffee bean pattern, all done with recolouring and filters.",
+    "reach": "reachable"
    },
    "colourfulness": 106.4,
    "luma": 0.403
   }
  ],
- "generatedAt": "2026-11-22T00:32:14.017Z"
+ "generatedAt": "2026-11-22T01:00:51.718Z"
 }

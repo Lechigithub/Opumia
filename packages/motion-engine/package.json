@@ -15,6 +15,7 @@
     "@opumia/senses": "workspace:*",
     "@react-three/fiber": "9.1.2",
     "@remotion/bundler": "4.0.539",
+    "@remotion/google-fonts": "4.0.539",
     "@remotion/renderer": "4.0.539",
     "@remotion/three": "4.0.539",
     "d3-geo": "3.1.1",

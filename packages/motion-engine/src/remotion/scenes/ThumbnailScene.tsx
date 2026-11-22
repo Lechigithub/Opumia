@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
 import { applyDesign, type DesignTokens } from "../types";
 import { ComposedScene, type ComposedProps } from "./Composed";
+import { thumbFonts, type ThumbFont } from "../thumbFonts";
 
 /**
  * Thumbnail = one composed scene, frozen after its entrances, plus a finishing layer — everything drawn from real
@@ -18,6 +19,8 @@ export interface ThumbFinish {
   rays?: { color: string; x: number; y: number; opacity?: number; count?: number };
   overlays?: Array<{ slot: number; blend?: "screen" | "lighten" | "multiply" | "overlay"; opacity?: number; under?: boolean; x?: number; y?: number; w?: number; h?: number }>;
   vignette?: number;
+  /** Whole-image grade (replaces the fixed push): contrast, saturation, brightness, warmth −1…1. */
+  grade?: { contrast?: number; saturation?: number; brightness?: number; warmth?: number };
 }
 
 const hex = (c: string | undefined, d: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : d);
@@ -39,13 +42,25 @@ const Overlays: React.FC<{ list: NonNullable<ThumbFinish["overlays"]>; slots: Re
 
 export const ThumbnailScene: React.FC<{ spec: ComposedProps["spec"]; slots: Record<string, string>; design?: DesignTokens; finish?: ThumbFinish; w: number; h: number }> = ({ spec, slots, design, finish }) => {
   applyDesign(design);
+  // Text elements name a thumbnail typeface by key; it becomes a loaded font family here.
+  const fonts = thumbFonts();
+  spec = {
+    ...spec,
+    elements: spec.elements.map((e) => {
+      const font = (e as unknown as { font?: ThumbFont }).font;
+      return e.type === "text" && font && fonts[font] ? { ...e, fontFamily: fonts[font] } : e;
+    }),
+  };
+  const g = finish?.grade;
+  const warm = clamp(g?.warmth, -1, 1, 0);
+  const gradeCss = g ? `saturate(${clamp(g.saturation, 0.6, 2, 1.35)}) contrast(${clamp(g.contrast, 0.8, 1.6, 1.08)}) brightness(${clamp(g.brightness, 0.7, 1.4, 1)})${warm > 0 ? ` sepia(${(warm * 0.35).toFixed(2)})` : ""}${warm < 0 ? ` hue-rotate(${Math.round(warm * 14)}deg)` : ""}` : "saturate(1.35) contrast(1.08)";
   const bg = finish?.background && slots[String(finish.background.slot)] ? finish.background : null;
   const split = finish?.split ?? null;
   const ownBackground = Boolean(bg || split);
   const rays = finish?.rays;
   const n = Math.round(clamp(rays?.count, 6, 32, 16));
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000", filter: "saturate(1.35) contrast(1.08)", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: "#000", filter: gradeCss, overflow: "hidden" }}>
       {bg ? (
         <AbsoluteFill style={{ overflow: "hidden" }}>
           <Img src={staticFile(slots[String(bg.slot)]!)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${clamp(bg.x, 0, 1, 0.5) * 100}% ${clamp(bg.y, 0, 1, 0.5) * 100}%`, transform: `scale(${clamp(bg.scale, 1, 2, 1.04)})`, filter: `blur(${clamp(bg.blur, 0, 24, 0)}px) brightness(${1 - clamp(bg.dim, 0, 0.85, 0.15)}) contrast(1.08) saturate(1.2)` }} />
