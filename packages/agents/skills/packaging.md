@@ -64,7 +64,7 @@ piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a di
 6. **Compare and fix** (`critique_thumbnail`): it is set next to the three real thumbnails whose ideas are nearest;
    apply its fixes, most important first.
 7. **Test it blind** (`imposter_test`, three runs). Fix what gave it away.
-8. **Submit** the title and the thumbnail that work together — at 8/10 or better against the real ones.
+8. **Submit** the title and the thumbnail that work together — at the level the critic gives the channel's own thumbnails or better (measured: about 4.5/10 — the critic is hard on everything).
 
 ## Compositing a scene from real pictures
 

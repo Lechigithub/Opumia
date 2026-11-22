@@ -1,0 +1,68 @@
+{
+ "at": "2026-11-22T13:50:37.519Z",
+ "channel": "magnates-media",
+ "real": [
+  "51fWzJ-A5w4.jpg",
+  "FQd5bo9nIZs.jpg",
+  "ISIjlRExdpE.jpg",
+  "vzrUhpBwebA.jpg",
+  "4zFi8LuZz50.jpg",
+  "E1KjINowtcU.jpg"
+ ],
+ "ours": [
+  "out/preview-kodak/thumbs/r1.jpg",
+  "out/preview-kodak/thumbs/r5.jpg",
+  "out/preview-kodak/thumbs/r9.jpg",
+  "out/preview-theranos/thumbs/r4.jpg",
+  "out/preview-theranos/thumbs/r8.jpg",
+  "out/sourcing-test-kodak/thumbs/r3.jpg"
+ ],
+ "results": {
+  "sonnet": {
+   "real": [
+    4.5,
+    4.5,
+    4.5,
+    6,
+    4.5,
+    5
+   ],
+   "ours": [
+    3.5,
+    4,
+    3.5,
+    3,
+    3.5,
+    3.5
+   ],
+   "realMean": 4.8,
+   "oursMean": 3.5,
+   "auc": 1,
+   "usd": 0.238,
+   "seconds": 22
+  },
+  "opus": {
+   "real": [
+    4.5,
+    4,
+    5,
+    6.5,
+    4,
+    5
+   ],
+   "ours": [
+    3.5,
+    3.5,
+    3.5,
+    3,
+    3.5,
+    3
+   ],
+   "realMean": 4.8,
+   "oursMean": 3.3,
+   "auc": 1,
+   "usd": 0.503,
+   "seconds": 30
+  }
+ }
+}

@@ -685,7 +685,10 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
           // Keep working while it is below the channel's level: at least seven renders and two different concepts
           // before a thumbnail that the critique scores under 7, calls a collage, or the blind test picks out may be submitted.
           const ideas = new Set(renders.filter((x) => x.imposter).map((x) => x.conceptId ?? x.concept.slice(0, 40))).size;
-          const weak = (r.critique && (r.critique.score < 8 || r.critique.fused === "collage")) || r.imposter?.spotted || soft.length;
+          // G27 calibration: the critic scores the channel's REAL thumbnails about 4.8/10 (dev/critic-models.ts), so a
+          // fixed 8/10 bar is one the channel itself fails. The bar is the critic's own median for real thumbnails.
+          const bar = await criticBar(o.memoryDir);
+          const weak = (r.critique && (r.critique.score < bar || r.critique.fused === "collage")) || r.imposter?.spotted || soft.length;
           if (weak && renders.length < 12 && (renders.length < 7 || ideas < 2)) refuse.push(`not yet at the channel's level (${[...(r.critique ? [`critique ${r.critique.score}/10, ${r.critique.fused}`] : []), ...(r.imposter?.spotted ? [`picked out ${r.imposter.spottedRuns}/3`] : [])].join(", ")}). Apply the critique's fixes or build another of the best concepts — ${renders.length} render(s), ${ideas} concept(s) tested so far.`);
         }
         if (refuse.length) return `NOT ACCEPTED:\n${refuse.map((x) => `- ${x}`).join("\n")}`;
@@ -728,3 +731,14 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   o.onReport?.(report);
   return report;
 }
+
+/** The render-critique bar: the critic's median score for the channel's real thumbnails (measured), else 8. */
+async function criticBar(memoryDir?: string): Promise<number> {
+  if (!memoryDir) return 8;
+  const r = await readFile(path.join(memoryDir, "critic-models.json"), "utf8").then((t) => JSON.parse(t) as { results?: Record<string, { real: number[] }> }, () => null);
+  const real = r?.results?.[process.env.OPUMIA_CRAFT_MODEL === "opus" ? "opus" : "sonnet"]?.real;
+  if (!real?.length) return 8;
+  const s = [...real].sort((a, b) => a - b);
+  return Math.min(8, Math.floor(s[Math.floor(s.length / 2)]! * 2) / 2);
+}
+
