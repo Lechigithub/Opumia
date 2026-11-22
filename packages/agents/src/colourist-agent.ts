@@ -40,6 +40,8 @@ export interface ColouristOptions {
   render: (design: FilmDesignSystem, plan: ScenePlan, shotIds: string[]) => Promise<Map<string, string>>;
   /** The current mid preview of every shot (already rendered by the scene designer). */
   frames: Map<string, string>;
+  /** Step 2: watch a stretch with this design and plan, with the measured report. */
+  watch?: (design: FilmDesignSystem, plan: ScenePlan, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
   memoryDir?: string;
   log?: (s: string) => void;
 }
@@ -137,6 +139,20 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
         return [{ type: "text" as const, text: `Left to right, top to bottom: ${i.shotIds.filter((id) => frames.has(id)).join(", ")}` }, await img(sheet)];
       }) as AgentTool["run"],
     },
+    ...(o.watch
+      ? [
+          {
+            name: "watch_stretch",
+            description: "Watch a stretch (up to 15 s) as it plays, with the current grade: how the colour moves from shot to shot, and the measured report (jumps, legibility, taste).",
+            schema: z.object({ fromS: z.number(), toS: z.number() }),
+            run: (async (i: { fromS: number; toS: number }) => {
+              looked++;
+              const w = await o.watch!(design, plan, Math.max(0, i.fromS), Math.min(i.toS, i.fromS + 15)).catch((e: Error) => ({ strip: "", text: `could not render: ${e.message.slice(0, 160)}` }));
+              return w.strip ? [{ type: "text" as const, text: w.text }, await img(w.strip)] : w.text;
+            }) as AgentTool["run"],
+          } satisfies AgentTool,
+        ]
+      : []),
     {
       name: "set_act_grade",
       description: "Change an act's grade: tint colour (hex), tint strength (0–0.6; over ~0.12 tints all footage), saturation (0.4–1.3), contrast (0.9–1.3). Every shot of the act must be re-rendered.",

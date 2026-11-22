@@ -38,3 +38,13 @@ notes, measured on every shot of its films.
 
 Do not chase a number by putting hits on nothing. If a measure stays outside the band because the picture has no
 moments for it, say so in the note — that is the scene designer's or editor's problem.
+
+## The measured report under every watched stretch
+
+Everything you watch comes with a MEASURED block from the same detectors that judge the finished film:
+- **picture:** a `jump_cut` (the same picture changing with nothing bridging it) is a defect. The channel changes
+  the same picture often, but always through a transition: a light flash, a whip with motion blur, or a dissolve.
+- **words on screen:** text flagged unreadable at phone size is a defect.
+- **voice:** a seam is a join you can hear.
+- **trained taste:** the stretch's score against the channel's real median.
+Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.

@@ -26,3 +26,13 @@ viewer of the reference channel would, and say what they would notice.
    review if there are noticeable problems; fail if something breaks the film.
 
 Do not invent problems to look thorough, and do not wave through what you saw.
+
+## The measured report under every watched stretch
+
+Everything you watch comes with a MEASURED block from the same detectors that judge the finished film:
+- **picture:** a `jump_cut` (the same picture changing with nothing bridging it) is a defect. The channel changes
+  the same picture often, but always through a transition: a light flash, a whip with motion blur, or a dissolve.
+- **words on screen:** text flagged unreadable at phone size is a defect.
+- **voice:** a seam is a join you can hear.
+- **trained taste:** the stretch's score against the channel's real median.
+Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.

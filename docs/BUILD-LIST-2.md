@@ -35,8 +35,14 @@ Order (each step depends on the ones before it). Status: ☐ open · ◐ in prog
    - **Uniqueness** (`agents/uniqueness.ts`): mean nearest-neighbour similarity of frame vectors. Real film pairs sit
      at 0.652–0.706 (p10–p90). Film 1 is 0.72 from the earlier Kodak film, too close; it sits at 0.64–0.67 from our
      films on other topics.
-2. ☐ **Eyes and ears in the agents** (C, agent half): real-speed clip watching and the step-1 detectors as tools for
-   the scene designer, editor, colourist, showrunner and viewer QA.
+2. ☑ **Eyes and ears in the agents** (`apps/cli/src/inspect.ts:inspectStretch`). Every watched stretch carries the
+   step-1 detectors' report: unbridged jumps and pops against the channel's band, unreadable text at phone size,
+   voice seams, and trained taste.
+   - **Who gets it:** every agent that watches. The editor, sound designer and showrunner through `watchPlan`; the
+     scene designer and colourist through a new `watch_stretch` tool (they saw stills before); viewer QA on the
+     finished file.
+   - **Skills:** each says how to act on the report.
+   - **Tested on film 1, 40–50 s:** it caught the unbridged jump at 43 s, 7 voice seams, and taste 5.1 against 6.1.
 3. ☐ **Seamless voice** (D): narration in long passages with request continuity, joins only at breaths with
    crossfades and continuous room tone, never digital silence. Gate: zero detectable seams.
 4. ☐ **Taste as the objective** (B, decision half): two or three versions of each scene, and the one the taste judge

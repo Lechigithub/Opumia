@@ -11,6 +11,8 @@ import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, p
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
+import { inspectStretch } from "./inspect.js";
+import { run } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, pruneEmptyFrames, referenceHueDominance, safeScene, type PreflightCheck } from "./preflight.js";
 import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
@@ -353,7 +355,14 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const coolS = await cooldownRefs(o.data, jobId);
     const eraS = eraOfFacts(facts);
     const pictures = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
-    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), ...extra, log });
+    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, watch: async (plan: ScenePlan, a: number, b: number) => {
+      // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+      const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
+      const l = await listen({ manifest: m, jobDir, fromS: a, toS: b, cutsS: m.video.map((v) => v.startFrame / m.fps) });
+      const ins = await inspectStretch({ clip: c, scenes: plan.scenes as never, shots: board.shots, narration: timed.voice.audioPath, root: o.root, data: o.data, channel, aspect: o.aspect as "16:9" | "9:16" }).catch((e: Error) => ({ text: `(measuring failed: ${e.message.slice(0, 120)})` }));
+      return { strip: c.strip, text: `${c.fromS.toFixed(1)}–${c.toS.toFixed(1)} s, frames left to right, top to bottom: ${c.frames.join(", ")}\n${listeningText(l)}\n${ins.text}` };
+    }, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), ...extra, log });
   };
   let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, async () => {
     if (!sceneAgent) return designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, log });
@@ -406,11 +415,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // after the scenes and before sound, studied against the channel's real passages and measured with its function.
   const editFile = path.join(jobDir, "edit.json");
   const lookE = lookFromProfile(pack.profile.look, design.palette.primarySoft);
-  const watchPlan = async (st: { storyboard: Storyboard; scenes: ScenePlan; resolution: ResolutionReport }, fromS: number, toS: number) => {
+  const watchPlan = async (st: { storyboard: Storyboard; scenes: ScenePlan; resolution: ResolutionReport; design?: FilmDesignSystem }, fromS: number, toS: number) => {
     const m = await buildManifest({ storyboard: st.storyboard, script: timed, resolution: st.resolution, ...mopts(), outputPath: path.join(jobDir, "_edit.mp4"), scenes: new Map<string, unknown>(st.scenes.scenes.map((x) => [x.shotId, x])) });
-    const c = await watchClip({ manifest: m, look: lookE, design, publicDir: pub, jobDir, fromS, toS });
+    const c = await watchClip({ manifest: m, look: lookE, design: st.design ?? design, publicDir: pub, jobDir, fromS, toS });
     const l = await listen({ manifest: m, jobDir, fromS, toS, cutsS: m.video.map((v) => v.startFrame / m.fps) });
-    return { strip: c.strip, text: `${c.fromS.toFixed(1)}–${c.toS.toFixed(1)} s, frames left to right, top to bottom: ${c.frames.join(", ")}; measured motion ${JSON.stringify(c.motion)}\n${listeningText(l)}` };
+    // step 2: the step-1 detectors on the rendered stretch (jumps, legibility, voice seams, trained taste)
+    const ins = await inspectStretch({ clip: c, scenes: st.scenes.scenes as never, shots: st.storyboard.shots, narration: timed.voice.audioPath, root: o.root, data: o.data, channel, aspect: o.aspect as "16:9" | "9:16" }).catch((e: Error) => ({ text: `(measuring failed: ${e.message.slice(0, 120)})` }));
+    return { strip: c.strip, text: `${c.fromS.toFixed(1)}–${c.toS.toFixed(1)} s, frames left to right, top to bottom: ${c.frames.join(", ")}; measured motion ${JSON.stringify(c.motion)}\n${listeningText(l)}\n${ins.text}` };
   };
   const runEditor = async (brief?: string) => {
     const ed = await editFilmAgent({ channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
@@ -459,6 +470,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         const prev = await renderShotPreviews({ manifest: m, look: lookC, design: d, publicDir: pub, outDir: prevDir, shotIds: ids });
         return new Map(prev.map((pv) => [pv.shotId, pv.frames[1]!.path] as [string, string]));
       },
+      watch: (d, plan, a, b) => watchPlan({ storyboard: board, scenes: plan, resolution, design: d }, a, b),
       memoryDir: path.join(o.data, "agents", "colourist"), log,
     });
     design = FilmDesignSystem.parse(col.design);
@@ -876,7 +888,14 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   if (process.env.OPUMIA_QA_AGENT !== "off" && existsSync(finalPath)) {
     log("\n[C4v] viewer QA");
     const qaText = qa.report.checks.map((c) => `${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`).join("\n");
-    const v = await qaAgent({ channel, title: draft.title, durationS: timed.durationS, qaText, shots: board.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), words: timed.segments.flatMap((sg) => sg.words), watch: (a, b) => watchFile({ video: finalPath, fromS: a, toS: b, outDir: path.join(jobDir, "watch") }), memoryDir: path.join(o.data, "agents", "qa"), log });
+    const v = await qaAgent({ channel, title: draft.title, durationS: timed.durationS, qaText, shots: board.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), words: timed.segments.flatMap((sg) => sg.words), watch: async (a, b) => {
+      const w = await watchFile({ video: finalPath, fromS: a, toS: b, outDir: path.join(jobDir, "watch") });
+      // step 2: the detectors on the finished file's stretch (cut out once, measured like any other stretch)
+      const seg = path.join(jobDir, "watch", `final_${a.toFixed(1)}_${b.toFixed(1)}.mp4`);
+      if (!existsSync(seg)) await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", a.toFixed(2), "-t", (b - a).toFixed(2), "-i", finalPath, "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-an", seg]).catch(() => null);
+      const ins = existsSync(seg) ? await inspectStretch({ clip: { file: seg, fromS: a, toS: b }, scenes: scenePlan.scenes as never, shots: board.shots, narration: timed.voice.audioPath, root: o.root, data: o.data, channel, aspect: o.aspect as "16:9" | "9:16" }).catch(() => null) : null;
+      return { strip: w.strip, text: `${w.text}${ins ? `\n${ins.text}` : ""}` };
+    }, memoryDir: path.join(o.data, "agents", "qa"), log });
     await writeFile(path.join(jobDir, "qa.viewer.json"), JSON.stringify(v, null, 2) + "\n");
     const rank = { pass: 0, review: 1, fail: 2 } as const;
     const worst = (rank[v.verdict] > rank[qa.report.verdict] ? v.verdict : qa.report.verdict);

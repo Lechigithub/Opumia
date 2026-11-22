@@ -88,3 +88,12 @@ what it did for a moment like this, not from a general idea of the style.
 - `screen` — a real page screenshot or app in a browser, phone or monitor frame that scrolls.
 A shot with no footage is built around one of these, a picture, or a document — not a lone word on a colour.
 
+## The measured report under every watched stretch
+
+Everything you watch comes with a MEASURED block from the same detectors that judge the finished film:
+- **picture:** a `jump_cut` (the same picture changing with nothing bridging it) is a defect. The channel changes
+  the same picture often, but always through a transition: a light flash, a whip with motion blur, or a dissolve.
+- **words on screen:** text flagged unreadable at phone size is a defect.
+- **voice:** a seam is a join you can hear.
+- **trained taste:** the stretch's score against the channel's real median.
+Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.

@@ -40,6 +40,8 @@ export interface SceneAgentOptions {
   render: (plan: ScenePlan, shotIds: string[]) => Promise<Array<{ shotId: string; sheet: string; mid: string }>>;
   /** Renders one shot at seven moments as a strip, so the designer can see it move. */
   play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
+  /** Step 2: watch a stretch at real speed with sound, with the measured detector report (jumps, legibility, seams, taste). */
+  watch?: (plan: ScenePlan, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
   /** Sourcing tools (resolver/scene-tools.ts): they add pictures to `resolution` in place. */
   pictures?: {
     findPicture: (i: { shotId: string; want: string; as: "footage" | "slot"; kind: "video" | "image" }) => Promise<PictureResult>;
@@ -277,6 +279,19 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
               const strip = await o.play!(plan, i.shotId);
               if (!strip) return "that shot could not be rendered";
               return [{ type: "text" as const, text: `${i.shotId} from start to end:` }, await img(strip)];
+            }) as AgentTool["run"],
+          } satisfies AgentTool,
+        ]
+      : []),
+    ...(o.watch
+      ? [
+          {
+            name: "watch_stretch",
+            description: "Watch a stretch of the film (up to 15 s) as it plays, with its sound: frames across it and a measured report — unbridged jumps between your shots, text that cannot be read on a phone, voice seams, and the trained taste against the channel. Watch across the cuts between your scenes, not only single shots.",
+            schema: z.object({ fromS: z.number(), toS: z.number() }),
+            run: (async (i: { fromS: number; toS: number }) => {
+              const w = await o.watch!(plan, Math.max(0, i.fromS), Math.min(i.toS, i.fromS + 15)).catch((e: Error) => ({ strip: "", text: `could not render: ${e.message.slice(0, 160)}` }));
+              return w.strip ? [{ type: "text" as const, text: w.text }, await img(w.strip)] : w.text;
             }) as AgentTool["run"],
           } satisfies AgentTool,
         ]
