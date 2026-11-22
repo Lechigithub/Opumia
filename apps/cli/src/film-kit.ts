@@ -88,7 +88,10 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
           if (v) for (const e of earlier) { let d = 0; for (let k = 0; k < v.length; k++) d += v[k]! * e[k]!; if (d > near) near = d; }
         }
         const legText = leg.length ? leg.map((l) => `"${l.label}": ${l.issues.length ? `UNREADABLE — ${l.issues.join("; ")}` : `contrast ${l.contrast}:1, ${l.phonePx} px on a phone`}`).join("; ") : "no text box measured";
-        out.push({ shotId: p.shotId, mid, sheet: p.sheet, text: `- legibility: ${legText}\n- design: ${dIssues.length ? dIssues.join(", ") : "focal point, depth and colour inside the channel's band"}\n- trained taste: ${t?.score ?? "?"}/10${tm ? ` (the channel's real shots: lowest tenth ${tm.calibration.real.p10}, median ${tm.calibration.real.median})` : ""}\n- likeness to our earlier films: ${earlier.length ? `${near.toFixed(2)}${near > 0.9 ? " — TOO CLOSE: it looks like an earlier film" : ""}` : "no earlier produced film"}` });
+        // the model takes images up to 3000 px a side: the sheet (three full frames) is sent at 1800 px wide
+        const small = p.sheet.replace(/(\.[a-z]+)$/, "_s$1");
+        await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", p.sheet, "-vf", "scale='min(1800,iw)':-2", small]).catch(() => null);
+        out.push({ shotId: p.shotId, mid, sheet: existsSync(small) ? small : p.sheet, text: `- legibility: ${legText}\n- design: ${dIssues.length ? dIssues.join(", ") : "focal point, depth and colour inside the channel's band"}\n- trained taste: ${t?.score ?? "?"}/10${tm ? ` (the channel's real shots: lowest tenth ${tm.calibration.real.p10}, median ${tm.calibration.real.median})` : ""}\n- likeness to our earlier films: ${earlier.length ? `${near.toFixed(2)}${near > 0.9 ? " — TOO CLOSE: it looks like an earlier film" : ""}` : "no earlier produced film"}` });
       }
       return out;
     },
