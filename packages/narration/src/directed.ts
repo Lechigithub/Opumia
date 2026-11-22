@@ -17,8 +17,8 @@ import { ttsModel, type ChannelVoice } from "./voice.js";
  *  1. Voice director (one model call): delivery per line (pace, pause after, emphasis) and every risky word with
  *     its correct pronunciation; pronunciations are remembered across films (data/pronunciation-lexicon.json).
  *  2. Each line is its own take (neighbouring lines passed as context, so prosody flows). Takes are cached.
- *  3. Pauses are set in code from the alignment: silence inside a line is capped, the gap between lines follows
- *     the director (most lines run on; a held beat is rare) — the reference narrator's rhythm, not a TTS default.
+ *  3. Sentences are spoken in passages (one take each, never cut inside); passages meet on their own room sound
+ *     with crossfades, a held beat filled with room tone — never digital silence (build list 2, step 3).
  *  4. Listen-back: Whisper transcribes the result and it is compared word for word with the script; the phoneme
  *     checker compares the SOUNDS of every risky word with its target pronunciation.
  *  5. Only failing lines are regenerated (new take; respelling for a word that sounded wrong), then re-checked.
@@ -61,13 +61,12 @@ export interface NarrationReport {
   delivery?: VoiceAgentReport;
 }
 
-interface Unit { seg: number; text: string; words: string[]; dir: LineDirection }
+/** A passage: consecutive sentences spoken in ONE take (no cut inside it). `emphases` holds each sentence's word. */
+interface Unit { seg: number; text: string; words: string[]; dir: LineDirection; emphases?: string[]; role: string; chapter?: string; sentences: number }
 interface Take { audio: Float32Array; words: Array<{ word: string; startS: number; endS: number }>; key: string }
 
 const GAP = { none: 0.03, short: 0.1, beat: 0.36 } as const;
 const CHAPTER_GAP = 0.6;
-const MAX_INNER_PAUSE = 0.19;
-const KEPT_INNER_PAUSE = 0.11;
 
 /** The text sent to the voice: expansions always; respelling only for the terms listed; emphasis in capitals. */
 function speakText(u: Unit, lex: Lexicon, respell: Set<string>): string {
@@ -78,17 +77,20 @@ function speakText(u: Unit, lex: Lexicon, respell: Set<string>): string {
     if (e.spoken) t = t.replace(re, e.spoken);
     else if ((respell.has(term) || e.works === "respelling") && e.respelling) t = t.replace(re, e.respelling.toLowerCase().replace(/[^a-z' ]/g, "").replace(/^./, (c) => c.toUpperCase()));
   }
-  const em = u.dir.emphasis.replace(/[^\p{L}'-]/gu, "");
-  if (em.length > 2 && !Object.keys(lex).some((k) => k.includes(em))) t = t.replace(new RegExp(`\\b${em}\\b`), em.toUpperCase());
+  for (const raw of u.emphases ?? [u.dir.emphasis]) {
+    const em = raw.replace(/[^\p{L}'-]/gu, "");
+    if (em.length > 2 && !Object.keys(lex).some((k) => k.includes(em))) t = t.replace(new RegExp(`\\b${em}\\b`), em.toUpperCase());
+  }
   return t;
 }
 
 /**
- * Cut a take down to speech, working from the AUDIO (not the alignment, which can be late on a line's first
- * word): only stretches that are really silent are shortened — the lead-in, the tail, and pauses inside the
- * line longer than MAX_INNER_PAUSE. Word times follow the cuts.
+ * Cut a passage's take to its speech plus its own room at both ends (never inside it). Word times follow the cut.
  */
 function tighten(audio: Float32Array, ws: Array<{ word: string; startS: number; endS: number }>): { audio: Float32Array; words: typeof ws } {
+  // Step 3: a passage is never cut inside — its pauses, breaths and intonation are the voice's own. Only the silence
+  // before the first sound and after the last is shortened, keeping LEAD of the take's own room before the first
+  // sound and TAIL after the last (the decay and the room the next passage crossfades into).
   const HOP = Math.round(0.01 * SR);
   const frames = Math.floor(audio.length / HOP);
   if (frames < 10) return { audio, words: ws };
@@ -100,48 +102,71 @@ function tighten(audio: Float32Array, ws: Array<{ word: string; startS: number; 
     env[f] = Math.sqrt(e / HOP);
     if (env[f]! > peak) peak = env[f]!;
   }
-  const quiet = peak * 0.02; // −34 dB under the take's peak
-  const total = audio.length / SR;
-  // Silent runs as [startS, endS].
+  const quiet = peak * 0.02;
+  let first = 0, last = frames - 1;
+  while (first < frames && env[first]! < quiet) first++;
+  while (last > first && env[last]! < quiet) last--;
+  const a0 = Math.max(0, (first - LEAD_FRAMES) * HOP), a1 = Math.min(audio.length, (last + 1 + TAIL_FRAMES) * HOP);
+  const shift = a0 / SR;
+  let x = audio.slice(a0, a1);
+  let wsx = ws.map((w) => ({ ...w, startS: Math.max(0, w.startS - shift), endS: Math.max(0, w.endS - shift) }));
+  // The TTS writes its pauses as digital silence, and long (median 0.5 s; the channel's narrator 0.2 s). A pause is
+  // shortened only INSIDE that digital silence — a cut through silence cannot be heard — down to MAX_PAUSE.
+  const DEAD = 3e-4; // about −70 dBFS
   const runs: Array<[number, number]> = [];
-  let a = -1;
-  for (let f = 0; f <= frames; f++) {
-    const sil = f < frames && env[f]! < quiet;
-    if (sil && a < 0) a = f;
-    if (!sil && a >= 0) (runs.push([a * 0.01, f * 0.01]), (a = -1));
+  for (let k = 0, a = -1; k <= x.length; k++) {
+    const d = k < x.length && Math.abs(x[k]!) < DEAD;
+    if (d && a < 0) a = k;
+    if (!d && a >= 0) { if (a > LEAD_FRAMES * HOP && k < x.length - TAIL_FRAMES * HOP) runs.push([a, k]); a = -1; }
   }
-  const cuts: Array<[number, number]> = [];
-  for (const [r0, r1] of runs) {
-    const len = r1 - r0;
-    if (r0 <= 0.001) {
-      if (len > 0.04) cuts.push([0, r1 - 0.025]); // lead-in: keep 25 ms of air before the first sound
-    } else if (r1 >= total - 0.011) {
-      if (len > 0.09) cuts.push([r0 + 0.06, total]); // tail: keep 60 ms so the last sound decays
-    } else if (len > MAX_INNER_PAUSE) {
-      const remove = len - KEPT_INNER_PAUSE;
-      const mid = (r0 + r1) / 2;
-      cuts.push([mid - remove / 2, mid + remove / 2]);
-    }
+  const cuts = runs.filter(([a, b]) => (b - a) / SR > MAX_PAUSE).map(([a, b]) => { const rm = b - a - Math.round(MAX_PAUSE * SR); const mid = Math.round((a + b) / 2); return [mid - Math.floor(rm / 2), mid + Math.ceil(rm / 2)] as [number, number]; });
+  if (cuts.length) {
+    const keep: Float32Array[] = [];
+    let pos = 0;
+    for (const [c0, c1] of cuts) { keep.push(x.subarray(pos, c0)); pos = c1; }
+    keep.push(x.subarray(pos));
+    const y = new Float32Array(keep.reduce((n, k) => n + k.length, 0));
+    let o = 0;
+    for (const k of keep) { y.set(k, o); o += k.length; }
+    const removedBefore = (t: number) => cuts.filter(([c0]) => c0 / SR < t).reduce((n, [c0, c1]) => n + (c1 - c0) / SR, 0);
+    wsx = wsx.map((w) => ({ ...w, startS: w.startS - removedBefore(w.startS), endS: w.endS - removedBefore(w.endS) }));
+    x = y;
   }
-  if (!cuts.length) return { audio, words: ws };
-  const keep: Array<[number, number]> = [];
-  let pos = 0;
-  for (const [c0, c1] of cuts) {
-    if (c0 > pos) keep.push([pos, c0]);
-    pos = Math.max(pos, c1);
+  // No digital silence left: every near-silent sample gets a quiet room (soft noise about −66 dBFS) under it, so the
+  // voice never drops into or starts out of dead air. The mix lays the film's room tone on top.
+  // The fill matches this passage's own quiet room (the 10th percentile of its non-silent 10 ms levels), so the room
+  // does not change level between a natural pause and a filled one.
+  const lv: number[] = [];
+  for (let k = 0; k + HOP <= x.length; k += HOP) { let e = 0, live = 0; for (let q = 0; q < HOP; q++) { const v = x[k + q]!; e += v * v; if (Math.abs(v) >= DEAD) live++; } if (live > HOP * 0.9) lv.push(Math.sqrt(e / HOP)); }
+  lv.sort((p, q) => p - q);
+  const roomRms = Math.max(2e-4, Math.min(3e-3, lv[Math.floor(lv.length * 0.1)] ?? 5e-4));
+  let seed = 12345;
+  let pink = 0;
+  const pinkRms = 0.03 / Math.sqrt(2 - 0.03) / Math.sqrt(3); // RMS of the filtered uniform noise below
+  for (let k = 0; k < x.length; k++) {
+    if (Math.abs(x[k]!) >= DEAD) continue;
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    pink = 0.97 * pink + 0.03 * ((seed / 0x7fffffff) * 2 - 1);
+    x[k] = x[k]! + pink * (roomRms / pinkRms);
   }
-  if (pos < total) keep.push([pos, total]);
-  const out = new Float32Array(keep.reduce((n, [k0, k1]) => n + Math.round((k1 - k0) * SR), 0));
-  let o = 0;
-  const FADE = Math.round(0.003 * SR);
-  for (const [k0, k1] of keep) {
-    const s0 = Math.round(k0 * SR);
-    const n = Math.round((k1 - k0) * SR);
-    for (let i = 0; i < n && o + i < out.length; i++) out[o + i] = (audio[s0 + i] ?? 0) * Math.max(0, Math.min(1, i / FADE, (n - 1 - i) / FADE));
-    o += n;
+  return { audio: x, words: wsx };
+}
+/** Longest pause kept inside a passage (the reference narrator: pauses of 0.25 s or more are rare, median 0.2 s). */
+const MAX_PAUSE = 0.22;
+const LEAD_FRAMES = 12; // 120 ms of the take's own room before the first sound
+const TAIL_FRAMES = 20; // 200 ms after the last: the decay and the room the next passage crossfades into
+
+/** The quietest 120 ms of a take that is not digital silence: its room, to fill a pause longer than the takes' own. */
+function roomOf(audio: Float32Array): Float32Array {
+  const W = Math.round(0.12 * SR);
+  let best = -1, bestE = Infinity;
+  for (let i = 0; i + W < audio.length; i += Math.round(W / 4)) {
+    let e = 0;
+    for (let k = 0; k < W; k++) e += audio[i + k]! * audio[i + k]!;
+    if (e > 1e-10 * W && e < bestE) (bestE = e), (best = i);
   }
-  const shift = (t: number) => t - cuts.reduce((r, [c0, c1]) => r + Math.max(0, Math.min(t, c1) - c0), 0);
-  return { audio: out, words: ws.map((w) => ({ word: w.word, startS: Math.max(0, shift(w.startS)), endS: Math.max(0, shift(w.endS)) })) };
+  if (best < 0) { const n = new Float32Array(W); for (let k = 0; k < W; k++) n[k] = (Math.random() - 0.5) * 2e-4; return n; }
+  return audio.slice(best, best + W);
 }
 
 async function writeMp3(samples: Float32Array, out: string): Promise<void> {
@@ -171,8 +196,24 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const people = (o.facts.story?.characters ?? []).map((c) => c.name);
   const dv = await directVoice({ channel: o.channel, sentences: raw.map((r) => ({ text: r.text, role: r.role })), people, known, ...(o.narrator ? { narratorWpm: o.narrator.wpm } : {}) });
   const lex: Lexicon = { ...known, ...dv.terms };
-  const units: Unit[] = raw.map((r, i) => ({ seg: r.seg, text: r.text, words: words(r.text), dir: dv.lines[i]! }));
-  log(`  voice director: ${units.length} lines — ${units.filter((u) => u.dir.pace === "fast").length} fast, ${units.filter((u) => u.dir.pace === "slow").length} slow, ${units.filter((u) => u.dir.pauseAfter === "beat").length} held beat(s); ${Object.keys(lex).length} risky word(s): ${Object.keys(lex).slice(0, 14).join(", ")}${Object.keys(lex).length > 14 ? ", …" : ""}`);
+  // Step 3 (seamless voice): sentences are spoken in passages — consecutive sentences of one segment and chapter, up to
+  // about 600 characters, ending at a held beat — so the voice is never cut inside a passage: its intonation runs
+  // across sentences, and its breaths and pauses are its own. Passages meet on their own room sound.
+  const units: Unit[] = [];
+  for (const [i, r] of raw.entries()) {
+    const d = dv.lines[i]!;
+    const cur = units.at(-1);
+    const prevDir = i > 0 ? dv.lines[i - 1]! : null;
+    const join = cur && cur.seg === r.seg && cur.chapter === r.chapter && cur.text.length + r.text.length < 600 && prevDir?.pauseAfter !== "beat";
+    if (join) {
+      cur.text = `${cur.text} ${r.text}`;
+      cur.words = words(cur.text);
+      cur.emphases = [...(cur.emphases ?? []), d.emphasis];
+      cur.dir = { ...cur.dir, pauseAfter: d.pauseAfter };
+      cur.sentences++;
+    } else units.push({ seg: r.seg, text: r.text, words: words(r.text), dir: d, emphases: [d.emphasis], role: r.role, ...(r.chapter ? { chapter: r.chapter } : {}), sentences: 1 });
+  }
+  log(`  voice director: ${raw.length} sentences in ${units.length} passage(s) — ${units.filter((u) => u.dir.pace === "fast").length} fast, ${units.filter((u) => u.dir.pace === "slow").length} slow, ${units.filter((u) => u.dir.pauseAfter === "beat").length} held beat(s); ${Object.keys(lex).length} risky word(s): ${Object.keys(lex).slice(0, 14).join(", ")}${Object.keys(lex).length > 14 ? ", …" : ""}`);
 
   const remaining = await remainingCharacters();
   if (remaining !== null && remaining < scriptText.length * 1.3) throw new Error(`ElevenLabs quota too low: ${remaining} chars left, need about ${Math.round(scriptText.length * 1.3)}`);
@@ -262,14 +303,14 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     let nCand = 0;
     delivery = await voiceAgent({
       channel: o.channel, title: o.draft.title,
-      lines: units.map((u) => ({ text: u.text, role: raw[units.indexOf(u)]!.role, pace: u.dir.pace, emphasis: u.dir.emphasis, question: /\?\s*$/.test(u.text) })),
+      lines: units.map((u) => ({ text: u.text, role: u.role, pace: u.dir.pace, emphasis: u.dir.emphasis, question: /\?\s*$/.test(u.text) })),
       narrator: o.narrator ?? null,
       measure: (i) => measureTake(i, takes[i]!),
       retake: async (i, r) => {
         const u = units[i]!;
-        const keep = u.dir;
-        if (r.emphasis) u.dir = { ...u.dir, emphasis: r.emphasis };
-        const t = await takeOf(i, 20 + ++nCand, new Set()).finally(() => { u.dir = keep; });
+        const keep = u.dir, keepE = u.emphases;
+        if (r.emphasis) (u.dir = { ...u.dir, emphasis: r.emphasis }), (u.emphases = [r.emphasis]);
+        const t = await takeOf(i, 20 + ++nCand, new Set()).finally(() => { u.dir = keep; u.emphases = keepE; });
         const id = `c${nCand}`;
         candidates.set(id, { i, take: t, dir: r.emphasis ? { ...keep, emphasis: r.emphasis } : keep });
         return { id, m: await measureTake(i, t) };
@@ -287,18 +328,44 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   // 3. Assemble with directed gaps.
   const audioPath = path.join(o.outDir, "narration.mp3");
   const assemble = async () => {
-    const gaps = units.map((u, i) => (i === units.length - 1 ? 0.12 : raw[i + 1]!.chapter !== raw[i]!.chapter && raw[i + 1]!.chapter ? CHAPTER_GAP : GAP[u.dir.pauseAfter]));
-    const total = takes.reduce((n, t, i) => n + t.audio.length + Math.round(gaps[i]! * SR), 0);
-    const out = new Float32Array(total);
+    const gaps = units.map((u, i) => (i === units.length - 1 ? 0.12 : units[i + 1]!.chapter !== u.chapter && units[i + 1]!.chapter ? CHAPTER_GAP : GAP[u.dir.pauseAfter]));
+    // Passages meet on their own room sound: the pause between the last word of one and the first word of the next
+    // is the takes' tail + lead room. A shorter wanted pause overlaps the two rooms with an equal-power crossfade; a
+    // longer one is filled with room tone looped from the passage before (never digital silence).
+    const XF = Math.round(0.04 * SR);
+    const parts: Float32Array[] = [];
     const timed: Array<{ word: string; startS: number; endS: number; unit: number }> = [];
-    let pos = 0;
+    let acc = new Float32Array(0);
+    const append = (x: Float32Array, overlap: number) => {
+      const ov = Math.max(0, Math.min(overlap, acc.length, x.length));
+      const out = new Float32Array(acc.length + x.length - ov);
+      out.set(acc.subarray(0, acc.length - ov), 0);
+      for (let k = 0; k < ov; k++) { const g = k / Math.max(1, ov - 1); out[acc.length - ov + k] = acc[acc.length - ov + k]! * Math.cos((g * Math.PI) / 2) + x[k]! * Math.sin((g * Math.PI) / 2); }
+      out.set(x.subarray(ov), acc.length);
+      acc = out;
+      return acc.length - x.length;
+    };
     takes.forEach((t, i) => {
-      out.set(t.audio, pos);
-      for (const w of t.words) timed.push({ word: w.word, startS: w.startS + pos / SR, endS: w.endS + pos / SR, unit: i });
-      pos += t.audio.length + Math.round(gaps[i]! * SR);
+      if (i === 0) { append(t.audio, 0); for (const w of t.words) timed.push({ word: w.word, startS: w.startS, endS: w.endS, unit: i }); return; }
+      const prev = takes[i - 1]!;
+      const natural = (prev.audio.length / SR - (prev.words.at(-1)?.endS ?? prev.audio.length / SR)) + (t.words[0]?.startS ?? 0);
+      const want = Math.max(0.18, gaps[i - 1]!);
+      let start: number;
+      if (want <= natural) start = append(t.audio, Math.round((natural - want) * SR) + XF);
+      else {
+        // fill: room tone from the passage before, looped with crossfades, long enough for the wanted pause
+        const room = roomOf(prev.audio);
+        let fill = new Float32Array(0);
+        const need = Math.round((want - natural) * SR) + 2 * XF;
+        while (fill.length < need) { const nx = new Float32Array(fill.length + room.length - Math.min(XF, fill.length)); nx.set(fill.subarray(0, fill.length - Math.min(XF, fill.length))); const o0 = fill.length - Math.min(XF, fill.length); for (let k = 0; k < room.length; k++) { const g = k < XF && fill.length ? k / XF : 1; nx[o0 + k] = (k < XF && fill.length ? fill[o0 + k]! * (1 - g) : 0) + room[k]! * g; } fill = nx; }
+        append(fill.subarray(0, need), XF);
+        start = append(t.audio, XF);
+      }
+      for (const w of t.words) timed.push({ word: w.word, startS: w.startS + start / SR, endS: w.endS + start / SR, unit: i });
     });
-    await writeMp3(out, audioPath);
-    return { timed, durationS: total / SR };
+    void parts;
+    await writeMp3(acc, audioPath);
+    return { timed, durationS: acc.length / SR };
   };
   let asm = await assemble();
 
@@ -322,7 +389,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     // SOUND CHECK. The sounds of each whole line are recognised once; every risky word's target pronunciation
     // is looked for around the place in the line where the word is spoken. The consonant skeleton must be
     // right (what this recogniser hears reliably); vowel and stress errors are beyond it.
-    const lineSounds = new Map<number, string>();
+    const lineSounds = new Map<string, string>();
     const soundOk = new Set<string>(); // `${unit}|${normalised word}` for words whose sounds passed
     for (const [term, e] of phonemeTerms) {
       const tw = words(term).map(norm);
@@ -332,18 +399,24 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
         const uw = units[u]!.words.map(norm);
         const at = uw.findIndex((_, k) => tw.every((x, q) => (uw[k + q] ?? "").replace(/s$/, "") === x.replace(/s$/, "")));
         if (at < 0) continue;
-        if (!lineSounds.has(u)) {
-          const ws = asm.timed.filter((w) => w.unit === u);
-          lineSounds.set(u, ws.length ? await spokenPhonemes(audioPath, Math.max(0, ws[0]!.startS - 0.05), ws.at(-1)!.endS + 0.12, o.dataDir).catch(() => "") : "");
-        }
-        const spoken = lineSounds.get(u)!;
+        // the sounds of a short window around the word itself (a passage is too long to place a word inside it
+        // reliably): the word's own aligned time ± 0.3 s
+        const wsU = asm.timed.filter((w) => w.unit === u);
+        const wA = wsU.length === uw.length ? wsU[at] : undefined, wB = wsU.length === uw.length ? wsU[at + tw.length - 1] : undefined;
+        const key = wA && wB ? `${u}@${wA.startS.toFixed(2)}` : `${u}`;
+        if (!lineSounds.has(key)) lineSounds.set(key, wA && wB ? await spokenPhonemes(audioPath, Math.max(0, wA.startS - 0.3), wB.endS + 0.3, o.dataDir).catch(() => "") : wsU.length ? await spokenPhonemes(audioPath, Math.max(0, wsU[0]!.startS - 0.05), wsU.at(-1)!.endS + 0.12, o.dataDir).catch(() => "") : "");
+        const spoken = lineSounds.get(key)!;
         if (!spoken) continue;
         // Position of the word in the line by its own aligned time in the take (film 1: by characters, "1975" — four
         // characters, but "nineteen seventy-five" spoken — sent the check for "Kodak" to the sounds of the year).
         // Character counts remain the fallback when the alignment does not cover the line word for word.
-        const ws = asm.timed.filter((w) => w.unit === u);
+        const ws = wsU;
         let frac: number;
-        if (ws.length === uw.length && ws[at] && ws[at + tw.length - 1]) {
+        if (wA && wB) {
+          // the window is centred on the word: its sounds sit in the middle
+          const from = Math.max(0, wA.startS - 0.3), to = wB.endS + 0.3;
+          frac = ((wA.startS + wB.endS) / 2 - from) / Math.max(0.1, to - from);
+        } else if (ws.length === uw.length && ws[at] && ws[at + tw.length - 1]) {
           const from = Math.max(0, ws[0]!.startS - 0.05), to = ws.at(-1)!.endS + 0.12;
           frac = ((ws[at]!.startS + ws[at + tw.length - 1]!.endS) / 2 - from) / Math.max(0.1, to - from);
         } else {
@@ -368,16 +441,39 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     }
     // WORD CHECK. Whisper hears without being told the names, so a mangled name comes back as a different
     // word. A name spelled differently but whose sounds passed is only a spelling variant, not an error.
+    // A second opinion on words the recogniser did not hear: the SOUNDS of that stretch against the words' own sounds.
+    // The transcriber drops words read in another manner (a quotation acted out) — film 1 voice test: "cute, but please
+    // don't tell anyone" was spoken (consonants 0.91; wrong words 0.22) and reported missing four retakes running.
+    const confirmed = new Set<typeof diff.issues[number]>();
+    {
+      const real = diff.issues.filter((x) => x.kind !== "extra");
+      const groups: Array<typeof real> = [];
+      for (const is of real) { const g = groups.at(-1); if (g && is.atS - g.at(-1)!.atS < 1.5) g.push(is); else groups.push([is]); }
+      for (const g of groups) {
+        const from = Math.min(...g.map((x) => x.atS)), to = Math.max(...g.map((x) => x.atS));
+        const span = asm.timed.filter((w) => w.startS >= from - 0.02 && w.startS <= to + 0.02);
+        if (!span.length) continue;
+        const phrase = span.map((w) => w.word).join(" ");
+        const target = await espeakIpa(phrase).catch(() => "");
+        const heardS = target ? await spokenPhonemes(audioPath, Math.max(0, span[0]!.startS - 0.15), span.at(-1)!.endS + 0.15, o.dataDir).catch(() => "") : "";
+        const m = target && heardS ? phonemeMatch(target, heardS, { frac: 0.5 }) : null;
+        if (m && m.consonants >= 0.75 && m.score >= 0.6) for (const x of g) confirmed.add(x);
+      }
+    }
     for (const is of diff.issues) {
-      if (is.kind === "extra") continue;
+      if (is.kind === "extra" || confirmed.has(is)) continue;
       const u = unitAt(is.atS);
       if (is.kind === "substituted" && soundOk.has(`${u}|${norm(is.expected).replace(/s$/, "")}`)) continue;
       flag(u, `${is.kind} "${is.expected}"${is.heard ? ` heard "${is.heard}"` : ""}`);
     }
-    report.wer = diff.wer;
+    // word error counts only what neither the transcriber nor the sound check heard
+    const scriptWords = Math.max(1, asm.timed.length);
+    report.wer = Math.round(((diff.issues.filter((x) => x.kind !== "extra" && !confirmed.has(x)).length) / scriptWords) * 1000) / 1000;
+    if (confirmed.size) log(`  listen-back: ${confirmed.size} word(s) the transcriber missed were confirmed spoken by their sounds`);
+    void diff.wer;
     report.speechIssues = diff.issues.filter((x) => x.kind !== "extra").map((x) => ({ kind: x.kind, expected: x.expected, heard: x.heard, atS: Math.round(x.atS * 10) / 10 }));
     report.pronunciation = checks;
-    log(`  listen-back ${round + 1} (${heard.backend}, ${heard.seconds} s): word error ${(diff.wer * 100).toFixed(1)} %, ${checks.filter((c) => !c.ok).length}/${checks.length} risky word(s) sound wrong, ${bad.size} line(s) to redo${bad.size ? ` — ${[...bad.entries()].slice(0, 4).map(([u, w]) => `line ${u + 1}: ${w[0]}`).join("; ")}` : ""}`);
+    log(`  listen-back ${round + 1} (${heard.backend}, ${heard.seconds} s): word error ${((report.wer ?? diff.wer) * 100).toFixed(1)} %, ${checks.filter((c) => !c.ok).length}/${checks.length} risky word(s) sound wrong, ${bad.size} line(s) to redo${bad.size ? ` — ${[...bad.entries()].slice(0, 4).map(([u, w]) => `line ${u + 1}: ${w[0]}`).join("; ")}` : ""}`);
     // Keep the best take per line; a line whose retake came out worse goes back to its better take.
     let reverted = 0;
     for (let u = 0; u < units.length; u++) {

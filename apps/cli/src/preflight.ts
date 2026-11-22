@@ -11,6 +11,7 @@
  * "blocker" checks stop the render when they still fail; "advisory" checks are reported (they have no automatic
  * repair — e.g. how expressive a fixed voice is — and the finished-film gate still judges them).
  */
+import { measureSeams } from "@opumia/senses";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RenderManifest, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
@@ -337,6 +338,12 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     if (rep) {
       add({ id: "voice_unresolved", label: "Narration lines with an unresolved word or pronunciation problem", value: rep.unresolved.length, target: "0", pass: rep.unresolved.length === 0, level: "blocker", ...(rep.unresolved.length ? { note: `${rep.unresolved.slice(0, 2).join("; ")} — re-run the narration (--redo narration)` } : {}) });
       if (rep.wer !== null) add({ id: "voice_wer", label: "Word error against the script", value: rep.wer, target: "≤ 0.01", pass: rep.wer <= 0.01, level: "blocker" });
+      // Step 3: no join you can hear — no digital silence, no voice starting or stopping dead (senses/seams.ts).
+      const sm = await measureSeams(o.timed.voice.audioPath).catch(() => null);
+      if (sm) {
+        const hard = sm.seams.filter((x) => x.kind !== "floor_jump");
+        add({ id: "voice_seams", label: "Joins you can hear in the narration (dead air, a voice starting or stopping dead)", value: hard.length, target: "0", pass: hard.length === 0, level: "blocker", ...(hard.length ? { note: `${hard.slice(0, 4).map((x) => `${x.atS} s ${x.kind}`).join(", ")} — re-run the narration (--redo narration)` } : {}) });
+      }
     }
     const words = o.timed.segments.flatMap((s) => s.words.map((w) => ({ word: w.word, start: w.startS, end: w.endS })));
     const pace = measurePace(words);

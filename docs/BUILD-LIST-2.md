@@ -43,8 +43,20 @@ Order (each step depends on the ones before it). Status: ☐ open · ◐ in prog
      finished file.
    - **Skills:** each says how to act on the report.
    - **Tested on film 1, 40–50 s:** it caught the unbridged jump at 43 s, 7 voice seams, and taste 5.1 against 6.1.
-3. ☐ **Seamless voice** (D): narration in long passages with request continuity, joins only at breaths with
-   crossfades and continuous room tone, never digital silence. Gate: zero detectable seams.
+3. ☑ **Seamless voice** (`narration/directed.ts`).
+   - **Passages:** sentences are spoken in passages, one take each and never cut inside (up to about 600
+     characters, breaking at chapters and held beats).
+   - **Pauses:** shortened only inside the TTS's own digital silence, to at most 0.22 s.
+   - **No dead air:** every digital silence is filled with room noise at the passage's own quiet level, and passages
+     meet on their own room with equal-power crossfades.
+   - **Sound check:** each risky word is checked in a window around its own aligned time. Words the transcriber
+     misses are confirmed or rejected by their sounds; a quotation was dropped by Whisper but spoken, consonants 0.91
+     against 0.22 for wrong words.
+   - **Gate:** preflight `voice_seams` is a blocker.
+   - **Film 1's script, narrated again:** seams 43 → 0, word error 0 %, word-gap pauses 3.8 a minute (narrator
+     1.6–6). Pitch travel 13.4 st (narrator ≥ 11.9). Melody 3.30–3.94 between runs (narrator ≥ 3.53).
+   - **Limits:** melody still varies with how the director groups passages, and the narration runs about 7 % longer
+     than with sentence takes.
 4. ☐ **Taste as the objective** (B, decision half): two or three versions of each scene, and the one the taste judge
    rates closest to the channel wins. Gates on every scene and on the whole film.
 5. ☐ **Blank-slate design per film** (A) **and pixel memory** (F):
