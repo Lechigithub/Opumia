@@ -103,6 +103,18 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
   let finished: { summary: string; angle: string; covered: Array<{ mustHave: number; claimId: string }>; gaps: string[] } | null = null;
   let rejected = 0;
   const usable = () => claims.filter((c) => c.verdict === "supported" || c.verdict === "partially_supported");
+  // H30: source quality. 3 primary (courts, regulators, governments, filings, the company's own reports, the
+  // person's own words on video), 2 reputable press and reference works, 1 everything else (blogs, user posts).
+  const tierOf = (url: string): 1 | 2 | 3 => {
+    const h = hostOf(url);
+    const u = url.toLowerCase();
+    if (/\.(gov|mil)(\.[a-z]{2})?$|\.gov\.|courtlistener|justia|supremecourt|uscourts|sec\.gov|europa\.eu|parliament|congress\.gov|federalregister|companieshouse|annualreports|investor\.|investors\.|ir\./.test(h) || /\.pdf($|\?)/.test(u) || /youtube\.com|youtu\.be/.test(h)) return 3;
+    if (/reuters|apnews|bloomberg|nytimes|wsj|ft\.com|economist|washingtonpost|theguardian|bbc\.|cnbc|cnn\.|npr\.org|latimes|forbes|fortune|businessinsider|time\.com|theatlantic|newyorker|wired|arstechnica|theverge|techcrunch|axios|politico|britannica|nature\.com|science\.org|\.edu$|\.ac\.[a-z]{2}$|wikipedia\.org|history\.com|smithsonian|pbs\.org|nbcnews|abcnews|cbsnews|usatoday|independent\.co|telegraph\.co|spiegel|lemonde|nikkei|scmp/.test(h)) return 2;
+    // newspapers by name (local and national press: The Irish Times, the Rochester Beacon, the Denver Post …)
+    if (/(^|\.)([a-z-]*(times|post|herald|tribune|journal|gazette|chronicle|beacon|guardian|observer|telegraph|independent|courier|examiner|inquirer|dispatch|register|star|sun|mirror|express|news|press|today))\.[a-z.]+$/.test(h) && !/medium|substack|blogspot|wordpress|reddit|quora/.test(h)) return 2;
+    return 1;
+  };
+  const CONTESTED = /\b(wanted|feared|believed|hated|knew|lied|fraud|cheat|covered up|hid|deceiv|motive|intended|planned to|refused to|ignored|blamed|accus|alleg)/i;
   const status = () => {
     const u = usable();
     const count = (k: string) => u.filter((c) => c.kind === k).length;
@@ -115,9 +127,14 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
     if (srcs.size < 5) need.push(`facts from ${5 - srcs.size} more independent source(s)`);
     const top = [...srcs].map((h) => ({ h, n: u.filter((c) => hostOf(c.sourceUrl) === h).length })).sort((a, b) => b.n - a.n)[0];
     if (top && u.length >= 8 && top.n / u.length > 0.45) need.push(`less reliance on ${top.h} (${top.n} of ${u.length} facts) — bring facts from other sources, ideally primary ones`);
+    // H30: the sheet stands on good sources; contested claims need a good one or two independent ones.
+    const strong = u.filter((c) => tierOf(c.sourceUrl) >= 2);
+    if (u.length >= 8 && strong.length / u.length < 0.5) need.push(`more facts from primary or reputable sources (${strong.length} of ${u.length} now; at least half) — filings, court records, the company's reports, the person's own words, established newspapers`);
+    const weakContested = u.filter((c) => tierOf(c.sourceUrl) === 1 && CONTESTED.test(c.text) && !u.some((d) => d.id !== c.id && hostOf(d.sourceUrl) !== hostOf(c.sourceUrl) && norm(d.text).split(" ").filter((w) => w.length > 4 && norm(c.text).includes(w)).length >= 3));
+    if (weakContested.length) need.push(`contested claims resting on one weak source — confirm on a primary or reputable source, or a second independent one: ${weakContested.slice(0, 4).map((c) => `[${c.id}] ${c.text.slice(0, 70)} (${hostOf(c.sourceUrl)})`).join("; ")}`);
     if (!plan) need.push("a plan (call plan_story)");
     if (quick) need.length = 0;
-    return { need, text: `VERIFIED so far: ${u.length} fact(s) — ${count("event")} events, ${count("date")} dates, ${count("number")} figures, ${count("quote")} quotations, ${count("context")} context — from ${srcs.size} source(s).\n${plan ? `MUST-HAVES:\n${plan.mustHave.map((m, i) => `  ${i}. ${m}`).join("\n")}` : "No plan yet."}\n${need.length ? `STILL NEEDED:\n${need.map((n) => `  - ${n}`).join("\n")}` : "The film has enough to stand on. Make sure every must-have is verified, then finish."}\nCLAIMS:\n${u.map((c) => `  [${c.id}] (${c.kind}) ${c.text} — ${hostOf(c.sourceUrl)}`).join("\n") || "  none"}` };
+    return { need, text: `VERIFIED so far: ${u.length} fact(s) — ${count("event")} events, ${count("date")} dates, ${count("number")} figures, ${count("quote")} quotations, ${count("context")} context — from ${srcs.size} source(s).\n${plan ? `MUST-HAVES:\n${plan.mustHave.map((m, i) => `  ${i}. ${m}`).join("\n")}` : "No plan yet."}\n${need.length ? `STILL NEEDED:\n${need.map((n) => `  - ${n}`).join("\n")}` : "The film has enough to stand on. Make sure every must-have is verified, then finish."}\nCLAIMS:\n${u.map((c) => `  [${c.id}] (${c.kind}) ${c.text} — ${hostOf(c.sourceUrl)} [${["", "weak", "reputable", "primary"][tierOf(c.sourceUrl)]}]`).join("\n") || "  none"}` };
   };
 
   const tools: AgentTool[] = [

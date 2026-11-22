@@ -53,3 +53,7 @@ The minimum is not the goal. A thin sheet gives a thin film: the writer can only
   it; record it as such, with the evidence sentence.
 - **Look for the story, not just facts**: the moment things turned, the people on each side, the contrast between
   what was expected and what happened, the detail a viewer will retell.
+- **Source quality is measured** (sheet_status shows each claim's source as primary, reputable or weak): at least
+  half the sheet from primary or reputable sources, and a contested claim (a motive, an accusation) on a weak source
+  needs confirming on a better or a second independent one before you finish.
+
