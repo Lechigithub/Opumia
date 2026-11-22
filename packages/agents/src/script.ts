@@ -150,13 +150,13 @@ function dossierText(f: FactSheet): string {
 
 /**
  * The script. By default the writer agent writes it (one author with tools — writer-agent.ts). The older
- * five-pass writer below runs only with OPUMIA_WRITER=legacy, or when the channel has no measured story band
- * or reference films yet.
+ * five-pass writer below runs only when the channel has no measured story band or reference films yet (the
+ * OPUMIA_WRITER=legacy switch was removed: the agent was accepted 3 of 3, the five-pass writer 0 of 1).
  */
 export async function writeScript(o: ScriptOptions): Promise<ScriptDraft> {
-  if (process.env.OPUMIA_WRITER !== "legacy" && o.storyBand && o.films?.length) return writeScriptAgent({ ...(o.brief ? { brief: o.brief } : {}), pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.askResearcher ? { askResearcher: o.askResearcher } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
+  if (o.storyBand && o.films?.length) return writeScriptAgent({ ...(o.brief ? { brief: o.brief } : {}), pack: o.pack, facts: o.facts, aspect: o.aspect, durationS: o.durationS, narrationWpm: o.narrationWpm, storyBand: o.storyBand, films: o.films, ...(o.memoryDir ? { memoryDir: o.memoryDir } : {}), ...(o.askResearcher ? { askResearcher: o.askResearcher } : {}), ...(o.recent ? { recent: o.recent } : {}), ...(o.recentOpenings ? { recentOpenings: o.recentOpenings } : {}), ...(o.onStory ? { onStory: o.onStory } : {}), ...(o.log ? { log: o.log } : {}) });
   const log = o.log ?? (() => {});
-  log("  script: legacy five-pass writer (no story band or reference films for this channel, or OPUMIA_WRITER=legacy)");
+  log("  script: five-pass writer (no story band or reference films for this channel yet — build its bands to use the writer agent)");
   const short = o.durationS <= 90;
   const targetWords = Math.round((o.durationS * o.narrationWpm) / 60);
   const claims = usableClaims(o.facts);

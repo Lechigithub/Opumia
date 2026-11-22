@@ -6,7 +6,7 @@ import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
-import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
+import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
@@ -199,7 +199,6 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   let fresh = false;
   const doNarrate = async () => {
     fresh = true;
-    if (process.env.OPUMIA_NARRATION === "legacy") return (await narrate({ draft, facts, outDir: jobDir, libraryRoot: o.library, voice, modelId: ttsModel, log })).script;
     // Directed narration: voice director → line takes → listen-back (Whisper + sound check) → retakes.
     const nar = await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { narrator?: { wpm: { p25: number; p50: number }; prosody?: { f0RangeSt?: { p50: number }; melodySt?: { p50: number } } } }).narrator, () => undefined);
     const res = await narrateDirected({ draft, facts, outDir: jobDir, dataDir: o.data, channel, voice, modelId: ttsModel, ...(nar ? { narrator: { wpm: nar.wpm.p50, wpmLow: nar.wpm.p25, ...(nar.prosody?.f0RangeSt ? { f0RangeSt: nar.prosody.f0RangeSt.p50 } : {}), ...(nar.prosody?.melodySt ? { melodySt: nar.prosody.melodySt.p50 } : {}) } } : {}), log });
@@ -242,10 +241,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   log("\n[B1] storyboard director");
   // The director is an agent: it reads how the channel shows lines like these, checks that the footage it asks
   // for exists (probe_footage), measures its own plan and revises. What its probes found goes to sourcing
-  // (probes.json). OPUMIA_DIRECTOR=legacy runs the older single prompt.
+  // (probes.json).
   const probesFile = path.join(jobDir, "probes.json");
   let board = await cachedJson(path.join(jobDir, "storyboard.json"), Storyboard, redo("storyboard"), async () => {
-    if (process.env.OPUMIA_DIRECTOR === "legacy") return directStoryboard({ pack, script: timed, facts, index, avoidQueries: badQueries(memory), log });
     const eraD = eraOfFacts(facts);
     let dirReport: DirectorReport | null = null;
     const refDir = path.join(o.data, "exemplars", channel);

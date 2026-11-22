@@ -84,8 +84,7 @@ export async function buildPublishingPackage(o: PublishOptions): Promise<{ thumb
     log(`  ! no reference packaging for ${o.channel} (run \`opumia build-exemplars --channel ${o.channel}\`): package skipped`);
     return { thumbnailPath: null, usd: 0 };
   }
-  if (process.env.OPUMIA_PACKAGING !== "legacy") return agentPackage(o, ex, exDir);
-  return legacyPackage(o, ex, exDir);
+  return agentPackage(o, ex, exDir);
 }
 
 /**
