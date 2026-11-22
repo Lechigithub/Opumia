@@ -75,6 +75,14 @@ piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a di
 - **Drawn looks:** `find_illustration` for human-made illustrations and vectors (mascots, drawn objects), or
   `stylise` a real photo painterly, posterised or as ink.
 
+## Picture quality (measured against the channel's own thumbnails)
+
+The channel's thumbnails are sharp and textured everywhere: their typical area holds about eight times the detail of
+our early renders, with visible grain. Every render is measured (sharpest part, typical part, contrast, grain). Soft
+or smeared means: an upscaled source, a big blurred backdrop or a flat gradient. Fix it with sharp, large sources
+(`find_product_shot`, high-resolution photos), detail in every area (piles, patterns, textures, a sharp scene instead
+of a blurred one) and `finish.grain` / `finish.sharpen`. Never blur a background to hide that it is weak.
+
 ## Building the idea
 
 - **Piles:** `pile` heaps many copies of one cut-out (cash, coins, bottles, logos) across an area, smaller at the back

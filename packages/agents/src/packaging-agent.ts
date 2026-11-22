@@ -14,12 +14,13 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { FactSheet, FilmDesignSystem, SceneElement, TimedScript } from "@opumia/contracts";
-import { measureLook, run } from "@opumia/senses";
+import { craftIssues, measureCraft, measureLook, run } from "@opumia/senses";
+import type { QualityBand } from "./quality-band.js";
 import * as z from "zod/v4";
 import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
 import { testTitles, thumbnailImposter } from "./publishing.js";
 import { fitLayout } from "./scene-designer.js";
-import { critiqueConcepts, critiqueThumbnail, deconText, emptyShare, nearestRefs, type ConceptScore, type ThumbConcept, type ThumbCraft, type ThumbCritique } from "./thumbnail-craft.js";
+import { critiqueConcepts, critiqueThumbnail, deconText, emptyShare, nearestRefsByMeaning, type ConceptScore, type ThumbConcept, type ThumbCraft, type ThumbCritique } from "./thumbnail-craft.js";
 import { labelThumbnails, THUMB_BACKGROUNDS, THUMB_HEROES, THUMB_MARKS, thumbIssues, type ThumbBand, type ThumbIssue } from "./thumbnail-measure.js";
 
 /** The picture tools (resolver/thumbnail-tools.ts), handed in as functions. */
@@ -79,10 +80,12 @@ export interface PackagingAgentOptions {
   band: ThumbBand;
   /** Deconstructions of the channel's reachable thumbnails and its measured emptiness (thumbnail-craft.ts). */
   craft?: ThumbCraft | null;
+  /** The reference's pixel-level bar (sharpness, detail, contrast, grain). */
+  quality?: QualityBand | null;
   references: Array<{ title: string; views: number | null }>;
   pictures: PackagingPictureTools;
   /** Renders a thumbnail spec + finish with the film's scene engine into `out` (1280×720 jpg). */
-  render: (i: { spec: unknown; finish: unknown; design: FilmDesignSystem; slots: Record<string, string>; fresh: boolean; out: string }) => Promise<void>;
+  render: (i: { spec: unknown; finish: unknown; design: FilmDesignSystem; slots: Record<string, string>; fresh: boolean; out: string; grain: number; sharpen: number }) => Promise<void>;
   avoidConcepts?: string[];
   memoryDir?: string;
   onReport?: (r: PackagingReport) => void;
@@ -157,6 +160,8 @@ const Finish = z.object({
   rays: z.object({ color: HEX, x: z.number(), y: z.number(), opacity: z.number().optional(), count: z.number().optional() }).optional().describe("light burst behind the hero"),
   overlays: z.array(z.object({ slot: z.number(), blend: z.enum(["screen", "lighten", "multiply", "overlay"]).optional(), opacity: z.number().optional(), under: z.boolean().optional().describe("behind the composition"), x: z.number().optional(), y: z.number().optional(), w: z.number().optional(), h: z.number().optional() })).optional().describe("fire, smoke, sparks or light filmed on black (library overlays), blended with screen"),
   vignette: z.number().optional(),
+  grain: z.number().optional().describe("0–1 film grain over the whole picture (the channel's thumbnails are textured; default 0.5)"),
+  sharpen: z.number().optional().describe("0–1 final sharpening (default 0.5)"),
   pattern: z.object({ slot: z.number(), size: z.number().optional().describe("0.04–0.5 of the frame width per tile"), opacity: z.number().optional(), rot: z.number().optional(), tint: HEX.optional(), tintStrength: z.number().optional() }).optional().describe("a logo, monogram, icon or object repeated edge to edge as the background wallpaper — the subject's own world"),
   grade: z.object({ contrast: z.number().optional().describe("0.8–1.6"), saturation: z.number().optional().describe("0.6–2"), brightness: z.number().optional().describe("0.7–1.4"), warmth: z.number().optional().describe("-1 cold … 1 warm") }).optional().describe("whole-image grade (default: saturation 1.35, contrast 1.08)"),
 });
@@ -374,7 +379,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
       schema: z.object({ about: z.string().optional().describe("words of your idea: fire, money, logo, person, pattern…"), max: z.number().optional() }),
       run: async (i: { about?: string; max?: number }) => {
         if (!craft) return "no deconstructions available";
-        const pick = i.about ? nearestRefs(craft, i.about, clamp(i.max, 1, 4, 3)) : craft.items.slice(studied, studied + clamp(i.max, 1, 4, 3));
+        const pick = i.about ? await nearestRefsByMeaning(craft, i.about, clamp(i.max, 1, 4, 3)) : craft.items.slice(studied, studied + clamp(i.max, 1, 4, 3));
         studied += pick.length;
         const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [];
         for (const d of pick) out.push({ type: "text", text: `${deconText(d)}\nRECIPE: ${d.recipe}` }, await img(d.file));
@@ -578,18 +583,20 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         const built = build(d, o.design, o.pictures.pics);
         const id = `r${renders.length + 1}`;
         const file = path.join(outDir, `${id}.jpg`);
-        await o.render({ spec: built.spec, finish: built.finish, design: built.design, slots: o.pictures.slotMap(), fresh: o.pictures.takeDirty() || renders.length === 0, out: file });
+        await o.render({ spec: built.spec, finish: built.finish, design: built.design, slots: o.pictures.slotMap(), fresh: o.pictures.takeDirty() || renders.length === 0, out: file, grain: clamp(d.finish?.grain, 0, 1, 0.5), sharpen: clamp(d.finish?.sharpen, 0, 1, 0.5) });
         const phone = path.join(outDir, `${id}.phone.jpg`);
         await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", file, "-filter_complex", "[0]scale=360:-2[a];[0]scale=168:-2,pad=168:202:0:0:0x202020[b];[a]pad=376:202:0:0:0x202020[a2];[a2][b]hstack=inputs=2", "-frames:v", "1", "-update", "1", phone]);
         const [label] = await labelThumbnails([file]);
         const look = await measureLook(file, { fps: 1 });
         const empty = await emptyShare(file).catch(() => 0);
+        const px = await measureCraft(file).catch(() => null);
+        const pxIssues = px && o.quality ? craftIssues(px, o.quality.thumbs, "thumbnail", { grain: true }) : [];
         const emptyLimit = craft ? Math.max(0.08, craft.emptyShare.p90) : 0.3;
-        const issues = [...(empty > emptyLimit ? [{ kind: "empty_frame", detail: `${pc(empty)} of the frame is flat, dim or blurred; the channel's thumbnails stay at or under ${pc(emptyLimit)} (median ${pc(craft?.emptyShare.median ?? 0)}). Fill it: a pile, a pattern of the subject's own marks, a sharp background, fire, the hero bigger.` }] : []),...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
+        const issues = [...pxIssues, ...(empty > emptyLimit ? [{ kind: "empty_frame", detail: `${pc(empty)} of the frame is flat, dim or blurred; the channel's thumbnails stay at or under ${pc(emptyLimit)} (median ${pc(craft?.emptyShare.median ?? 0)}). Fill it: a pile, a pattern of the subject's own marks, a sharp background, fire, the hero bigger.` }] : []),...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
         const r: ThumbRender = { id, file, phone, concept: d.concept, conceptId: d.conceptId, empty, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness };
         renders.push(r);
         log(`    ${id}: "${d.concept.slice(0, 70)}" — ${issues.length ? issues.map((x) => x.kind).join(", ") : "inside the band"}`);
-        const head = `${id}: ${label ? `measured — hero ${label.hero} ${pc(label.heroShare)}, background ${label.background}, ${label.words} word(s)${label.words ? ` drawn ${label.textStyle.replace("_", " ")} (${label.textLook})` : ""}, text ${pc(label.textHeight)} high, ${label.elements} focal elements, marks ${label.marks.join(", ") || "none"}, face ${label.expression}; ` : ""}colourfulness ${Math.round(look.colourfulness)}, brightness ${look.luma.toFixed(2)}, empty ${pc(empty)}.${built.dropped.length ? `\nDropped: ${built.dropped.join("; ")}.` : ""}\n${issues.length ? `OUTSIDE THE CHANNEL'S BAND:\n${issues.map((x) => `- [${x.kind}] ${x.detail}`).join("\n")}` : "Inside the channel's band. Now compare it with the real ones (critique_thumbnail) and test it blind (imposter_test)."}`;
+        const head = `${id}: ${label ? `measured — hero ${label.hero} ${pc(label.heroShare)}, background ${label.background}, ${label.words} word(s)${label.words ? ` drawn ${label.textStyle.replace("_", " ")} (${label.textLook})` : ""}, text ${pc(label.textHeight)} high, ${label.elements} focal elements, marks ${label.marks.join(", ") || "none"}, face ${label.expression}; ` : ""}colourfulness ${Math.round(look.colourfulness)}, brightness ${look.luma.toFixed(2)}, empty ${pc(empty)}${px ? `; detail: sharpest ${Math.round(px.sharpTop)}, typical ${Math.round(px.sharpMedian)}, grain ${px.grain}${o.quality ? ` (channel medians ${Math.round(o.quality.thumbs.sharpTop.median)} / ${Math.round(o.quality.thumbs.sharpMedian.median)} / ${o.quality.thumbs.grain.median})` : ""}` : ""}.${built.dropped.length ? `\nDropped: ${built.dropped.join("; ")}.` : ""}\n${issues.length ? `OUTSIDE THE CHANNEL'S BAND:\n${issues.map((x) => `- [${x.kind}] ${x.detail}`).join("\n")}` : "Inside the channel's band. Now compare it with the real ones (critique_thumbnail) and test it blind (imposter_test)."}`;
         return [{ type: "text", text: head }, await img(file), { type: "text", text: "At phone size (home feed 360 px, suggested 168 px):" }, await img(phone)];
       },
     },
@@ -631,7 +638,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         if (!r) return `no render ${i.id}`;
         if (!craft) return "no deconstructions available";
         const c = r.conceptId ? concepts.get(r.conceptId) : undefined;
-        const refs = nearestRefs(craft, `${r.concept} ${c?.idea ?? ""} ${c?.fusion ?? ""} ${c?.background ?? ""}`, 3);
+        const refs = await nearestRefsByMeaning(craft, `${r.concept}. ${c?.idea ?? ""} ${c?.fusion ?? ""} ${c?.background ?? ""}`, 3);
         const { critique } = await critiqueThumbnail({ channel: o.channel, file: r.file, concept: c?.idea ?? r.concept, refs });
         r.critique = critique;
         log(`    critique ${r.id}: ${critique.score}/10, ${critique.fused}${critique.ideaReads ? "" : ", idea does not read"}`);

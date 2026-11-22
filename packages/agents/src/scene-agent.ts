@@ -16,6 +16,7 @@ import * as z from "zod/v4";
 import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
 import { designScenes, SceneDraftSchema, type SceneDraftScene } from "./scene-designer.js";
 import { colourCover } from "@opumia/senses";
+import { nearestByMeaning } from "./retrieve.js";
 import { labelShots, SHOT_KINDS, visualIssues, visualProfile, type VisualBand, type VisualProfile } from "./visual-measure.js";
 
 export type PictureResult = { ok: true; shotId: string; as: "footage" | "slot"; slot?: number; kind: "video" | "image"; depicts: string; fit?: number; preview: string } | { ok: false; why: string };
@@ -192,6 +193,24 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
           out.push({ type: "text", text: `REAL SHOT — ${s.kind === "none" ? "clean footage, nothing designed" : s.kind}: ${s.layout}; motion: ${s.motion}; over the line "${s.line.slice(0, 110)}"` }, im);
         }
         return out.length ? out : "those frames could not be read";
+      }) as AgentTool["run"],
+    },
+    {
+      name: "similar_real_shots",
+      description: "The channel's real shots whose spoken line is nearest in meaning and role to one of your shots (the same kind of story moment), with what was on screen — how the channel actually shows a line like this. Up to 4 frames.",
+      schema: z.object({ shotId: z.string() }),
+      run: (async (i: { shotId: string }) => {
+        const sh = shots.find((s) => s.id === i.shotId);
+        if (!sh) return `no shot ${i.shotId}`;
+        referenceViews++;
+        const idx = await nearestByMeaning(`a documentary narration line: "${lineOf(sh)}" (shot intent: ${sh.intent.slice(0, 120)})`, o.referenceShots.map((s) => `"${s.line}" → shown as ${s.kind === "none" ? "clean footage" : s.kind}: ${s.layout}`), 4, "real narration line and how it was shown");
+        const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [];
+        for (const k of idx) {
+          const s = o.referenceShots[k]!;
+          const im = await img(s.frame).catch(() => null);
+          if (im) out.push({ type: "text", text: `REAL — "${s.line.slice(0, 110)}" → ${s.kind === "none" ? "clean footage, nothing designed" : s.kind}: ${s.layout}; motion: ${s.motion}` }, im);
+        }
+        return out.length ? out : "no similar real shot could be read";
       }) as AgentTool["run"],
     },
     {

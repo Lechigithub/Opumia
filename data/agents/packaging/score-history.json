@@ -169,5 +169,22 @@
         "usd": 1.29
       }
     ]
+  },
+  {
+    "at": "2026-11-22T01:54:33.415Z",
+    "commit": "5627dfd",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": false,
+        "passedBlind": true,
+        "spotted": 0.13,
+        "outsideBand": [],
+        "renders": 9,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 348,
+        "usd": 1.027
+      }
+    ]
   }
 ]

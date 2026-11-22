@@ -19,6 +19,7 @@ import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
 import { MODELS, plain, structured } from "./llm.js";
+import { nearestByMeaning } from "./retrieve.js";
 import type { ThumbBand } from "./thumbnail-measure.js";
 
 /** Sonnet by default (owner, 2026-11-22: measure the gain without Opus first); OPUMIA_CRAFT_MODEL=opus switches. */
@@ -166,6 +167,12 @@ const Critique = z.object({
   fixes: z.array(z.string()).describe("the three changes that would raise the score most, most important first"),
 });
 export type ThumbCritique = z.infer<typeof Critique>;
+
+/** The real thumbnails whose ideas are nearest in meaning (retrieve.ts); word overlap if that fails. */
+export async function nearestRefsByMeaning(craft: ThumbCraft, hint: string, n = 3): Promise<ThumbDecon[]> {
+  const idx = await nearestByMeaning(hint, craft.items.map((d) => `${d.idea} — ${d.fusion} — background: ${d.background}`), n, "real thumbnail idea");
+  return idx.map((i) => craft.items[i]!).filter(Boolean);
+}
 
 export function nearestRefs(craft: ThumbCraft, hint: string, n = 3): ThumbDecon[] {
   const words = new Set(hint.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 3));

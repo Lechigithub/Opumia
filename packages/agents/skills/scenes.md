@@ -49,6 +49,12 @@ Use these before settling for a picture-less shot. Do not collect pictures you w
 - **Colour.** A footage shot tinted so heavily that the whole frame reads as one colour is reported. The channel's footage keeps its natural colour: leave `wash` off unless one moment truly needs the mood.
 - **Period.** A picture you fetch for a line set in the past is dated before you get it; if everything that fits looks too modern you are told, and the answer is a timeless close-up.
 
+## Learn from the nearest real shot
+
+Before designing a shot whose line carries weight (a reveal, a figure, a person, a turn), call `similar_real_shots`:
+it shows how the channel itself put the most similar lines on screen. The reference is the standard — design from
+what it did for a moment like this, not from a general idea of the style.
+
 ## What you never do
 
 - Put words on a shot only because you can. If the footage carries the line, mark it `clean`.

@@ -1,0 +1,44 @@
+{
+ "channel": "magnates-media",
+ "thumbs": {
+  "count": 37,
+  "sharpTop": {
+   "p10": 2287.7,
+   "median": 4598.4
+  },
+  "sharpMedian": {
+   "p10": 277.9,
+   "median": 1219.1
+  },
+  "contrast": {
+   "p10": 188,
+   "median": 219
+  },
+  "grain": {
+   "p10": 7.8,
+   "median": 17.5,
+   "p90": 35
+  }
+ },
+ "frames": {
+  "count": 276,
+  "sharpTop": {
+   "p10": 39,
+   "median": 557.7
+  },
+  "sharpMedian": {
+   "p10": 1.4,
+   "median": 18.1
+  },
+  "contrast": {
+   "p10": 59,
+   "median": 152
+  },
+  "grain": {
+   "p10": 0.2,
+   "median": 1.2,
+   "p90": 4.8
+  }
+ },
+ "generatedAt": "2026-11-22T01:46:49.955Z"
+}

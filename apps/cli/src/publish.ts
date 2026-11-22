@@ -5,9 +5,9 @@
  *   thumbnail.jpg  publish.json  youtube-description.txt  youtube-tags.txt  pinned-comment.txt
  */
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { checkPackage, designThumbnail, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
+import { checkPackage, designThumbnail, ensureQualityBand, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
 import type { FactSheet, FilmDesignSystem, LibraryIndex, ResolutionReport, Storyboard, TimedScript } from "@opumia/contracts";
 import { renderThumbnailScene } from "@opumia/motion-engine";
 import { closeBrowser, makeThumbnailTools, visionCheck, wikipediaImages, type ThumbCredit, type ThumbPicture } from "@opumia/resolver";
@@ -115,11 +115,19 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
     design: o.design,
     band,
     craft,
+    quality: await ensureQualityBand({ data: o.data, channel: o.channel, log }).catch(() => null),
     references: ex.packaging ?? [],
     // The agent only hands back pictures from this same list.
     pictures: { ...tools, brief: (p) => tools.brief(p as ThumbPicture) },
     render: async (r) => {
-      await renderThumbnailScene({ publicDir: tools.pubDir, spec: r.spec, slots: r.slots, design: r.design, finish: r.finish, fresh: r.fresh, out: r.out, log: () => {} });
+      // Rendered at twice the size and brought down with a sharp filter (crisper edges and type), then a light
+      // unsharp mask and film grain on the real pixels — the channel's thumbnails are sharp and textured.
+      const big = r.out.replace(/\.jpg$/, ".2x.png");
+      await renderThumbnailScene({ publicDir: tools.pubDir, spec: r.spec, slots: r.slots, design: r.design, finish: r.finish, fresh: r.fresh, width: 2560, height: 1440, out: big, log: () => {} });
+      const amt = (0.4 + r.sharpen * 0.9).toFixed(2);
+      const grain = Math.round(r.grain * 14);
+      await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", big, "-vf", `scale=1280:720:flags=lanczos,unsharp=5:5:${amt}:5:5:0${grain ? `,noise=alls=${grain}:allf=t` : ""}`, "-q:v", "2", "-frames:v", "1", "-update", "1", r.out]);
+      await rm(big, { force: true });
     },
     avoidConcepts: concepts.filter((c) => c.job !== o.job).slice(-8).map((c) => c.concept),
     memoryDir: path.join(o.data, "agents", "packaging"),

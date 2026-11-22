@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrate, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -468,6 +468,7 @@ async function produceStages(o: ProduceOptions) {
       const set = new Set(ids);
       scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (set.has(sc.shotId) && sc.wash ? (({ wash: _w, ...rest }) => rest)(sc) : sc)) });
     };
+    const qualityBand = await ensureQualityBand({ data: o.data, channel, log }).catch(() => null);
     const rounds: Array<{ round: number; failing: string[]; repairs: string[] }> = [];
     let checks: PreflightCheck[] = [];
     let soundRound = 0;
@@ -484,7 +485,7 @@ async function produceStages(o: ProduceOptions) {
         for (const [k2, v] of found) defects.set(k2, v);
         look2 = new Set();
       }
-      checks = await preflightChecks({ jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent });
+      checks = await preflightChecks({ jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       const fixable = failing.filter((c) => c.repair);
       const done: string[] = [];
@@ -494,7 +495,7 @@ async function produceStages(o: ProduceOptions) {
         if (drop.shots.size) {
           // In place: the picture tools hold this same resolution object.
           resolution.media.splice(0, resolution.media.length, ...drop.media);
-          const lateIds = fixable.filter((c) => c.id === "period_footage").flatMap((c) => c.shots ?? []);
+          const lateIds = fixable.filter((c) => c.id === "period_footage" || c.id === "soft_footage").flatMap((c) => c.shots ?? []);
           const refilled = new Set(lateIds.length ? await refill(lateIds) : []);
           const ids = scenePlan.scenes.map((x) => x.shotId).filter((id) => drop.shots.has(id));
           if (ids.length) scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(ids.map((id) => [id, [refilled.has(id) ? "this shot's footage was replaced (the old one looked too modern for the line): design the scene for the new footage — let it play clean if it carries the line" : "a picture was removed from this shot (it repeated another shot or broke a sourcing rule): design the scene again from what is left"]])), previous: scenePlan, log });

@@ -16,6 +16,8 @@ import path from "node:path";
 import type { RenderManifest, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
 import { contactSheet, measureLook, measurePace, measureProsody, measureSound, pct, r3, rgbFrames } from "@opumia/senses";
 import { periodCheck, reviewFrame, yearOf } from "@opumia/resolver";
+import { measureCraft } from "@opumia/senses";
+import type { QualityBand } from "@opumia/agents";
 import type { ExemplarIndex } from "./exemplars.js";
 
 export type Repair = "drop_picture" | "safe_scene" | "soften_wash" | "reseed_sound" | "prune_shapes";
@@ -140,6 +142,8 @@ export interface PreflightInput {
   sceneDefects: Map<string, string[]>;
   /** Middle preview frame of every scene (final design). */
   previewFrames: string[];
+  /** The channel's own pixel-level quality bar (agents/quality-band.ts). */
+  quality?: QualityBand | null;
   /** The channel's own range for how much one colour carries a film (referenceHueDominance). */
   hueRef?: { p75: number; max: number } | null;
   /** Pictures and sounds the recent films used (cross-film cooldown). */
@@ -243,6 +247,17 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     }
   }
 
+  // --- Sharpness: footage far softer than the channel's own frames (an upscaled or smeared source) is replaced.
+  if (o.quality) {
+    const soft: string[] = [];
+    for (const m of o.resolution.media.filter((x) => x.role === "primary" && x.origin !== "press")) {
+      const c = await measureCraft(m.localPath, m.kind === "video" ? Math.min(1, (m.durationS ?? 2) / 2) : undefined).catch(() => null);
+      if (c && c.sharpTop < o.quality.frames.sharpTop.p10) soft.push(m.shotId);
+    }
+    const lim = Math.max(1, Math.round(o.resolution.media.filter((x) => x.role === "primary").length * 0.1));
+    add({ id: "soft_footage", label: "Footage softer than the channel's softest tenth of frames", value: soft.length, target: `≤ ${lim}`, pass: soft.length <= lim, level: "blocker", repair: "drop_picture", shots: soft });
+  }
+
   // --- Scenes: no outlined box or circle that frames nothing.
   {
     const ef = emptyFrames(o.scenes);
@@ -342,7 +357,7 @@ export function dropPictures(resolution: ResolutionReport, checks: PreflightChec
   const repeat = want("repeat_in_film");
   const shared = want("shared_pictures");
   const press = new Set(failing.filter((c) => c.id.startsWith("fair_use")).flatMap((c) => c.shots ?? []));
-  const late = want("period_footage");
+  const late = new Set([...want("period_footage"), ...want("soft_footage")]);
   const first = new Map<string, string>();
   const keepWiki = new Map<string, Set<string>>(); // the first two shots a portrait or logo appears in
   for (const m of [...resolution.media].filter((x) => x.role === "primary" || x.role === "layer").sort((x, y) => x.shotId.localeCompare(y.shotId))) {

@@ -361,6 +361,17 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Memory / score:** `data/agents/packaging/<channel>.md`, `owner-notes.md`; `npx tsx apps/cli/src/dev/package-score.ts out/<job>` → `data/agents/packaging/score-history.json`. Band alone: `npx tsx apps/cli/src/dev/thumb-band.ts`.
 - **After the agent:** description, tags, hashtags and pinned comment are written from its title (`writePublishingText({ title })`), the package check runs, and thumbnail pictures whose licence requires a credit are credited in the description. `publish.json.thumbnail` lists every picture used with its source and `generatedImagery: false`.
 
+### Learning from the reference: craft, quality and retrieval (2026-11-22)
+
+The reference channel is the taste source of truth (owner) — not anyone's personal rating. Agents learn *how* it is made, not only *what* it measures:
+
+- **Thumbnail deconstructions** (`agents/thumbnail-craft.ts` → `data/thumbnail-profile/<channel>-craft.json`): the 28 reachable real thumbnails taken apart (idea, fusion, layers, edges, background, lettering, phone read, recipe). The packaging agent studies them (`study_reference_ideas`), proposes 6–14 concepts that a critic scores against them (`propose_concepts`; nothing is rendered until a concept scores 8/10, three rounds at most), and every render is critiqued beside the three nearest real thumbnails (`critique_thumbnail`: fused or collage, empty areas, what each real one does that ours does not, score /10, fixes). Submission needs 8/10 or twelve renders. The blind imposter test runs three times; it proved too lenient on its own (it passed a render the critique scored 4.5/10). Craft steps run on Sonnet; `OPUMIA_CRAFT_MODEL=opus` switches to Opus 5.5 (owner: measure without Opus first).
+- **Pixel-level quality bar** (`senses/craft.ts`, `agents/quality-band.ts` → `data/quality-profile/<channel>.json`): sharpness of the sharpest tenth (`sharpTop`), of the typical block (`sharpMedian`), contrast (p95−p5), grain — the same function on 37 real thumbnails, 276 real shot frames and ours, all scaled to 640×360. Measured: the channel's thumbnails hold about 8× the typical detail of our early renders (median 1,219 vs ~160) and visible grain (17.5 vs ~5); 14 of 17 early renders fell below the bar. Our footage mostly sits inside the frames' band. `npx tsx apps/cli/src/dev/quality-gap.ts out/<job>`.
+- **Where the bar applies:** every thumbnail render (`soft_image`, `smeared_image`, `flat_contrast`, `too_clean`); preflight `soft_footage` (footage softer than the channel's softest tenth; blocker, dropped and refilled like period footage).
+- **Thumbnail finishing:** rendered at 2560×1440, brought to 1280×720 with Lanczos, an unsharp mask and film grain on the real pixels (`finish.sharpen`, `finish.grain`).
+- **Retrieval by meaning** (`agents/retrieve.ts:nearestByMeaning`, Haiku, text only): the real examples nearest to the task — the critic's comparison thumbnails, `study_reference_ideas`, and the scene designer's `similar_real_shots` (the real shots whose spoken line is nearest in meaning and role, with what was on screen).
+- **Measured before this pass** (Kodak, Theranos): best concepts 5.5–5.6/10, renders 2.5–4.5/10 against the real thumbnails. Not at the channel's level.
+
 ## Sound: timeline sound designer (rebuild stage 7)
 
 `agents/sound-timeline.ts:designSoundTimeline` (no model call) runs as `produce` stage **B5**, after the scenes are final, and replaces the director's sound plan:
