@@ -40,6 +40,8 @@ export interface SceneAgentOptions {
   render: (plan: ScenePlan, shotIds: string[]) => Promise<Array<{ shotId: string; sheet: string; mid: string }>>;
   /** Renders one shot at seven moments as a strip, so the designer can see it move. */
   play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
+  /** Step 4: trained taste of rendered frames (0–10, the same heads as the film score), and the channel's real band. */
+  taste?: { score: (files: string[]) => Promise<Array<number | null>>; realP10: number; realMedian: number };
   /** Step 2: watch a stretch at real speed with sound, with the measured detector report (jumps, legibility, seams, taste). */
   watch?: (plan: ScenePlan, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
   /** Sourcing tools (resolver/scene-tools.ts): they add pictures to `resolution` in place. */
@@ -104,6 +106,15 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     return out;
   };
 
+  // Step 4: taste per scene (trained heads on the middle frame), kept current as scenes are rendered.
+  const tasteOf = new Map<string, number>();
+  const triedVariants = new Set<string>();
+  const scoreTasteFor = async (ids: string[]) => {
+    if (!o.taste) return;
+    const want = ids.filter((id) => frames.has(id));
+    const sc = await o.taste.score(want.map((id) => frames.get(id)!.mid)).catch(() => [] as Array<number | null>);
+    want.forEach((id, k) => { const v = sc[k]; if (typeof v === "number") tasteOf.set(id, v); });
+  };
   const measure = async (submitting = false) => {
     const missing = shots.map((s) => s.id).filter((id) => !plan.scenes.some((x) => x.shotId === id));
     const stale = plan.scenes.map((s) => s.shotId).filter((id) => dirty.has(id) || !frames.has(id));
@@ -177,6 +188,13 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         if (ref) placed.set(ref, [...new Set([...(placed.get(ref) ?? []), sc.shotId.replace(/(_\d+)+$/, "")])]);
       }
     const overused = [...placed.entries()].filter(([, v]) => v.length > 2);
+    // Step 4: taste is the objective — every scene against the channel's real shots (trained heads).
+    if (o.taste) {
+      await scoreTasteFor(ids.filter((id) => !tasteOf.has(id) || dirty.has(id)));
+      const low = ids.filter((id) => (tasteOf.get(id) ?? 10) < o.taste!.realP10);
+      const untried = low.filter((id) => !triedVariants.has(id));
+      if (untried.length) issues.push({ kind: "below_channel_taste", detail: `these scenes score below the channel's lowest tenth on taste (${o.taste.realP10}; its median ${o.taste.realMedian}): ${untried.map((id) => `${id} ${tasteOf.get(id)}`).join(", ")}. For each, try_variants with two or three genuinely different designs (another picture, another composition, another kind of shot) — the one closest to the channel is kept.` });
+    }
     if (overused.length) issues.push({ kind: "same_picture_repeated", detail: `the same picture is placed in more than two shots: ${overused.map(([, v]) => v.join(", ")).join(" | ")}. Show it at most twice; give the other shots a different picture or let their footage play.` });
     const washAllow = Math.floor(plan.scenes.length * 0.1);
     if (washed.length > washAllow) issues.push({ kind: "washed_footage", detail: `${washed.length} footage shot(s) are tinted so heavily that the whole frame reads as one colour (${washed.join(", ")}); the channel's footage keeps its natural colour. Set wash to false on these (at most ${washAllow} may stay washed, for a deliberate mood moment).` });
@@ -252,6 +270,48 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         return `${plan.scenes.length}/${shots.length} shots have a scene.\n${lines.join("\n")}${said.length ? `\nchecks: ${said.join(" ").slice(0, 500)}` : ""}`;
       }) as AgentTool["run"],
     },
+    ...(o.taste
+      ? [
+          {
+            name: "try_variants",
+            description: "Taste as the objective: give two or three genuinely different designs of ONE shot (another composition, another picture, another kind of shot — not a nudge). Each is rendered and scored by the trained taste against the channel's real shots; the closest to the channel is kept and you see all of them side by side with their scores.",
+            schema: z.object({ shotId: z.string(), designs: SceneDraftSchema.shape.scenes.min(2).max(3) }),
+            run: (async (i: { shotId: string; designs: SceneDraftScene[] }) => {
+              if (!shots.some((s) => s.id === i.shotId)) return `no shot ${i.shotId}`;
+              const base = plan;
+              const tried: Array<{ plan: ScenePlan; mid: string; sheet: string; score: number }> = [];
+              const keepFrame = frames.get(i.shotId);
+              const cand = [...(base.scenes.some((x) => x.shotId === i.shotId) && keepFrame ? [{ plan: base, mid: keepFrame.mid, sheet: keepFrame.sheet }] : [])];
+              for (const d of i.designs) {
+                const p2 = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
+                if (!p2.scenes.some((x) => x.shotId === i.shotId)) continue;
+                const r = (await o.render(p2, [i.shotId]))[0];
+                if (!r) continue;
+                // the renderer writes one file per shot: keep a copy of each variant's frames
+                const { copyFile } = await import("node:fs/promises");
+                const k = cand.length;
+                const mid = r.mid.replace(/(\.[a-z]+)$/, `_v${k}$1`), sheet = r.sheet.replace(/(\.[a-z]+)$/, `_v${k}$1`);
+                await copyFile(r.mid, mid);
+                await copyFile(r.sheet, sheet);
+                cand.push({ plan: p2, mid, sheet });
+              }
+              if (!cand.length) return "no variant could be designed";
+              const sc = await o.taste!.score(cand.map((c) => c.mid));
+              cand.forEach((c, k) => tried.push({ ...c, score: sc[k] ?? 0 }));
+              const best = tried.reduce((a, b) => (b.score > a.score ? b : a));
+              plan = best.plan;
+              frames.set(i.shotId, { mid: best.mid, sheet: best.sheet });
+              tasteOf.set(i.shotId, best.score);
+              dirty.delete(i.shotId);
+              triedVariants.add(i.shotId);
+              unseen.delete(i.shotId);
+              const blocks: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text: `${i.shotId}: ${tried.map((t, k) => `${k === 0 && cand[0]!.plan === base ? "current" : `variant ${k}`} ${t.score}`).join(", ")} — kept the ${best.score} (the channel's median ${o.taste!.realMedian}, lowest tenth ${o.taste!.realP10}).` }];
+              for (const [k, t] of tried.entries()) blocks.push({ type: "text", text: `${k === 0 && cand[0]!.plan === base ? "current" : `variant ${k}`} — taste ${t.score}:` }, await img(t.sheet));
+              return blocks;
+            }) as AgentTool["run"],
+          } satisfies AgentTool,
+        ]
+      : []),
     {
       name: "render_previews",
       description: "Render your scenes and look at them: three moments of each shot (early, middle, end). Up to 9 shots per call. Look for anything cut off, overlapping, unreadable, covering a face or the subject, an empty or dull frame, and shots that look alike.",

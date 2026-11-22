@@ -130,6 +130,8 @@ const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").
 const baseRef = (ref: string) => ref.split("#")[0]!.split("@")[0]!;
 
 export interface PreflightInput {
+  /** Step 4: trained taste of the final scene frames (median) against the channel's real shots. */
+  taste?: { median: number; realP10: number; realMedian: number; low: string[] };
   jobDir: string;
   board: Storyboard;
   scenes: ScenePlan;
@@ -294,6 +296,12 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       const lim = Math.min(0.9, Math.max(o.hueRef.p75 * 1.1, o.hueRef.max) + 0.05);
       add({ id: "one_colour_film", label: "Share of scenes carried by the same colour (a film washed in one tone reads as monochrome)", value: dom, target: `≤ ${r3(lim)} (the channel's films: up to ${o.hueRef.max})`, pass: dom <= lim, level: "blocker", repair: "soften_wash" });
     }
+  }
+
+  // --- Step 4: taste is the objective — the film's scenes, as a whole, at least at the channel's lowest tenth.
+  if (o.taste) {
+    const warn = process.env.OPUMIA_TASTE_GATE === "warn";
+    add({ id: "film_taste", label: "Taste of the film's scenes against the channel's real shots (trained heads, median)", value: o.taste.median, target: `≥ ${o.taste.realP10} (the channel's median ${o.taste.realMedian})`, pass: o.taste.median >= o.taste.realP10, level: warn ? "advisory" : "blocker", ...(o.taste.low.length ? { note: `lowest scenes: ${o.taste.low.slice(0, 6).join(", ")}`, shots: o.taste.low.map((x) => x.split(" ")[0]!) } : {}) });
   }
 
   // --- Uniqueness of the plan against earlier films.

@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
 import { ensureVoiceMeasured, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -339,6 +339,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const people = (facts.story?.characters ?? []).map((c) => c.name);
   // The scene designer agent, callable again (the showrunner sends shots back to it).
   let sceneReport: SceneReport | null = null;
+  const tasteModel = await loadTaste(o.data, channel, "shot").catch(() => null);
   const runSceneAgent = async (extra: { previous?: ScenePlan; revise?: Array<{ shotId: string; note: string }> } = {}) => {
     const lookA = lookFromProfile(pack.profile.look, design.palette.primarySoft);
     const burn = o.aspect === "9:16" || pack.captions.burnLongForm;
@@ -355,7 +356,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const coolS = await cooldownRefs(o.data, jobId);
     const eraS = eraOfFacts(facts);
     const pictures = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
-    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, watch: async (plan: ScenePlan, a: number, b: number) => {
+    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
       // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
       const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
@@ -657,7 +658,11 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         for (const [k2, v] of found) defects.set(k2, v);
         look2 = new Set();
       }
-      checks = await preflightChecks({ jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
+      const pfFrames = scenePlan.scenes.map((x) => ({ id: x.shotId, f: path.join(prevDir, `${x.shotId}_1.jpg`) })).filter((x) => existsSync(x.f));
+      const pfTaste = tasteModel && pfFrames.length ? (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: pfFrames.map((x) => ({ file: x.f })) }).catch(() => [])).map((x, k) => ({ id: pfFrames[k]!.id, v: x?.score ?? null })).filter((x): x is { id: string; v: number } => x.v !== null) : [];
+      const pfSorted = [...pfTaste].sort((a2, b2) => a2.v - b2.v);
+      const tasteIn = tasteModel && pfSorted.length ? { taste: { median: pfSorted[Math.floor(pfSorted.length / 2)]!.v, realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median, low: pfSorted.filter((x) => x.v < tasteModel.calibration.real.p10).map((x) => `${x.id} ${x.v}`) } } : {};
+      checks = await preflightChecks({ ...tasteIn, jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       const fixable = failing.filter((c) => c.repair);
       const done: string[] = [];

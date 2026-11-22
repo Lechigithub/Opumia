@@ -74,5 +74,27 @@
         "top": "plain_footage 48%"
       }
     ]
+  },
+  {
+    "at": "2026-11-22T18:47:49.998Z",
+    "commit": "4bc200f",
+    "profileVersion": null,
+    "results": [
+      {
+        "job": "taste-test-kodak",
+        "pass": false,
+        "measurements": 11,
+        "seconds": 296,
+        "usd": 0.686,
+        "remaining": [
+          "below_channel_taste"
+        ],
+        "kinds": 8,
+        "clean": 0.259,
+        "text": 0.741,
+        "pictures": 0.185,
+        "top": "plain_footage 26%"
+      }
+    ]
   }
 ]

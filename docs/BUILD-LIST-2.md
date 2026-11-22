@@ -57,8 +57,17 @@ Order (each step depends on the ones before it). Status: ☐ open · ◐ in prog
      1.6–6). Pitch travel 13.4 st (narrator ≥ 11.9). Melody 3.30–3.94 between runs (narrator ≥ 3.53).
    - **Limits:** melody still varies with how the director groups passages, and the narration runs about 7 % longer
      than with sentence takes.
-4. ☐ **Taste as the objective** (B, decision half): two or three versions of each scene, and the one the taste judge
-   rates closest to the channel wins. Gates on every scene and on the whole film.
+4. ☑ **Taste as the objective.**
+   - **Per scene:** every scene is scored by the trained taste heads on its rendered frame.
+   - **Variants:** the scene designer's `try_variants` renders two or three different designs of one shot and keeps
+     the one closest to the channel. Any scene below the channel's lowest tenth (4.4; median 6.1) must have had
+     variants tried before the film can be submitted.
+   - **Film gate:** preflight `film_taste` is a blocker; the median scene taste must reach the channel's lowest
+     tenth (`OPUMIA_TASTE_GATE=warn` makes it advisory).
+   - **Measured on film 1's plan** (`out/taste-test-kodak`, $0.69, not accepted in 30 turns): variants moved taste
+     only within 3.2–4.1. The final median is 4.5, with 9 of 23 scenes below 4.4. Rearranging the same menu pieces
+     does not reach the channel; the renderer is the ceiling, and step 5 is the lever. The gates are in place to
+     measure it.
 5. ☐ **Blank-slate design per film** (A) **and pixel memory** (F):
    - a visual concept, typefaces and palette for each film;
    - motion components written as code for each film;
