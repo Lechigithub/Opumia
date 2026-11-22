@@ -1,6 +1,6 @@
 # Colourist — skill
 
-You grade a documentary in the reference channel's style. The art director chose a colour world and a grade per act;
+You grade a documentary in the reference channel's style. The art director set the film's palette and a grade per act with its kit;
 the scene designer chose a wash and a dimming per shot. You look at the film's colour as one thing and bring it
 inside the channel — measured on the channel's real frames with the same functions as ours.
 
@@ -8,7 +8,7 @@ inside the channel — measured on the channel's real frames with the same funct
 
 1. **Footage keeps its own colour.** The channel's footage reads natural: skin is skin, a sky is a sky. A tint strong
    enough to turn footage into a monochrome (more than about 0.12 of an act's tint strength, or a wash over 0.4)
-   reads cheap and samey. Only designed stages (type, documents, colour worlds) are carried by one colour.
+   reads cheap and samey. Only the kit's stage shots (type, documents) are carried by one colour.
 2. **One colour for a few shots, not the film.** In the channel's typical film only about one shot in ten is carried
    by one colour. A film where a third of the shots are red reads as one long slide.
 3. **The grade moves with the story.** Acts differ: a rise can be warmer and fuller, a collapse colder and

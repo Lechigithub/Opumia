@@ -1,64 +1,45 @@
 import { readFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
-import { ScenePlan, type FilmDesignSystem, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
+import { ScenePlan, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { MODELS, plain, structured } from "./llm.js";
 
 /**
- * Scene designer: every shot of the film gets a composed scene — the way the reference channel treats nearly
- * every shot — written as a layered, timed spec for the motion renderer.
+ * Scene drafts → checked scenes (build list 3, L7): the scene designer AGENT writes every scene (scene-agent.ts);
+ * this module only checks and applies its drafts — no model call of its own (the single-prompt designer was removed).
  *
- *  - It LOOKS before it designs: real reference frames of labelled designed shots are shown with every batch.
- *  - It works inside the film's own treatment (text styles, label and photo style, colour world, motif), so a
- *    film is coherent and no two films share a look.
- *  - It is asset-aware: only picture slots that really resolved can be placed.
- *  - It can be shown previews of its own scenes with a critic's notes and asked to fix them (`issues`).
- *
- * Shots are designed in parallel batches; output is sanitised in code (coordinates clamped, missing slots dropped,
- * phrases must be words actually spoken in the shot, figures only when spoken).
+ * A scene is real pictures (photo, cut-out, 3D card) and THIS film's kit components. Every check is in code:
+ *  - picture slots must exist; a component must exist in the film's kit;
+ *  - every word in a component's props is spoken in the shot (±1 s), every figure is a spoken figure;
+ *  - a real name on screen over footage that is not verified press of that person moves the scene to the kit's stage;
+ *  - clean footage only on moving video; elements kept inside the safe area and apart.
+ * The kit's phrase component is marked `sync` so its words land on the frames they are spoken.
  */
 
 const ENTER = ["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"] as const;
-const COLORS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"] as const;
 const El = z.object({
-  type: z.enum(["phrase", "text", "photo", "cutout", "card3d", "text3d", "shape", "texture", "counter", "steps", "icongrid", "newspaper", "screen", "component"]),
+  type: z.enum(["photo", "cutout", "card3d", "component"]),
   slot: z.number().describe("picture slot index for photo/cutout/card3d, else -1"),
-  text: z.string().describe("words for phrase/text/text3d, else empty"),
-  role: z.enum(["display", "headline", "body", "label", "stamp", "kicker"]).describe("for text"),
-  shape: z.enum(["none", "underline", "circle", "arrow", "bar", "line", "rect", "bracket", "cross"]),
-  texture: z.enum(["none", "paper", "halftone", "grid", "scanlines", "noise", "stripes"]),
+  component: z.string().describe("component: the name of one of THIS film's kit components, else empty"),
+  propsJson: z.string().describe("component: its props as a JSON object — words must be words the narrator says in this shot, figures spoken figures, slots existing picture slots; else empty"),
   x: z.number(),
   y: z.number(),
   w: z.number(),
-  h: z.number().describe("height 0..1 for shapes/photos (0 = auto)"),
-  x2: z.number().describe("arrow/line end x, else 0"),
-  y2: z.number().describe("arrow/line end y, else 0"),
+  h: z.number().describe("height 0..1 for photos and components (0 = auto)"),
   rot: z.number().describe("degrees, -10..10"),
   z: z.number().describe("depth 0 far .. 1 near"),
   at: z.number().describe("seconds after the shot starts"),
   enter: z.enum(ENTER),
-  size: z.number().describe("text cap height as a fraction of frame height (0.03 label … 0.2 slam)"),
-  align: z.enum(["left", "center", "right"]),
-  color: z.enum(COLORS),
-  word: z.string().describe("one word to emphasise in the accent colour (phrase/text), or empty"),
-  outline: z.boolean().describe("white sticker outline for cutouts"),
-  spin: z.number().describe("degrees the 3D element turns over the shot (card3d/text3d), else 0"),
-  count: z.number().describe("counter: how many icons/pictures (a figure SPOKEN in the shot), else 0"),
-  highlight: z.number().describe("counter: how many of them are marked, else 0"),
-  items: z.array(z.object({ label: z.string(), slot: z.number() })).describe("steps: 2–5 steps (label ≤ 4 words, slot or -1); icongrid: 2–6 icons (slot + label ≤ 3 words); else []"),
-  device: z.enum(["browser", "phone", "monitor"]).describe("screen: the frame around the picture"),
-  date: z.string().describe("newspaper: a date line spoken or verified, else empty"),
-  component: z.string().describe("component: the name of one of THIS film's kit components, else empty"),
-  propsJson: z.string().describe("component: its props as a JSON object (words must be words the narrator says in this shot; slot indexes are picture slots), else empty"),
+  spin: z.number().describe("degrees the 3D card turns over the shot (card3d), else 0"),
 });
 const Plan = z.object({
   scenes: z.array(
     z.object({
       shotId: z.string(),
       idea: z.string().describe("one line: what the viewer sees and why it fits the line"),
-      backdrop: z.enum(["footage", "world", "surface", "paper", "split"]),
+      backdrop: z.enum(["footage", "stage"]).describe("the shot's own footage, or the kit's stage (shots without footage)"),
       clean: z.boolean().describe("true = let the footage play clean, with NO elements on it — only for a shot whose footage is moving video that shows what the line is about; the real channel leaves about four shots in ten this way"),
-      wash: z.boolean().describe("colour this shot's footage into the film's palette (use on roughly half of the footage shots: mood, reenactment and generic footage; leave real press footage and photos natural)"),
+      wash: z.boolean().describe("colour this shot's footage into the film's palette (mood, reenactment and generic footage; leave real press footage and photos natural)"),
       dim: z.number().describe("how much the footage is darkened under the design, 0.1..0.6"),
       camera: z.object({ fromScale: z.number(), toScale: z.number(), fromX: z.number(), toX: z.number(), fromY: z.number(), toY: z.number() }),
       elements: z.array(El),
@@ -66,33 +47,26 @@ const Plan = z.object({
   ),
 });
 type PlanScene = z.infer<typeof Plan>["scenes"][number];
-/** The scene agent's tool input: the same shape a model returns, checked by the same guards. */
+/** The scene agent's tool input, checked by the guards below. */
 export const SceneDraftSchema = Plan;
 export type SceneDraftScene = PlanScene;
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : a));
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s$%€£.]/gu, "").replace(/\s+/g, " ").trim();
 
-export interface SceneExemplar { path: string; caption: string }
+/** The film's kit as the scene designer sees it (design/film/meta.json). */
+export interface FilmKitMeta { concept: string; components: Record<string, { use: string; props: string; role?: string }>; roles?: Record<string, string> }
 export interface DesignScenesOptions {
   storyboard: Storyboard;
   script: TimedScript;
   resolution: ResolutionReport;
-  design: FilmDesignSystem | null;
   channel: string;
-  /** Real reference frames with their labels, shown to the designer with every batch. */
-  exemplars?: SceneExemplar[];
-  /** Where recent films put things on screen (their most used placements): this film must not lean on the same ones. */
-  avoidLayouts?: string;
   /** Every real person the film names (research dossier characters), for the name-over-face guard. */
   people?: string[];
-  /** Redesign only these shots (after a preview critique), with the critic's notes per shot. */
-  issues?: Map<string, string[]>;
   previous?: ScenePlan;
-  /** Step 5: this film's own kit (design/film/meta.json): components the scenes are built from. */
-  kit?: { concept: string; components: Record<string, { use: string; props: string }> };
-  /** Scenes already drawn up by the scene agent: checked and cleaned here exactly like a model's output (no model call). */
-  raw?: SceneDraftScene[];
+  kit: FilmKitMeta;
+  /** The scene agent's drafts, checked and applied here. */
+  raw: SceneDraftScene[];
   log?: (s: string) => void;
 }
 
@@ -101,225 +75,72 @@ const isScene = (s: StoryboardShot) => s.source.kind === "designed" && s.source.
 export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   const log = o.log ?? (() => {});
   const all = o.storyboard.shots.filter(isScene);
-  const rawIds = o.raw ? new Set(o.raw.map((x) => x.shotId)) : null;
-  const todo = rawIds ? all.filter((s) => rawIds.has(s.id)) : o.issues ? all.filter((s) => o.issues!.has(s.id)) : all;
-  const keep = rawIds ? (o.previous?.scenes ?? []).filter((x) => !rawIds.has(x.shotId)) : o.issues && o.previous ? o.previous.scenes.filter((x) => !o.issues!.has(x.shotId)) : [];
-  if (!todo.length) return ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: keep, generatedAt: new Date().toISOString() });
+  const rawIds = new Set(o.raw.map((x) => x.shotId));
+  const todo = all.filter((s) => rawIds.has(s.id));
+  const keep = (o.previous?.scenes ?? []).filter((x) => !rawIds.has(x.shotId));
   const words = o.script.segments.flatMap((s) => s.words);
   const lineOf = (a: number, b: number) => words.filter((w) => w.startS >= a - 0.05 && w.startS < b).map((w) => w.word).join(" ");
   const portrait = o.storyboard.aspect === "9:16";
-  const ds = o.design;
-  const tr = ds?.treatment;
   const mediaOf = (id: string) => o.resolution.media.filter((m) => m.shotId === id);
-
-  const brief = (s: StoryboardShot) => {
-    const p = (s.source as { props: Record<string, unknown> }).props;
-    const media = mediaOf(s.id);
-    const slots = media.filter((m) => m.role === "layer").sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
-    const primary = media.find((m) => m.role === "primary");
-    const prevSpec = o.previous?.scenes.find((x) => x.shotId === s.id);
-    return [
-      `SHOT ${s.id} (${(s.endS - s.startS).toFixed(1)} s) — line type: ${s.lineLink}`,
-      `  narration: "${lineOf(s.startS, s.endS)}"`,
-      `  brief: ${String(p.brief ?? s.intent)}`,
-      `  footage backdrop: ${primary ? `yes — ${primary.kind} of ${primary.depicts ?? primary.query} (${primary.origin})` : "NO footage — use backdrop world or paper"}`,
-      `  picture slots: ${slots.length ? slots.map((m) => `[${m.slot}] ${m.depicts ?? m.query}${m.width && m.height ? ` (${(m.width / m.height).toFixed(2)}:1)` : ""}`).join("; ") : "none"}`,
-      ...(o.issues?.get(s.id)?.length ? [`  YOUR PREVIOUS DESIGN WAS REVIEWED ON A RENDERED PREVIEW. Problems to fix: ${o.issues.get(s.id)!.join("; ")}`, `  previous spec: ${JSON.stringify(prevSpec ?? {}).slice(0, 1400)}`] : []),
-    ].join("\n");
-  };
-
-  const task = `You are the motion designer of the YouTube documentary channel ${o.channel}. Design ONE composed scene for EVERY shot listed — the real channel puts designed treatment on nearly every shot; a plain stock clip with a slow zoom is a failure. The reference frames above show how the real channel designs (study layout, scale, type treatment and how pictures are cut out and layered — then compose your own, never copy).
-
-THIS FILM'S DESIGN LANGUAGE (already chosen for its topic — stay inside it so the film is coherent):
-- concept: ${ds?.concept ?? "—"}
-- colours (tokens): primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}, text ${ds?.palette.text}
-- type: ${ds?.typography.display} display, ${ds?.typography.casing} case. Headlines are drawn "${tr?.headline ?? "solid_stroke"}", kinetic narration phrases "${tr?.phrase ?? "neon_glow"}", labels "${tr?.label ?? "tag"}", photos "${tr?.photo ?? "print"}" (the renderer applies these styles; you place and time the elements).
-- backdrop world when there is no footage: "${tr?.world ?? "smoke"}" in the film's colours; footage is washed into the palette automatically.
-- recurring motif of this film: ${tr?.motif ?? "—"} — work it in where it fits (shapes, textures, layout), a few times across the film.
-
-ELEMENTS (drawn in order, later on top; every element keeps moving on its own):
-- phrase: a run of words THE NARRATOR SAYS IN THIS SHOT (3–9 consecutive words, copied exactly from the narration), revealed word by word in sync with the voice. This is the channel's signature and the right choice for most footage shots. Put it where the footage is calm; vary position and size shot to shot (top band, lower third, left column, right column, centred); "word" = the one word to hit in the accent colour.
-- text: headline / display (1–4 words, a name, a verdict, a title), label or kicker (≤ 6 words: who or what a picture is), stamp (1–2 words).
-- photo: a picture slot in the film's photo style. cutout: a transparent logo/object slot; outline=true gives the sticker outline. Only slots listed for that shot exist.
-- card3d: a picture slot as a real 3D card turning in perspective (spin 15–35°) — for the key picture reveals (at most 3 in the film).
-- text3d: ONE short word (≤ 12 letters) as real extruded 3D type, slowly turning (spin 12–24°) — for the 1–2 biggest moments of the film only.
-- shape: underline, circle, arrow (x,y → x2,y2), bar, line, rect, bracket, cross — draw-on with enter "draw"; use them to point at, strike through or connect things.
-- texture: paper, halftone, grid, scanlines, noise, stripes over the scene.
-
-LAYOUT RULES:
-- Coordinates are fractions of the ${portrait ? "1080×1920 vertical" : "1920×1080"} frame; x,y = top-left corner, w = width. Keep everything inside 0.04–0.96${portrait ? "; important content in the top two-thirds" : ""}. Text height ≈ size × number of lines: make sure elements do not overlap each other (leave ≥ 0.03 between boxes) and do not cover a face or the main subject of the footage.
-- One focal idea per shot, 1–4 elements. Sizes with intent: a slam is big (0.12–0.2), a phrase medium (0.055–0.09), a label small (0.03–0.045).
-- Entrances: "at" in seconds, timed to when the word or thing is spoken, staggered ≥ 0.15 s; vary the enter type.
-${o.kit ? `- THIS FILM'S OWN KIT (its art director designed it for this film; its visual idea: ${o.kit.concept}). Build designed shots from these components first — they carry the film's own type, cards and frames; the generic text/phrase/label elements are only for what no component covers. Use type "component" with component = the name and propsJson = its props:\n${Object.entries(o.kit.components).map(([n, c]) => `  · ${n} — ${c.use}; props: ${c.props}`).join("\n")}\n` : ""}- Infographic kinds (use them where the channel would, never as decoration): "counter" — a figure the narrator says, made visible as that many icons or pictures (count = the spoken number; highlight = how many are marked; slot = an icon or cut-out object, or -1 for a person figure); "steps" — a process of 2–5 steps (labels ≤ 4 words, slot per step or -1); "icongrid" — 2–6 icons with short labels (each needs a picture slot); "newspaper" — a newspaper-style layout whose headline is words the narrator says in this shot (no real paper's name; optional date and photo slot); "screen" — a picture slot (a real page screenshot, an app) shown in a browser, phone or monitor frame that scrolls.
-- Camera: a clear move across the whole scene (scale travels at least 0.08 between 1.0 and 1.2; focus 0.4–0.6), direction alternating shot to shot — the picture is never static.
-- No two consecutive shots share a layout. Across the batch use at least 5 clearly different layouts, and at most HALF of the shots may be "phrase over footage" — the rest are picture compositions, headlines, labels on real footage, shapes that point at things, or 3D moments. Vary phrase colour (text, primary, primarySoft) and size too.
-${o.avoidLayouts ? `- Recent films leaned on these placements — this film must NOT: ${o.avoidLayouts}. Build this film's layouts around other parts of the frame.\n` : ""}- On-screen words are words the narrator says (or the name of what a slot shows). Never a number unless that exact figure is spoken in the shot. Never invent facts.
-- Without footage a scene must still be a PICTURE, not a caption on a colour: build it from the slots, a 3D element, large type with a drawn shape that means something (a strike-through, an arrow between two things, a circle around the key word), or the film's motif. Never leave an empty outlined box.
-- backdrop: "footage" when the shot has footage (dim 0.15–0.45, lower when the design is light); "world" or "paper" when it has none or when a picture composition needs a clean stage; "split" = footage left, world right.`;
-
-  const exemplarBlocks: Anthropic.Beta.BetaContentBlockParam[] = [];
-  const ex = (o.exemplars ?? []).slice(0, 12);
-  for (const [i, e] of ex.entries()) {
-    exemplarBlocks.push({ type: "text", text: `REFERENCE FRAME ${i + 1}: ${e.caption}` });
-    const img: Anthropic.Beta.BetaImageBlockParam = { type: "image", source: { type: "base64", media_type: "image/jpeg", data: (await readFile(e.path)).toString("base64") } };
-    // Cache the exemplar prefix so parallel batches and revisions reuse it.
-    if (i === ex.length - 1) img.cache_control = { type: "ephemeral" };
-    exemplarBlocks.push(img);
-  }
-
-  const BATCH = 8;
-  const batches: StoryboardShot[][] = [];
-  for (let i = 0; i < todo.length; i += BATCH) batches.push(todo.slice(i, i + BATCH));
-  if (!o.raw) log(`  scene designer: ${todo.length} scene(s) in ${batches.length} batch(es)${o.issues ? " (revision after preview)" : ""}, ${ex.length} reference frames (${MODELS.sonnet})…`);
-  const results: PlanScene[] = o.raw ? [...o.raw] : [];
-  // First batch alone (writes the cache), the rest in parallel (read it).
-  const runBatch = async (b: StoryboardShot[], k: number) => {
-    const neighbours = k > 0 ? `\n(The previous batch ended on a ${results.at(-1)?.backdrop ?? "footage"} scene: start differently.)` : "";
-    const { data } = await structured({ stage: o.issues ? "scenes.revise" : "scenes.design", model: MODELS.sonnet, system: [plain(task)], user: [...exemplarBlocks, { type: "text", text: `${b.map(brief).join("\n\n")}${neighbours}` }], schema: Plan, effort: "medium", maxTokens: 16000 });
-    return data.scenes;
-  };
-  if (!o.raw) {
-    if (batches.length) results.push(...(await runBatch(batches[0]!, 0)));
-    const rest = await Promise.all(batches.slice(1).map((b, k) => runBatch(b, k + 1).catch(() => [] as PlanScene[])));
-    for (const r of rest) results.push(...r);
-  }
-
+  const phraseRole = o.kit.roles?.phrase;
   const specs: SceneSpec[] = [...keep];
-  // Surnames of every person the film names (shot entities of type person).
   const people = [...new Set([...(o.people ?? []), ...o.storyboard.shots.flatMap((s) => (s.entities ?? []).filter((e) => e.type === "person").map((e) => e.name))].map((n) => n.replace(/\s*\(.*?\)\s*/g, " ").trim().toLowerCase().split(/\s+/).at(-1)!.replace(/[^a-z]/g, "")))].filter((x) => x.length >= 3);
   let nameGuarded = 0;
   let dropped = 0;
   let three = 0;
   for (const sh of todo) {
-    const d = results.find((x) => x.shotId === sh.id);
+    const d = o.raw.find((x) => x.shotId === sh.id);
     if (!d) continue;
     const media = mediaOf(sh.id);
     const slots = new Set(media.filter((m) => m.role === "layer").map((m) => m.slot ?? -1));
-    const hasFootage = media.some((m) => m.role === "primary");
-    const spoken = norm(lineOf(sh.startS, sh.endS));
+    const primaryM = media.find((m) => m.role === "primary");
+    const hasFootage = Boolean(primaryM);
     const around = norm(lineOf(sh.startS - 1, sh.endS + 1));
+    const said = new Set(around.split(" "));
+    const numsOk = (s: string) => (s.match(/\d[\d.,]*/g) ?? []).every((n) => around.includes(n.replace(/[.,]$/, "")));
+    const wordsOk = (v: string) => { const ws = norm(v).split(" ").filter((x) => x.length > 2); return !ws.length || ws.filter((x) => said.has(x)).length / ws.length >= 0.7; };
     const dur = sh.endS - sh.startS;
     const els: SceneElement[] = [];
     for (const e of d.elements) {
-      const box = { x: clamp(e.x, 0.02, 0.95), y: clamp(e.y, 0.02, 0.95), w: clamp(e.w, 0.03, 0.94), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter };
-      if (box.x + box.w > 0.98) box.w = Math.max(0.05, 0.98 - box.x);
-      const t = e.text.trim();
-      const numsOk = (s: string) => (s.match(/\d[\d.,]*/g) ?? []).every((n) => around.includes(n.replace(/[.,]$/, "")));
-      if ((e.type === "photo" || e.type === "cutout" || e.type === "card3d") && !slots.has(e.slot)) {
-        dropped++;
+      const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter };
+      if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
+        if (!slots.has(e.slot)) { dropped++; continue; }
+        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}) });
+        else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true });
+        else if (three < 4) (three++, els.push({ type: "card3d", slot: e.slot, ...box, tilt: e.spin >= 0 ? -14 : 14, spin: clamp(e.spin || 22, -40, 40) }));
+        else els.push({ type: "photo", slot: e.slot, ...box, grade: "natural" });
         continue;
       }
-      if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, frame: tr?.photo ?? "print", grade: "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 0.95) } : {}) });
-      else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true, outline: e.outline });
-      else if (e.type === "card3d") {
-        if (three >= 4) els.push({ type: "photo", slot: e.slot, ...box, frame: tr?.photo ?? "print", grade: "natural" });
-        else (three++, els.push({ type: "card3d", slot: e.slot, ...box, tilt: e.spin >= 0 ? -14 : 14, spin: clamp(e.spin || 22, -40, 40) }));
-      } else if (e.type === "phrase") {
-        // A phrase must be words actually spoken in this shot (so it can sync to the voice).
-        const run = norm(t);
-        if (!run || run.split(" ").length < 2 || run.split(" ").length > 10 || !spoken.includes(run)) {
-          dropped++;
-          continue;
-        }
-        els.push({ type: "phrase", text: t.slice(0, 120), ...box, size: clamp(e.size, 0.04, 0.14), align: e.align, color: e.color, ...(e.word.trim() ? { emphasis: e.word.trim() } : {}) });
-      } else if (e.type === "text3d") {
-        if (!t || t.length > 14 || three >= 4 || !numsOk(t)) {
-          dropped++;
-          continue;
-        }
-        three++;
-        els.push({ type: "text3d", text: t, ...box, w: Math.max(box.w, 0.4), color: e.color === "text" || e.color === "white" ? "primary" : e.color, spin: clamp(e.spin || 18, -30, 30) });
-      } else if (e.type === "text") {
-        if (!t || !numsOk(t)) {
-          dropped++;
-          continue;
-        }
-        els.push({ type: "text", text: t.slice(0, 90), role: e.role, ...box, size: clamp(e.size, 0.022, 0.22), align: e.align, color: e.color, ...(e.word.trim() ? { highlightWord: e.word.trim() } : {}) });
-      } else if (e.type === "shape" && e.shape !== "none") els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h || 0.008, 0.003, 0.9), color: e.color, ...(e.shape === "arrow" || e.shape === "line" ? { x2: clamp(e.x2, 0.02, 0.98), y2: clamp(e.y2, 0.02, 0.98) } : {}) });
-      else if (e.type === "texture" && e.texture !== "none") els.push({ type: "texture", texture: e.texture, opacity: 0.28, at: 0 });
-      // G24 vocabulary — every word and figure on them comes from the narration.
-      else if (e.type === "counter") {
-        const n = Math.round(e.count);
-        const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
-        if (n < 1 || n > 60 || !(around.includes(String(n)) || (WORDS[n] && new RegExp(`\\b${WORDS[n]}\\b`).test(around))) || (t && !numsOk(t))) { dropped++; continue; }
-        els.push({ type: "counter", ...box, count: n, ...(e.highlight > 0 ? { highlight: Math.min(n, Math.round(e.highlight)) } : {}), ...(slots.has(e.slot) ? { slot: e.slot } : {}), color: e.color, ...(t ? { label: t.slice(0, 40) } : {}) });
-      } else if (e.type === "steps") {
-        const items = e.items.filter((x) => x.label.trim() && x.label.trim().split(/\s+/).length <= 4 && numsOk(x.label)).slice(0, 5).map((x) => ({ label: x.label.trim().slice(0, 32), ...(slots.has(x.slot) ? { slot: x.slot } : {}) }));
-        if (items.length < 2) { dropped++; continue; }
-        els.push({ type: "steps", ...box, direction: portrait ? "column" : "row", items, color: e.color });
-      } else if (e.type === "icongrid") {
-        const items = e.items.filter((x) => slots.has(x.slot) && x.label.trim() && numsOk(x.label)).slice(0, 6).map((x) => ({ slot: x.slot, label: x.label.trim().slice(0, 28) }));
-        if (items.length < 2) { dropped++; continue; }
-        els.push({ type: "icongrid", ...box, items });
-      } else if (e.type === "newspaper") {
-        // A headline the narration speaks (never an invented quote from a real paper; no masthead is drawn).
-        const hw = norm(t).split(" ").filter((x) => x.length > 2);
-        const said = new Set(around.split(" "));
-        if (!t || hw.length < 2 || hw.filter((x) => said.has(x)).length / hw.length < 0.8 || !numsOk(e.date)) { dropped++; continue; }
-        els.push({ type: "newspaper", ...box, headline: t.slice(0, 80), ...(e.date.trim() ? { date: e.date.trim().slice(0, 30) } : {}), ...(slots.has(e.slot) ? { slot: e.slot } : {}) });
-      } else if (e.type === "component") {
-        // a component of this film's kit: it must exist, and every word and figure in its props is spoken in the shot
-        if (!o.kit || !o.kit.components[e.component]) { dropped++; continue; }
-        let props: Record<string, unknown> = {};
-        try { props = e.propsJson.trim() ? (JSON.parse(e.propsJson) as Record<string, unknown>) : {}; } catch { dropped++; continue; }
-        const said = new Set(around.split(" "));
-        const wordsOk = (v: string) => { const ws = norm(v).split(" ").filter((x) => x.length > 2); return !ws.length || ws.filter((x) => said.has(x)).length / ws.length >= 0.7; };
-        const bad = Object.entries(props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side)$/i.test(k) && (!numsOk(v) || !wordsOk(v)));
-        if (bad.length) { dropped++; continue; }
-        for (const [k, v] of Object.entries(props)) if (/slot/i.test(k) && typeof v === "number" && !slots.has(v)) delete props[k];
-        els.push({ type: "component", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.05, 0.95) } : {}), name: e.component, props });
-      } else if (e.type === "screen") {
-        if (!slots.has(e.slot)) { dropped++; continue; }
-        els.push({ type: "screen", ...box, slot: e.slot, device: e.device, scroll: 0.3 });
-      }
-    }
-    // A headline or label must carry meaning: text made only of filler words ("THE", "AT ALL", "A") is dropped.
-    const FILLER = /^(the|a|an|of|and|to|in|on|at|all|for|by|with|was|is|it|its|his|her|their|this|that|as|from|but|so|then|they|he|she|we|i|that's|it's)$/i;
-    for (let k = els.length - 1; k >= 0; k--) {
-      const e = els[k]!;
-      if (e.type === "text" && e.text.split(/\s+/).every((w) => FILLER.test(w.replace(/[^\p{L}']/gu, "")))) (els.splice(k, 1), dropped++);
-    }
-    // An outlined box, bracket or circle that frames nothing is a placeholder, not design: a frame shape stays
-    // only if it sits around a picture or a piece of text. At most three shapes per scene.
-    {
-      const focal = els.filter((e) => e.type === "text" || e.type === "phrase" || e.type === "photo" || e.type === "cutout" || e.type === "card3d" || e.type === "text3d") as Array<{ x: number; y: number; w: number }>;
-      let shapes = 0;
-      for (let k = 0; k < els.length; k++) {
-        const e = els[k]!;
-        if (e.type !== "shape") continue;
-        const frame = e.shape === "rect" || e.shape === "bracket" || e.shape === "circle";
-        const near = focal.some((f) => f.x < e.x + e.w + 0.04 && f.x + f.w > e.x - 0.04 && Math.abs(f.y - e.y) < 0.3);
-        if ((frame && !near) || shapes >= 3) (els.splice(k, 1), k--, dropped++);
-        else shapes++;
-      }
+      // a component of this film's kit: it must exist; every word and figure in its props is spoken in the shot
+      if (!o.kit.components[e.component]) { dropped++; continue; }
+      let props: Record<string, unknown> = {};
+      try { props = e.propsJson.trim() ? (JSON.parse(e.propsJson) as Record<string, unknown>) : {}; } catch { dropped++; continue; }
+      const bad = Object.entries(props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit|prefix|suffix)$/i.test(k) && (!numsOk(v) || !wordsOk(v)));
+      if (bad.length) { dropped++; continue; }
+      for (const [k, v] of Object.entries(props)) if (/slot/i.test(k) && typeof v === "number" && !slots.has(v)) delete props[k];
+      if (phraseRole && e.component === phraseRole) props.sync = true;
+      els.push({ type: "component", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), name: e.component, props });
     }
     fitLayout(els, portrait);
-    // Name guard: collect every person named anywhere in the film; if this scene's on-screen text names one and
-    // its footage is not verified press of that person, the footage is dropped for the film's colour world.
-    const onScreen = els.map((e) => ("text" in e ? e.text : "")).join(" ").toLowerCase();
-    const primaryM = media.find((m) => m.role === "primary");
+    // Name guard: a real name on screen over footage that is not verified press of that person → the kit's stage.
+    const onScreen = els.flatMap((e) => (e.type === "component" ? Object.values(e.props).filter((v): v is string => typeof v === "string") : [])).join(" ").toLowerCase();
     const named = people.filter((sn) => new RegExp(`\\b${sn}\\b`, "i").test(onScreen));
     const verified = (sn: string) => primaryM?.origin === "press" && (primaryM.depicts ?? "").toLowerCase().includes(sn);
-    const unsafeFace = named.length > 0 && Boolean(primaryM) && !named.every(verified);
+    const unsafeFace = named.length > 0 && hasFootage && !named.every(verified);
     if (unsafeFace) nameGuarded++;
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
-    const cleanOk = d.clean && primaryM?.kind === "video";
-    if (cleanOk) {
+    if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
       specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
       continue;
     }
-    if (!els.some((e) => e.type !== "texture" && e.type !== "shape")) {
-      // Nothing focal survived: fall back to the channel's signature — a spoken phrase over the footage.
-      const ws = lineOf(sh.startS, sh.endS).split(/\s+/).filter(Boolean);
-      if (ws.length >= 3) els.push({ type: "phrase", text: ws.slice(0, Math.min(7, ws.length)).join(" "), x: 0.1, y: 0.68, w: 0.8, rot: 0, z: 0.6, at: 0, enter: "fade", size: 0.07, align: "center", color: "text" });
-      else continue;
-    }
+    if (!els.length) { dropped++; continue; }
+    const stage = !hasFootage || unsafeFace || d.backdrop === "stage";
     specs.push({
       shotId: sh.id,
       idea: d.idea.slice(0, 200),
-      backdrop: (!hasFootage || unsafeFace) && (d.backdrop === "footage" || d.backdrop === "split") ? "world" : d.backdrop,
+      backdrop: stage ? "stage" : "footage",
       dim: clamp(d.dim, 0.1, 0.6),
-      ...(d.wash && hasFootage && tr && tr.wash !== "none" ? { wash: { color: "primary" as const, strength: tr.washStrength, mode: tr.wash } } : {}),
+      ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.3, mode: "tint" as const } } : {}),
       camera: (() => {
         // The picture always travels: enforce at least 0.1 of scale movement.
         let a = clamp(d.camera.fromScale, 1, 1.26);
@@ -331,29 +152,10 @@ ${o.avoidLayouts ? `- Recent films leaned on these placements — this film must
     });
   }
   specs.sort((a, b) => a.shotId.localeCompare(b.shotId));
-  // No slide deck: at most two scenes in a row on the same non-footage backdrop. A third rotates to the film's
-  // other stages (colour world → dark surface → paper), so a stretch without footage still changes scenery.
-  {
-    const order = ["world", "surface", "paper"] as const;
-    let run = 0;
-    for (let k = 0; k < specs.length; k++) {
-      const cur = specs[k]!;
-      const prev = specs[k - 1];
-      if (cur.backdrop === "footage" || cur.backdrop === "split") {
-        run = 0;
-        continue;
-      }
-      run = prev && prev.backdrop === cur.backdrop ? run + 1 : 1;
-      if (run > 2) {
-        cur.backdrop = order[(order.indexOf(cur.backdrop as (typeof order)[number]) + 1) % order.length]!;
-        run = 1;
-      }
-    }
-  }
   const kinds = new Map<string, number>();
-  for (const s of specs) for (const e of s.elements) kinds.set(e.type, (kinds.get(e.type) ?? 0) + 1);
-  log(`  scene designer: ${specs.length}/${all.length} scene(s) ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) dropped (missing slot, unspoken phrase or figure)` : ""}${nameGuarded ? `; ${nameGuarded} scene(s) moved off footage (a real name over a face that is not verified as that person)` : ""}`);
-  return ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: specs, generatedAt: new Date().toISOString() });
+  for (const s of specs) for (const e of s.elements) kinds.set(e.type === "component" ? `component:${e.name}` : e.type, (kinds.get(e.type === "component" ? `component:${e.name}` : e.type) ?? 0) + 1);
+  log(`  scenes: ${specs.length}/${all.length} ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) or scene(s) refused (missing slot, unknown component, unspoken words or figures)` : ""}${nameGuarded ? `; ${nameGuarded} scene(s) moved to the kit's stage (a real name over a face that is not verified as that person)` : ""}`);
+  return ScenePlan.parse({ schemaVersion: 2, storyboardId: o.storyboard.id, scenes: specs, generatedAt: new Date().toISOString() });
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -363,35 +165,20 @@ type Boxed = Extract<SceneElement, { x: number }>;
 /** Estimated height of an element as a fraction of the frame height. */
 function estHeight(e: Boxed, portrait: boolean): number {
   const k = portrait ? 16 / 9 : 9 / 16; // width of one height-unit in frame-width fractions
-  if (e.type === "text" || e.type === "phrase") {
-    const boxed = e.type === "phrase" ? 1.5 : 1.25;
-    const charW = e.size * 0.62 * k;
-    const words = e.text.split(/\s+/);
-    let lines = 1;
-    let cur = 0;
-    for (const w of words) {
-      const ww = (w.length + 1) * charW;
-      if (cur + ww > e.w && cur > 0) (lines++, (cur = ww));
-      else cur += ww;
-    }
-    return lines * e.size * boxed + 0.01;
-  }
   if (e.type === "photo") return e.h ?? (e.w / k) * 0.72;
   if (e.type === "cutout") return (e.w / k) * 0.8;
   if (e.type === "card3d") return (e.w / k) * 0.75;
-  if (e.type === "text3d") return (e.w / k) * 0.42;
+  if (e.type === "component") return e.h ?? (e.w / k) * 0.3;
   return 0;
 }
 
-/** Keep focal elements inside the safe area and apart from each other (mutates `els`). */
+/** Keep elements inside the safe area and apart from each other (mutates `els`). Full-frame components are left alone. */
 export function fitLayout(els: SceneElement[], portrait: boolean): void {
   const SAFE = { l: 0.05, r: 0.95, t: 0.06, b: portrait ? 0.7 : 0.9 };
-  const focal = els.filter((e): e is Boxed => e.type !== "texture" && e.type !== "shape");
+  const fullFrame = (e: Boxed) => e.w >= 0.95 && e.x <= 0.03;
+  const focal = els.filter((e): e is Boxed => "x" in e && !fullFrame(e as Boxed));
   const rect = (e: Boxed) => ({ x0: e.x, y0: e.y, x1: e.x + e.w, y1: e.y + estHeight(e, portrait) });
-  const shrink = (e: Boxed) => {
-    if (e.type === "text" || e.type === "phrase") e.size = Math.max(0.026, e.size * 0.82);
-    else e.w = Math.max(0.12, e.w * 0.85);
-  };
+  const shrink = (e: Boxed) => { e.w = Math.max(0.12, e.w * 0.85); };
   for (const e of focal) {
     e.w = Math.min(e.w, SAFE.r - SAFE.l);
     if (e.x < SAFE.l) e.x = SAFE.l;
@@ -403,7 +190,6 @@ export function fitLayout(els: SceneElement[], portrait: boolean): void {
     }
     if (e.y < SAFE.t) e.y = SAFE.t;
   }
-  // Separate overlaps: later (on top) element moves below or above the earlier one, else shrinks, else goes.
   const gap = 0.025;
   const drop = new Set<SceneElement>();
   for (let i = 0; i < focal.length; i++) {
@@ -420,7 +206,7 @@ export function fitLayout(els: SceneElement[], portrait: boolean): void {
         if (ra.y1 + gap + hb <= SAFE.b) b.y = ra.y1 + gap;
         else if (ra.y0 - gap - hb >= SAFE.t) b.y = ra.y0 - gap - hb;
         else if (k < 3) (shrink(b), shrink(a));
-        else drop.add(b.type === "phrase" && a.type !== "phrase" ? a : b);
+        else drop.add(b);
       }
     }
   }

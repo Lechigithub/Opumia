@@ -37,7 +37,7 @@ const commit = (() => { try { return execFileSync("git", ["rev-parse", "--short"
 mkdirSync(memoryDir, { recursive: true });
 const hf = path.join(memoryDir, "score-history.json");
 const hist = existsSync(hf) ? (JSON.parse(readFileSync(hf, "utf8")) as unknown[]) : [];
-hist.push({ at: new Date().toISOString(), commit, mode: process.env.OPUMIA_RESEARCH === "legacy" ? "legacy" : "agent", results });
+hist.push({ at: new Date().toISOString(), commit, mode: "agent", results });
 writeFileSync(hf, JSON.stringify(hist, null, 2) + "\n");
 console.log("\nRESEARCH SCORE");
 for (const r of results) console.log(`  ${r.topic.slice(0, 44).padEnd(44)} ${r.ok ? `${r.verified} verified (${r.supported} fully), ${r.quotes} quotes, ${r.figures} figures, ${r.sources} sources, ${r.scenes} scenes, ${r.contrasts} contrasts, ${r.gaps.length} gap(s)` : `FAILED ${r.error}`} | ${r.seconds} s, $${r.usd}`);

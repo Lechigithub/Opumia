@@ -49,6 +49,8 @@ export interface SoundTimelineOptions {
   cooldown: { sfx: Set<string>; music: Set<string> };
   /** Film identity: makes this film's choices its own. */
   seed: string;
+  /** The film kit's components by role (component name → role), for how hard each lands. */
+  kitRoles?: Record<string, string>;
   /** Music drop-outs already designed for the cues (kept). */
   drops?: Array<{ startS: number; endS: number }>;
   log?: (s: string) => void;
@@ -60,7 +62,7 @@ export const SOUND_FAMILIES: SoundFamily[] = ["sub_boom", "thud", "impact", "cli
 export const STRONG_FAMILIES = new Set<SoundFamily>(["sub_boom", "thud", "impact"]);
 
 /** Step 1: the moments the viewer sees that may carry a sound (element entrances, data graphics, story turns). */
-export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "script" | "scenes">): VisualEvent[] {
+export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "script" | "scenes" | "kitRoles">): VisualEvent[] {
   const specOf = new Map(o.scenes.scenes.map((s) => [s.shotId, s]));
   const events: Event[] = [];
   for (const sh of o.storyboard.shots) {
@@ -68,27 +70,22 @@ export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "scrip
     if (src.kind === "designed" && src.designed !== "scene") {
       const k = src.designed;
       if (k === "document") events.push({ atS: sh.startS + 0.1, family: "paper", prio: 2.5, strong: false, why: "document opens" });
-      else if (k === "money_figure") events.push({ atS: sh.startS + 0.25, family: "thud", prio: 3.5, strong: true, why: "figure lands" });
-      else if (k === "chart" || k === "versus" || k === "map" || k === "timeline") events.push({ atS: sh.startS + 0.15, family: "thud", prio: 3, strong: true, why: `${k} opens` });
+      else events.push({ atS: sh.startS + 0.15, family: "thud", prio: 3, strong: true, why: `${k} opens` });
       continue;
     }
     const spec = specOf.get(sh.id);
     if (!spec) continue;
     for (const el of spec.elements) {
-      if (el.type === "texture") continue;
       const at = sh.startS + (el.at ?? 0);
       if (at > sh.endS - 0.25) continue;
-      if (el.type === "text3d") events.push({ atS: at + 0.18, family: "sub_boom", prio: 5, strong: true, why: `3D "${el.text}"` });
-      else if (el.type === "card3d") events.push({ atS: at + 0.2, family: "thud", prio: 3.2, strong: true, why: "3D card" });
-      else if (el.type === "text" && el.role === "stamp") events.push({ atS: at + 0.1, family: "impact", prio: 4.2, strong: true, why: `stamp "${el.text}"` });
-      else if (el.type === "text" && (el.role === "display" || el.role === "headline")) events.push({ atS: at + (el.enter === "stamp" ? 0.1 : 0.14), family: el.size >= 0.13 ? "sub_boom" : "thud", prio: el.size >= 0.13 ? 4 : 3, strong: true, why: `headline "${el.text}"` });
+      if (el.type === "card3d") events.push({ atS: at + 0.2, family: "thud", prio: 3.2, strong: true, why: "3D card" });
       else if (el.type === "cutout" || el.type === "photo") events.push({ atS: at + 0.12, family: "thud", prio: 2.2, strong: true, why: `${el.type} lands` });
-      else if (el.type === "text" && el.enter === "type") events.push({ atS: at + 0.05, family: "typing", prio: 1.5, strong: false, why: "typed label" });
-      else if (el.type === "counter") events.push({ atS: at + 0.1, family: "thud", prio: 3.4, strong: true, why: `counter ${el.count}` });
-      else if (el.type === "steps") el.items.forEach((_, k) => k && events.push({ atS: at + k * 0.45 + 0.05, family: "click", prio: 1.4, strong: false, why: `step ${k + 1}` }));
-      else if (el.type === "newspaper") events.push({ atS: at + 0.1, family: "paper", prio: 2.6, strong: false, why: "newspaper lands" });
-      else if (el.type === "icongrid") events.push({ atS: at + 0.12, family: "thud", prio: 2.4, strong: true, why: "icon grid" });
-      else if (el.type === "shape" && el.enter === "draw" && (el.shape === "circle" || el.shape === "cross" || el.shape === "arrow")) events.push({ atS: at + 0.2, family: "click", prio: 1.2, strong: false, why: `${el.shape} drawn` });
+      // a kit component lands: the kit's role sets the weight (a headline or number lands harder than a label)
+      else if (el.type === "component") {
+        const role = o.kitRoles?.[el.name] ?? "";
+        const big = role === "headline" || role === "number" || role === "chapter";
+        events.push({ atS: at + 0.12, family: role === "chapter" ? "sub_boom" : "thud", prio: big ? 4 : 2.8, strong: true, why: `${role || el.name} lands` });
+      }
     }
   }
   // Story turns: the line after a twist or re-hook lands on a boom.

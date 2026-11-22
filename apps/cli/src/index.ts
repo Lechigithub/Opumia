@@ -41,7 +41,6 @@ const HELP = `opumia <command>
       --job NAME         job folder name under out/
       --redo a,b         re-run stages: ${STAGES.join(",")}
       --until STAGE      stop after a stage
-      --no-judge         skip the Sonnet visual QA judge
       --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
   profile-audio        Measure every usable sound effect and music bed → data/audio-profile.json (incremental)
   build-exemplars      Reference exemplar library the agents look at → data/exemplars/<channel>/
@@ -114,7 +113,6 @@ async function main() {
         ...(opt("job") ? { job: opt("job")! } : {}),
         redo: (opt("redo") ?? "").split(",").filter((x): x is (typeof STAGES)[number] => (STAGES as readonly string[]).includes(x)),
         ...(until && (STAGES as readonly string[]).includes(until) ? { until: until as (typeof STAGES)[number] } : {}),
-        judge: !flag("no-judge"),
         ...(opt("repair") ? { repair: new Map(opt("repair")!.split(";").map((kv) => kv.split("=")).filter((kv) => kv[0]).map(([k, ...v]) => [k!.trim(), v.join("=").trim() || "editor rejected this picture"] as [string, string])) } : {}),
         log,
       });

@@ -1,7 +1,8 @@
-// Offline render smoke test: every scene primitive, real Library media, no paid APIs.
+// Offline render smoke test: every kit role and scene element, real Library media, no paid APIs. The film kit is the
+// test fixture packages/motion-engine/src/remotion/film/test-kit.tsx (a real film's kit is written by its art director).
 import { PLATFORM_FPS } from "@opumia/contracts";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { LibraryIndex, Storyboard, TimedScript, ResolutionReport, type StoryboardShot } from "@opumia/contracts";
 import { isUsable } from "@opumia/agents";
@@ -13,6 +14,8 @@ const job = path.join(ROOT, "out", "_smoke");
 const pub = path.join(job, "public");
 mkdirSync(path.join(pub, "media"), { recursive: true });
 mkdirSync(path.join(job, "audio"), { recursive: true });
+mkdirSync(path.join(job, "design", "film"), { recursive: true });
+copyFileSync(path.join(ROOT, "packages", "motion-engine", "src", "remotion", "film", "test-kit.tsx"), path.join(job, "design", "film", "index.tsx"));
 const index = LibraryIndex.parse(JSON.parse(readFileSync("data/library-index.json", "utf8")));
 const ff = (a: string[]) => execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...a]);
 const usable = index.assets.filter(isUsable);
@@ -25,7 +28,6 @@ const music = usable.find((a) => a.category === "music" && !a.provenance.generat
 const sfx = usable.find((a) => a.category === "sfx" && a.facets.class)!;
 
 const ASPECT = (process.env.SMOKE_ASPECT ?? "9:16") as "9:16" | "16:9";
-// "$19 billion" is spoken during the money_figure shot so number parity binds the counter to the spoken figure.
 const words = "In 1928 a small company made a bet that would change the world forever and then paid $19 billion for a rival nobody saw coming until far too late".split(" ");
 const dur = 24;
 const tw = words.map((w, i) => ({ word: w, startS: +(i * (dur - 1) / words.length).toFixed(3), endS: +((i + 0.8) * (dur - 1) / words.length).toFixed(3) }));
@@ -33,26 +35,20 @@ ff(["-f", "lavfi", "-i", `sine=frequency=220:duration=${dur}`, "-af", "volume=0.
 const script = TimedScript.parse({ schemaVersion: 1, id: "ts_smoke", title: "Smoke test", styleProfileId: "magnates-media", aspect: ASPECT, voice: { provider: "elevenlabs", voiceId: "x", modelId: "x", audioPath: path.join(job, "narration.mp3") }, segments: [{ id: "s01", role: "hook", text: words.join(" "), startS: 0, endS: dur - 1, words: tw }], durationS: dur, generatedAt: new Date().toISOString() });
 
 const kinds: Array<[string, Record<string, unknown>]> = [
-  ["broll", {}], ["parallax", {}], ["chart", { type: "line", title: "Market value", unit: "$", labels: ["1990", "2000", "2007", "2013"], values: [2e9, 3.1e10, 9.4e10, 7.2e9] }],
+  ["broll", {}], ["parallax", {}], ["chart", { type: "bar", title: "Market value", unit: "$", labels: ["1990", "2000", "2007", "2013"], values: [2e9, 3.1e10, 9.4e10, 7.2e9], highlight: 2 }],
   ["map", { title: "Expansion", points: [{ name: "Detroit", lon: -83.05, lat: 42.33 }, { name: "London", lon: -0.12, lat: 51.5 }, { name: "Tokyo", lon: 139.7, lat: 35.7 }], route: true }],
-  ["document", { style: "web", tone: "red", masthead: "The Daily Ledger", date: "October 29, 1929", headline: "Stocks Collapse in Record Sell-Off", body: "Panic swept the exchange as billions in value vanished within hours, leaving brokers stunned.", highlight: "billions in value vanished" }],
-  ["big_word", { text: "Total Collapse", sub: "in 48 hours" }], ["money_figure", { value: 19000000000, prefix: "$", suffix: "", label: "acquisition price" }],
-  ["name_label", { name: "The Founder", title: "Chief Executive, 1928" }], ["versus", { title: "Market share", left: { label: "Rival", value: "12%" }, right: { label: "Them", value: "61%" } }],
-  ["timeline", { items: [{ year: "1928", label: "Founded" }, { year: "1955", label: "Goes public" }, { year: "2001", label: "Collapse" }] }],
-  ["quote_card", { quote: "We never thought anyone would catch us.", by: "Former executive" }],
-  ["hero_face", { name: "Stephen Elop", title: "CEO, 2010–2014" }],
-  ["cutout_collage", { title: "The Bet", tone: "crimson" }],
-  ["screen", { title: "Market share, Q4 2010", lines: ["Symbian 32%", "Android 30%", "iOS 16%"], device: "monitor" }],
-  ["scene", { brief: "cutout over footage with kinetic words and an arrow", layers: [{ name: "Object", type: "product" }] }],
-  ["scene", { brief: "torn photo on paper with a stamp", layers: [{ name: "Object", type: "product" }] }],
+  ["document", { style: "web", tone: "red", masthead: "The Daily Ledger", date: "October 29, 1929", headline: "Stocks Collapse in Record Sell-Off", body: "Panic swept the exchange as billions in value vanished within hours.", highlight: "Stocks Collapse" }],
+  ["scene", { brief: "cutout over footage with the kit's headline and phrase" }],
+  ["scene", { brief: "a stage scene: photo and the kit's number and label" }],
+  ["scene", { brief: "clean footage" }],
 ];
 const shotLen = dur / kinds.length;
 const shots: StoryboardShot[] = kinds.map(([k, props], i) => ({
-  schemaVersion: 1, id: `sh${String(i + 1).padStart(3, "0")}`, scriptSegmentId: "s01", index: i, startS: +(i * shotLen).toFixed(3), endS: +((i + 1) * shotLen).toFixed(3), intent: k, lineLink: "mood",
+  schemaVersion: 2, id: `sh${String(i + 1).padStart(3, "0")}`, scriptSegmentId: "s01", index: i, startS: +(i * shotLen).toFixed(3), endS: +((i + 1) * shotLen).toFixed(3), intent: k, lineLink: "mood",
   source: k === "broll" || k === "parallax" ? { kind: "query", query: k, mustBe: "any" } : { kind: "designed", designed: k as never, props: { ...props, background: { query: "x" } }, assetIds: [] },
   camera: k === "parallax" ? { type: "parallax", layers: 3, depth: 0.6 } : { type: "ken_burns", fromScale: 1.05, toScale: 1.18, from: [0.5, 0.5], to: [0.5, 0.45], easing: "ease_in_out" },
   overlays: i === 0 ? [{ assetId: leak.id, blend: "screen", opacity: 0.5 }] : [], sfx: i % 3 === 0 ? [{ assetId: sfx.id, atS: i * shotLen + 0.05, gainDb: -4 }] : [],
-  transitionIn: (["cut", "whip", "fade", "light_leak", "dip_black"] as const)[i % 5]!, focus: [0.5, 0.5],
+  transitionIn: i % 2 ? "film" : "cut", focus: [0.5, 0.5],
 }));
 const board = Storyboard.parse({ schemaVersion: 1, id: "sb_smoke", scriptId: script.id, styleProfileId: "magnates-media", aspect: ASPECT, durationS: dur, shots, music: [{ assetId: music.id, startS: 0, endS: dur, gainDb: -16 }], generatedAt: new Date().toISOString() });
 
@@ -66,33 +62,32 @@ const mat = (shotId: string, role: "primary" | "overlay" | "sfx" | "music", a: t
   else ff(["-i", path.join(LIB, a.relPath), "-c:a", "libmp3lame", "-q:a", "3", out]);
   media.push({ shotId, role, origin: "library", ref: a.id, provider: "library", kind, localPath: out, publicPath: kind === "audio" ? `../audio/${file}` : `media/${file}`, durationS: kind === "audio" ? a.probe?.durationS : shotLen, license: a.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: role });
 };
-shots.forEach((s, i) => mat(s.id, "primary", i === 1 || i === 12 ? photo : i % 2 ? cine : film, i === 1 || i === 12 ? "image" : "video", i % 2 ? 0 : (film.segments![5]?.inS ?? 0)));
+// sh007 sits on the kit's stage (no footage); every other shot has footage.
+shots.forEach((s, i) => { if (s.id !== "sh007") mat(s.id, "primary", i === 1 ? photo : i % 2 ? cine : film, i === 1 ? "image" : "video", i % 2 ? 0 : (film.segments![5]?.inS ?? 0)); });
 mat("sh001", "overlay", leak, "video");
 mat("sh005", "overlay", paper, "image");
 shots.filter((s) => s.sfx.length).forEach((s) => mat(s.id, "sfx", sfx, "audio"));
 mat("music", "music", music, "audio");
 // Composed-scene picture slots (layer role).
-for (const id of ["sh015", "sh016"]) {
+for (const id of ["sh006", "sh007"]) {
   const out = path.join(pub, "media", `layer_${id}_0.png`);
   ff(["-i", path.join(LIB, photo.relPath), "-vf", "scale='min(1200,iw)':-2", "-frames:v", "1", out]);
   media.push({ shotId: id, role: "layer", slot: 0, origin: "library", ref: `${photo.id}#layer${id}`, provider: "library", kind: "image", localPath: out, publicPath: `media/layer_${id}_0.png`, license: photo.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: "layer", depicts: "object cutout" });
 }
 const scenes = new Map<string, unknown>([
-  ["sh015", { shotId: "sh015", idea: "smoke A", backdrop: "footage", dim: 0.45, camera: { fromScale: 1.02, toScale: 1.14, fromX: 0.45, toX: 0.55, fromY: 0.5, toY: 0.48 }, elements: [
-    { type: "texture", texture: "halftone", opacity: 0.25, at: 0 },
+  ["sh006", { shotId: "sh006", idea: "smoke A", backdrop: "footage", dim: 0.45, camera: { fromScale: 1.02, toScale: 1.14, fromX: 0.45, toX: 0.55, fromY: 0.5, toY: 0.48 }, elements: [
     { type: "cutout", slot: 0, x: 0.56, y: 0.18, w: 0.32, rot: -4, z: 0.8, at: 0.1, enter: "pop", shadow: true },
-    { type: "text", text: "the bet", role: "kicker", x: 0.08, y: 0.3, w: 0.45, size: 0.04, align: "left", color: "accent", at: 0.2, enter: "slide_left" },
-    { type: "text", text: "Nobody saw it coming", role: "display", x: 0.08, y: 0.38, w: 0.48, size: 0.11, align: "left", color: "text", highlightWord: "nobody", at: 0.35, enter: "wipe" },
-    { type: "shape", shape: "arrow", x: 0.4, y: 0.72, w: 0.1, h: 0.01, x2: 0.58, y2: 0.55, color: "accent", at: 0.6, enter: "draw" },
+    { type: "component", name: "Headline", props: { text: "a bet" }, x: 0.08, y: 0.3, w: 0.45, rot: 0, z: 0.6, at: 0.2, enter: "fade" },
+    { type: "component", name: "Phrase", props: { text: "change the world", sync: true }, x: 0.08, y: 0.5, w: 0.48, rot: 0, z: 0.6, at: 0.3, enter: "fade" },
   ] }],
-  ["sh016", { shotId: "sh016", idea: "smoke B", backdrop: "paper", dim: 0.4, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
-    { type: "texture", texture: "paper", opacity: 0.5, at: 0 },
-    { type: "photo", slot: 0, x: 0.12, y: 0.14, w: 0.36, rot: 3, z: 0.6, at: 0, enter: "zoom", frame: "torn", grade: "mono" },
-    { type: "text", text: "Confidential", role: "stamp", x: 0.55, y: 0.36, w: 0.4, size: 0.09, align: "left", color: "accent", rot: -8, at: 0.3, enter: "stamp" },
-    { type: "shape", shape: "circle", x: 0.53, y: 0.3, w: 0.42, h: 0.25, color: "accentDeep", at: 0.6, enter: "draw" },
+  ["sh007", { shotId: "sh007", idea: "smoke B", backdrop: "stage", dim: 0.4, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
+    { type: "photo", slot: 0, x: 0.12, y: 0.14, w: 0.36, rot: 3, z: 0.6, at: 0, enter: "zoom", grade: "mono" },
+    { type: "component", name: "NumberC", props: { value: "$19 billion", label: "paid for a rival" }, x: 0.55, y: 0.3, w: 0.4, rot: 0, z: 0.6, at: 0.3, enter: "fade" },
+    { type: "component", name: "Label", props: { text: "a rival", sub: "nobody saw coming" }, x: 0.55, y: 0.62, w: 0.35, rot: 0, z: 0.6, at: 0.5, enter: "fade" },
   ] }],
+  ["sh008", { shotId: "sh008", idea: "clean", backdrop: "footage", dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [] }],
 ]);
-const resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 11, stock: 0, archival: 0, designed: 9 }, generatedAt: new Date().toISOString() });
+const resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 7, stock: 0, archival: 0, designed: 6 }, generatedAt: new Date().toISOString() });
 
 const final = path.join(job, `smoke_${ASPECT.replace(":", "x")}.mp4`);
 const manifest = await buildManifest({ storyboard: board, script, resolution, libraryRoot: LIB, outputPath: final, narrationPath: script.voice.audioPath, scenes, burnCaptions: ASPECT === "9:16" });

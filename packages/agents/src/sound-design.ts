@@ -1,10 +1,8 @@
 import type { AssetRecord, Storyboard, StoryboardShot, StyleProfile, TimedScript } from "@opumia/contracts";
 
 /**
- * Cinema sound design, driven by the reference channel's measured audio (Reference/<channel>/*\/sound.json →
- * StyleProfile.audio): one music bed per chapter on a mood arc (tension → rise → collapse → resolve), short
- * music drop-outs on cliffhangers that slam back on the reveal, and tactile SFX on chapter pivots and on about
- * half of the visual reveals, at the channel's hit density.
+ * Music moods and the channel's hit budget, used by the director (one bed per chapter on a mood arc) and the sound
+ * timeline. The sound itself is designed on what the viewer sees (sound-timeline.ts, sound-agent.ts).
  */
 export type Mood = "intrigue" | "rise" | "tension" | "collapse" | "resolve";
 
@@ -85,90 +83,5 @@ export function pickMusicByMood(music: MusicItem[], spans: ReturnType<typeof cha
 
 type Sfx = StoryboardShot["sfx"][number];
 
-/**
- * Drop-outs + SFX. Mutates nothing; returns the music with drops and the extra SFX per shot id.
- *  - drops: on cliffhanger (rehook/twist) segment ends, ≈ the channel's musicDropsPer10Min, never in the first 8 s;
- *  - pivots: riser ending exactly on each chapter start + a sub drop/boom on the downbeat;
- *  - reveals: whoosh on designed graphics, paper on documents, camera shutter on archival photos — every other one (~50 %);
- *  - density capped at the channel's strong hits/min (p75) + 1, min 1.2 s apart; pivots and drops win.
- */
 /** Total SFX allowed in a film: the channel's strong hits/min (p75) + 1. */
 export const sfxCap = (profile: StyleProfile, durS: number) => Math.round((((profile.audio as { strongHitsPerMin?: { p50?: number } | null }).strongHitsPerMin?.p50 ?? 3.0) * durS) / 60);
-
-export function designSound(o: { script: TimedScript; shots: StoryboardShot[]; music: Storyboard["music"]; sfxAssets: AssetRecord[]; profile: StyleProfile }): { music: Storyboard["music"]; sfx: Map<string, Sfx[]> } {
-  const dur = o.script.durationS;
-  const byClass = new Map<string, AssetRecord[]>();
-  for (const a of o.sfxAssets) if (typeof a.facets.class === "string") (byClass.get(a.facets.class) ?? byClass.set(a.facets.class, []).get(a.facets.class)!).push(a);
-  for (const list of byClass.values()) list.sort((a, b) => a.id.localeCompare(b.id));
-  const rot = new Map<string, number>();
-  const pick = (cls: string) => {
-    const list = byClass.get(cls) ?? [];
-    if (!list.length) return undefined;
-    const k = rot.get(cls) ?? 0;
-    rot.set(cls, k + 1);
-    return list[k % list.length]!;
-  };
-  const events: Array<{ atS: number; cls: string; gainDb: number; prio: number; alignEnd?: boolean }> = [];
-
-  // Breathing drop-outs ≈ once per minute (reference 9.4 / 10 min, 1.1–2.0 s, p50 1.4 s): the bed falls away at a
-  // sentence end and returns as the next sentence lands. Only loop-opening beats (rehook/twist) get a hit after it
-  // (reference: 29 % of drops are followed by a hit).
-  const a = o.profile.audio as { musicDropsPer10Min?: { p50?: number } | null; strongHitsPerMin?: { p50?: number; p75?: number } | null };
-  const dropEvery = 600 / Math.max(1, a.musicDropsPer10Min?.p50 ?? 9.4);
-  const drops: Array<{ startS: number; endS: number }> = [];
-  const segs = o.script.segments;
-  const words = segs.flatMap((sg) => sg.words.map((w) => ({ ...w, role: sg.role })));
-  let nextDrop = 20;
-  for (let i = 0; i < words.length - 1; i++) {
-    const w = words[i]!;
-    if (w.endS < nextDrop || !/[.?!]["”']?$/.test(w.word)) continue;
-    const nxt = words[i + 1]!;
-    const start = Math.max(w.startS, w.endS - 0.35);
-    const end = Math.min(start + 1.6, Math.max(start + 1.2, nxt.startS + 0.25));
-    drops.push({ startS: Math.round(start * 1000) / 1000, endS: Math.round(end * 1000) / 1000 });
-    if (w.role === "rehook" || w.role === "twist") events.push({ atS: end, cls: "sub_drop", gainDb: -3, prio: 2 });
-    nextDrop = end + dropEvery * 0.85;
-  }
-  const music = o.music.map((m) => ({ ...m, drops: drops.filter((d) => d.startS >= m.startS && d.endS <= m.endS) }));
-
-  // Chapter pivots.
-  const chapterStarts: number[] = [];
-  for (let i = 1; i < segs.length; i++) if (segs[i]!.chapter && segs[i]!.chapter !== segs[i - 1]!.chapter) chapterStarts.push(segs[i]!.words[0]?.startS ?? segs[i]!.startS);
-  for (const t of chapterStarts) {
-    events.push({ atS: t, cls: "riser", gainDb: -10, prio: 3, alignEnd: true });
-    events.push({ atS: t, cls: byClass.has("boom_long") ? "boom_long" : "sub_drop", gainDb: -4, prio: 3 });
-  }
-
-  // Visual reveals (~50 %).
-  let reveal = 0;
-  for (const s of o.shots) {
-    const kind = s.source.kind === "designed" ? s.source.designed : s.entities?.length && s.source.kind === "query" && s.source.mustBe === "image" ? "photo" : null;
-    if (!kind || kind === "name_label") continue;
-    if (reveal++ % 2) continue;
-    // Reference hit mix: 78 % low thuds/booms, whooshes ~0 %. Reveals alternate a low thud and a boom;
-    // archival photos keep a camera click (click/pop ≈ 6 % of reference hits).
-    const THUDS = ["stamp_thud", "drum_impact_deep", "bass_hit_short"].filter((c) => byClass.has(c));
-    const cls = kind === "photo" && byClass.has("camera_shutter") ? "camera_shutter" : reveal % 4 === 1 && byClass.has("boom_long") ? "boom_long" : THUDS[reveal % Math.max(1, THUDS.length)] ?? "sub_drop";
-    events.push({ atS: s.startS, cls, gainDb: cls === "boom_long" ? -6 : cls === "camera_shutter" ? -8 : -5, prio: 1 });
-  }
-
-  // Density cap and spacing.
-  const cap = Math.round(((a.strongHitsPerMin?.p50 ?? 3.0) * dur) / 60);
-  const chosen: typeof events = [];
-  for (const e of [...events].sort((x, y) => y.prio - x.prio || x.atS - y.atS)) {
-    if (chosen.length >= cap) break;
-    if (chosen.some((c) => !c.alignEnd && !e.alignEnd && Math.abs(c.atS - e.atS) < 1.2 && c.cls !== e.cls)) continue;
-    if (chosen.some((c) => c.cls === e.cls && Math.abs(c.atS - e.atS) < 1.2)) continue;
-    chosen.push(e);
-  }
-  const sfx = new Map<string, Sfx[]>();
-  for (const e of chosen) {
-    const asset = pick(e.cls);
-    if (!asset) continue;
-    const len = asset.probe?.durationS ?? 2;
-    const atS = e.alignEnd ? Math.max(0, e.atS - Math.min(len, 4)) : e.atS;
-    const shot = [...o.shots].reverse().find((s) => s.startS <= atS + 1e-6) ?? o.shots[0]!;
-    (sfx.get(shot.id) ?? sfx.set(shot.id, []).get(shot.id)!).push({ assetId: asset.id, atS: Math.round(atS * 1000) / 1000, gainDb: e.gainDb });
-  }
-  return { music, sfx };
-}

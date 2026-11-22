@@ -8,6 +8,7 @@
  *           band), submit_scenes, note_lesson
  *  memory   <memoryDir>/<channel>.md — its own lessons and a log of every film
  */
+import type { FilmKitMeta } from "./scene-designer.js";
 import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -42,8 +43,8 @@ export interface SceneAgentOptions {
   play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
   /** Step 4: trained taste of rendered frames (0–10, the same heads as the film score), and the channel's real band. */
   taste?: { score: (files: string[]) => Promise<Array<number | null>>; realP10: number; realMedian: number };
-  /** Step 5: this film's own kit (design/film/meta.json). */
-  kit?: { concept: string; components: Record<string, { use: string; props: string }> };
+  /** This film's own kit (design/film/meta.json): every word on screen and the stage come from it (build list 3, L3). */
+  kit: FilmKitMeta;
   /** Step 2: watch a stretch at real speed with sound, with the measured detector report (jumps, legibility, seams, taste). */
   watch?: (plan: ScenePlan, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
   /** Sourcing tools (resolver/scene-tools.ts): they add pictures to `resolution` in place. */
@@ -70,7 +71,7 @@ const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> =>
 export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan> {
   const log = o.log ?? (() => {});
   const shots = o.storyboard.shots.filter(isScene);
-  const empty = () => ScenePlan.parse({ schemaVersion: 1, storyboardId: o.storyboard.id, scenes: [], generatedAt: new Date().toISOString() });
+  const empty = () => ScenePlan.parse({ schemaVersion: 2, storyboardId: o.storyboard.id, scenes: [], generatedAt: new Date().toISOString() });
   if (!shots.length) return empty();
   const skill = await readFile(new URL("../skills/scenes.md", import.meta.url), "utf8");
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
@@ -80,7 +81,6 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const band = o.visualBand;
   const pc = (x: number) => `${Math.round(x * 100)}%`;
   const ds = o.design;
-  const tr = ds?.treatment;
 
   const revising = !!(o.previous && o.revise?.length);
   let plan: ScenePlan = revising ? structuredClone(o.previous!) : empty();
@@ -138,30 +138,31 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     }
     // Picture-less scenes: a word or two on a plain stage is a slide, and a stage that ignores its pictures is a waste.
     const slotsOf = (id: string) => o.resolution.media.filter((m) => m.shotId === id && m.role === "layer");
-    const staged = plan.scenes.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split");
-    const hasPicture = (sc: (typeof staged)[number]) => sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || e.type === "counter" || e.type === "steps" || e.type === "icongrid" || e.type === "newspaper" || e.type === "screen");
+    const staged = plan.scenes.filter((sc) => sc.backdrop !== "footage");
+    const roleOf = (name: string) => o.kit.components[name]?.role ?? "";
+    // a picture, or a kit component that draws something (data, a number) rather than words alone
+    const hasPicture = (sc: (typeof staged)[number]) => sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || (e.type === "component" && ["number", "chart", "map", "document"].includes(roleOf(e.name))));
     // G25: what a footage-less shot could be built around, read from its own line.
     const said = (id: string) => { const sh = o.storyboard.shots.find((x) => x.id === id); return sh ? o.script.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; };
     const suggest = (id: string) => {
       const l = said(id).toLowerCase();
-      if (/\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|hundred|thousand|million|billion|half|percent)\b/.test(l)) return "a counter of the spoken figure";
-      if (/\b(first|then|after|before|step|so|which led|turned into|became|from .* to)\b/.test(l)) return "steps (the chain the line describes)";
-      if (/\b(reported|announced|headline|news|filed|court|ruled|sued|declared|bankrupt|press)\b/.test(l)) return "a newspaper layout with the narrator's words as headline";
-      if (/\b(website|app|online|internet|email|post|tweet|instagram|facebook|google|screen|search)\b/.test(l)) return "a screen with a real page screenshot (find_picture)";
-      return "a picture (find_picture) or library objects in an icon grid";
+      if (/\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|hundred|thousand|million|billion|half|percent)\b/.test(l)) return `the kit's number (${o.kit.roles?.number ?? "number role"}) with the spoken figure`;
+      if (/\b(reported|announced|headline|news|filed|court|ruled|sued|declared|bankrupt|press)\b/.test(l)) return "a real article screenshot or a press photo (find_picture)";
+      if (/\b(website|app|online|internet|email|post|tweet|instagram|facebook|google|screen|search)\b/.test(l)) return "a real page screenshot (find_picture)";
+      return "a picture (find_picture) or a library object";
     };
     const unused = staged.filter((sc) => !hasPicture(sc) && slotsOf(sc.shotId).length > 0);
     if (unused.length) issues.push({ kind: "unused_picture", detail: `these shots have real pictures available and show none: ${unused.map((sc) => `${sc.shotId} (${slotsOf(sc.shotId).map((m) => `[${m.slot}] ${(m.depicts ?? m.query).slice(0, 40)}`).join("; ")})`).join(", ")}. Build the scene around the picture.` });
     // A shot with no footage must be built around a picture, unless the designer really tried to get one
     // (two different requests that found nothing). With the picture tools there is no excuse for a bare stage.
     if (o.pictures) {
-      const bareStage = staged.filter((sc) => !hasPicture(sc) && !sc.elements.some((e) => e.type === "text3d") && (triedPicture.get(sc.shotId) ?? 0) < 2);
+      const bareStage = staged.filter((sc) => !hasPicture(sc) && (triedPicture.get(sc.shotId) ?? 0) < 2);
       if (bareStage.length) issues.push({ kind: "stage_without_picture", detail: `these shots have no footage and show no picture: ${bareStage.map((sc) => `${sc.shotId} (try ${suggest(sc.shotId)})`).join(", ")}. For each, get one: find_picture as footage (moving video of what the line is about) or as a slot to compose, or a library object or icon that makes the idea visible — then redesign the shot around it. Only after two different requests found nothing may a shot stay without a picture.` });
     }
-    const wordsOn = (sc: (typeof staged)[number]) => sc.elements.filter((e) => e.type === "text" || e.type === "phrase" || e.type === "text3d").reduce((n, e) => n + ("text" in e ? e.text.trim().split(/\s+/).length : 0), 0);
-    const bare = staged.filter((sc) => !hasPicture(sc) && wordsOn(sc) <= 3 && !sc.elements.some((e) => e.type === "text3d"));
+    const wordsOn = (sc: (typeof staged)[number]) => sc.elements.reduce((n, e) => n + (e.type === "component" ? Object.values(e.props).filter((v): v is string => typeof v === "string").join(" ").trim().split(/\s+/).filter(Boolean).length : 0), 0);
+    const bare = staged.filter((sc) => !hasPicture(sc) && wordsOn(sc) <= 3);
     const allow = Math.max(1, Math.floor(plan.scenes.length * 0.08));
-    if (bare.length > allow) issues.push({ kind: "bare_word_cards", detail: `${bare.length} shots are a word or two on a plain stage (${bare.map((sc) => sc.shotId).join(", ")}); at most ${allow} in a film this long. A lone word on colour is a slide: build it around a counter, steps, an icon grid, a newspaper layout or a screen when the line allows (${bare.map((sc) => `${sc.shotId}: ${suggest(sc.shotId)}`).join("; ")}), or carry the line with more of the narration's words set with intent, a drawn shape that means something, the film's motif, or 3D type for the one biggest moment.` });
+    if (bare.length > allow) issues.push({ kind: "bare_word_cards", detail: `${bare.length} shots are a word or two on a plain stage (${bare.map((sc) => sc.shotId).join(", ")}); at most ${allow} in a film this long. A lone word on colour is a slide: build it around a picture or the kit's number, chart or document when the line allows (${bare.map((sc) => `${sc.shotId}: ${suggest(sc.shotId)}`).join("; ")}), or carry the line with more of the narration's words in the kit's phrase.` });
     // Readability: text that cannot be read at a glance (labelled on the rendered frame, like everything else).
     const hard = ids.filter((id, k) => labels[k] && labels[k]!.words > 0 && !labels[k]!.readable);
     if (hard.length) issues.push({ kind: "hard_to_read", detail: `text is hard to read at a glance in ${hard.join(", ")} (too small, low contrast against what is behind it, across a busy area, cut off, or overlapping). Make it larger, move it to a calm part of the frame, or dim the footage under it — then look again.` });
@@ -260,14 +261,14 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         const known = new Set(shots.map((s) => s.id));
         const raw = i.scenes.filter((s) => known.has(s.shotId));
         if (!raw.length) throw new Error("none of those shot ids exist");
-        plan = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), ...(o.kit ? { kit: o.kit } : {}), raw, previous: plan, log: (s) => said.push(s.trim()) });
+        plan = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, channel: o.channel, ...(o.people ? { people: o.people } : {}), kit: o.kit, raw, previous: plan, log: (s) => said.push(s.trim()) });
         for (const s of raw) (dirty.add(s.shotId), unseen.add(s.shotId));
         const lines = raw.map((r) => {
           const got = plan.scenes.find((x) => x.shotId === r.shotId);
           if (!got) return `${r.shotId}: REJECTED (nothing usable was left)`;
-          const lost = r.clean && got.elements.length ? " — could not be clean (no moving footage): a phrase was kept" : !r.clean && got.elements.filter((e) => e.type !== "texture").length < r.elements.filter((e) => e.type !== "texture").length ? ` — ${r.elements.length - got.elements.length} element(s) removed by the checks` : "";
+          const lost = r.clean && got.elements.length ? " — could not be clean (no moving footage): its elements were kept" : !r.clean && got.elements.length < r.elements.length ? ` — ${r.elements.length - got.elements.length} element(s) removed by the checks` : "";
           const moved = r.backdrop !== got.backdrop ? ` — backdrop changed to ${got.backdrop}` : "";
-          return `${r.shotId}: ${got.elements.length ? got.elements.map((e) => e.type).join("+") : "clean footage"} on ${got.backdrop}${lost}${moved}`;
+          return `${r.shotId}: ${got.elements.length ? got.elements.map((e) => (e.type === "component" ? e.name : e.type)).join("+") : "clean footage"} on ${got.backdrop}${lost}${moved}`;
         });
         return `${plan.scenes.length}/${shots.length} shots have a scene.\n${lines.join("\n")}${said.length ? `\nchecks: ${said.join(" ").slice(0, 500)}` : ""}`;
       }) as AgentTool["run"],
@@ -285,7 +286,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
               const keepFrame = frames.get(i.shotId);
               const cand = [...(base.scenes.some((x) => x.shotId === i.shotId) && keepFrame ? [{ plan: base, mid: keepFrame.mid, sheet: keepFrame.sheet }] : [])];
               for (const d of i.designs) {
-                const p2 = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, design: o.design, channel: o.channel, ...(o.people ? { people: o.people } : {}), ...(o.kit ? { kit: o.kit } : {}), raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
+                const p2 = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, channel: o.channel, ...(o.people ? { people: o.people } : {}), kit: o.kit, raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
                 if (!p2.scenes.some((x) => x.shotId === i.shotId)) continue;
                 const r = (await o.render(p2, [i.shotId]))[0];
                 if (!r) continue;
@@ -454,7 +455,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const portrait = o.storyboard.aspect === "9:16";
   const system = [
     plain(
-      `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## This film's design language (stay inside it so the film is coherent)\n- concept: ${ds?.concept ?? "—"}\n- colours: primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}, text ${ds?.palette.text}\n- type: ${ds?.typography.display} display, ${ds?.typography.casing} case; headlines drawn "${tr?.headline ?? "solid_stroke"}", narration phrases "${tr?.phrase ?? "neon_glow"}", labels "${tr?.label ?? "tag"}", photos "${tr?.photo ?? "print"}"\n- stage when a shot has no footage: "${tr?.world ?? "smoke"}" in the film's colours\n- motif: ${tr?.motif ?? "—"}${o.kit ? `\n\n## THIS FILM'S OWN KIT (its art director wrote it for this film only — its visual idea: ${o.kit.concept})\nBuild designed shots from these components (element type "component", component = the name, propsJson = its props as JSON). They carry the film's own typefaces, cards, frames and labels; the generic text/phrase/label elements are only for what no component covers.\n${Object.entries(o.kit.components).map(([n, c]) => `- ${n}: ${c.use} — props: ${c.props}`).join("\n")}\nCuts that change the same picture are bridged by the film's own transition (the editor marks them).` : ""}\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
+      `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## THIS FILM'S OWN KIT (its art director wrote it for this film only — its visual idea: ${o.kit.concept})\nEvery word on screen and every stage come from these components (element type \"component\", component = the name, propsJson = its props as JSON); real pictures go in photo, cutout or card3d elements. There are no other text or decoration elements.\nRoles: ${Object.entries(o.kit.roles ?? {}).map(([r, c]) => `${r} = ${c}`).join(", ")}. The phrase component's words land on the frames they are spoken (the engine syncs them). A shot without footage sits on the kit's stage (${o.kit.roles?.stage ?? "its stage component"}), drawn behind your elements.\n${Object.entries(o.kit.components).map(([n, c]) => `- ${n}${c.role ? ` [${c.role}]` : ""}: ${c.use} — props: ${c.props}`).join("\n")}\n- colours (for washes and choices): primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}\nCuts that change the same picture are bridged by the film's own transition (the editor marks them).\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${MODELS.sonnet})…`);

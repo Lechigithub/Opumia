@@ -3,10 +3,10 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { QAReport, type FactSheet, type LibraryIndex, type QACheck, type RenderManifest, type ResolutionReport, type StyleProfile, type TimedScript } from "@opumia/contracts";
-import { judgeRender, numericFacts, TENSION } from "@opumia/agents";
+import { numericFacts, TENSION } from "@opumia/agents";
 import { ffprobe } from "@opumia/ingest";
 import { measureLoudness } from "./audio.js";
-import { CARD_MAX_S, CHAPTER_CARD_S, FULLSCREEN_TEXT } from "./manifest.js";
+import { FULLSCREEN_TEXT } from "./manifest.js";
 import { displayOf, matchesFact, parseShown, spokenMatch, spokenNumbers } from "./parity.js";
 
 const run = promisify(execFile);
@@ -27,18 +27,10 @@ export interface QAInput {
   profile: StyleProfile;
   index: LibraryIndex;
   jobDir: string;
-  judge: boolean;
   log?: (s: string) => void;
 }
 
-export interface JudgeIssue {
-  severity: "major" | "minor";
-  atS: number | null;
-  fix: string;
-  note: string;
-}
-
-export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMarkdown: string; judgeIssues: JudgeIssue[] }> {
+export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMarkdown: string }> {
   const log = q.log ?? (() => {});
   const checks: QACheck[] = [];
   const add = (c: Omit<QACheck, "atFrames"> & { atFrames?: number[] }) => checks.push({ atFrames: [], ...c });
@@ -126,7 +118,7 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
     const clashes: number[] = [];
     for (const card of q.manifest.video.filter((l) => l.sourceKind === "designed" && FULLSCREEN_TEXT.has(l.ref))) {
       const p = (card.props ?? {}) as Record<string, unknown>;
-      const cardWords = new Set(norm(`${p.text ?? ""} ${p.quote ?? ""}`));
+      const cardWords = new Set(norm(`${p.title ?? ""}`));
       for (const g of groups) {
         if (g.endFrame <= card.startFrame || g.startFrame >= card.endFrame) continue;
         const gw = norm(g.words.map((w) => w.text).join(" "));
@@ -134,99 +126,46 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
       }
     }
     const nCards = q.manifest.video.filter((l) => l.sourceKind === "designed" && FULLSCREEN_TEXT.has(l.ref)).length;
-    add({ id: "duplicate_text", severity: "major", passed: clashes.length === 0, message: clashes.length ? `${clashes.length} caption cue(s) repeat a full-screen card` : `${nCards} full-screen text card(s); burned-in captions suppressed under each (SRT keeps every word)`, measured: clashes.length, expected: "0", atFrames: clashes });
+    add({ id: "duplicate_text", severity: "major", passed: clashes.length === 0, message: clashes.length ? `${clashes.length} caption cue(s) repeat a full-screen card` : `${nCards} chapter card(s); burned-in captions suppressed under each (SRT keeps every word)`, measured: clashes.length, expected: "0", atFrames: clashes });
   }
 
-  // --- Fact binding: every number a chart/counter/versus shows equals a verified FactSheet number.
+  // --- Fact binding: every number a chart shows equals a verified FactSheet number.
   {
     const nf = numericFacts(q.facts);
     const byId = new Map(nf.map((x) => [x.id, x]));
     const problems: string[] = [];
     let numericCards = 0;
-    for (const l of q.manifest.video.filter((x) => x.sourceKind === "designed" && ["chart", "money_figure", "versus"].includes(x.ref))) {
+    for (const l of q.manifest.video.filter((x) => x.sourceKind === "designed" && x.ref === "chart")) {
       numericCards++;
-      const p = (l.props ?? {}) as { factIds?: string[]; values?: number[]; value?: number; left?: { value?: string }; right?: { value?: string } };
+      const p = (l.props ?? {}) as { factIds?: string[]; values?: number[] };
       const facts = (p.factIds ?? []).map((id) => byId.get(id));
       if (!facts.length || facts.some((f) => !f)) {
         problems.push(`${l.shotId}: no fact ids`);
         continue;
       }
-      const shown = l.ref === "chart" ? (p.values ?? []) : l.ref === "money_figure" ? [p.value] : [];
-      if (l.ref === "versus") {
-        // Shown strings may be compacted/spoken forms ("€31B"); they must state the same fact value.
-        const okSide = (shownStr: string | undefined, f: (typeof facts)[number]) => {
-          const v = shownStr ? parseShown(shownStr) : null;
-          return !!v && matchesFact({ value: v.value, unit: v.unit as "", mantissa: String(shownStr).replace(/[^\d.]/g, ""), scale: (/([KMBT])%?$/.exec(String(shownStr))?.[1] ?? "") as "", startS: 0, text: "" }, f!.value, f!.unit);
-        };
-        if (!okSide(p.left?.value, facts[0]) || !okSide(p.right?.value, facts[1])) problems.push(`${l.shotId}: versus values ${p.left?.value}/${p.right?.value} differ from facts ${facts[0]!.display}/${facts[1]!.display}`);
-      } else if (shown.length !== facts.length || shown.some((v, i) => v !== facts[i]!.value)) problems.push(`${l.shotId}: shows ${shown.join("/")} but facts are ${facts.map((f) => f!.value).join("/")}`);
+      const shown = p.values ?? [];
+      if (shown.length !== facts.length || shown.some((v, i) => v !== facts[i]!.value)) problems.push(`${l.shotId}: shows ${shown.join("/")} but facts are ${facts.map((f) => f!.value).join("/")}`);
     }
     add({ id: "fact_binding", severity: "blocker", passed: problems.length === 0, message: problems.length ? problems.join("; ") : `${numericCards} numeric graphic(s), every value bound to a verified fact (${nf.length} numbers in the sheet)`, measured: problems.length, expected: "0" });
   }
 
-  // --- Number parity: every figure on screen that the narrator says is shown exactly as spoken; counters must be spoken.
+  // --- Number parity: every chart figure the narrator says is shown exactly as spoken (kit numbers in scenes are checked by the scene designer).
   {
     const spoken = spokenNumbers(q.script.segments.flatMap((sg) => sg.words));
     const problems: string[] = [];
     let checked = 0;
-    for (const l of q.manifest.video.filter((x) => x.sourceKind === "designed" && ["chart", "money_figure", "versus"].includes(x.ref))) {
-      const p = (l.props ?? {}) as { display?: string; value?: number; prefix?: string; suffix?: string; unit?: string; values?: number[]; displays?: string[]; left?: { value?: string; magnitude?: number }; right?: { value?: string; magnitude?: number } };
+    for (const l of q.manifest.video.filter((x) => x.sourceKind === "designed" && x.ref === "chart")) {
+      const p = (l.props ?? {}) as { unit?: string; values?: number[]; display?: string[] };
       const t0 = l.startFrame / fps - 1.5;
       const t1 = l.endFrame / fps + 1.0;
-      if (l.ref === "money_figure") {
+      for (const [i, v] of (p.values ?? []).entries()) {
+        const hit = spokenMatch(spoken, v, p.unit ?? "", t0, t1, l.startFrame / fps);
+        if (!hit) continue; // context value not spoken: compact form is fine
         checked++;
-        const unit = p.prefix ? p.prefix : p.suffix === "%" ? "%" : "";
-        const hit = spokenMatch(spoken, Number(p.value), unit, t0, t1, l.startFrame / fps);
-        if (!hit) problems.push(`${l.shotId}: counter ${p.display ?? p.value} is never spoken in its shot`);
-        else if (p.display !== displayOf(hit)) problems.push(`${l.shotId}: shows ${p.display} but narrator says ${displayOf(hit)}`);
-      } else {
-        const pairs = l.ref === "chart" ? (p.values ?? []).map((v, i) => ({ v, unit: p.unit ?? "", shown: p.displays?.[i] })) : [p.left, p.right].map((x) => ({ v: x?.magnitude ?? NaN, unit: x?.value ? (parseShown(x.value)?.unit ?? "") : "", shown: x?.value }));
-        for (const pr of pairs) {
-          if (!Number.isFinite(pr.v)) continue;
-          const hit = spokenMatch(spoken, pr.v, pr.unit, t0, t1, l.startFrame / fps);
-          if (!hit) continue; // context value not spoken: compact form is fine
-          checked++;
-          if (pr.shown !== displayOf(hit)) problems.push(`${l.shotId}: shows ${pr.shown} but narrator says ${displayOf(hit)}`);
-        }
+        if (p.display?.[i] !== displayOf(hit)) problems.push(`${l.shotId}: shows ${p.display?.[i]} but narrator says ${displayOf(hit)}`);
       }
     }
     add({ id: "number_parity", severity: "major", passed: problems.length === 0, message: problems.length ? problems.join("; ") : `${checked} on-screen figure(s) match the narration exactly (same value, unit and precision)`, measured: problems.length, expected: "0" });
-  }
-
-  // --- Full-screen kinetic text cards are held ≤ 2.0 s.
-  {
-    const cards = q.manifest.video.filter((l) => l.sourceKind === "designed" && FULLSCREEN_TEXT.has(l.ref));
-    const long = cards.filter((l) => l.endFrame - l.startFrame > Math.round((l.ref === "chapter_card" ? CHAPTER_CARD_S : CARD_MAX_S) * fps) + 1);
-    add({ id: "card_length", severity: "major", passed: long.length === 0, message: long.length ? `${long.length} card(s) over ${CARD_MAX_S} s: ${long.map((l) => `${l.shotId} ${((l.endFrame - l.startFrame) / fps).toFixed(1)} s`).join(", ")}` : `${cards.length} full-screen card(s), longest ${cards.length ? (Math.max(...cards.map((l) => l.endFrame - l.startFrame)) / fps).toFixed(2) : 0} s (≤ ${CARD_MAX_S} s)`, measured: long.length, expected: "0", atFrames: long.map((l) => l.startFrame) });
-  }
-
-  // --- Lower thirds over a detailed picture: luminance spread + edge energy of the frame above the label.
-  {
-    const labels = q.manifest.video.filter((l) => l.sourceKind === "designed" && l.ref === "name_label");
-    const n = Math.floor(gray2fps.length / (GW * GH));
-    const bland: string[] = [];
-    for (const l of labels) {
-      const fr: number[] = [];
-      for (let k = Math.ceil((l.startFrame / fps) * 2); k <= Math.floor(((l.endFrame - 1) / fps) * 2) && k < n; k++) fr.push(k);
-      const scores = fr.map((k) => {
-        const o = k * GW * GH;
-        let sum = 0, sq = 0, edge = 0, cnt = 0;
-        for (let y = 0; y < Math.floor(GH * 0.62); y++)
-          for (let x = 0; x < GW - 1; x++) {
-            const v = gray2fps[o + y * GW + x]!;
-            sum += v;
-            sq += v * v;
-            edge += Math.abs(v - gray2fps[o + y * GW + x + 1]!) + (y + 1 < GH ? Math.abs(v - gray2fps[o + (y + 1) * GW + x]!) : 0);
-            cnt++;
-          }
-        const mean = sum / cnt;
-        return { sd: Math.sqrt(Math.max(0, sq / cnt - mean * mean)), edge: edge / cnt };
-      });
-      const sd = scores.length ? scores.reduce((a, b) => a + b.sd, 0) / scores.length : 0;
-      const edge = scores.length ? scores.reduce((a, b) => a + b.edge, 0) / scores.length : 0;
-      if (sd < 18 && edge < 5) bland.push(`${l.shotId} (sd ${sd.toFixed(1)}, edge ${edge.toFixed(1)})`);
-    }
-    add({ id: "lower_third_backdrop", severity: "major", passed: bland.length === 0, message: bland.length ? `lower third over a flat/blank picture: ${bland.join(", ")}` : `${labels.length} lower third(s), each over a detailed picture`, measured: bland.length, expected: "0" });
   }
 
   // --- Long-form chapters: ≥ 3, first at 0:00, each ≥ 10 s (YouTube's rules); re-hook cadence 25–35 s.
@@ -283,30 +222,6 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
   const bad = q.facts.claims.filter((c) => usedClaimTexts.has(c.text) && (c.verdict === "unsupported" || c.verdict === "unreachable"));
   add({ id: "fact_claims", severity: "major", passed: segNumbers.length === 0 && bad.length === 0, message: `${q.script.segments.reduce((n, s) => n + s.claims.length, 0)} cited claims across ${q.script.segments.length} segments${segNumbers.length ? `; ${segNumbers.length} segments state numbers without a cited claim (${segNumbers.map((s) => s.id).join(", ")})` : ""}${uncited.length ? `; note: ${uncited.length} narrative segment(s) carry no cited claim (${uncited.map((s) => `${s.id}/${s.role}`).join(", ")}) — editorial review` : ""}`, measured: segNumbers.length + bad.length, expected: "0" });
 
-  // --- Judge (Sonnet vision) on sampled frames.
-  const judgeIssues: JudgeIssue[] = [];
-  if (q.judge) {
-    const dir = path.join(q.jobDir, "qa_frames");
-    await mkdir(dir, { recursive: true });
-    const frames: string[] = [];
-    const times: number[] = [];
-    const nFrames = durS > 90 ? 12 : 8;
-    for (let i = 0; i < nFrames; i++) {
-      const t = ((i + 0.5) / nFrames) * durS;
-      times.push(t);
-      const f = path.join(dir, `f${i}.jpg`);
-      await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", t.toFixed(2), "-i", q.finalPath, "-frames:v", "1", "-vf", "scale=-2:960", "-q:v", "4", f]);
-      frames.push(f);
-    }
-    log(`  qa: judge review (claude-sonnet-5-5, ${nFrames} frames)…`);
-    const j = await judgeRender({ frames, script: q.script.segments.map((s) => s.text).join(" "), channel: q.profile.displayName, aspect: q.manifest.aspect, checks: checks.map((c) => `${c.id}: ${c.passed ? "pass" : "FAIL"} — ${c.message}`).join("\n") });
-    for (const i of j.issues) judgeIssues.push({ severity: i.severity, atS: i.frame >= 1 && i.frame <= times.length ? times[i.frame - 1]! : null, fix: i.fix, note: i.note });
-    // Severity follows the judge's own issue severities (like every other check): any major issue or a "fail"
-    // verdict fails as major; minor-only feedback is recorded as a failed minor check (visible, non-blocking).
-    const majors = j.issues.filter((i) => i.severity === "major").length;
-    add({ id: "judge", severity: majors || j.verdict === "fail" ? "major" : "minor", passed: j.verdict === "pass", message: `${j.verdict}: ${j.summary}${j.issues.length ? ` | ${j.issues.map((i) => `[${i.severity}] ${i.note}`).join(" | ")}` : ""}`, measured: j.verdict });
-  }
-
   const blockerFail = checks.some((c) => !c.passed && c.severity === "blocker");
   const majorFail = checks.some((c) => !c.passed && c.severity === "major");
   const verdict = blockerFail ? "fail" : majorFail ? "review" : "pass";
@@ -354,7 +269,7 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
     ...q.facts.claims.filter((c) => usedUrls.has(c.sourceUrl)).map((c) => `- [${c.verdict}] ${c.text} — ${c.sourceUrl}`),
     "",
   ].join("\n");
-  return { report, licenseMarkdown, judgeIssues };
+  return { report, licenseMarkdown };
 }
 
 

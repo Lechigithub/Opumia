@@ -7,7 +7,8 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import helvetiker from "three/examples/fonts/helvetiker_bold.typeface.json";
 import optimer from "three/examples/fonts/optimer_bold.typeface.json";
 import gentilis from "three/examples/fonts/gentilis_bold.typeface.json";
-import { PALETTE, TYPO } from "../types";
+import { PALETTE } from "../types";
+import { TYPO } from "../thumb/tokens";
 
 /**
  * Real 3D (Three.js inside the Remotion frame): extruded type and lit picture cards. Each element owns a small
@@ -49,11 +50,11 @@ export const Text3D: React.FC<{ text: string; color: string; spin: number; at: n
   if (t < 0) return null;
   return (
     <ThreeCanvas width={Math.round(w)} height={Math.round(h)} camera={{ fov, position: [0, 0, dist], near: 0.1, far: 200 }} style={{ position: "absolute", inset: 0 }}>
-      <Lights accent={PALETTE.crimson} />
+      <Lights accent={PALETTE.accent} />
       <group rotation={[-0.12, ry, 0]} scale={0.55 + 0.45 * inP} position={[0, (1 - inP) * -0.6, 0]}>
         <mesh geometry={geo}>
           <meshStandardMaterial attach="material-0" color={color} metalness={0.55} roughness={0.28} />
-          <meshStandardMaterial attach="material-1" color={PALETTE.crimsonDeep} metalness={0.4} roughness={0.5} />
+          <meshStandardMaterial attach="material-1" color={PALETTE.accentDeep} metalness={0.4} roughness={0.5} />
         </mesh>
       </group>
     </ThreeCanvas>
@@ -89,7 +90,7 @@ export const Card3D: React.FC<{ src: string; tilt: number; spin: number; at: num
   const ry = ((tilt + spin * (prog - 0.5) + (1 - inP) * 50) * Math.PI) / 180;
   return (
     <ThreeCanvas width={Math.round(w)} height={Math.round(h)} camera={{ fov: 32, position: [0, 0, 5.2], near: 0.1, far: 100 }} style={{ position: "absolute", inset: 0 }}>
-      <Lights accent={PALETTE.crimson} />
+      <Lights accent={PALETTE.accent} />
       <group rotation={[0.06, ry, 0.015]} position={[0, Math.sin(prog * Math.PI * 2) * 0.05, 0]} scale={0.7 + 0.3 * inP}>
         {/* Card body (gives the edge thickness), picture face, and a soft glow plane behind. */}
         <mesh position={[0, 0, -0.03]}>
@@ -102,7 +103,7 @@ export const Card3D: React.FC<{ src: string; tilt: number; spin: number; at: num
         </mesh>
         <mesh position={[0, 0, -0.5]}>
           <planeGeometry args={[cw * 1.5, chh * 1.5]} />
-          <meshBasicMaterial color={PALETTE.gold} transparent opacity={0.16} />
+          <meshBasicMaterial color={PALETTE.primary} transparent opacity={0.16} />
         </mesh>
       </group>
     </ThreeCanvas>

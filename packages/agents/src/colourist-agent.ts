@@ -42,6 +42,8 @@ export interface ColouristOptions {
   frames: Map<string, string>;
   /** Step 2: watch a stretch with this design and plan, with the measured report. */
   watch?: (design: FilmDesignSystem, plan: ScenePlan, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
+  /** Sent back by the preflight gate: what is wrong with the colour, in measured terms. */
+  brief?: string;
   memoryDir?: string;
   log?: (s: string) => void;
 }
@@ -229,7 +231,7 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film's colour world (art director): primary ${design.palette.primary}, accent ${design.palette.accent}.`)];
   log(`  colourist: ${sumText(before).split("\n")[0]}${before.outside.length ? ` — outside: ${before.outside.join("; ")}` : ""} (${MODELS.sonnet})`);
   let grace = 1;
-  const run = await agentLoop({ stage: "colourist.agent", model: MODELS.sonnet, system, user: `Grade "${o.title}". Start with read_grade.`, tools, effort: "medium", maxTurns: 24, maxTokens: 16000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the grade, look, change what is outside the channel, render and submit.", log });
+  const run = await agentLoop({ stage: "colourist.agent", model: MODELS.sonnet, system, user: `Grade "${o.title}".${o.brief ? ` The preflight gate sent the colour back: ${o.brief}` : ""} Start with read_grade.`, tools, effort: "medium", maxTurns: 24, maxTokens: 16000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the grade, look, change what is outside the channel, render and submit.", log });
   const after = summary();
   const keep = accepted !== null || after.outside.length < before.outside.length;
   const report: ColouristReport = { pass: accepted !== null, before, after: keep ? after : before, ops, note: accepted ?? (keep ? "not submitted; kept its rendered state" : "not submitted: the original grade was kept"), agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };

@@ -1,4 +1,4 @@
-# Build list 3: self-healing autonomy and the legacy cleanup (proposed, awaiting owner approval)
+# Build list 3: self-healing autonomy and the legacy cleanup (approved 2026-11-22)
 
 Goal: an end-to-end autonomous platform that finishes every film itself, inside its budget and time, with no
 mistake in the finished film. When something fails, it is sent to the agent that can fix it, which tries
@@ -13,29 +13,29 @@ the owner approves the inventory (item 1).
 
 ## A. Legacy cleanup (remove what the agents fell into)
 
-1. ☐ **Inventory, shown to the owner for approval before anything is deleted.** For every old path: the switch that
+1. ☑ **Inventory, shown to the owner for approval before anything is deleted.** For every old path: the switch that
    turns it on, what still calls it, and the finding it caused.
-2. ☐ **The old menu art direction (stage A1b):**
+2. ☑ **The old menu art direction (stage A1b):**
    - its fixed lists of fonts, label styles, photo frames, backgrounds and particles;
    - its palette, act grades and treatments;
    - its "avoid recent habits" guard.
    The film's kit owns all of this.
-3. ☐ **The shared design stages in the renderer:** the generic colour-world, surface, paper and split backgrounds,
+3. ☑ **The shared design stages in the renderer:** the generic colour-world, surface, paper and split backgrounds,
    the particles, washes and treatment presets, and the menu font tokens.
-4. ☐ **Generic text for scenes:** the text, phrase, label and 3D-type elements. Also the old preset cards: big word,
+4. ☑ **Generic text for scenes:** the text, phrase, label and 3D-type elements. Also the old preset cards: big word,
    quote card, name label, chapter roll, money figure, hero face, cut-out collage, screen mock, timeline, versus,
    document and chart presets, as far as the kit or data graphics cover them. Words go only through the film's kit.
-5. ☐ **Old scene design:** the single-prompt scene designer, the separate critic pass, and the old "atmosphere" and
+5. ☑ **Old scene design:** the single-prompt scene designer, the separate critic pass, and the old "atmosphere" and
    "kinetic stamp" fill-ins.
-6. ☐ **Degrading repairs:** `safe_scene`, `vary_stage`, `soften_wash`, `prune_shapes` as reductions, and
+6. ☑ **Degrading repairs:** `safe_scene`, `vary_stage`, `soften_wash`, `prune_shapes` as reductions, and
    `drop_picture` without a replacement. Every failed scene goes back to its owner (part B).
-7. ☐ **The old voice path:** sentence-by-sentence takes, cutting inside lines, and pace measured on sentence takes.
-8. ☐ **Old fallbacks:** the five-pass writer, the single-prompt thumbnail package, the old sound timeline as a
+7. ☑ **The old voice path:** sentence-by-sentence takes, cutting inside lines, and pace measured on sentence takes.
+8. ☑ **Old fallbacks:** the five-pass writer, the single-prompt thumbnail package, the old sound timeline as a
    separate path, the old picture rules that the picture researcher replaced, and `directStoryboard` as a separate
    path.
-9. ☐ **Every `legacy` and `off` switch** that brings any of the above back, and the prompt text, skill text,
+9. ☑ **Every `legacy` and `off` switch** that brings any of the above back, and the prompt text, skill text,
    CLAUDE.md lines and data files that refer to removed paths.
-10. ☐ **Proof:**
+10. ☑ **Proof:**
     - typecheck;
     - the offline smoke renders (rewritten for kit-based scenes);
     - the regression suite;

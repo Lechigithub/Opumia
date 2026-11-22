@@ -49,7 +49,7 @@ export async function filmMetrics(jobDir: string, video: string, ex: ExemplarInd
   if (sbRaw && mRaw) {
     const sb = Storyboard.parse(sbRaw);
     const m = RenderManifest.parse(mRaw);
-    const designedShots = new Set(m.video.filter((l) => l.sourceKind === "designed" && !["captions", "atmosphere", "chapter_card"].includes(l.ref)).map((l) => l.shotId));
+    const designedShots = new Set(m.video.filter((l) => l.sourceKind === "designed" && !["captions", "chapter"].includes(l.ref)).map((l) => l.shotId));
     const treated = sb.shots.filter((s) => designedShots.has(s.id)).length / Math.max(1, sb.shots.length);
     const slowZoom = sb.shots.filter((s) => !designedShots.has(s.id) && (s.camera.type === "ken_burns" || s.camera.type === "static")).length / Math.max(1, sb.shots.length);
     add("designed_share", "Shots with designed treatment", treated, "≥ 0.7 (the channel designs nearly every shot)", treated >= 0.7);

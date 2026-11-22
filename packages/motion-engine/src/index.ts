@@ -5,8 +5,6 @@ export * from "./manifest.js";
 export * from "./audio.js";
 export * from "./render.js";
 export * from "./qa.js";
-export * from "./compose.js";
 export * from "./parity.js";
-export * from "./gate.js";
 export * from "./preview.js";
 export * from "./watch.js";

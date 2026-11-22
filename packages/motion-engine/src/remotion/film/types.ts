@@ -14,6 +14,9 @@ export interface FilmComponentProps {
 export interface FilmKit {
   /** Named components the scene designer can place (`{ type: "component", name, props }`). */
   components: Record<string, React.FC<FilmComponentProps>>;
+  /** Role → component (build list 3): the engine draws chapter cards, stages, charts, maps and documents, and the scene
+   * designer every word, through these. Roles: headline, phrase, label, number, quote, chapter, stage, chart, map, document. */
+  roles?: Record<string, string>;
   /** Named transitions drawn across a cut; `progress` runs 0 → 1 over the transition, the cut at 0.5. */
   transitions: Record<string, React.FC<{ progress: number }>>;
   /** The transition used where a shot asks for the film's own ("film"). */

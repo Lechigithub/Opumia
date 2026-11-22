@@ -4,7 +4,7 @@ import path from "node:path";
 import type { FilmDesignSystem, ScenePlan, ScriptDraft, Storyboard } from "@opumia/contracts";
 
 /**
- * Film fingerprint: what makes one film look, read and sound like itself — its colour world, type and treatment,
+ * Film fingerprint: what makes one film look, read and sound like itself — its colour world, its kit's type, idea and transition,
  * where things sit on screen, its story shape, its opening and closing words, its sounds. Every film's
  * fingerprint is stored (data/fingerprints.json); a new film is compared with the recent ones at each planning
  * stage, before money is spent, and steered away from anything it would share. The only thing two films may
@@ -16,8 +16,8 @@ export interface FilmFingerprint {
   at: string;
   colour: { primary: string; accent: string; surface: string };
   type: { display: string; body: string; casing: string };
-  treatment: { headline: string; phrase: string; label: string; photo: string; world: string; particles: string; wash: string; transition: string };
-  motif: string;
+  /** The film's own kit: its visual idea and the transition that bridges its cuts. */
+  treatment: { transition: string; concept: string };
   /** Where designed elements sit: element type × 3×3 screen cell → share of all elements. */
   layout: Record<string, number>;
   /** Share of scenes per backdrop and of shots per designed kind. */
@@ -49,16 +49,14 @@ export async function saveFingerprint(dataDir: string, fp: FilmFingerprint): Pro
 
 const cell = (x: number, y: number, w: number) => `${Math.min(2, Math.floor(Math.max(0, Math.min(0.999, x + w / 2)) * 3))}${Math.min(2, Math.floor(Math.max(0, Math.min(0.999, y + 0.08)) * 3))}`;
 
-export function fingerprintOf(o: { job: string; channel: string; design: FilmDesignSystem; draft?: ScriptDraft; board?: Storyboard; scenes?: ScenePlan; title?: string }): FilmFingerprint {
-  const t = o.design.treatment;
+export function fingerprintOf(o: { job: string; channel: string; design: FilmDesignSystem; transition?: string; draft?: ScriptDraft; board?: Storyboard; scenes?: ScenePlan; title?: string }): FilmFingerprint {
   const layout: Record<string, number> = {};
   const mix: Record<string, number> = {};
   let n = 0;
   for (const s of o.scenes?.scenes ?? []) {
     mix[`backdrop:${s.backdrop}`] = (mix[`backdrop:${s.backdrop}`] ?? 0) + 1;
     for (const e of s.elements) {
-      if (e.type === "texture") continue;
-      const k = `${e.type === "text" ? `text:${e.role}` : e.type}@${cell(e.x, e.y, e.w)}`;
+      const k = `${e.type}@${cell(e.x, e.y, e.w)}`;
       layout[k] = (layout[k] ?? 0) + 1;
       n++;
     }
@@ -78,9 +76,8 @@ export function fingerprintOf(o: { job: string; channel: string; design: FilmDes
     channel: o.channel,
     at: new Date().toISOString(),
     colour: { primary: o.design.palette.primary, accent: o.design.palette.accent, surface: o.design.palette.surface },
-    type: { display: o.design.typography.display, body: o.design.typography.body, casing: o.design.typography.casing },
-    treatment: { headline: t?.headline ?? "", phrase: t?.phrase ?? "", label: t?.label ?? "", photo: t?.photo ?? "", world: t?.world ?? "", particles: t?.particles ?? "", wash: t?.wash ?? "", transition: t?.transition ?? "" },
-    motif: t?.motif ?? "",
+    type: { display: o.design.fonts.display, body: o.design.fonts.body, casing: "" },
+    treatment: { transition: o.transition ?? "", concept: o.design.concept },
     layout,
     mix,
     story: { hook: o.draft?.blueprint?.hook ?? "", spine: o.draft?.blueprint?.spine ?? "", ending: o.draft?.blueprint?.ending ?? "" },
@@ -133,8 +130,10 @@ export interface Similarity { overall: number; colour: number; treatment: number
 
 export function similarity(a: FilmFingerprint, b: FilmFingerprint): Similarity {
   const colour = Math.max(0, 1 - Math.min(hueGap(a.colour.primary, b.colour.primary), 90) / 90) * 0.65 + Math.max(0, 1 - Math.min(hueGap(a.colour.accent, b.colour.accent), 90) / 90) * 0.35;
-  const tf: Array<[string, string]> = [[a.type.display, b.type.display], [a.type.body, b.type.body], [a.treatment.headline, b.treatment.headline], [a.treatment.phrase, b.treatment.phrase], [a.treatment.label, b.treatment.label], [a.treatment.photo, b.treatment.photo], [a.treatment.world, b.treatment.world], [a.treatment.particles, b.treatment.particles], [a.treatment.transition, b.treatment.transition]];
-  const treatment = tf.filter(([x, y]) => x && x === y).length / tf.length;
+  // the kit: same typefaces, the same transition, the same visual idea in other words
+  const tf: Array<[string, string]> = [[a.type.display, b.type.display], [a.type.body, b.type.body], [a.treatment.transition ?? "", b.treatment.transition ?? ""]];
+  const idea = jaccard(content(a.treatment.concept ?? ""), content(b.treatment.concept ?? ""));
+  const treatment = (tf.filter(([x, y]) => x && x === y).length + Math.min(1, idea * 2)) / (tf.length + 1);
   const layout = Object.keys(a.layout).length && Object.keys(b.layout).length ? cosine(a.layout, b.layout) : 0;
   const story = (Number(a.story.hook && a.story.hook === b.story.hook) + Number(a.story.ending && a.story.ending === b.story.ending) + Number(a.story.spine && a.story.spine === b.story.spine)) / 3;
   const firstWords = (s: string) => s.toLowerCase().split(/\s+/).slice(0, 3).join(" ");
@@ -160,11 +159,11 @@ export function closest(fp: FilmFingerprint, others: FilmFingerprint[]): { to: s
 }
 
 /** What recent films did, as plain notes for the planning agents ("do something else"). */
-export function habitsOf(recent: FilmFingerprint[]): { openings: string[]; layouts: string; hues: string[] } {
+export function habitsOf(recent: FilmFingerprint[]): { openings: string[]; layouts: string } {
   const openings = recent.map((r) => r.opening.split(/\s+/).slice(0, 22).join(" ")).filter(Boolean);
   const agg: Record<string, number> = {};
   for (const r of recent) for (const [k, v] of Object.entries(r.layout)) agg[k] = (agg[k] ?? 0) + v / recent.length;
   const POS: Record<string, string> = { "00": "top-left", "10": "top-centre", "20": "top-right", "01": "middle-left", "11": "centre", "21": "middle-right", "02": "bottom-left", "12": "bottom-centre", "22": "bottom-right" };
   const layouts = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k.split("@")[0]} at ${POS[k.split("@")[1] ?? ""] ?? "?"} (${Math.round(v * 100)} %)`).join("; ");
-  return { openings, layouts, hues: recent.map((r) => r.colour.primary) };
+  return { openings, layouts };
 }

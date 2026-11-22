@@ -252,8 +252,18 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
     } else if (e.type === "shape" && e.shape) els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h, 0.005, 0.6, 0.014), color: e.color ?? "accent", ...(e.shape === "arrow" ? { x2: clamp(e.x2, 0, 1, 0.5), y2: clamp(e.y2, 0, 1, 0.5) } : {}) });
     else if (e.type === "texture" && e.texture) els.push({ type: "texture", texture: e.texture, opacity: clamp(e.opacity, 0, 1, 0.3), at: 0 });
   }
-  const texts = els.filter((e) => e.type === "text") as unknown as SceneElement[];
-  fitLayout(texts, false);
+  // Thumbnail text stays clear of other text: laid out as boxes of their estimated height, then moved back.
+  const texts = els.filter((e) => e.type === "text");
+  const boxes = texts.map((t) => {
+    const size = Number(t.size ?? 0.16), w = Number(t.w ?? 0.5);
+    const lines = Math.max(1, Math.ceil((String(t.text ?? "").length * size * 0.55 * (9 / 16)) / Math.max(0.05, w)));
+    return { type: "component", name: "text", props: {}, x: Number(t.x), y: Number(t.y), w, h: Math.min(1, size * 1.15 * lines), rot: 0, z: 0.5, at: 0, enter: "fade" } as SceneElement;
+  });
+  const orig = [...boxes];
+  fitLayout(boxes, false);
+  const kept = new Set(boxes);
+  texts.forEach((t, k) => { const b = orig[k] as SceneElement & { x: number; y: number; w: number }; if (kept.has(b)) Object.assign(t, { x: b.x, y: b.y, w: b.w }); else t.dropped = true; });
+  for (let k = els.length - 1; k >= 0; k--) if (els[k]!.dropped) els.splice(k, 1);
   const f = d.finish;
   const finish: Record<string, unknown> = {};
   if (f?.background) {
@@ -280,10 +290,11 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
     finish.pattern = f.pattern;
   }
   const p = base.palette;
-  const design: FilmDesignSystem = {
+  // the thumbnail's own palette and lettering (thumbStyle is read by the thumbnail renderer only)
+  const design: FilmDesignSystem & { thumbStyle: { headline: string; world: string; glow: number } } = {
     ...base,
     palette: { ...p, primary: validHex(d.palette.primary) ? d.palette.primary : p.primary, accent: validHex(d.palette.accent) ? d.palette.accent : p.accent, surface: validHex(d.palette.surface) ? d.palette.surface : p.surface },
-    treatment: { ...(base.treatment ?? { phrase: "boxed", label: "tag", photo: "none", particles: "none", wash: "none", washStrength: 0.3, glow: 0.7, motif: "", transition: "whip" as const }), headline: d.headlineStyle, world: d.world, particles: "none", photo: "none", wash: "none", washStrength: 0.3, glow: Math.max(0.6, base.treatment?.glow ?? 0.6) } as FilmDesignSystem["treatment"],
+    thumbStyle: { headline: d.headlineStyle, world: d.world, glow: 0.6 },
   };
   const spec = { shotId: "thumbnail", idea: d.concept.slice(0, 200), backdrop: "world", dim: 0.3, camera: { fromScale: 1, toScale: 1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: els };
   // A picture blown up well past its own pixels looks soft next to the channel's crisp composites.

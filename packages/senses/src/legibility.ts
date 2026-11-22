@@ -62,6 +62,16 @@ export async function measureLegibility(frame: string, boxes: TextBox[], o: { as
 export function textBoxesOf(spec: { elements: Array<Record<string, unknown>> }): TextBox[] {
   const out: TextBox[] = [];
   for (const e of spec.elements) {
+    // a kit component: its words are its string props; its box is the one the scene designer gave it
+    if (e.type === "component") {
+      const props = (e.props ?? {}) as Record<string, unknown>;
+      const t = Object.entries(props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit)$/i.test(k)).map(([, v]) => v as string).join(" ").trim();
+      if (!t) continue;
+      const w = Number(e.w ?? 0.5);
+      out.push({ label: t.slice(0, 40), x: Number(e.x ?? 0), y: Number(e.y ?? 0), w, h: Math.min(0.9, Number(e.h ?? 0) || 0.16) });
+      continue;
+    }
+    // older scene files (history only): text elements drawn by the removed menu renderer
     const t = String(e.text ?? e.headline ?? e.label ?? "");
     if (!t || !["text", "phrase", "text3d", "newspaper", "counter"].includes(String(e.type))) continue;
     const size = Number(e.size ?? (e.type === "text3d" ? 0.14 : e.type === "newspaper" ? 0.05 : 0.05));

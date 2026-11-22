@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, artDirect, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, designScenes, designSoundTimeline, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, recentTreatments, recordTreatment, type SceneExemplar, blockAsset, blockedRefs, badQueries, buildStylePack, chapterCount, directStoryboard, gateReview, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -15,8 +15,8 @@ import { inspectStretch } from "./inspect.js";
 import { runFilmDesigner } from "./film-kit.js";
 import { run } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
-import { dropPictures, preflightChecks, pruneEmptyFrames, referenceHueDominance, safeScene, type PreflightCheck } from "./preflight.js";
-import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, pickGateFrames, renderGateStills, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
+import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
+import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, renderShotPreviews, renderVideo, runQA, toSrt } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -33,7 +33,6 @@ export interface ProduceOptions {
   job?: string;
   redo: Stage[];
   until?: Stage;
-  judge: boolean;
   /** Editor overrides: shotId → why the current picture must be replaced. */
   repair?: Map<string, string>;
   /** The showrunner sent the script back (second pass of a film): what the writer must change. */
@@ -138,24 +137,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // ---- Stage A: research → script → narration
   log("\n[A1] research & fact-check");
   const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), memoryDir: path.join(o.data, "agents", "research"), browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log }), log);
-  // Art direction: a unique FilmDesignSystem for this film (palette, type, texture, per-act grades, scene grammar).
-  log("\n[A1b] art direction (runs alongside the script)");
-  // Uniqueness: what the recent films did, so every planning stage can do something else.
+  // Uniqueness: what the recent films did, so every planning stage can do something else. (The film's look is
+  // designed later, by its art director with its own kit, once its pictures are known — stage B2d.)
   const producedSet = await producedJobs(o.data);
   const recentFps = (await loadFingerprints(o.data)).filter((f) => f.job !== jobId).slice(-6);
   const habits = habitsOf(recentFps);
-  // Art direction and the script need only the facts, so they run side by side; the design is awaited after the script.
-  const designP = cachedJson(path.join(jobDir, "design.json"), FilmDesignSystem, redo("research"), async () => artDirect({ facts, pack, acts: short ? 1 : chapterCount(o.durationS), recent: (await recentTreatments(o.data)).filter((r) => r.job !== jobId), log }), log).then(async (design) => {
-  if (design.treatment) await recordTreatment(o.data, { job: jobId, channel, headline: design.treatment.headline, phrase: design.treatment.phrase, world: design.treatment.world, particles: design.treatment.particles, photo: design.treatment.photo, label: design.treatment.label, display: design.typography.display, primary: design.palette.primary, accent: design.palette.accent, transition: design.treatment.transition });
-  log(`  art direction: "${design.concept}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}, ${design.typography.display}`);
-    return design;
-  });
-  designP.catch(() => {}); // any failure surfaces where the design is awaited
   const memory = await loadMemory(o.data);
-  if (stop("research")) {
-    await designP;
-    return { jobDir };
-  }
+  if (stop("research")) return { jobDir };
 
   log("\n[A2] script");
   const voice = await resolveChannelVoice(channel, o.data, log);
@@ -187,15 +175,14 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
   if (draft.blueprint) await updateMemory(o.data, (m) => recordBlueprint(m, channel, { job: jobId, hook: draft.blueprint!.hook, ending: draft.blueprint!.ending, spine: draft.blueprint!.spine, ...(draft.blueprint!.beats?.length ? { beats: draft.blueprint!.beats } : {}) }));
   {
-    // A script that still misses the channel's story band is not narrated (OPUMIA_STORY=warn narrates anyway).
+    // A script that still misses the channel's story band is not narrated.
     const st = await readFile(storyFile, "utf8").then((t) => JSON.parse(t) as StoryReport, () => null);
-    if (st && !st.pass && process.env.OPUMIA_STORY !== "warn" && !(await exists(path.join(jobDir, "timed-script.json")))) throw new Error(`story test: the script still misses the channel's story band (${st.remaining.map((x) => x.kind).join(", ")}) — see script.story.json; nothing was narrated`);
+    if (st && !st.pass && !(await exists(path.join(jobDir, "timed-script.json")))) throw new Error(`story test: the script still misses the channel's story band (${st.remaining.map((x) => x.kind).join(", ")}) — see script.story.json; nothing was narrated`);
   }
   if (facts.claims.length > claimsBefore) {
     await writeFile(path.join(jobDir, "facts.json"), JSON.stringify(facts, null, 2) + "\n");
     log(`  writer: asked the researcher — ${facts.claims.length - claimsBefore} verified fact(s) added to the fact sheet`);
   }
-  let design = await designP;
   if (stop("script")) return { jobDir };
 
   log("\n[A3] narration (ElevenLabs)");
@@ -236,7 +223,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const span = (timed.segments.at(-1)?.endS ?? timed.durationS) - (timed.segments[0]?.startS ?? 0);
     const measured = (words / Math.max(1, span)) * 60; // this script's own pace is the best predictor for its re-write
     log(`  ! narration ${timed.durationS.toFixed(1)} s outside ${minS}–${maxS} s; voice spoke ${measured.toFixed(1)} wpm → re-writing to fit and re-narrating once`);
-    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), ...(draft.blueprint ? { blueprint: draft.blueprint } : {}), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
+    draft = await cachedJson(path.join(jobDir, "script.draft.json"), ScriptDraft, true, () => writeScript({ pack, facts, recentOpenings: habits.openings, aspect: o.aspect, durationS: narrationTargetS, narrationWpm: Math.floor(measured * 0.98), storyBand, films, memoryDir, askResearcher, onStory, log }), log);
     log(`  "${draft.title}" — ${draft.wordCount} words`);
     timed = await cachedJson(timedPath, TimedScript, true, doNarrate, log);
     await recordCalibration(timed);
@@ -262,10 +249,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     await writeFile(probesFile, JSON.stringify({ report: dirReport, probes: Object.fromEntries(res.probes) }, null, 1) + "\n");
     return res.storyboard;
   }, log);
-  // The film's signature transition: every non-cut transition becomes it, and a new thought (the first shot
-  // of a narration segment) gets it when the director cut straight — roughly one shot in six.
-  if (design.treatment) {
-    const sig = design.treatment.transition;
+  // The film's signature transition is its kit's ("film"): every non-cut transition becomes it, and a new thought
+  // (the first shot of a narration segment) gets it when the director cut straight — roughly one shot in six.
+  {
     let lastSeg = "";
     let since = 0;
     let n = 0;
@@ -274,11 +260,11 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const newThought = sh.scriptSegmentId !== lastSeg;
       lastSeg = sh.scriptSegmentId;
       if (i === 0) continue;
-      if (sh.transitionIn !== "cut") sh.transitionIn = sig;
-      else if (newThought && since >= 4) sh.transitionIn = sig;
-      if (sh.transitionIn === sig) (n++, (since = 0));
+      if (sh.transitionIn !== "cut") sh.transitionIn = "film";
+      else if (newThought && since >= 4) sh.transitionIn = "film";
+      if (sh.transitionIn === "film") (n++, (since = 0));
     }
-    log(`  transitions: ${n} "${sig}" (this film's signature), the rest straight cuts`);
+    log(`  transitions: ${n} bridged by the film's own transition, the rest straight cuts`);
   }
   const designed = board.shots.filter((s) => s.source.kind === "designed").length;
   log(`  ${board.shots.length} shots (${designed} designed), ${board.shots.reduce((n, s) => n + s.sfx.length, 0)} sfx cues`);
@@ -292,11 +278,25 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     log(`  cooldown: ${cool.pictures.size} picture ref(s) used by recent films are off limits`);
     return resolveAssets({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), probes: new Map(Object.entries(await readFile(probesFile, "utf8").then((t) => (JSON.parse(t) as { probes: Record<string, StockCandidate[]> }).probes, () => ({}) as Record<string, StockCandidate[]>))), log });
   }, log);
+  // [B2d] The art director from a blank slate: the film's own motion-design kit, written as code (design/film/),
+  // rendered on the film's own shots, measured and revised. It owns the film's look: its tokens (design.json:
+  // palette from the film's pictures, texture, act grades), its stage, every word on screen and the data graphics.
+  const kitMetaFile = path.join(jobDir, "design", "film", "meta.json");
+  const designFile = path.join(jobDir, "design.json");
+  if (redo("resolve") || !(await exists(kitMetaFile)) || !(await exists(designFile))) {
+    log("\n[B2d] art director (the film's own kit, from a blank slate)");
+    const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: short ? 1 : chapterCount(o.durationS), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), log });
+    await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(kr.report, null, 2) + "\n");
+    if (!kr.report.pass) throw new Error(`art director: the film's kit was not accepted (${kr.report.note.slice(0, 200)}) — see film-kit.report.json`);
+  }
+  let design = FilmDesignSystem.parse(JSON.parse(await readFile(designFile, "utf8")));
+  const filmKit = JSON.parse(await readFile(kitMetaFile, "utf8")) as FilmKitMeta;
+  log(`  the film's look: "${design.concept.slice(0, 90)}" — ${design.palette.primary} / ${design.palette.accent} on ${design.palette.surface}; ${Object.keys(filmKit.components).length} kit components`);
   // [B2s] Picture researcher (B8): looks at what the pooled search placed, beside each line, and fixes what a viewer
   // would catch (contradicting pictures, stand-ins for named subjects, wrong period) — or gives the shot to the
-  // scene designer. OPUMIA_SOURCING=legacy skips it.
+  // scene designer.
   const srcAgentFile = path.join(jobDir, "sourcing.agent.json");
-  if (process.env.OPUMIA_SOURCING !== "legacy" && (redo("resolve") || !(await exists(srcAgentFile)))) {
+  if (redo("resolve") || !(await exists(srcAgentFile))) {
     const cov = await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => JSON.parse(t) as { rows: CoverageRow[] }, () => null);
     if (cov?.rows.length) {
       log("\n[B2s] picture researcher");
@@ -315,45 +315,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
 
   // Composed scenes: designed per shot after the resolver, so only pictures that really exist are placed.
   log("\n[B3] scene designer (composed scenes)");
-  // The designer looks at real reference frames (data/exemplars, built by `opumia build-exemplars`).
-  const exemplars: SceneExemplar[] = await (async () => {
-    const dir = path.join(o.data, "exemplars", channel);
-    const idx = await readFile(path.join(dir, "index.json"), "utf8").then((t) => JSON.parse(t) as { shots: Array<{ kind: string; designed: boolean; layout: string; motion: string; line: string; frames: string[] }> }, () => null);
-    if (!idx) {
-      log(`  ! no exemplar library for ${channel} (run \`opumia build-exemplars --channel ${channel}\`): designing without reference frames`);
-      return [];
-    }
-    const seen = new Set<string>();
-    const picks: SceneExemplar[] = [];
-    for (const s of idx.shots.filter((x) => x.designed && x.frames.length)) {
-      if (seen.has(s.kind)) continue;
-      seen.add(s.kind);
-      picks.push({ path: path.join(dir, s.frames.at(-1)!), caption: `${s.kind} — ${s.layout}; motion: ${s.motion}; over the line "${s.line.slice(0, 90)}"` });
-      if (picks.length >= 12) break;
-    }
-    return picks;
-  })();
-  // [B2d] Art director from a blank slate (build list 2, step 5): the film's own motion-design kit, written as code
-  // (design/film/), rendered on the film's own shots, measured and revised; the scenes are built from it.
-  // OPUMIA_FILM_KIT=off keeps the shared menu.
-  const kitMetaFile = path.join(jobDir, "design", "film", "meta.json");
-  if (process.env.OPUMIA_FILM_KIT !== "off" && (redo("resolve") || !(await exists(kitMetaFile)))) {
-    log("\n[B2d] art director (the film's own kit, from a blank slate)");
-    const treatmentK = await readFile(path.join(jobDir, "treatment.md"), "utf8").catch(() => "");
-    const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, brief: `${draft.title}\n${treatmentK}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, design, look: lookFromProfile(pack.profile.look, design.palette.primarySoft), log });
-    await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(kr, null, 2) + "\n");
-  }
-  const filmKit = await readFile(kitMetaFile, "utf8").then((t) => JSON.parse(t) as { concept: string; components: Record<string, { use: string; props: string }> }, () => null);
   const sceneFile = path.join(jobDir, "scenes.json");
   const freshScenes = redo("resolve") || redo("storyboard") || redo("manifest") || !(await exists(sceneFile));
-  // The scene designer is an agent with eyes: it looks at the channel's real shots, designs every shot, renders
-  // its own previews, measures the film against the channel's mix of shot kinds, and revises. The older single
-  // prompt (with a separate critic, stage B4) runs with OPUMIA_SCENES=legacy or when the channel has no exemplars.
-  const visualBand = process.env.OPUMIA_SCENES === "legacy" ? null : await ensureVisualBand({ data: o.data, channelId: channel, log }).catch(() => null);
-  const referenceShots: ReferenceShot[] = visualBand
-    ? await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { shots: Array<{ kind: string; layout: string; motion: string; line: string; frames: string[] }> }).shots.filter((x) => x.frames.length).map((x) => ({ kind: x.kind, layout: x.layout, motion: x.motion, line: x.line, frame: path.join(o.data, "exemplars", channel, x.frames.at(-1)!) })), () => [])
-    : [];
-  const sceneAgent = Boolean(visualBand && referenceShots.length >= 40);
+  // The scene designer is an agent with eyes: it looks at the channel's real shots, designs every shot from the
+  // film's kit, renders its own previews, measures the film against the channel's mix of shot kinds, and revises.
+  const visualBand = await ensureVisualBand({ data: o.data, channelId: channel, log });
+  const referenceShots: ReferenceShot[] = await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { shots: Array<{ kind: string; layout: string; motion: string; line: string; frames: string[] }> }).shots.filter((x) => x.frames.length).map((x) => ({ kind: x.kind, layout: x.layout, motion: x.motion, line: x.line, frame: path.join(o.data, "exemplars", channel, x.frames.at(-1)!) })), () => []);
+  if (!visualBand || referenceShots.length < 40) throw new Error(`scene designer: the channel's visual band and reference shots are needed (run \`opumia build-exemplars --channel ${channel}\`)`);
   const people = (facts.story?.characters ?? []).map((c) => c.name);
   // The scene designer agent, callable again (the showrunner sends shots back to it).
   let sceneReport: SceneReport | null = null;
@@ -362,21 +330,21 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const lookA = lookFromProfile(pack.profile.look, design.palette.primarySoft);
     const burn = o.aspect === "9:16" || pack.captions.burnLongForm;
     const render = async (plan: ScenePlan, shotIds: string[]) => {
-      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const prev = await renderShotPreviews({ manifest: m, look: lookA, design, publicDir: pub, outDir: path.join(jobDir, "previews"), shotIds });
       return prev.map((pv) => ({ shotId: pv.shotId, sheet: pv.sheet, mid: pv.frames[1]!.path }));
     };
     const play = async (plan: ScenePlan, shotId: string) => {
-      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       return (await renderShotPreviews({ manifest: m, look: lookA, design, publicDir: pub, outDir: path.join(jobDir, "previews", "play"), shotIds: [shotId], moments: [0.04, 0.2, 0.35, 0.5, 0.65, 0.8, 0.96] }))[0]?.sheet ?? null;
     };
     const whenByShot = new Map<string, string>(await readFile(path.join(jobDir, "sourcing.json"), "utf8").then((t) => (JSON.parse(t) as { rows: Array<{ shotId: string; when?: string }> }).rows.filter((r) => r.when).map((r) => [r.shotId, r.when!] as [string, string]), () => []));
     const coolS = await cooldownRefs(o.data, jobId);
     const eraS = eraOfFacts(facts);
     const pictures = makeSceneTools({ jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
-    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand: visualBand!, referenceShots, render, play, pictures, ...(filmKit ? { kit: { concept: filmKit.concept, components: filmKit.components } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
+    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
       // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
-      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
       const l = await listen({ manifest: m, jobDir, fromS: a, toS: b, cutsS: m.video.map((v) => v.startFrame / m.fps) });
       const ins = await inspectStretch({ clip: c, scenes: plan.scenes as never, shots: board.shots, narration: timed.voice.audioPath, root: o.root, data: o.data, channel, aspect: o.aspect as "16:9" | "9:16" }).catch((e: Error) => ({ text: `(measuring failed: ${e.message.slice(0, 120)})` }));
@@ -384,9 +352,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     }, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), ...extra, log });
   };
   let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, async () => {
-    if (!sceneAgent) return designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, log });
     const plan = await runSceneAgent();
-    // The designer already rendered, looked at and revised every scene: the separate critic pass (B4) is not run.
     await writeFile(path.join(jobDir, "scenes.review.json"), JSON.stringify({ previewed: plan.scenes.length, flagged: {}, agent: sceneReport }, null, 2) + "\n");
     // Pictures the designer fetched are part of the film: saved with their licences, counted for the cooldown.
     await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
@@ -400,36 +366,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   log("\n[C1] render manifest");
   const finalName = `${slug(draft.title) || jobId}_${o.aspect.replace(":", "x")}.mp4`;
   const finalPath = path.join(jobDir, finalName);
-  const mopts = (): Omit<BuildManifestOptions, "storyboard" | "script" | "resolution"> => ({ libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions, scenes: new Map<string, unknown>(scenePlan.scenes.map((x) => [x.shotId, x])) });
+  const mopts = (): Omit<BuildManifestOptions, "storyboard" | "script" | "resolution"> => ({ libraryRoot: o.library, outputPath: finalPath, narrationPath: timed.voice.audioPath, log, burnCaptions, scenes: new Map<string, unknown>(scenePlan.scenes.map((x) => [x.shotId, x])) });
   let manifest = await cachedJson(path.join(jobDir, "manifest.json"), RenderManifest, redo("manifest") || redo("resolve") || redo("storyboard"), () => buildManifest({ storyboard: board, script: timed, resolution, ...mopts() }), log);
   const srtPath = path.join(jobDir, "captions.srt");
   await writeFile(srtPath, toSrt(captionGroups(timed)));
   if (!(await exists(path.join(jobDir, "publish.json")))) await writeFile(path.join(jobDir, "youtube-description.txt"), youtubeDescription(timed, facts)); // replaced by the publishing package (C3)
   log(`  ${manifest.video.length} video layers, ${manifest.audio.length} audio layers, ${manifest.durationFrames} frames @ ${manifest.fps} fps; captions.srt written`);
 
-  // [B4] Preview → critique → revise: the designer sees its own scenes rendered (three moments per shot), a
-  // strict critic flags what would not ship, and the flagged scenes are redesigned once — before any film render.
-  const reviewFile = path.join(jobDir, "scenes.review.json");
-  if (!sceneAgent && scenePlan.scenes.length && (freshScenes || !(await exists(reviewFile)))) {
-    log("\n[B4] scene previews → critique → revise");
-    const lookP = lookFromProfile(pack.profile.look, design.palette.primarySoft);
-    const allWp = timed.segments.flatMap((sg) => sg.words);
-    const lineAt = (id: string) => {
-      const sh = board.shots.find((x) => x.id === id);
-      return sh ? allWp.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : "";
-    };
-    const t0p = Date.now();
-    const prev = await renderShotPreviews({ manifest, look: lookP, design, publicDir: pub, outDir: path.join(jobDir, "previews"), shotIds: scenePlan.scenes.map((x) => x.shotId), log });
-    const issues = await critiqueScenes({ channel, previews: prev.map((p) => ({ shotId: p.shotId, sheet: p.sheet, line: lineAt(p.shotId), idea: scenePlan.scenes.find((x) => x.shotId === p.shotId)?.idea ?? "" })), reference: exemplars.slice(0, 4).map((e) => e.path) });
-    log(`  critic: ${prev.length} scene(s) previewed in ${Math.round((Date.now() - t0p) / 1000)} s, ${issues.size} flagged${issues.size ? ` — ${[...issues.entries()].slice(0, 8).map(([k, v]) => `${k} ${v[0]}`).join(", ")}` : ""}`);
-    if (issues.size) {
-      scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people: (facts.story?.characters ?? []).map((c) => c.name), issues, previous: scenePlan, log });
-      await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
-      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
-      await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-    }
-    await writeFile(reviewFile, JSON.stringify({ previewed: prev.length, flagged: Object.fromEntries(issues) }, null, 2) + "\n");
-  }
   // [B4e] Editor: the rhythm of the cut (where cuts fall against the voice, holds, splits, joins, transitions), set
   // after the scenes and before sound, studied against the channel's real passages and measured with its function.
   const editFile = path.join(jobDir, "edit.json");
@@ -458,13 +401,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     await writeFile(editFile, JSON.stringify(ed.report, null, 2) + "\n");
     return ed.report;
   };
-  if (process.env.OPUMIA_EDITOR !== "off" && (freshScenes || !(await exists(editFile)))) {
+  if (freshScenes || !(await exists(editFile))) {
     log("\n[B4e] editor (rhythm of the cut)");
     await runEditor();
   }
   // [B4k] Compositor (G23): cut-outs over footage take its colour, its light direction, clean edges and a contact
-  // shadow — in code, deterministic. OPUMIA_COMPOSITOR=off skips it.
-  if (process.env.OPUMIA_COMPOSITOR !== "off" && freshScenes) {
+  // shadow — in code, deterministic.
+  if (freshScenes) {
     const cp = await compositeScenes({ plan: scenePlan, resolution, jobDir, design, log });
     if (cp.touched) {
       scenePlan = ScenePlan.parse(cp.plan);
@@ -474,13 +417,12 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     }
   }
   // [B4c] Colourist (B9): the film's colour as one thing — act grades, washes and dimming, measured on the final
-  // previews against the channel's real frames. OPUMIA_COLOURIST=off skips it.
+  // previews against the channel's real frames.
   const colourFile = path.join(jobDir, "colour.json");
-  if (process.env.OPUMIA_COLOURIST !== "off" && sceneAgent && (freshScenes || !(await exists(colourFile)))) {
-    log("\n[B4c] colourist");
+  const runColourist = async (brief?: string) => {
     const prevDir = path.join(jobDir, "previews");
     const frames = new Map(scenePlan.scenes.map((x) => [x.shotId, path.join(prevDir, `${x.shotId}_1.jpg`)] as [string, string]).filter(([, f]) => existsSync(f)));
-    const actStarts = [0, ...manifest.video.filter((l) => l.ref === "chapter_card").map((l) => l.startFrame / manifest.fps).sort((a, b) => a - b)];
+    const actStarts = [0, ...manifest.video.filter((l) => l.ref === "chapter").map((l) => l.startFrame / manifest.fps).sort((a, b) => a - b)];
     const startOf = new Map(board.shots.map((x) => [x.id, x.startS]));
     const lookC = lookFromProfile(pack.profile.look, design.palette.primarySoft);
     const col = await colouristAgent({
@@ -488,12 +430,12 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       actOf: (id) => Math.max(0, actStarts.filter((t) => t <= (startOf.get(id) ?? 0) + 0.01).length - 1),
       lineOf: (id) => { const sh = board.shots.find((x) => x.id === id); return sh ? timed.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; },
       render: async (d, plan, ids) => {
-        const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: d.sceneGrammar.minRepeatGapS, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+        const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
         const prev = await renderShotPreviews({ manifest: m, look: lookC, design: d, publicDir: pub, outDir: prevDir, shotIds: ids });
         return new Map(prev.map((pv) => [pv.shotId, pv.frames[1]!.path] as [string, string]));
       },
       watch: (d, plan, a, b) => watchPlan({ storyboard: board, scenes: plan, resolution, design: d }, a, b),
-      memoryDir: path.join(o.data, "agents", "colourist"), log,
+      ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "colourist"), log,
     });
     design = FilmDesignSystem.parse(col.design);
     scenePlan = ScenePlan.parse(col.scenes);
@@ -502,7 +444,12 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
     await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     await writeFile(colourFile, JSON.stringify(col.report, null, 2) + "\n");
+  };
+  if (freshScenes || !(await exists(colourFile))) {
+    log("\n[B4c] colourist");
+    await runColourist();
   }
+
   // [B5] Timeline sound design: sound goes on what the viewer sees, once the scenes are final.
   const soundFile = path.join(jobDir, "sound.json");
   const designSound = async (seed: string, brief?: string) => {
@@ -510,16 +457,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const cool = await cooldownRefs(o.data, jobId);
     const usable = index.assets.filter(isUsable);
     const sopts = { storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed, drops: board.music.flatMap((m) => m.drops ?? []), log };
-    // B5 agent (default): starts from the timeline's pass, measures against the channel, listens, revises.
-    // OPUMIA_SOUND=legacy keeps the rule-based timeline alone.
+    // The sound designer starts from the timeline's pass, measures against the channel, listens, revises.
     const listenSound = async (st: { shots: Storyboard["shots"]; music: Storyboard["music"] }, a: number, b: number) => {
       const sb = Storyboard.parse({ ...board, shots: st.shots, music: st.music });
       const res = await resolveAudio({ storyboard: sb, index, libraryRoot: o.library, jobDir, resolution });
       return watchPlan({ storyboard: sb, scenes: scenePlan, resolution: res }, a, b);
     };
-    const sd = process.env.OPUMIA_SOUND === "legacy"
-      ? designSoundTimeline(sopts)
-      : await soundAgent({ ...sopts, channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
+    const sd = await soundAgent({ ...sopts, kitRoles: Object.fromEntries(Object.entries(filmKit.roles ?? {}).map(([r, c]) => [c, r])), channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
     board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
     await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
     resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
@@ -537,7 +481,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // the stretches that matter with sound, sends problems back to their owner (scenes, edit, sound, or once the
   // writer, which re-runs the film from the script), then approves or names what is still below the channel.
   const showFile = path.join(jobDir, "showrunner.json");
-  if (process.env.OPUMIA_SHOWRUNNER !== "off" && sceneAgent && (freshScenes || !(await exists(showFile)))) {
+  if (freshScenes || !(await exists(showFile))) {
     log("\n[B5s] showrunner (the whole film)");
     const treatment = await readFile(path.join(jobDir, "treatment.md"), "utf8").catch(() => `${draft.title}`);
     const report = async () => {
@@ -556,7 +500,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       return `${filmScoreText(fs)}\n\nEDITOR: ${ed?.note ?? "(no editor report)"}\nSCENE DESIGNER: ${sr ? `${sr.pass ? "accepted" : "not accepted"}; remaining: ${sr.remaining.map((x) => x.kind).join(", ") || "none"}` : "(report from an earlier run)"}\nSOUND: ${snd}${dropped.length ? `\nPICTURE RESEARCHER — no honest picture found for these lines (now designed shots; if a line is abstract, the writer can make it showable): ${dropped.join("; ")}` : ""}${src?.note ? `\nPICTURE RESEARCHER NOTE: ${src.note.slice(0, 300)}` : ""}`;
     };
     const decision = await showrunnerAgent({
-      channel, title: draft.title, treatment, segments: timed.segments.map((sg) => ({ id: sg.id, role: sg.role, text: sg.text })), canRewrite: (o.pass ?? 1) === 1 && process.env.OPUMIA_SHOWRUNNER_REWRITE !== "off", durationS: timed.durationS,
+      channel, title: draft.title, treatment, segments: timed.segments.map((sg) => ({ id: sg.id, role: sg.role, text: sg.text })), canRewrite: (o.pass ?? 1) === 1, durationS: timed.durationS,
       report, watch: (a, b) => watchPlan({ storyboard: board, scenes: scenePlan, resolution }, a, b),
       redesign: async (shots) => {
         const known = new Set(scenePlan.scenes.map((x) => x.shotId));
@@ -593,20 +537,21 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   }
   // Fingerprint of this film against the earlier ones — the plan is checked before the render is paid for.
   const writeFingerprint = async () => {
-    const fp = fingerprintOf({ job: jobId, channel, design, draft, board, scenes: scenePlan });
+    const kitTransition = (filmKit as { transition?: string | null }).transition ?? "";
+    const fp = fingerprintOf({ job: jobId, channel, design, transition: kitTransition, draft, board, scenes: scenePlan });
     const near = closest(fp, recentFps);
     await saveFingerprint(o.data, fp);
     await writeFile(path.join(jobDir, "fingerprint.json"), JSON.stringify({ fingerprint: fp, closest: near }, null, 2) + "\n");
     if (near) log(`  uniqueness: closest earlier film ${near.to} — overall ${near.sim.overall} (colour ${near.sim.colour}, treatment ${near.sim.treatment}, layout ${near.sim.layout}, story ${near.sim.story}, words ${near.sim.words}, sound ${near.sim.sound})${near.over.length ? ` — TOO CLOSE in: ${near.over.join("; ")}` : " — within every limit"}`);
     else log("  uniqueness: first film on record");
-    const t = design.treatment;
     await writeFile(path.join(jobDir, "treatment.md"), [
       `# Treatment — ${draft.title}`,
       ``,
       `**Concept:** ${design.concept}`,
-      `**Colour world:** primary ${design.palette.primary}, accent ${design.palette.accent}, surface ${design.palette.surface}`,
-      `**Type:** ${design.typography.display} display, ${design.typography.body} body, ${design.typography.casing} case`,
-      ...(t ? [`**Headlines:** ${t.headline} · **narration phrases:** ${t.phrase} · **labels:** ${t.label} · **photos:** ${t.photo}`, `**Backdrop world:** ${t.world} · **particles:** ${t.particles} · **footage wash:** ${t.wash} (${t.washStrength})`, `**Signature transition:** ${t.transition}`, `**Motif:** ${t.motif}`] : []),
+      `**Colours:** primary ${design.palette.primary}, accent ${design.palette.accent}, surface ${design.palette.surface}, paper ${design.palette.paper}`,
+      `**Type:** ${design.fonts.display} display, ${design.fonts.body} body`,
+      `**Kit:** ${Object.entries(filmKit.roles ?? {}).map(([r, c]) => `${r} = ${c}`).join(", ")}`,
+      `**Signature transition:** ${kitTransition || "none"}`,
       `**Story shape:** opens ${draft.blueprint?.hook ?? "?"}, spine "${draft.blueprint?.spine ?? "?"}", ends ${draft.blueprint?.ending ?? "?"}`,
       ``,
       near ? `**Closest earlier film:** ${near.to} (overall similarity ${near.sim.overall}${near.over.length ? `; too close in ${near.over.join(", ")}` : "; within every limit"})` : `**Closest earlier film:** none on record`,
@@ -632,11 +577,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     };
     const prevDir = path.join(jobDir, "previews");
     const people = (facts.story?.characters ?? []).map((c) => c.name);
-    // Previews from B4 are still right for scenes that were not revised; the rest are rendered again.
-    const revised = await readFile(reviewFile, "utf8").then((t) => Object.keys((JSON.parse(t) as { flagged: Record<string, unknown> }).flagged), () => [] as string[]);
-    let stale = new Set(scenePlan.scenes.map((x) => x.shotId).filter((id) => revised.includes(id) || !existsSync(path.join(prevDir, `${id}_sheet.jpg`))));
+    // The scene designer's own previews are still right; only missing ones are rendered.
+    let stale = new Set(scenePlan.scenes.map((x) => x.shotId).filter((id) => !existsSync(path.join(prevDir, `${id}_sheet.jpg`))));
     let look2 = new Set(scenePlan.scenes.map((x) => x.shotId)); // scenes whose final preview the critic has not seen yet
-    let ownerRounds = 0; // step 7: rounds that sent failures back to the scene designer
     const defects = new Map<string, string[]>();
     // Refill: a shot that lost its footage (too modern for its line) or sits on a bare stage gets a new picture
     // through the same tool the scene designer uses — searched, rated by eye and dated against the line's year.
@@ -658,11 +601,6 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       }
       return got;
     };
-    // A redesign made by the gate never tints footage: the wash is what made films read as one colour.
-    const unwash = (ids: string[]) => {
-      const set = new Set(ids);
-      scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (set.has(sc.shotId) && sc.wash ? (({ wash: _w, ...rest }) => rest)(sc) : sc)) });
-    };
     const qualityBand = await ensureQualityBand({ data: o.data, channel, log }).catch(() => null);
     const rounds: Array<{ round: number; failing: string[]; repairs: string[] }> = [];
     let checks: PreflightCheck[] = [];
@@ -675,7 +613,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       }
       if (look2.size) {
         const ids = [...look2].filter((id) => existsSync(path.join(prevDir, `${id}_sheet.jpg`)));
-        const found = await critiqueScenes({ channel, previews: ids.map((id) => ({ shotId: id, sheet: path.join(prevDir, `${id}_sheet.jpg`), line: lineOf(id), idea: scenePlan.scenes.find((x) => x.shotId === id)?.idea ?? "" })), reference: exemplars.slice(0, 4).map((e) => e.path), maxShare: 1 });
+        const found = await critiqueScenes({ channel, previews: ids.map((id) => ({ shotId: id, sheet: path.join(prevDir, `${id}_sheet.jpg`), line: lineOf(id), idea: scenePlan.scenes.find((x) => x.shotId === id)?.idea ?? "" })), reference: referenceShots.slice(0, 4).map((r) => r.frame), maxShare: 1 });
         for (const id of ids) defects.delete(id);
         for (const [k2, v] of found) defects.set(k2, v);
         look2 = new Set();
@@ -688,22 +626,21 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       const fixable = failing.filter((c) => c.repair);
       const done: string[] = [];
-      if (fixable.length && round < 2) {
-        // drop_picture: remove the offending picture, then design those scenes again without it.
+      // build list 3 (L8): every failing check goes to its OWNER, which replaces or redesigns — nothing is reduced.
+      if (fixable.length && round < 3) {
+        const revise = new Map<string, string>(); // shot → what its scene designer must fix
+        const toScene = (id: string, note: string) => { if (scenePlan.scenes.some((x) => x.shotId === id)) revise.set(id, [revise.get(id), note].filter(Boolean).join("; ").slice(0, 400)); };
+        // replace_picture: the offending picture leaves its shot; lost footage is replaced through the picture tools
+        // (searched, rated by eye, dated against the line), then the scene is designed again for what it now has.
         const drop = dropPictures(resolution, fixable, recent.pictures);
         if (drop.shots.size) {
-          // In place: the picture tools hold this same resolution object.
-          resolution.media.splice(0, resolution.media.length, ...drop.media);
-          const lateIds = fixable.filter((c) => c.id === "period_footage" || c.id === "soft_footage").flatMap((c) => c.shots ?? []);
-          const refilled = new Set(lateIds.length ? await refill(lateIds) : []);
-          const ids = scenePlan.scenes.map((x) => x.shotId).filter((id) => drop.shots.has(id));
-          if (ids.length) scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(ids.map((id) => [id, [refilled.has(id) ? "this shot's footage was replaced (the old one looked too modern for the line): design the scene for the new footage — let it play clean if it carries the line" : "a picture was removed from this shot (it repeated another shot or broke a sourcing rule): design the scene again from what is left"]])), previous: scenePlan, log });
-          unwash(ids);
-          for (const id of ids) stale.add(id);
-          done.push(`drop_picture: ${[...drop.shots].join(", ")}${refilled.size ? ` (${refilled.size} given period-correct footage)` : ""}`);
+          resolution.media.splice(0, resolution.media.length, ...drop.media); // in place: the picture tools hold this object
+          const lost = [...drop.shots].filter((id) => !resolution.media.some((m) => m.shotId === id && m.role === "primary"));
+          const refilled = new Set(lost.length ? await refill(lost) : []);
+          for (const id of drop.shots) toScene(id, refilled.has(id) ? "this shot's footage was replaced (the old one broke a sourcing rule): design the scene for the new footage — let it play clean if it carries the line" : "a picture was taken out of this shot (it repeated, was used by a recent film, broke a fair-use rule or was too soft or too modern): get another with find_picture and design the scene around it");
+          done.push(`replace_picture: ${[...drop.shots].join(", ")}${refilled.size ? ` (${refilled.size} given new footage)` : ""}`);
         }
-        // An editor half ("sh003_2") that is a frozen frame (dead_frames) goes back into the shot before it: the cut
-        // the editor added is undone, the first half runs to the end of the second (film 1 rerun: a split still).
+        // An editor half ("sh003_2") that is a frozen frame goes back into the shot before it: the split is undone.
         {
           const deadHalves = fixable.filter((c) => c.id === "dead_frames").flatMap((c) => c.shots ?? []).filter((id) => /_\d+$/.test(id));
           const merged: string[] = [];
@@ -720,78 +657,47 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
           if (merged.length) {
             await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
             await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
-            done.push(`merge_split: ${merged.join(", ")}`);
+            done.push(`undo_split: ${merged.join(", ")}`);
           }
         }
-        // safe_scene: a scene that is still visibly wrong after its revision is reduced to its clean core.
-        const unsafe = new Set(fixable.filter((c) => c.repair === "safe_scene").flatMap((c) => c.shots ?? []).filter((id) => scenePlan.scenes.some((x) => x.shotId === id)));
-        if (unsafe.size) {
-          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (unsafe.has(sc.shotId) ? safeScene(sc) : sc)) });
-          for (const id of unsafe) stale.add(id);
-          done.push(`safe_scene: ${[...unsafe].join(", ")}`);
-        }
-        // prune_shapes: outlined boxes and circles that frame nothing are removed.
-        const empties = new Set(fixable.filter((c) => c.repair === "prune_shapes").flatMap((c) => c.shots ?? []));
-        if (empties.size) {
-          scenePlan = ScenePlan.parse(pruneEmptyFrames(scenePlan));
-          for (const id of empties) stale.add(id);
-          done.push(`prune_shapes: ${[...empties].join(", ")}`);
-        }
-        // soften_wash: halve the colour wash over footage when the previews are too dark, dull or monochrome.
-        if (fixable.some((c) => c.repair === "soften_wash") && scenePlan.scenes.some((sc) => sc.wash)) {
-          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.wash ? { ...sc, wash: { ...sc.wash, strength: Math.round(sc.wash.strength * 50) / 100 }, dim: Math.round(sc.dim * 80) / 100 } : sc)) });
-          for (const sc of scenePlan.scenes) if (sc.wash) stale.add(sc.shotId);
-          done.push("soften_wash: colour wash and dimming reduced on every washed scene");
-        }
-        // vary_stage (second answer to a one-colour film, once the wash is already softened): picture-less
-        // scenes all sit on the film's colour stage — every other one moves to paper, the rest to the dark surface.
-        if (round >= 1 && fixable.some((c) => c.id === "one_colour_film")) {
-          const moved: string[] = [];
-          scenePlan = ScenePlan.parse({ ...scenePlan, scenes: scenePlan.scenes.map((sc) => (sc.backdrop === "world" || sc.backdrop === "surface" ? (moved.push(sc.shotId), { ...sc, backdrop: "paper" as const }) : sc)) });
-          if (moved.length) {
-            for (const id of moved) stale.add(id);
-            done.push(`vary_stage: ${moved.join(", ")}`);
-          }
-          // And fewer stage shots altogether: a picture-less stage shot gets footage, then a design for it.
-          const bare = scenePlan.scenes.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId);
+        // redesign_scene: the scene designer fixes the scene with the defect named.
+        for (const c of fixable.filter((x) => x.repair === "redesign_scene")) for (const id of c.shots ?? []) if (!/_\d+$/.test(id) || scenePlan.scenes.some((x) => x.shotId === id)) toScene(id, `${c.label}${c.note ? ` — ${c.note}` : ""}${defects.get(id)?.length ? ` — the critic saw: ${defects.get(id)!.join("; ")}` : ""}`);
+        // Too many picture-less stage shots (or a one-colour film carried by them): those get real footage first.
+        {
+          const named = fixable.filter((c) => c.id === "bare_backdrop_run" || c.id === "picture_less_scenes").flatMap((c) => c.shots ?? []);
+          const bare = fixable.some((c) => c.id === "one_colour_film") ? scenePlan.scenes.filter((sc) => sc.backdrop !== "footage" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId) : [...new Set(named)];
           const filled = bare.length ? await refill(bare) : [];
-          if (filled.length) {
-            scenePlan = await designScenes({ storyboard: board, script: timed, resolution, design, channel, exemplars, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), people, issues: new Map(filled.map((id) => [id, ["this shot now has real footage: design the scene for it — let it play clean if it carries the line, no colour wash"]])), previous: scenePlan, log });
-            unwash(filled);
-            for (const id of filled) stale.add(id);
-            done.push(`refill_stage: ${filled.join(", ")}`);
-          }
+          for (const id of filled) toScene(id, "this shot now has real footage: design the scene for it — let it play clean if it carries the line");
+          if (filled.length) done.push(`refill_stage: ${filled.join(", ")}`);
         }
-        // reseed_sound: pick the effects and music again.
+        if (revise.size) {
+          log(`  preflight → scene designer: ${[...revise.keys()].join(", ")}`);
+          scenePlan = ScenePlan.parse(await runSceneAgent({ previous: scenePlan, revise: [...revise.entries()].map(([shotId, note]) => ({ shotId, note })) }));
+          for (const id of revise.keys()) (stale.add(id), look2.add(id));
+          done.push(`redesign_scene: ${[...revise.keys()].join(", ")}`);
+        }
+        // regrade: the colourist, told what the previews measured.
+        const colour = fixable.filter((c) => c.repair === "regrade");
+        if (colour.length) {
+          manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+          await runColourist(colour.map((c) => `${c.label}: ${c.value} (target ${c.target})`).join("; "));
+          for (const sc of scenePlan.scenes) stale.add(sc.shotId);
+          done.push(`regrade: ${colour.map((c) => c.id).join(", ")}`);
+        }
+        // reseed_sound: the sound designer picks the effects and music again.
         if (fixable.some((c) => c.repair === "reseed_sound")) {
           soundRound++;
-          await designSound(`${jobId}#${soundRound}`);
+          await designSound(`${jobId}#${soundRound}`, fixable.filter((c) => c.repair === "reseed_sound").map((c) => `${c.label}: ${c.value} (target ${c.target})`).join("; "));
           done.push("reseed_sound: effects and music picked again");
         }
         // Sound follows what is on screen: when scenes changed, the sound timeline is laid again on the final scenes.
-        if (done.some((d) => /^(drop_picture|safe_scene|prune_shapes|merge_split)/.test(d)) && !done.some((d) => d.startsWith("reseed_sound"))) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId);
+        if (done.some((d) => /^(replace_picture|redesign_scene|undo_split|refill_stage)/.test(d)) && !done.some((d) => d.startsWith("reseed_sound"))) await designSound(soundRound ? `${jobId}#${soundRound}` : jobId);
         if (done.length) {
           await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
           await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
           manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
           await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
           await writeFingerprint();
-        }
-      }
-      // Step 7: failures go back to their OWNER with a budget, instead of being degraded in place. Scenes the taste gate
-      // or the defect check still fails go back to the scene designer (once), with what was found.
-      if (!done.length && sceneAgent && ownerRounds < 1) {
-        const back = failing.filter((c) => c.id === "film_taste" || c.id === "scene_defects" || c.id === "dead_frames").flatMap((c) => (c.shots ?? []).map((id) => ({ shotId: id, note: `${c.label}: ${c.note ?? c.value}`.slice(0, 300) })));
-        const uniq = [...new Map(back.filter((b) => scenePlan.scenes.some((x) => x.shotId === b.shotId)).map((b) => [b.shotId, b])).values()].slice(0, 10);
-        if (uniq.length) {
-          ownerRounds++;
-          log(`  preflight → scene designer: ${uniq.map((u) => u.shotId).join(", ")}`);
-          scenePlan = ScenePlan.parse(await runSceneAgent({ previous: scenePlan, revise: uniq }));
-          await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
-          manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
-          await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-          for (const u of uniq) (stale.add(u.shotId), look2.add(u.shotId));
-          done.push(`owner: scene designer redesigned ${uniq.map((u) => u.shotId).join(", ")}`);
         }
       }
       rounds.push({ round, failing: failing.map((c) => c.id), repairs: done });
@@ -807,64 +713,25 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   }
   if (stop("manifest")) return { jobDir };
   {
-    // Only a plan that passed is rendered (OPUMIA_PREFLIGHT=warn renders anyway, for debugging).
+    // Only a plan that passed is rendered.
     const pre = await readFile(preFile, "utf8").then((t) => JSON.parse(t) as { pass: boolean; blockers: string[] }, () => null);
-    if (pre && !pre.pass && process.env.OPUMIA_PREFLIGHT !== "warn" && (redo("render") || !(await exists(finalPath)))) throw new Error(`preflight gate: the plan would not pass the release gate (${pre.blockers.join(", ")}) — see preflight.json; nothing was rendered`);
+    if (pre && !pre.pass && (redo("render") || !(await exists(finalPath)))) throw new Error(`preflight gate: the plan would not pass the release gate (${pre.blockers.join(", ")}) — see preflight.json; nothing was rendered`);
   }
 
   // H33: the publishing package needs only the final plan (facts, narration, design, pictures), not the rendered
   // film — it starts now and runs beside the render (its thumbnail renders in its own folder, thumb-public/).
-  // OPUMIA_PACKAGE_BESIDE=off runs it after the render as before.
   let thumbnailPath: string | null = path.join(jobDir, "thumbnail.jpg");
   const needPackage = redo("thumbnail") || !(await exists(thumbnailPath)) || !(await exists(path.join(jobDir, "publish.json")));
   const startPackage = () => buildPublishingPackage({ jobDir, data: o.data, library: o.library, channel, job: jobId, facts, script: timed, design, resolution, board, index, publicDir: pub, log: (x: string) => log(`  [package] ${x.trimStart()}`) }).catch((err: Error) => {
     log(`  ! publishing package failed: ${err.message.slice(0, 160)}`);
     return { thumbnailPath: null as string | null, usd: 0 };
   });
-  const packageP = needPackage && process.env.OPUMIA_PACKAGE_BESIDE !== "off" && !stop("render") ? (log("\n[C3] publishing package — started beside the render"), startPackage()) : null;
+  const packageP = needPackage && !stop("render") ? (log("\n[C3] publishing package — started beside the render"), startPackage()) : null;
   log("\n[C2] Remotion render + FFmpeg mastering");
   const silent = path.join(jobDir, "video_silent.mp4");
   const master = path.join(jobDir, "master.wav");
   const look = lookFromProfile(pack.profile.look, design.palette.primarySoft);
   if (redo("render") || !(await exists(finalPath))) {
-    // Pre-render frame gate: ~10 key stills checked in seconds; bad footage re-picked, bad graphics dropped.
-    log(`  gate: rendering key stills…`);
-    const allW = timed.segments.flatMap((sg) => sg.words);
-    const era = (() => {
-      const ys = allW.map((w) => /^(19[5-9]\d|20[0-4]\d)\b/.exec(w.word.replace(/[^\d]/g, ""))?.[1]).filter(Boolean).map(Number).sort((a, b) => a - b);
-      return ys.length ? `${ys[0]}–${ys.at(-1)}` : "unknown";
-    })();
-    const stills = await renderGateStills({ manifest, look, design, publicDir: pub, outDir: path.join(jobDir, "gate"), frames: pickGateFrames(manifest, 10), log });
-    const g = await gateReview({ channel, frames: stills.map((f) => ({ path: f.path, layout: f.layout, era, line: allW.filter((w) => w.startS >= f.frame / manifest.fps - 2.2 && w.startS <= f.frame / manifest.fps + 1).map((w) => w.word).join(" ") })) });
-    await writeFile(path.join(jobDir, "gate.json"), JSON.stringify({ frames: stills.map((f, i) => ({ ...f, ...(g.frames.find((x) => x.index === i + 1) ?? {}) })) }, null, 2) + "\n");
-    const bad = g.frames.filter((f) => !f.ok && f.fix !== "none").map((f) => ({ ...f, still: stills[f.index - 1] })).filter((f) => f.still);
-    log(`  gate: ${stills.length} stills, ${bad.length} flagged${bad.length ? ` — ${bad.map((b) => `${b.still!.shotId} ${b.issue}`).join(", ")}` : ""}`);
-    if (bad.length) {
-      const repairs = new Map<string, string>();
-      for (const b of bad) {
-        const sh = board.shots.find((x) => x.id === b.still!.shotId);
-        if (!sh) continue;
-        if (b.fix === "drop_graphic" && sh.source.kind === "designed" && sh.source.designed === "scene") {
-          // Composed scenes were already reviewed and revised on previews; never fall back to a bare stock clip.
-          continue;
-        } else if (b.fix === "drop_graphic" && sh.source.kind === "designed") {
-          const q = (sh.source.props.background as { query?: string } | undefined)?.query ?? sh.intent;
-          sh.source = { kind: "query", query: q, mustBe: "any" };
-          delete sh.factIds;
-        } else if (b.fix === "replace_footage") {
-          repairs.set(sh.id, `${b.issue}: ${b.note}`.slice(0, 400));
-          const pm = resolution.media.find((m) => m.shotId === sh.id && m.role === "primary");
-          if (pm) await updateMemory(o.data, (m) => blockAsset(m, pm.ref, `${b.issue}: ${b.note}`, jobId, pm.query));
-        }
-      }
-      await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
-      if (repairs.size) {
-        resolution = await repairShots({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: allW, resolution, repairs, log });
-        await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
-      }
-      manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
-      await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-    }
     await renderVideo({ manifest, look, design, publicDir: pub, out: silent, log });
     const loud = await masterAudio(manifest, master);
     log(`  master: ${loud.integratedLufs} LUFS, TP ${loud.truePeakDb} dBTP`);
@@ -899,36 +766,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   }
 
   log("\n[C4] QA");
-  let qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest, resolution, script: timed, facts, profile: pack.profile, index, jobDir, judge: o.judge, log });
-  let current = { manifest, resolution };
-  // Autonomous repair: when the judge's only blockers are B-roll choices, re-pick those shots and re-render (≤ 2 rounds).
-  for (let round = 1; round <= 2 && qa.report.verdict === "review"; round++) {
-    const hardFails = qa.report.checks.filter((c) => !c.passed && c.id !== "judge" && (c.severity === "major" || c.severity === "blocker"));
-    const brollMajors = qa.judgeIssues.filter((i) => i.severity === "major" && i.fix === "replace_broll" && i.atS !== null);
-    // Black segments are a footage problem too: re-pick the shot under each one.
-    const blackAt = qa.report.checks.find((c) => c.id === "black_frames" && !c.passed)?.atFrames ?? [];
-    for (const f of blackAt) brollMajors.push({ severity: "major", atS: f / current.manifest.fps + 0.2, fix: "replace_broll", note: "clip goes black here" });
-    if (hardFails.some((c) => c.id !== "black_frames") || !brollMajors.length) break;
-    const repairs = new Map<string, string>();
-    for (const i of brollMajors) {
-      const shot = board.shots.find((sh) => i.atS! >= sh.startS && i.atS! < sh.endS) ?? board.shots.at(-1)!;
-      repairs.set(shot.id, i.note.slice(0, 400));
-    }
-    log(`\n[C4.${round}] auto-repair: ${[...repairs.keys()].join(", ")}`);
-    const repaired = await repairShots({ storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), resolution: current.resolution, repairs, log });
-    await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(repaired, null, 2) + "\n");
-    const m2 = await buildManifest({ storyboard: board, script: timed, resolution: repaired, ...mopts() });
-    await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(m2, null, 2) + "\n");
-    await renderVideo({ manifest: m2, look, design, publicDir: pub, out: silent, log });
-    const loud = await masterAudio(m2, master);
-    log(`  master: ${loud.integratedLufs} LUFS, TP ${loud.truePeakDb} dBTP`);
-    await muxFinal(silent, master, finalPath);
-    current = { manifest: m2, resolution: repaired };
-    qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest: m2, resolution: repaired, script: timed, facts, profile: pack.profile, index, jobDir, judge: o.judge, log });
-  }
+  let qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest, resolution, script: timed, facts, profile: pack.profile, index, jobDir, log });
   // [C4v] Viewer QA (B10): an agent watches the finished file start to end like a viewer and notes what a viewer
-  // would notice. Its verdict can only make the film's verdict stricter. OPUMIA_QA_AGENT=off skips it.
-  if (process.env.OPUMIA_QA_AGENT !== "off" && existsSync(finalPath)) {
+  // would notice. Its verdict can only make the film's verdict stricter.
+  if (existsSync(finalPath)) {
     log("\n[C4v] viewer QA");
     const qaText = qa.report.checks.map((c) => `${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`).join("\n");
     const v = await qaAgent({ channel, title: draft.title, durationS: timed.durationS, qaText, shots: board.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), words: timed.segments.flatMap((sg) => sg.words), watch: async (a, b) => {
@@ -947,8 +788,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   }
   // [C4j] Final-cut judge (build list 2, step 7): independent of every agent that made the film — the finished film in
   // 8-second stretches, each blind beside two real channel stretches close in meaning. A film the judge picks out
-  // clearly more often than it picks out real stretches is not released. OPUMIA_FINAL_JUDGE=off skips it.
-  if (process.env.OPUMIA_FINAL_JUDGE !== "off" && existsSync(finalPath)) {
+  // clearly more often than it picks out real stretches is not released.
+  if (existsSync(finalPath)) {
     log("\n[C4j] final-cut judge");
     const allW = timed.segments.flatMap((sg) => sg.words);
     const clips: Array<{ fromS: number; toS: number; said: string }> = [];
@@ -974,19 +815,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     }
   }
   const { report, licenseMarkdown } = qa;
-  // Memory: footage the judge wanted replaced is blocked for future films.
-  {
-    const rej = qa.judgeIssues.filter((i) => i.fix === "replace_broll" && i.atS !== null);
-    if (rej.length)
-      await updateMemory(o.data, (m) => {
-        for (const i of rej) {
-          const sh = board.shots.find((x) => i.atS! >= x.startS && i.atS! < x.endS);
-          const pm = sh ? current.resolution.media.find((x) => x.shotId === sh.id && x.role === "primary") : undefined;
-          if (pm) blockAsset(m, pm.ref, i.note, jobId, pm.query);
-        }
-      });
-  }
-  await writeFile(path.join(jobDir, "qa.json"), JSON.stringify({ ...report, judgeIssues: qa.judgeIssues }, null, 2) + "\n");
+  await writeFile(path.join(jobDir, "qa.json"), JSON.stringify(report, null, 2) + "\n");
   await writeFile(path.join(jobDir, "LICENSES.md"), licenseMarkdown);
   for (const c of report.checks) log(`  ${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`);
   log(`  verdict: ${report.verdict.toUpperCase()}`);

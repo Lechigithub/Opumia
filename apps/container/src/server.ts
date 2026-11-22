@@ -75,7 +75,7 @@ const server = createServer(async (req, res) => {
     await pullPrefix("data/", DATA);
     await pullPrefix(`jobs/${b.jobId}/`, path.join(ROOT, "out", b.jobId));
     const logs: string[] = [];
-    const r = await produce({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic: b.topic, channel: b.channel, aspect: b.aspect, durationS: b.durationS, job: b.jobId, redo: [], until: b.stage as (typeof STAGES)[number], judge: true, log: (s) => (logs.push(s), console.log(s)) });
+    const r = await produce({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic: b.topic, channel: b.channel, aspect: b.aspect, durationS: b.durationS, job: b.jobId, redo: [], until: b.stage as (typeof STAGES)[number], log: (s) => (logs.push(s), console.log(s)) });
     const outputs = await pushJob(b.jobId);
     const finalKey = "finalPath" in r && r.finalPath ? `jobs/${b.jobId}/${path.basename(r.finalPath)}` : undefined;
     send(200, { ok: true, stage: b.stage, outputs, ...("report" in r && r.report ? { verdict: r.report.verdict } : {}), ...(finalKey ? { finalKey } : {}), log: logs.slice(-40) });

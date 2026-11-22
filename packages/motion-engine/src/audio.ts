@@ -33,7 +33,7 @@ function dipChain(cue: RenderManifest["audio"][number], fps: number): string {
  * the speech level — the track never falls to silence. Ours fell 34–53 dB below (a dry synthetic voice on digital
  * silence whenever the music drops out, which listeners read as artificial). A very low, filtered noise bed is
  * mixed under the whole film so the floor stays at the quiet end of the reference range. It is plain filtered
- * noise made by FFmpeg (no model, no recording). OPUMIA_ROOM_TONE=off disables it.
+ * noise made by FFmpeg (no model, no recording).
  */
 const ROOM_TONE_BELOW_VOICE_RMS_DB = 27;
 /** RMS level of the brown-noise source after its filters, at amplitude 1 (measured). */
@@ -112,7 +112,7 @@ const LN = (target: number, tp: number) => `loudnorm=I=${target}:TP=${tp}:LRA=11
 /** Two-pass EBU R128 mastering to the manifest's LUFS target (default −14) with a −1.5 dBTP ceiling. */
 export async function masterAudio(m: RenderManifest, outWav: string, truePeak = -1.5): Promise<LoudnessStats> {
   const voice = m.audio.find((a) => a.role === "narration");
-  const vRms = voice && process.env.OPUMIA_ROOM_TONE !== "off" ? await overallRmsDb(voice.src) : null;
+  const vRms = voice ? await overallRmsDb(voice.src) : null;
   const { inputs, graph } = mixGraph(m, vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB);
   // Pass 1: measure.
   const p1 = await ff([...inputs, "-filter_complex", `${graph};[mix]${LN(m.loudnessTargetLufs, truePeak)}:print_format=json[out]`, "-map", "[out]", "-f", "null", "-"]);
@@ -130,7 +130,7 @@ export async function masterAudio(m: RenderManifest, outWav: string, truePeak = 
  */
 export async function premixStems(m: RenderManifest, dir: string): Promise<{ mix: string; voice: string; bed: string }> {
   const voice = m.audio.find((a) => a.role === "narration");
-  const vRms = voice && process.env.OPUMIA_ROOM_TONE !== "off" ? await overallRmsDb(voice.src) : null;
+  const vRms = voice ? await overallRmsDb(voice.src) : null;
   const tone = vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB;
   const out = { mix: `${dir}/premix.wav`, voice: `${dir}/stem-voice.wav`, bed: `${dir}/stem-bed.wav` };
   for (const [stem, file] of [["all", out.mix], ["voice", out.voice], ["bed", out.bed]] as const) {

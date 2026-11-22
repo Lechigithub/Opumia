@@ -1,4 +1,32 @@
-# Legacy inventory (build list 3, item 1): for owner approval before anything is deleted
+# Legacy inventory (build list 3, item 1)
+
+**Status 2026-11-22: approved and carried out.** Every row below is done. Proof:
+- both typechecks are clean (the workspace and the Remotion renderer);
+- the offline smoke render draws every kit role (stage, chart, map, document, chapter, scene components, clean footage)
+  with a test kit;
+- 7 of 7 regression cases pass;
+- a search of code, skills and CLAUDE.md finds no path to a removed feature.
+
+Where the work went beyond or against a row (for the owner):
+- **L3:** the engine infographics (`counter`, `steps`, `icongrid`, `newspaper`, `screen`) were removed too, not
+  restyled, for the same reason as L5: restyling keeps the same layouts. A spoken figure is now the kit's `number`;
+  a press moment or page is a real screenshot found with `find_picture`.
+- **L5:** charts, maps and documents are drawn by the kit's `chart`, `map` and `document` roles. The engine passes
+  verified values, spoken strings, projected map paths and highlight timing.
+- **L19:** `web.ts:fetchPageText` was kept. It is not dead: `readPage` uses it for the plain request before the archive
+  and the browser.
+- **Thumbnails:** the thumbnail renderer kept its own lettering, shapes, textures and backgrounds. It is now a separate
+  module (`remotion/thumb/`) that films cannot reach. Whether thumbnails should also lose the procedural backgrounds
+  belongs to build list 3, item 18.
+- **Fail rather than fall back (until part B):** the run stops with the reason when
+  - the art director's kit is not accepted,
+  - a channel has no visual band, story band or thumbnail band, or
+  - preflight still fails after three owner rounds.
+
+  The ladders and pause/resume (parts B and D) replace these stops.
+- **Schema versions bumped:** `FilmDesignSystem` 2, `ScenePlan` 2, `StoryboardShot` 2. Old jobs in `out/` are
+  history only.
+
 
 Each row: what it is, the switch that turns it on, what still calls it, the finding it caused, and the proposed action:
 - **DELETE:** removed outright; the code survives only in git history.

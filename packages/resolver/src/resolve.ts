@@ -218,7 +218,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const usedVideos = new Set<string>();
   const pressStills: Array<{ shotId: string; c: PressCandidate; q: number }> = [];
   const usedWiki = new Set<string>();
-  const wantsImage = (n: Need) => n.kind === "image" || (n.shot.source.kind === "designed" && ["hero_face", "cutout_collage"].includes(n.shot.source.designed));
+  const wantsImage = (n: Need) => n.kind === "image";
   // Phase P — fair-use press first for named entities: the real person/company/product/event, checked by eye.
   if (o.press !== false) {
     const pressNeeds = needs.filter((n) => n.shot.entities?.length);

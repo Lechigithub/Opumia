@@ -1,11 +1,5 @@
 import { ASPECT_DIMENSIONS, type Aspect, type CameraMove } from "@opumia/contracts";
 
-/**
- * Sprint 1: pure, framework-free motion math shared by the Remotion compositions (Sprint 3)
- * and the FFmpeg fallback path. No rendering here yet.
- */
-
-export const aspectPreset = (aspect: Aspect, fps: 24 | 25 | 30 | 60 = 30) => ({ aspect, fps, ...ASPECT_DIMENSIONS[aspect] });
 
 const ease = (t: number, kind: "linear" | "ease_in_out" | "ease_out") =>
   kind === "linear" ? t : kind === "ease_out" ? 1 - (1 - t) ** 3 : t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
@@ -49,15 +43,3 @@ export function cameraAt(move: CameraMove, t: number): Transform {
   }
 }
 
-/**
- * Crop window (normalized) to reframe a 16:9 source into 9:16 around a focus point.
- * Returns the source-space rect [x, y, w, h].
- */
-export function reframe916(srcW: number, srcH: number, focus: [number, number] = [0.5, 0.5]): [number, number, number, number] {
-  const target = 9 / 16;
-  const srcRatio = srcW / srcH;
-  if (srcRatio <= target) return [0, 0, 1, 1];
-  const w = target / srcRatio;
-  const x = Math.min(1 - w, Math.max(0, focus[0] - w / 2));
-  return [x, 0, w, 1];
-}

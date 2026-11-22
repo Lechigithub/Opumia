@@ -57,17 +57,3 @@ export const recentBlueprints = (m: ProductionMemory, channel: string, n = 4, pr
 export const recordBlueprint = (m: ProductionMemory, channel: string, b: { job: string; hook: string; ending: string; spine: string; beats?: string[] }) => {
   m.blueprints[channel] = [...(m.blueprints[channel] ?? []).filter((x) => x.job !== b.job), b].slice(-20);
 };
-
-export const recordOutcome = (m: ProductionMemory, channel: string, o: ProductionMemory["outcomes"][string][number]) => {
-  m.outcomes[channel] = [...(m.outcomes[channel] ?? []).filter((x) => x.job !== o.job), o].slice(-50);
-};
-
-/** Rows for the D1 production_memory table (kind, channel, key, json). */
-export function memoryRows(m: ProductionMemory): Array<{ kind: string; channel: string; key: string; json: string }> {
-  return [
-    ...Object.entries(m.blocked).map(([key, v]) => ({ kind: "blocked", channel: "", key, json: JSON.stringify(v) })),
-    ...Object.entries(m.badQueries).map(([key, v]) => ({ kind: "bad_query", channel: "", key, json: JSON.stringify({ count: v }) })),
-    ...Object.entries(m.blueprints).flatMap(([channel, list]) => list.map((v) => ({ kind: "blueprint", channel, key: v.job, json: JSON.stringify(v) }))),
-    ...Object.entries(m.outcomes).flatMap(([channel, list]) => list.map((v) => ({ kind: "outcome", channel, key: v.job, json: JSON.stringify(v) }))),
-  ];
-}

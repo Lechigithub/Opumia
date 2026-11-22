@@ -38,7 +38,7 @@ export async function compositeScenes(o: { plan: ScenePlan; resolution: Resoluti
       // A designed stage has no footage to read: the subject takes the stage's colour and a key light from the top
       // left (the usual studio key), soft edges, and a contact shadow when it stands low.
       const pal = o.design.palette as Record<string, string>;
-      const stage = sc.backdrop === "paper" ? pal.paper : pal.surface ?? pal.primary;
+      const stage = pal.surface ?? pal.primary;
       const elements = sc.elements.map((e) => {
         if (e.type !== "cutout" || e.matchColor) return e;
         touched++;

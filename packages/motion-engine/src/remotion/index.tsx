@@ -1,7 +1,7 @@
 import React from "react";
 import { Composition, registerRoot } from "remotion";
 import { Documentary } from "./Documentary";
-import { ThumbnailScene } from "./scenes/ThumbnailScene";
+import { ThumbnailScene } from "./thumb/ThumbnailScene";
 import type { DocProps } from "./types";
 
 const emptyManifest = {

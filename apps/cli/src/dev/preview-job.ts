@@ -12,4 +12,4 @@ const ch = JSON.parse(readFileSync(path.join(job, "job.json"), "utf8")).channel 
 const look = lookFromProfile(JSON.parse(readFileSync(`data/style-profiles/${ch}.json`, "utf8")).look, design.palette.primarySoft);
 const prev = await renderShotPreviews({ manifest, look, design, publicDir: path.join(job, "public"), outDir: path.join(job, "previews_final"), moments: [Number(process.argv[3] ?? 0.8)] });
 console.log(await contactSheet(prev.map((p) => p.frames[0]!.path), path.join(job, "previews_final.jpg"), { cols: 5, cellW: 384 }));
-console.log(JSON.stringify(design.treatment), design.palette.primary, design.palette.accent, design.typography.display);
+console.log(design.concept, design.palette.primary, design.palette.accent, design.fonts.display);

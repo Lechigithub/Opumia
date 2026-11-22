@@ -1,8 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
 import { applyDesign, type DesignTokens } from "../types";
-import { ComposedScene, type ComposedProps } from "./Composed";
-import { thumbFonts, type ThumbFont } from "../thumbFonts";
+import { ThumbLayers, type ThumbLayersProps } from "./ThumbLayers";
+import { applyThumbStyle, type ThumbStyle } from "./tokens";
+import { thumbFonts, type ThumbFont } from "./thumbFonts";
 
 /**
  * Thumbnail = one composed scene, frozen after its entrances, plus a finishing layer — everything drawn from real
@@ -42,8 +43,9 @@ const Overlays: React.FC<{ list: NonNullable<ThumbFinish["overlays"]>; slots: Re
   </>
 );
 
-export const ThumbnailScene: React.FC<{ spec: ComposedProps["spec"]; slots: Record<string, string>; design?: DesignTokens; finish?: ThumbFinish; w: number; h: number }> = ({ spec, slots, design, finish }) => {
+export const ThumbnailScene: React.FC<{ spec: ThumbLayersProps["spec"]; slots: Record<string, string>; design?: DesignTokens & { thumbStyle?: ThumbStyle }; finish?: ThumbFinish; w: number; h: number }> = ({ spec, slots, design, finish }) => {
   applyDesign(design);
+  applyThumbStyle(design?.thumbStyle);
   // Text elements name a thumbnail typeface by key; it becomes a loaded font family here.
   const fonts = thumbFonts();
   spec = {
@@ -86,7 +88,7 @@ export const ThumbnailScene: React.FC<{ spec: ComposedProps["spec"]; slots: Reco
         );
       })() : null}
       {finish?.overlays?.length ? <Overlays list={finish.overlays} slots={slots} under /> : null}
-      <ComposedScene spec={ownBackground ? { ...spec, backdrop: "footage", wash: undefined } : spec} slots={slots} />
+      <ThumbLayers spec={ownBackground ? { ...spec, backdrop: "footage", wash: undefined } : spec} slots={slots} />
       {finish?.overlays?.length ? <Overlays list={finish.overlays} slots={slots} under={false} /> : null}
       {finish?.vignette ? <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(0,0,0,${clamp(finish.vignette, 0, 1, 0.5)}) 100%)` }} /> : null}
     </AbsoluteFill>

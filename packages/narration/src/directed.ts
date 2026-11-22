@@ -39,8 +39,6 @@ export interface DirectedOptions {
   modelId?: string;
   /** Reference narrator band (data/exemplars): target pace and pauses, and its expressiveness. */
   narrator?: { wpm: number; wpmLow: number; f0RangeSt?: number; melodySt?: number };
-  /** B7: the listening voice director (default on; OPUMIA_VOICE_AGENT=off skips it). */
-  voiceAgent?: boolean;
   log?: (s: string) => void;
 }
 
@@ -191,7 +189,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
 
   // 2b. B7: the voice director listens to every take (measured) and retakes lines that sound flat or wrong.
   let delivery: VoiceAgentReport | undefined;
-  if (o.voiceAgent !== false && process.env.OPUMIA_VOICE_AGENT !== "off" && units.length >= 3) {
+  if (units.length >= 3) {
     const lineFile = async (t: Take) => {
       const f = path.join(o.outDir, "takes", `${t.key}.tight.mp3`);
       if (!existsSync(f)) await writeMp3(t.audio, f);

@@ -3,18 +3,13 @@ import { PLATFORM_FPS } from "@opumia/contracts";
 import { captionGroups } from "./captions.js";
 import { cameraAt } from "./motion.js";
 import { projectMap, type MapPoint } from "./map.js";
-import { compactOf, displayOf, parseShown, spokenMatch, spokenNumbers } from "./parity.js";
-import { composeScenes } from "./compose.js";
+import { compactOf, displayOf, spokenMatch, spokenNumbers } from "./parity.js";
 
 type VideoLayer = RenderManifest["video"][number];
 
-/** Full-screen text cards: burned-in captions are suppressed while one is visible. */
-export const FULLSCREEN_TEXT = new Set(["big_word", "quote_card", "chapter_card"]);
-/** Designed layouts with their own text in the lower frame: burned-in captions are hidden under them too. */
-export const CAPTION_HIDE = new Set(["hero_face", "cutout_collage", "versus"]);
-/** Full-screen kinetic cards are held at most this long; the shot continues on its plate. */
-export const CARD_MAX_S = 3.2;
-/** Chapter title roll length (long-form chapter openers). */
+/** Layers during which burned-in captions are hidden (the kit's chapter card fills the frame with its own words). */
+export const FULLSCREEN_TEXT = new Set(["chapter"]);
+/** Chapter card length (long-form chapter openers, drawn by the kit's chapter role). */
 export const CHAPTER_CARD_S = 2.4;
 type AudioLayer = Omit<RenderManifest["audio"][number], "dips"> & Partial<Pick<RenderManifest["audio"][number], "dips">>;
 
@@ -28,8 +23,6 @@ export interface BuildManifestOptions {
   fps?: 24 | 25 | 30 | 60;
   tailS?: number;
   log?: (s: string) => void;
-  /** Scene grammar: minimum seconds before a designed layout may repeat (FilmDesignSystem.sceneGrammar). */
-  minRepeatGapS?: number;
   /** Burn word captions into the picture (style pack caption policy; shorts always). The SRT keeps every word either way. */
   burnCaptions?: boolean;
   /** Composed scene specs from the scene designer (designed kind "scene"). */
@@ -50,23 +43,9 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
   const allWords = o.script.segments.flatMap((sg) => sg.words);
   const log = o.log ?? (() => {});
   const spoken = spokenNumbers(allWords);
-  // Asset-aware composition + scene grammar before any layer is built.
-  const composed = composeScenes({ shots: [...o.storyboard.shots].sort((a, b) => a.startS - b.startS), byShot, spoken, minRepeatGapS: o.minRepeatGapS ?? 45 });
-  if (composed.notes.length) log(`  composer: ${composed.notes.length} layout change(s) — ${composed.notes.slice(0, 6).join("; ")}${composed.notes.length > 6 ? "; …" : ""}`);
-  const shots = composed.shots;
+  const shots = [...o.storyboard.shots].sort((a, b) => a.startS - b.startS);
   const parityLog: string[] = [];
-  // Nearest approved footage plate (video preferred) for shots that have none of their own.
-  const plateNear = (i: number) => {
-    for (let d = 1; d < shots.length; d++) {
-      for (const j of [i - d, i + d]) {
-        const sh = shots[j];
-        if (!sh) continue;
-        const m = (byShot.get(sh.id) ?? []).find((x) => x.role === "primary" && x.kind === "video");
-        if (m) return m;
-      }
-    }
-    return undefined;
-  };
+  const unfilled: string[] = [];
 
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i]!;
@@ -77,7 +56,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     const primary = media.find((m) => m.role === "primary");
     let designed = s.source.kind === "designed" ? s.source : null;
     const sceneSpec = designed?.designed === "scene" ? (o.scenes?.get(s.id) as { dim?: number } | undefined) : undefined;
-    // A scene the designer could not compose (nothing focal resolved) plays as its footage.
+    // A scene the designer left out plays as its footage (preflight sends a scene with neither back to its owner).
     if (designed?.designed === "scene" && !sceneSpec) designed = null;
     const paper = designed?.designed === "document" ? media.find((m) => m.role === "overlay" && m.kind === "image") : undefined;
 
@@ -103,49 +82,13 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         zIndex: 0,
         blend: "normal",
         keyframes: kfs,
-        props: { kind: primary.kind, mode: citation && !designed ? "parallax_card" : mode, focus: s.focus ?? [0.5, 0.5], transitionIn: s.transitionIn, period: primary.origin === "archival", ...(citation ? { citation } : {}), ...(designed && designed.designed !== "name_label" ? { dim: sceneSpec?.dim ?? 0.55 } : {}) },
+        props: { kind: primary.kind, mode: citation && !designed ? "parallax_card" : mode, focus: s.focus ?? [0.5, 0.5], transitionIn: s.transitionIn, period: primary.origin === "archival", ...(citation ? { citation } : {}), ...(designed ? { dim: sceneSpec?.dim ?? 0.55 } : {}) },
       };
       video.push(layer);
-    } else if (designed && designed.designed === "scene") {
-      /* no footage: the scene draws its own backdrop (colour world / paper) */
-    } else if (designed && designed.designed !== "map" && designed.designed !== "versus") {
-      // Multi-layer stack: every designed scene sits on an atmospheric base — a borrowed approved plate (blurred,
-      // darkened) or, for lines naming a person (no stand-in faces), the procedural atmosphere.
-      const plate = plateNear(i);
-      if (plate) {
-        const c0 = cameraAt({ type: "ken_burns", fromScale: 1.18, toScale: 1.28, from: [0.45, 0.5], to: [0.55, 0.5], easing: "linear" }, 0);
-        const c1 = cameraAt({ type: "ken_burns", fromScale: 1.18, toScale: 1.28, from: [0.45, 0.5], to: [0.55, 0.5], easing: "linear" }, 1);
-        video.push({ id: `${s.id}_plate`, shotId: s.id, sourceKind: plate.origin, ref: plate.ref, src: plate.publicPath, startFrame: start, endFrame: end, trimStartFrame: Math.round(fps * 1.5), zIndex: 0, blend: "normal", keyframes: [{ frame: 0, scale: c0.scale, x: c0.x, y: c0.y, opacity: 1 }, { frame: Math.max(1, len - 1), scale: c1.scale, x: c1.x, y: c1.y, opacity: 1 }], props: { kind: plate.kind, mode: "cover", focus: [0.5, 0.5], transitionIn: s.transitionIn, ...(designed.designed !== "name_label" ? { dim: 0.6 } : {}) } });
-      } else video.push({ id: `${s.id}_atmo`, shotId: s.id, sourceKind: "designed", ref: "atmosphere", startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 0, blend: "normal", keyframes: [], props: {} });
-    } else if (!designed && (() => {
-      // No footage passed review: first reuse a picture already approved for the same narration segment
-      // (different in-point and camera move), so the image stays on-topic. Lines that name a person go
-      // straight to kinetic type instead, so no stand-in picture can be read as that person.
-      const sib = shots.find((x) => x.id !== s.id && x.scriptSegmentId === s.scriptSegmentId && (byShot.get(x.id) ?? []).some((m) => m.role === "primary" && m.kind === "video") && x.source.kind !== "designed");
-      const m = sib ? (byShot.get(sib.id) ?? []).find((x) => x.role === "primary")! : undefined;
-      if (!m) return false;
-      const c0 = cameraAt({ type: "ken_burns", fromScale: 1.25, toScale: 1.12, from: [0.4, 0.5], to: [0.6, 0.5], easing: "ease_in_out" }, 0);
-      const c1 = cameraAt({ type: "ken_burns", fromScale: 1.25, toScale: 1.12, from: [0.4, 0.5], to: [0.6, 0.5], easing: "ease_in_out" }, 1);
-      video.push({ id: `${s.id}_v`, shotId: s.id, sourceKind: m.origin, ref: m.ref, src: m.publicPath, startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 0, blend: "normal", keyframes: [{ frame: 0, scale: c0.scale, x: c0.x, y: c0.y, opacity: 1 }, { frame: Math.max(1, len - 1), scale: c1.scale, x: c1.x, y: c1.y, opacity: 1 }], props: { kind: m.kind, mode: "cover", focus: [0.5, 0.5], transitionIn: s.transitionIn } });
-      return true;
-    })()) {
-      /* reused an approved sibling shot */
-    } else if (!designed) {
-      // Last resort: a kinetic stamp — a year/number, else a 1–2 word name from the line. Captions are
-      // suppressed while it is on screen, so the card never repeats the subtitle.
-      const spoken = allWords.filter((w) => w.startS >= s.startS - 0.05 && w.startS < s.endS).map((w) => w.word.replace(/[^\p{L}\p{N}$%.,'-]/gu, "").replace(/[.,]$/, "")).filter(Boolean);
-      const num = spoken.find((w) => /\d/.test(w));
-      const caps = spoken.filter((w, k) => k > 0 && /^[A-Z]/.test(w));
-      const text = num ?? (caps.length ? caps.slice(0, 2).join(" ") : (s.chapter ?? s.intent).split(/\s+/).slice(0, 2).join(" "));
-      // No approved footage: borrow the nearest approved plate with its own camera move. A kinetic stamp is
-      // used only when the film has no footage at all (never a repeated closing stamp).
-      const kp = plateNear(i);
-      if (kp) video.push({ id: `${s.id}_plate`, shotId: s.id, sourceKind: kp.origin, ref: kp.ref, src: kp.publicPath, startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 0, blend: "normal", keyframes: [{ frame: 0, scale: 1.22, x: -0.02, y: 0, opacity: 1 }, { frame: Math.max(1, len - 1), scale: 1.1, x: 0.02, y: 0, opacity: 1 }], props: { kind: kp.kind, mode: "cover", focus: [0.5, 0.5], transitionIn: s.transitionIn } });
-      else {
-        video.push({ id: `${s.id}_atmo`, shotId: s.id, sourceKind: "designed", ref: "atmosphere", startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 0, blend: "normal", keyframes: [], props: {} });
-        video.push({ id: `${s.id}_kt`, shotId: s.id, sourceKind: "designed", ref: "big_word", startFrame: start, endFrame: Math.min(end, start + F(CARD_MAX_S)), trimStartFrame: 0, zIndex: 2, blend: "normal", keyframes: [], props: { text } });
-      }
-    }
+    } else if (designed) {
+      // No footage: the kit's stage carries the shot (a scene on a stage draws it itself; a data graphic sits on it).
+      if (designed.designed !== "scene") video.push({ id: `${s.id}_stage`, shotId: s.id, sourceKind: "designed", ref: "stage", startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 0, blend: "normal", keyframes: [], props: { transitionIn: s.transitionIn } });
+    } else unfilled.push(s.id);
 
     for (const ov of media.filter((m) => m.role === "overlay" && m !== paper)) {
       video.push({ id: `${s.id}_ov_${ov.ref}`, shotId: s.id, sourceKind: "library", ref: ov.ref, src: ov.publicPath, startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 1, blend: "screen", keyframes: [], props: { kind: ov.kind, opacity: s.overlays[0]?.opacity ?? 0.5 } });
@@ -161,48 +104,30 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         props = { title: props.title, route: props.route ?? true, ...(await projectMap(o.libraryRoot, pts)) };
       }
       if (paper) props.paperSrc = paper.publicPath;
-      // Signature primitives take the shot's own picture: portrait for HeroFaceSplit, subject for CutoutCollage.
-      if (designed.designed === "hero_face" && primary?.kind === "image") props.portraitSrc = primary.publicPath;
-      if (designed.designed === "cutout_collage" && primary) props.subjectSrc = primary.publicPath;
       if (designed.designed === "scene") {
-        // Kinetic phrases: each word lands on the frame it is spoken.
+        // The kit's phrase: each word lands on the frame it is spoken (the element's props.sync, set by the scene designer).
         const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}$%€£.]/gu, "").replace(/\.$/, "");
         const pool = allWords.filter((w) => w.startS >= s.startS - 0.1 && w.startS < s.endS + 0.05);
         const spec = sceneSpec as unknown as { elements: Array<Record<string, unknown>> };
         const elements = spec.elements.map((el) => {
-          if (el.type !== "phrase") return el;
-          const want = String(el.text).split(/\s+/).filter(Boolean).map(norm);
+          const pr = el.props as Record<string, unknown> | undefined;
+          if (el.type !== "component" || !pr?.sync) return el;
+          const shown = String(pr.text ?? "").split(/\s+/).filter(Boolean);
+          const want = shown.map(norm);
           const at = pool.findIndex((_, k) => want.every((wd, j) => norm(pool[k + j]?.word ?? "") === wd));
-          const wordFrames = want.map((_, j) => (at >= 0 ? Math.max(0, F(pool[at + j]!.startS) - start) : Math.round(j * fps * 0.22)));
-          return { ...el, wordFrames };
+          const elStart = start + F(Number(el.at ?? 0));
+          const words = shown.map((text, j) => ({ text, from: at >= 0 ? Math.max(0, F(pool[at + j]!.startS) - elStart) : Math.round(j * fps * 0.22) }));
+          return { ...el, props: { ...pr, words } };
         });
         props = { spec: { ...spec, elements }, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
       }
       if (s.factIds?.length) props.factIds = s.factIds;
       const win: [number, number] = [s.startS - 1.5, s.endS + 1.0];
       let keep = true;
-      // Number parity: the figure on screen is the figure spoken, at the spoken precision.
-      if (designed.designed === "money_figure") {
-        const unit = props.prefix ? String(props.prefix) : props.suffix === "%" ? "%" : "";
-        const hit = spokenMatch(spoken, Number(props.value), unit, win[0], win[1], s.startS);
-        if (hit) props.display = displayOf(hit);
-        else {
-          keep = false;
-          parityLog.push(`${s.id}: money_figure ${compactOf(Number(props.value), unit)} not spoken in its shot → dropped (plate only)`);
-        }
-      }
-      if (designed.designed === "versus") {
-        for (const k of ["left", "right"] as const) {
-          const side = props[k] as { label?: string; value?: string } | undefined;
-          const v = side?.value ? parseShown(side.value) : null;
-          if (!side || !v) continue;
-          const hit = spokenMatch(spoken, v.value, v.unit, win[0], win[1], s.startS);
-          props[k] = { ...side, value: hit ? displayOf(hit) : compactOf(v.value, v.unit), magnitude: v.value };
-        }
-      }
       if (designed.designed === "chart" && Array.isArray(props.values)) {
         const unit = String(props.unit ?? "");
-        props.displays = (props.values as number[]).map((v) => {
+        // Number parity: the figure on screen is the figure spoken, at the spoken precision.
+        props.display = (props.values as number[]).map((v) => {
           const hit = spokenMatch(spoken, v, unit, win[0], win[1], s.startS);
           return hit ? displayOf(hit) : compactOf(v, unit);
         });
@@ -214,14 +139,11 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
         const first = pool.find(({ k }) => phrase.length > 0 && phrase.every((p, j) => norm(allWords[k + j]?.word ?? "") === p));
         if (first) {
-          props.highlightAt = Math.max(2, F(first.w.startS) - start);
-          props.highlightEnd = Math.max(Number(props.highlightAt) + 6, F(allWords[first.k + phrase.length - 1]!.endS) - start);
+          props.highlightFrom = Math.max(2, F(first.w.startS) - start);
+          props.highlightTo = Math.max(Number(props.highlightFrom) + 6, F(allWords[first.k + phrase.length - 1]!.endS) - start);
         }
       }
-      // Full-screen kinetic cards are held ≤ 2.0 s; the plate carries the rest of the shot.
-      const endD = FULLSCREEN_TEXT.has(designed.designed) ? Math.min(end, start + F(CARD_MAX_S)) : end;
-      if (endD < end) for (const l of video) if (l.shotId === s.id && l.zIndex === 0) l.props = { ...l.props, dimUntil: endD - start };
-      if (keep) video.push({ id: `${s.id}_d`, shotId: s.id, sourceKind: "designed", ref: designed.designed, startFrame: start, endFrame: endD, trimStartFrame: 0, zIndex: 2, blend: "normal", keyframes: [], props });
+      video.push({ id: `${s.id}_d`, shotId: s.id, sourceKind: "designed", ref: designed.designed, startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 2, blend: "normal", keyframes: [], props });
     }
 
     for (const fx of s.sfx) {
@@ -242,17 +164,16 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
       if (prev !== undefined && o.script.durationS > 90) {
         idx++;
         const at = F(sg.words[0]?.startS ?? sg.startS);
-        video.push({ id: `chapter_${idx}`, shotId: shots.find((x) => F(x.startS) <= at && F(x.endS) > at)?.id ?? "all", sourceKind: "designed", ref: "chapter_card", startFrame: Math.max(0, at - 6), endFrame: Math.min(durationFrames, at - 6 + F(CHAPTER_CARD_S)), trimStartFrame: 0, zIndex: 5, blend: "normal", keyframes: [], props: { title: sg.chapter, index: idx, teaser: `Chapter ${idx}` } });
+        video.push({ id: `chapter_${idx}`, shotId: shots.find((x) => F(x.startS) <= at && F(x.endS) > at)?.id ?? "all", sourceKind: "designed", ref: "chapter", startFrame: Math.max(0, at - 6), endFrame: Math.min(durationFrames, at - 6 + F(CHAPTER_CARD_S)), trimStartFrame: 0, zIndex: 5, blend: "normal", keyframes: [], props: { title: sg.chapter, index: idx } });
       }
       prev = sg.chapter;
     }
   }
   if (parityLog.length) log(`  manifest: number parity — ${parityLog.join("; ")}`);
+  if (unfilled.length) log(`  manifest: UNFILLED — ${unfilled.join(", ")} have neither footage nor a scene (preflight sends them back)`);
 
-  // Word-synced captions on top — suppressed while a full-screen kinetic card is on screen (no duplicate text).
-  // Burned-in captions never overlap designed text: hidden under slams/chapter rolls and under layouts that carry
-  // their own lower-frame text (HeroFaceSplit name panel, CutoutCollage title, Versus scale bar).
-  const kinetic = video.filter((l) => l.sourceKind === "designed" && (FULLSCREEN_TEXT.has(l.ref) || CAPTION_HIDE.has(l.ref)));
+  // Word-synced captions on top — suppressed while the kit's chapter card is on screen (no duplicate text).
+  const kinetic = video.filter((l) => l.sourceKind === "designed" && FULLSCREEN_TEXT.has(l.ref));
   const allGroups = captionGroups(o.script);
   const overlapFrac = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / Math.max(1, a1 - a0);
   // Mostly under a card → hidden; partly under → held back until the card ends (never on screen together).

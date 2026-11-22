@@ -18,22 +18,9 @@ export const CameraMove = z.discriminatedUnion("type", [
 ]);
 export type CameraMove = z.infer<typeof CameraMove>;
 
-export const DesignedKind = z.enum([
-  "chart",
-  "map",
-  "big_word",
-  "chapter_card",
-  "name_label",
-  "document",
-  "screen",
-  "versus",
-  "money_figure",
-  "cutout_collage",
-  "timeline",
-  "quote_card",
-  "hero_face",
-  "scene",
-]);
+/** Designed shot kinds (build list 3 L4/L5): a composed scene from the film's kit, or a data graphic the kit draws
+ *  from verified data. The preset cards (big word, quote card, name label, money figure, chapter roll…) were removed. */
+export const DesignedKind = z.enum(["chart", "map", "document", "scene"]);
 
 /**
  * Shot source. There is no AI-generation variant; adding one is a contract change
@@ -57,7 +44,7 @@ export type ShotSource = z.infer<typeof ShotSource>;
 
 export const StoryboardShot = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     id: z.string(),
     scriptSegmentId: z.string(),
     index: z.number().int().nonnegative(),

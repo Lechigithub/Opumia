@@ -5,65 +5,35 @@ import { ChannelId } from "./style.js";
 const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /**
- * Per-film art direction, produced by the Art Director agent right after research. Every colour, font pairing,
- * texture level and per-act tint the motion engine uses comes from here — nothing topic-specific is hardcoded.
+ * The film's design tokens (schema v2, build list 3 L1): written from the film's OWN kit by its art director
+ * (film-designer-agent.ts) — its palette grown from the film's pictures, its typefaces, its texture, its concept.
+ * The renderer, colourist, compositor and packaging read them. There are no menus: no fixed font list, label style,
+ * photo frame, background or particle kind exists any more (the menu art director was removed).
  */
-export const TextStyle = z.enum(["neon_glow", "solid_stroke", "boxed", "gradient", "paper_cut", "outline_only"]);
-export const FilmTreatment = z.object({
-  /** How headline and slam type is drawn. */
-  headline: TextStyle,
-  /** How the kinetic narration phrases are drawn (must differ from the headline style). */
-  phrase: TextStyle,
-  label: z.enum(["tag", "underline", "pill", "bracket", "plain"]),
-  photo: z.enum(["print", "torn", "polaroid", "none", "tv", "circle"]),
-  /** Procedural backdrop for scenes without footage, drawn in the film's colours. */
-  world: z.enum(["nebula", "blueprint", "paper", "halftone", "smoke", "stripes", "spotlight"]),
-  particles: z.enum(["none", "dust", "embers", "snow", "bokeh"]),
-  /** How footage is coloured into the film's world. */
-  wash: z.enum(["none", "tint", "duotone"]),
-  washStrength: z.number().min(0).max(0.8).default(0.35),
-  glow: z.number().min(0).max(1).default(0.6),
-  /** The film's signature transition, used at the start of new thoughts (the rest are straight cuts). */
-  transition: z.enum(["whip", "dip_black", "light_leak", "fade"]).default("whip"),
-  /** A recurring visual device unique to this film (e.g. "film sprocket strips", "blood-drop bullet points"). */
-  motif: z.string(),
-});
-export type FilmTreatment = z.infer<typeof FilmTreatment>;
-
 export const FilmDesignSystem = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   id: z.string(),
   channelId: ChannelId,
   topic: z.string(),
-  concept: z.string().describe("one-line art-direction concept, e.g. 'Nordic cold blue boardroom, crimson crisis'"),
+  /** The film's visual idea, as its art director wrote it. */
+  concept: z.string(),
   palette: z.object({
-    primary: Hex.describe("subject / brand colour"),
+    primary: Hex,
     primarySoft: Hex,
-    accent: Hex.describe("tension / crisis accent"),
+    accent: Hex,
     accentDeep: Hex,
-    surface: Hex.describe("dark background surface"),
+    surface: Hex.describe("dark surface"),
     surfaceAlt: Hex,
-    paper: Hex.describe("document / light card tone"),
-    marker: Hex.describe("highlighter colour"),
+    paper: Hex.describe("light surface"),
+    marker: Hex.describe("highlight"),
     text: Hex,
     textMuted: Hex,
   }),
-  typography: z.object({
-    display: z.enum(["condensed_sans", "editorial_serif", "geometric_sans", "slab"]),
-    body: z.enum(["grotesk", "humanist", "serif"]),
-    casing: z.enum(["upper", "title"]),
-    tracking: z.number().min(-2).max(6),
-  }),
-  texture: z.object({ grain: z.number().min(0).max(0.5), vignette: z.number().min(0).max(1), halftone: z.boolean(), lightLeaks: z.boolean() }),
-  /** Colour grade per act (chapter index → tint and strengths). */
+  /** CSS font-family stacks of the kit's own typefaces (loaded by the kit). */
+  fonts: z.object({ display: z.string(), body: z.string() }),
+  texture: z.object({ grain: z.number().min(0).max(0.5), vignette: z.number().min(0).max(1) }),
+  /** Colour grade per act (the colourist sets and moves it). */
   acts: z.array(z.object({ name: z.string(), tint: Hex, tintStrength: z.number().min(0).max(0.6), saturation: z.number().min(0.4).max(1.3), contrast: z.number().min(0.9).max(1.3) })).min(1),
-  /**
-   * Visual treatment: the film's own motion-design language, chosen for its topic. One system per film (so the
-   * film is coherent) and different from recent films (so no two films share a look).
-   */
-  treatment: FilmTreatment.optional(),
-  /** Scene grammar: designed kinds this film should favour and the minimum gap before a layout may repeat. */
-  sceneGrammar: z.object({ favour: z.array(z.string()), avoid: z.array(z.string()), minRepeatGapS: z.number().default(45) }),
   generatedAt: IsoDateTime,
 });
 export type FilmDesignSystem = z.infer<typeof FilmDesignSystem>;

@@ -29,7 +29,7 @@ export async function renderShotPreviews(o: { manifest: RenderManifest; look: Lo
   for (const l of o.manifest.video) {
     if (l.shotId === "all") continue;
     const r = ranges.get(l.shotId);
-    const layout = l.sourceKind === "designed" && l.ref !== "atmosphere" ? l.ref : (r?.layout ?? "footage");
+    const layout = l.sourceKind === "designed" && l.ref !== "stage" ? l.ref : (r?.layout ?? "footage");
     ranges.set(l.shotId, { start: Math.min(r?.start ?? l.startFrame, l.startFrame), end: Math.max(r?.end ?? l.endFrame, l.endFrame), layout });
   }
   const ids = o.shotIds ?? [...ranges.keys()];

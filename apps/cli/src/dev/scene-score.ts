@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { FactSheet, FilmDesignSystem, ResolutionReport, Storyboard, TimedScript, type ScenePlan } from "@opumia/contracts";
-import { buildStylePack, designScenesAgent, ensureVisualBand, loadTaste, scoreTaste, usageLedger, type ReferenceShot, type SceneReport } from "@opumia/agents";
+import { buildStylePack, designScenesAgent, ensureVisualBand, loadTaste, scoreTaste, usageLedger, type ReferenceShot, type SceneReport, type FilmKitMeta } from "@opumia/agents";
 import { buildManifest, lookFromProfile, renderShotPreviews } from "@opumia/motion-engine";
 import { makeSceneTools } from "@opumia/resolver";
 import { LibraryIndex } from "@opumia/contracts";
@@ -36,11 +36,11 @@ for (const arg of process.argv.slice(2)) {
   const pub = path.join(jobDir, "public");
   const outDir = path.join(jobDir, "previews_agent");
   const render = async (plan: ScenePlan, shotIds: string[]) => {
-    const manifest = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: roots.library, outputPath: path.join(jobDir, "_agent.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+    const manifest = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: roots.library, outputPath: path.join(jobDir, "_agent.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
     const prev = await renderShotPreviews({ manifest, look, design, publicDir: pub, outDir, shotIds });
     return prev.map((p) => ({ shotId: p.shotId, sheet: p.sheet, mid: p.frames[1]!.path }));
   };
-  const manifestOf = (plan: ScenePlan) => buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: roots.library, outputPath: path.join(jobDir, "_agent.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: design.sceneGrammar.minRepeatGapS, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+  const manifestOf = (plan: ScenePlan) => buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: roots.library, outputPath: path.join(jobDir, "_agent.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
   const play = async (plan: ScenePlan, shotId: string) => (await renderShotPreviews({ manifest: await manifestOf(plan), look, design, publicDir: pub, outDir: path.join(outDir, "play"), shotIds: [shotId], moments: [0.04, 0.2, 0.35, 0.5, 0.65, 0.8, 0.96] }))[0]?.sheet ?? null;
   const index = LibraryIndex.parse(read(path.join(roots.data, "library-index.json")));
   const whenByShot = new Map<string, string>(existsSync(path.join(jobDir, "sourcing.json")) ? read<{ rows: Array<{ shotId: string; when?: string }> }>(path.join(jobDir, "sourcing.json")).rows.filter((r) => r.when).map((r) => [r.shotId, r.when!] as [string, string]) : []);
@@ -51,7 +51,8 @@ for (const arg of process.argv.slice(2)) {
   console.log(`\n### ${path.basename(jobDir)}`);
   const tm = await loadTaste(roots.data, job.channel as never, "shot");
   const taste = tm ? { score: async (files: string[]) => (await scoreTaste({ root: process.cwd(), data: roots.data, channel: job.channel as never, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tm.calibration.real.p10, realMedian: tm.calibration.real.median } : undefined;
-  const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel: job.channel, visualBand: band, referenceShots, render, play, pictures, ...(taste ? { taste } : {}), memoryDir, people: (facts.story?.characters ?? []).map((c) => c.name), onReport: (r) => (report = r), log: console.log });
+  const kit = read<FilmKitMeta>(path.join(jobDir, "design", "film", "meta.json"));
+  const plan = await designScenesAgent({ storyboard: board, script: timed, resolution, design, channel: job.channel, visualBand: band, referenceShots, render, play, pictures, kit, ...(taste ? { taste } : {}), memoryDir, people: (facts.story?.characters ?? []).map((c) => c.name), onReport: (r) => (report = r), log: console.log });
   writeFileSync(path.join(jobDir, "scenes.agent.json"), JSON.stringify(plan, null, 2));
   writeFileSync(path.join(jobDir, "resolution.agent.json"), JSON.stringify(resolution, null, 2));
   const mids = plan.scenes.map((s) => path.join(outDir, `${s.shotId}_1.jpg`)).filter((f) => existsSync(f));

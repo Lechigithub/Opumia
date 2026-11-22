@@ -7,8 +7,11 @@
  * channel's grammar is shared between films; nothing else is.
  *
  *  skill    packages/agents/skills/film-designer.md
- *  tools    study_reference, list_fonts, palette_from_pictures, write_kit, render_samples, render_transition,
- *           submit_kit, note_lesson
+ *  tools    study_reference, list_fonts, palette_from_pictures, write_kit, set_tokens, render_samples,
+ *           render_transition, submit_kit, note_lesson
+ *  owns     every look decision of the film (build list 3, L1/L3/L5): the design tokens in design.json (palette,
+ *           texture, act grades), the stage behind shots without footage, every word on screen (one component per
+ *           role in KIT_ROLES, the phrase synced to the voice) and the drawing of charts, maps and documents
  *  memory   <memoryDir>/<channel>.md, owner-notes.md; data/film-kits.json (what produced films used: fonts, palette,
  *           concept — a new kit may not repeat their typefaces)
  *  safety   the kit may import only react, remotion and @remotion/google-fonts/<Font>; no network, no file system,
@@ -22,10 +25,17 @@ import * as z from "zod/v4";
 import { readMemory } from "./lessons.js";
 import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
 import { producedJobs } from "./produced.js";
+import { designFromKit, KIT_ROLES, ROLE_CONTRACT, type KitTokens } from "./kit-design.js";
+import type { ChannelId, FilmDesignSystem } from "@opumia/contracts";
 
 export interface KitSampleResult { shotId: string; mid: string; sheet: string; text: string }
 export interface FilmDesignerOptions {
-  channel: string;
+  channel: ChannelId;
+  topic: string;
+  /** How many acts the film has (one colour grade each). */
+  acts: number;
+  /** Called with the film's design tokens each time the art director sets them (written to design.json). */
+  onDesign: (d: FilmDesignSystem) => Promise<void>;
   job: string;
   title: string;
   data: string;
@@ -48,8 +58,9 @@ export interface FilmDesignerOptions {
   memoryDir?: string;
   log?: (s: string) => void;
 }
-export interface FilmDesignerReport { pass: boolean; fonts: string[]; components: string[]; transition: string | null; renders: number; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
+export interface FilmDesignerReport { pass: boolean; fonts: string[]; components: string[]; roles: Record<string, string>; transition: string | null; renders: number; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
+const HEX = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: /\.png$/i.test(file) ? "image/png" : "image/jpeg", data: (await readFile(file)).toString("base64") } });
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
 
@@ -78,7 +89,19 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const usedFonts = new Set(earlier.flatMap((k) => k.fonts));
   let code: string | null = existsSync(kitFile) ? await readFile(kitFile, "utf8") : null;
   let studied = 0, renders = 0, transitionSeen = false, lastRenderOk = false, accepted: string | null = null, noteSaved = false;
+  let tokens: KitTokens | null = null;
+  let roles: Record<string, string> = {};
+  const fontStack = (re: RegExp, fallback: string) => {
+    const m = re.exec(code ?? "");
+    return m?.[1] ?? m?.[2] ?? fallback;
+  };
+  const kitFontStacks = () => ({ display: fontStack(/display\s*:\s*`([^`]+)`|display\s*:\s*"([^"]+)"/, `"${kitFonts()[0] ?? "serif"}", serif`), body: fontStack(/body\s*:\s*`([^`]+)`|body\s*:\s*"([^"]+)"/, `"${kitFonts().at(-1) ?? "sans-serif"}", sans-serif`) });
   const kitFonts = () => [...(code ?? "").matchAll(/@remotion\/google-fonts\/([A-Za-z0-9]+)/g)].map((m) => m[1]!);
+  /** FILM.roles in the kit's code: role → component name. */
+  const kitRoles = (): Record<string, string> => {
+    const m = /roles\s*:\s*\{([^}]*)\}/.exec((code ?? "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""));
+    return Object.fromEntries((m?.[1] ?? "").split(",").map((x) => x.split(":").map((y) => y.trim().replace(/^["']|["']$/g, ""))).filter((x) => x.length === 2 && x[0] && x[1]) as Array<[string, string]>);
+  };
   const kitComponents = () => [...new Set([...(code ?? "").matchAll(/components\s*:\s*\{([^}]*)\}/g)].flatMap((m) => m[1]!.split(",").map((x) => x.split(":")[0]!.trim()).filter(Boolean)))];
 
   const tools: AgentTool[] = [
@@ -113,7 +136,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
     },
     {
       name: "write_kit",
-      description: "Write (or rewrite) the whole kit: one TSX module that `export const FILM = { components: {…}, transitions: {…}, transition: \"name\", transitionFrames: 8–14, fonts: { display, body }, meta: { Name: { use, props } } }`. Components are React function components using useCurrentFrame/spring/interpolate from remotion; each gets its own props plus `slots` (picture slot → staticFile path), `boxW`, `boxH`. Load fonts with `import { loadFont } from \"@remotion/google-fonts/<Font>\"; const { fontFamily } = loadFont();`. A transition receives `progress` 0→1 (the cut at 0.5) and draws over the whole frame (AbsoluteFill). Checked for safety before it is written.",
+      description: "Write (or rewrite) the whole kit: one TSX module that `export const FILM = { components: {…}, roles: { headline: \"Name\", phrase: \"Name\", … every role }, transitions: {…}, transition: \"name\", transitionFrames: 8–14, fonts: { display, body }, meta: { Name: { use, props } } }`. roles maps each role (the engine draws chapter cards, stages, charts, maps and documents through it) to one of the components. Components are React function components using useCurrentFrame/spring/interpolate from remotion; each gets its own props plus `slots` (picture slot → staticFile path), `boxW`, `boxH`. Load fonts with `import { loadFont } from \"@remotion/google-fonts/<Font>\"; const { fontFamily } = loadFont();`. A transition receives `progress` 0→1 (the cut at 0.5) and draws over the whole frame (AbsoluteFill). Checked for safety before it is written.",
       schema: z.object({ code: z.string() }),
       run: (async (i: { code: string }) => {
         const issues = checkKitCode(i.code, fontSet);
@@ -136,11 +159,29 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
       }) as AgentTool["run"],
     },
     {
+      name: "set_tokens",
+      description: `Set the film's design tokens (written to design.json; the renderer, colourist, compositor and thumbnail read them): the palette (grown from palette_from_pictures — primary, primarySoft, accent, accentDeep, a dark surface and surfaceAlt, a light paper, a marker for highlights, text and textMuted), the texture (film grain 0–0.5, vignette 0–1) and one colour grade per act (${o.acts} act(s): tint, tintStrength 0–0.6, saturation 0.4–1.3, contrast 0.9–1.3). Text colours are pushed to legible contrast. Set them before render_samples; set them again whenever the look changes.`,
+      schema: z.object({
+        palette: z.object({ primary: HEX, primarySoft: HEX, accent: HEX, accentDeep: HEX, surface: HEX, surfaceAlt: HEX, paper: HEX, marker: HEX, text: HEX, textMuted: HEX }),
+        texture: z.object({ grain: z.number().min(0).max(0.5), vignette: z.number().min(0).max(1) }),
+        acts: z.array(z.object({ name: z.string(), tint: HEX, tintStrength: z.number().min(0).max(0.6), saturation: z.number().min(0.4).max(1.3), contrast: z.number().min(0.9).max(1.3) })).min(1),
+      }),
+      run: (async (i: KitTokens) => {
+        if (i.acts.length !== o.acts) return `NOT SET: the film has ${o.acts} act(s); give exactly ${o.acts} grade(s)`;
+        const { design, adjusted } = designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: accepted ?? o.title, fonts: kitFontStacks(), tokens: i });
+        tokens = { palette: design.palette, texture: design.texture, acts: design.acts };
+        await o.onDesign(design);
+        lastRenderOk = false;
+        return `set${adjusted.length ? ` (legibility: ${adjusted.join("; ")})` : ""}. Render samples to see them.`;
+      }) as AgentTool["run"],
+    },
+    {
       name: "render_samples",
       description: "Render kit components on the film's own shots, as they will appear: give up to 6 samples, each a shotId and its elements (`{ type: \"component\", name, props, x, y, w, h?, at, rot: 0, z: 0.6, enter: \"fade\" }` — x/y/w/h are fractions of the frame, `at` seconds into the shot). You see each shot early/middle/end and a measured report: legibility on a phone, design (focal point, depth, colour), trained taste against the channel's real shots, and how close it looks to our earlier films.",
       schema: z.object({ samples: z.array(z.object({ shotId: z.string(), elements: z.array(z.record(z.string(), z.unknown())).min(1).max(6) })).min(1).max(6) }),
       run: (async (i: { samples: Array<{ shotId: string; elements: unknown[] }> }) => {
         if (!code) return "write the kit first";
+        if (!tokens) return "set_tokens first (the samples are rendered with the film's palette, texture and grade)";
         const res = await o.renderSamples(i.samples).catch((e: Error) => [{ shotId: "", mid: "", sheet: "", text: `RENDER FAILED: ${e.message.slice(0, 600)}` }]);
         if (res.length === 1 && !res[0]!.sheet) return res[0]!.text;
         renders += res.length;
@@ -156,6 +197,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
       schema: z.object({}),
       run: (async () => {
         if (!code) return "write the kit first";
+        if (!tokens) return "set_tokens first";
         const r = await o.renderTransition().catch((e: Error) => ({ strip: "", text: `RENDER FAILED: ${e.message.slice(0, 400)}` }));
         if (!r || !r.strip) return r?.text ?? "no cut to show it on";
         transitionSeen = true;
@@ -164,14 +206,17 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
     },
     {
       name: "submit_kit",
-      description: "Hand the kit to the scene designer. Refused until you have studied the reference, the kit has its own typefaces and at least six components (a headline, a label or name tag, a number, a quotation, a chapter or title card, a picture frame or collage) with meta for each, its transition has been seen across a cut, and the last samples rendered readable and not too close to an earlier film.",
+      description: `Hand the kit to the scene designer. Refused until you have studied the reference, the kit has its own typefaces, the tokens are set, FILM.roles names a component for every role (${KIT_ROLES.join(", ")}), every component has meta, its transition has been seen across a cut, and the last samples rendered readable and not too close to an earlier film.`,
       schema: z.object({ concept: z.string().describe("the film's visual idea in one or two sentences"), meta: z.record(z.string(), z.object({ use: z.string(), props: z.string() })).describe("every component: what it is for and its props, for the scene designer"), note: z.string() }),
       run: (async (i: { concept: string; meta: Record<string, { use: string; props: string }>; note: string }) => {
+        const r0 = kitRoles();
         const miss: string[] = [];
+        if (!tokens) miss.push("set_tokens");
+        const noRole = KIT_ROLES.filter((r) => !r0[r] || !kitComponents().includes(r0[r]!));
+        if (noRole.length) miss.push(`FILM.roles must name a kit component for every role (missing or not in the kit: ${noRole.join(", ")})`);
         if (studied < 2) miss.push("study the reference (at least two kinds)");
         if (!code) miss.push("write the kit");
         if (kitFonts().length < 1) miss.push("load the film's own typefaces");
-        if (kitComponents().length < 6) miss.push(`at least six components (have ${kitComponents().join(", ") || "none"})`);
         const unknownMeta = Object.keys(i.meta).filter((k) => !kitComponents().includes(k));
         const noMeta = kitComponents().filter((k) => !i.meta[k]);
         if (unknownMeta.length || noMeta.length) miss.push(`meta must describe exactly the kit's components (${noMeta.length ? `missing ${noMeta.join(", ")}` : ""}${unknownMeta.length ? ` unknown ${unknownMeta.join(", ")}` : ""})`);
@@ -179,7 +224,11 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         if (!lastRenderOk) miss.push("render_samples until they are readable and not too close to an earlier film");
         if (miss.length) return `NOT ACCEPTED:\n${miss.map((x) => `- ${x}`).join("\n")}`;
         accepted = `${i.concept} — ${i.note}`;
-        await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, components: i.meta, fonts: kitFonts(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null }, null, 1) + "\n");
+        roles = Object.fromEntries(KIT_ROLES.map((r) => [r, r0[r]!]));
+        const byComp = new Map(Object.entries(roles).map(([r, c]) => [c, r]));
+        const components = Object.fromEntries(Object.entries(i.meta).map(([k, v]) => [k, { ...v, ...(byComp.has(k) ? { role: byComp.get(k)! } : {}) }]));
+        await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, roles, components, fonts: kitFonts(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null }, null, 1) + "\n");
+        await o.onDesign(designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: i.concept, fonts: kitFontStacks(), tokens: tokens! }).design);
         const pal = await o.palette().catch(() => [] as string[]);
         const rec = { job: o.job, fonts: kitFonts(), palette: pal.slice(0, 6), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", at: new Date().toISOString() };
         const f = path.join(o.data, "film-kits.json");
@@ -207,12 +256,13 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const earlierText = earlier.length ? `## Our earlier films (do not repeat their look)\n${earlier.slice(-8).map((k) => `- ${k.job}: fonts ${k.fonts.join(", ")}; palette ${k.palette.join(" ")}; ${k.concept.slice(0, 160)}; transition ${k.transition}`).join("\n")}\n\n` : "";
   const system = [cached(skill), plain(`${earlierText}${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}`)];
-  const user = `Design the look of "${o.title}" from a blank slate.\n\nBRIEF:\n${o.brief.slice(0, 5000)}\n\nSHOTS you can render samples on (id — line — picture):\n${o.shots.map((s) => `${s.id} — "${s.line.slice(0, 90)}" — ${s.picture.slice(0, 70)}`).join("\n")}\n\nStart by studying the reference.`;
+  const contract = KIT_ROLES.map((r) => `- ${r}: ${ROLE_CONTRACT[r]}`).join("\n");
+  const user = `Design the look of "${o.title}" from a blank slate.\n\nROLES your kit must play (one component each; the engine passes these props):\n${contract}\n\nBRIEF:\n${o.brief.slice(0, 5000)}\n\nSHOTS you can render samples on (id — line — picture):\n${o.shots.map((s) => `${s.id} — "${s.line.slice(0, 90)}" — ${s.picture.slice(0, 70)}`).join("\n")}\n\nStart by studying the reference.`;
   const model = process.env.OPUMIA_DESIGN_MODEL === "sonnet" ? MODELS.sonnet : MODELS.opus;
   log(`  art director (blank slate): ${o.title.slice(0, 60)} (${model})…`);
   let grace = 1;
   const run = await agentLoop({ stage: "film-designer.agent", model, system, user, tools, effort: "high", maxTurns: 40, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
-  const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
+  const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), roles, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });
     await appendFile(path.join(o.memoryDir, `${o.channel}.md`), `- LOG ${new Date().toISOString().slice(0, 10)} "${o.title.slice(0, 60)}": ${report.pass ? "kit accepted" : "not accepted"}; fonts ${report.fonts.join(", ")}; ${report.components.length} components; ${renders} renders; ${(accepted ?? "").slice(0, 200).replace(/\s+/g, " ")}\n`);

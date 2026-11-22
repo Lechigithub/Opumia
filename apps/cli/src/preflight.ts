@@ -2,12 +2,12 @@
  * Preflight gate: every release-gate check that can be computed BEFORE the render — from the plan, the scene
  * previews and the narration — so a film that would fail is repaired or stopped before render time is spent.
  *
- * Each check names its repair (applied by produce.ts, then the check is run again):
- *   drop_picture   a repeated picture / a second clip from one source video is removed and the scene redesigned
- *   safe_scene     a scene that still shows a visible defect after its revision is reduced to its clean core
- *   soften_wash    the colour wash over footage is halved when the previews are too monochrome, dark or dull
- *   reseed_sound   sound effects and music are picked again when they lean on one family or on earlier films
- *   prune_shapes   an outlined box or circle that frames nothing is removed from its scene
+ * Each check names the OWNER that fixes it (produce.ts sends it there, then the check is run again). Nothing is
+ * ever reduced to a weaker look (build list 3, L8):
+ *   replace_picture  the picture leaves its shot, the picture tools find another, the scene designer designs again
+ *   redesign_scene   the scene designer fixes the scene, told the defect
+ *   regrade          the colourist, told what the previews measured
+ *   reseed_sound     the sound designer picks effects and music again
  * "blocker" checks stop the render when they still fail; "advisory" checks are reported (they have no automatic
  * repair — e.g. how expressive a fixed voice is — and the finished-film gate still judges them).
  */
@@ -21,7 +21,7 @@ import { measureCraft } from "@opumia/senses";
 import type { QualityBand } from "@opumia/agents";
 import type { ExemplarIndex } from "./exemplars.js";
 
-export type Repair = "drop_picture" | "safe_scene" | "soften_wash" | "reseed_sound" | "prune_shapes";
+export type Repair = "replace_picture" | "redesign_scene" | "regrade" | "reseed_sound";
 export interface PreflightCheck {
   id: string;
   label: string;
@@ -93,39 +93,6 @@ export async function referenceHueDominance(data: string, ex: ExemplarIndex): Pr
   return out;
 }
 
-type Scene = ScenePlan["scenes"][number];
-/** An outlined box or circle with no other element inside it: it frames nothing. */
-const framesNothing = (sc: Scene, e: Scene["elements"][number]): boolean => {
-  if (e.type !== "shape" || (e.shape !== "rect" && e.shape !== "circle") || e.w < 0.12 || e.h < 0.06) return false;
-  return !sc.elements.some((x) => {
-    if (x === e || x.type === "texture") return false;
-    const cx = x.x + x.w / 2;
-    const cy = x.y + ("size" in x ? x.size / 2 : 0.03);
-    return cx > e.x - 0.02 && cx < e.x + e.w + 0.02 && cy > e.y - 0.03 && cy < e.y + e.h + 0.03;
-  });
-};
-
-/** Scenes holding such a shape: shot id → how many. */
-export function emptyFrames(scenes: ScenePlan): Map<string, number> {
-  const out = new Map<string, number>();
-  for (const sc of scenes.scenes) {
-    const n = sc.elements.filter((e) => framesNothing(sc, e)).length;
-    if (n) out.set(sc.shotId, n);
-  }
-  return out;
-}
-
-/** prune_shapes repair: remove them (a scene always keeps at least one element). */
-export function pruneEmptyFrames(scenes: ScenePlan): ScenePlan {
-  return {
-    ...scenes,
-    scenes: scenes.scenes.map((sc) => {
-      const keep = sc.elements.filter((e) => !framesNothing(sc, e));
-      return keep.length && keep.length < sc.elements.length ? { ...sc, elements: keep } : sc;
-    }),
-  };
-}
-
 const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").then((t) => JSON.parse(t) as T, () => null);
 const baseRef = (ref: string) => ref.split("#")[0]!.split("@")[0]!;
 
@@ -183,9 +150,9 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       if (seen.has(k) && rootOf(seen.get(k)!) !== rootOf(m.shotId)) dupShots.push(m.shotId);
       else seen.set(k, m.shotId);
     }
-    add({ id: "repeat_in_film", label: "Pictures used more than once in the film", value: dupShots.length, target: "0", pass: dupShots.length === 0, level: "blocker", repair: "drop_picture", shots: dupShots });
+    add({ id: "repeat_in_film", label: "Pictures used more than once in the film", value: dupShots.length, target: "0", pass: dupShots.length === 0, level: "blocker", repair: "replace_picture", shots: dupShots });
     const shared = pics.filter((m) => !(m.provider === "wikipedia") && o.recent.pictures.has(baseRef(m.ref))).map((m) => m.shotId);
-    add({ id: "shared_pictures", label: "Pictures a recent film already used", value: shared.length, target: "0", pass: shared.length === 0, level: "blocker", repair: "drop_picture", shots: shared });
+    add({ id: "shared_pictures", label: "Pictures a recent film already used", value: shared.length, target: "0", pass: shared.length === 0, level: "blocker", repair: "replace_picture", shots: shared });
   }
 
   // --- Step 7 (film 1: a staged actress under lines about Joy Marshall): a shot whose NARRATION names a real person
@@ -203,7 +170,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       }
     }
     const uniq = [...new Set(stand)];
-    add({ id: "stand_in_face", label: "Shots where the narration names a real person over a face that is not verified as them", value: uniq.length, target: "0", pass: uniq.length === 0, level: "blocker", repair: "drop_picture", shots: uniq });
+    add({ id: "stand_in_face", label: "Shots where the narration names a real person over a face that is not verified as them", value: uniq.length, target: "0", pass: uniq.length === 0, level: "blocker", repair: "replace_picture", shots: uniq });
   }
 
   // --- Fair use: one clip per source video, clips ≤ 7.5 s, press footage ≤ 45 % of the runtime.
@@ -213,7 +180,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     for (const c of clips) byVideo.set(baseRef(c.ref), [...(byVideo.get(baseRef(c.ref)) ?? []), c.shotId]);
     // one clip per source video: halves of an editor split are the same clip
     const extra = [...byVideo.values()].flatMap((v) => { const first = rootOf([...v].sort()[0]!); return v.filter((id) => rootOf(id) !== first); });
-    add({ id: "fair_use_one_clip", label: "Extra clips taken from one source video", value: extra.length, target: "0", pass: extra.length === 0, level: "blocker", repair: "drop_picture", shots: extra });
+    add({ id: "fair_use_one_clip", label: "Extra clips taken from one source video", value: extra.length, target: "0", pass: extra.length === 0, level: "blocker", repair: "replace_picture", shots: extra });
     const dur = (id: string) => {
       const sh = shots.find((x) => x.id === id);
       return sh ? sh.endS - sh.startS : 0;
@@ -225,9 +192,9 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     // whole clip from before the split, so adding to it would count twice)
     const used = new Map([...fam].map(([k, cs]) => [k, cs.length === 1 ? (cs[0]!.fairUse?.usedS ?? dur(cs[0]!.shotId)) : cs.reduce((t, c) => t + dur(c.shotId), 0) + 0.8] as [string, number]));
     const long = clips.filter((c) => (used.get(`${rootOf(c.shotId)}|${baseRef(c.ref)}`) ?? 0) > 7.5).map((c) => c.shotId);
-    add({ id: "fair_use_clip_length", label: "Press clips longer than 7.5 s", value: long.length, target: "0", pass: long.length === 0, level: "blocker", repair: "drop_picture", shots: long });
+    add({ id: "fair_use_clip_length", label: "Press clips longer than 7.5 s", value: long.length, target: "0", pass: long.length === 0, level: "blocker", repair: "replace_picture", shots: long });
     const share = clips.reduce((t, c) => t + dur(c.shotId), 0) / Math.max(1, o.timed.durationS);
-    add({ id: "fair_use_share", label: "Share of the runtime on press footage", value: share, target: "≤ 0.45", pass: share <= 0.45, level: "blocker", repair: "drop_picture", shots: share > 0.45 ? clips.sort((a, b) => dur(b.shotId) - dur(a.shotId)).slice(0, 1).map((c) => c.shotId) : [] });
+    add({ id: "fair_use_share", label: "Share of the runtime on press footage", value: share, target: "≤ 0.45", pass: share <= 0.45, level: "blocker", repair: "replace_picture", shots: share > 0.45 ? clips.sort((a, b) => dur(b.shotId) - dur(a.shotId)).slice(0, 1).map((c) => c.shotId) : [] });
   }
 
   // --- Coverage: enough of the film stands on real pictures (from the sourcing report).
@@ -242,25 +209,27 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
 
   // --- Edit: designed treatment on nearly every shot, little plain slow-zoom footage, no long run on one bare backdrop.
   {
-    const designedShots = new Set(o.manifest.video.filter((l) => l.sourceKind === "designed" && !["captions", "atmosphere", "chapter_card"].includes(l.ref)).map((l) => l.shotId));
+    const designedShots = new Set(o.manifest.video.filter((l) => l.sourceKind === "designed" && !["captions", "chapter"].includes(l.ref)).map((l) => l.shotId));
     const treated = shots.filter((s) => designedShots.has(s.id)).length / Math.max(1, shots.length);
     const slow = shots.filter((s) => !designedShots.has(s.id) && (s.camera.type === "ken_burns" || s.camera.type === "static")).length / Math.max(1, shots.length);
     // Clean footage is part of the style (measured: about four of the channel's shots in ten carry nothing), so
     // a scene with no elements counts as designed here; what matters is that every shot is a decided scene.
     add({ id: "designed_share", label: "Shots with a decided scene (designed or deliberately clean)", value: treated, target: "≥ 0.7", pass: treated >= 0.7, level: "blocker" });
     const cleanStill = o.scenes.scenes.filter((sc) => sc.elements.length === 0 && o.resolution.media.find((m) => m.shotId === sc.shotId && m.role === "primary")?.kind !== "video").map((sc) => sc.shotId);
-    add({ id: "dead_frames", label: "Clean shots without moving footage (a still or an empty stage with nothing on it)", value: cleanStill.length, target: "0", pass: cleanStill.length === 0, level: "blocker", repair: "safe_scene", shots: cleanStill });
+    add({ id: "dead_frames", label: "Clean shots without moving footage (a still or an empty stage with nothing on it)", value: cleanStill.length, target: "0", pass: cleanStill.length === 0, level: "blocker", repair: "redesign_scene", shots: cleanStill });
     add({ id: "slow_zoom_share", label: "Plain footage with only a slow zoom or static", value: slow, target: "≤ 0.2", pass: slow <= 0.2, level: "blocker" });
     const order = [...o.scenes.scenes].sort((a, b) => a.shotId.localeCompare(b.shotId));
     let run = 0;
     let worst = 0;
     for (const [k, sc] of order.entries()) {
-      run = sc.backdrop !== "footage" && sc.backdrop !== "split" && order[k - 1]?.backdrop === sc.backdrop ? run + 1 : 1;
-      if (sc.backdrop !== "footage" && sc.backdrop !== "split") worst = Math.max(worst, run);
+      run = sc.backdrop !== "footage" && order[k - 1]?.backdrop === sc.backdrop ? run + 1 : 1;
+      if (sc.backdrop !== "footage") worst = Math.max(worst, run);
     }
-    add({ id: "bare_backdrop_run", label: "Longest run of scenes on the same picture-less backdrop", value: worst, target: "≤ 2", pass: worst <= 2, level: "blocker" });
-    const bare = order.filter((sc) => sc.backdrop !== "footage" && sc.backdrop !== "split" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || e.type === "counter" || e.type === "steps" || e.type === "icongrid" || e.type === "newspaper" || e.type === "screen")).length / Math.max(1, order.length);
-    add({ id: "picture_less_scenes", label: "Scenes with no picture at all (text and shapes on colour)", value: bare, target: "≤ 0.35", pass: bare <= 0.35, level: "blocker", note: "more of these and the film reads as a slide deck" });
+    const stageRun = order.filter((sc, k) => sc.backdrop !== "footage" && order[k - 1]?.backdrop === sc.backdrop && order[k - 2]?.backdrop === sc.backdrop).map((sc) => sc.shotId);
+    add({ id: "bare_backdrop_run", label: "Longest run of scenes on the kit's stage", value: worst, target: "≤ 2", pass: worst <= 2, level: "blocker", repair: "replace_picture", shots: stageRun });
+    const bareIds = order.filter((sc) => sc.backdrop !== "footage" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId);
+    const bare = bareIds.length / Math.max(1, order.length);
+    add({ id: "picture_less_scenes", label: "Scenes with no picture at all (only the kit's words on its stage)", value: bare, target: "≤ 0.35", pass: bare <= 0.35, level: "blocker", ...(bare > 0.35 ? { repair: "replace_picture" as const, shots: bareIds.slice(0, Math.ceil(bareIds.length - order.length * 0.35)) } : {}), note: "more of these and the film reads as a slide deck" });
   }
 
   // --- Period: footage under a line set before 2009 must not look later than the line (a dedicated dating
@@ -277,7 +246,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     if (items.length) {
       const dated = await periodCheck(items);
       const late = items.map((it, k) => ({ it, d: dated[k]! })).filter((x) => !x.d.ok);
-      add({ id: "period_footage", label: "Footage that looks later than the line it sits under", value: late.length, target: "0", pass: late.length === 0, level: "blocker", repair: "drop_picture", shots: late.map((x) => x.it.shotId), ...(late.length ? { note: late.slice(0, 4).map((x) => `${x.it.shotId} (line set in ${x.it.year}): ${x.d.evidence.slice(0, 60)}`).join("; ") } : {}) });
+      add({ id: "period_footage", label: "Footage that looks later than the line it sits under", value: late.length, target: "0", pass: late.length === 0, level: "blocker", repair: "replace_picture", shots: late.map((x) => x.it.shotId), ...(late.length ? { note: late.slice(0, 4).map((x) => `${x.it.shotId} (line set in ${x.it.year}): ${x.d.evidence.slice(0, 60)}`).join("; ") } : {}) });
     }
   }
 
@@ -289,17 +258,10 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       if (c && c.sharpTop < o.quality.frames.sharpTop.p10) soft.push(m.shotId);
     }
     const lim = Math.max(1, Math.round(o.resolution.media.filter((x) => x.role === "primary").length * 0.1));
-    add({ id: "soft_footage", label: "Footage softer than the channel's softest tenth of frames", value: soft.length, target: `≤ ${lim}`, pass: soft.length <= lim, level: "blocker", repair: "drop_picture", shots: soft });
+    add({ id: "soft_footage", label: "Footage softer than the channel's softest tenth of frames", value: soft.length, target: `≤ ${lim}`, pass: soft.length <= lim, level: "blocker", repair: "replace_picture", shots: soft });
   }
 
-  // --- Scenes: no outlined box or circle that frames nothing.
-  {
-    const ef = emptyFrames(o.scenes);
-    add({ id: "empty_frames", label: "Scenes with an outlined box or circle that frames nothing", value: ef.size, target: "0", pass: ef.size === 0, level: "blocker", repair: "prune_shapes", shots: [...ef.keys()] });
-  }
-
-  // --- Scenes: nothing with a visible defect goes to render.
-  add({ id: "scene_defects", label: "Scenes with a visible defect on the final preview", value: o.sceneDefects.size, target: "0", pass: o.sceneDefects.size === 0, level: "blocker", repair: "safe_scene", shots: [...o.sceneDefects.keys()], ...(o.sceneDefects.size ? { note: [...o.sceneDefects.entries()].slice(0, 4).map(([k, v]) => `${k}: ${v[0]}`).join("; ") } : {}) });
+  add({ id: "scene_defects", label: "Scenes with a visible defect on the final preview", value: o.sceneDefects.size, target: "0", pass: o.sceneDefects.size === 0, level: "blocker", repair: "redesign_scene", shots: [...o.sceneDefects.keys()], ...(o.sceneDefects.size ? { note: [...o.sceneDefects.entries()].slice(0, 4).map(([k, v]) => `${k}: ${v[0]}`).join("; ") } : {}) });
 
   // --- Look, measured on the final preview frames against the channel's own films (movement needs the render).
   const band = o.exemplars?.looks.band;
@@ -307,21 +269,20 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const sheet = await contactSheet(o.previewFrames, path.join(o.jobDir, "preflight_look.jpg"), { cols: 6, cellW: 320 });
     const look = await measureLook(sheet).catch(() => null);
     if (look) {
-      add({ id: "preview_luma", label: "Brightness of the scenes", value: look.luma, target: `≥ ${band.luma.p25}`, pass: look.luma >= band.luma.p25 * 0.95, level: "blocker", repair: "soften_wash" });
-      add({ id: "preview_colourfulness", label: "Colourfulness of the scenes", value: look.colourfulness, target: `≥ ${band.colourfulness.p25}`, pass: look.colourfulness >= band.colourfulness.p25 * 0.95, level: "blocker", repair: "soften_wash" });
-      add({ id: "preview_hue_spread", label: "Colour variety across the scenes", value: look.hueSpread, target: `≥ ${band.hueSpread.p25}`, pass: look.hueSpread >= band.hueSpread.p25 * 0.95, level: "blocker", repair: "soften_wash" });
+      add({ id: "preview_luma", label: "Brightness of the scenes", value: look.luma, target: `≥ ${band.luma.p25}`, pass: look.luma >= band.luma.p25 * 0.95, level: "blocker", repair: "regrade" });
+      add({ id: "preview_colourfulness", label: "Colourfulness of the scenes", value: look.colourfulness, target: `≥ ${band.colourfulness.p25}`, pass: look.colourfulness >= band.colourfulness.p25 * 0.95, level: "blocker", repair: "regrade" });
+      add({ id: "preview_hue_spread", label: "Colour variety across the scenes", value: look.hueSpread, target: `≥ ${band.hueSpread.p25}`, pass: look.hueSpread >= band.hueSpread.p25 * 0.95, level: "blocker", repair: "regrade" });
     }
     const dom = await hueDominance(o.previewFrames);
     if (dom !== null && o.hueRef) {
       const lim = Math.min(0.9, Math.max(o.hueRef.p75 * 1.1, o.hueRef.max) + 0.05);
-      add({ id: "one_colour_film", label: "Share of scenes carried by the same colour (a film washed in one tone reads as monochrome)", value: dom, target: `≤ ${r3(lim)} (the channel's films: up to ${o.hueRef.max})`, pass: dom <= lim, level: "blocker", repair: "soften_wash" });
+      add({ id: "one_colour_film", label: "Share of scenes carried by the same colour (a film washed in one tone reads as monochrome)", value: dom, target: `≤ ${r3(lim)} (the channel's films: up to ${o.hueRef.max})`, pass: dom <= lim, level: "blocker", repair: "regrade" });
     }
   }
 
   // --- Step 4: taste is the objective — the film's scenes, as a whole, at least at the channel's lowest tenth.
   if (o.taste) {
-    const warn = process.env.OPUMIA_TASTE_GATE === "warn";
-    add({ id: "film_taste", label: "Taste of the film's scenes against the channel's real shots (trained heads, median)", value: o.taste.median, target: `≥ ${o.taste.realP10} (the channel's median ${o.taste.realMedian})`, pass: o.taste.median >= o.taste.realP10, level: warn ? "advisory" : "blocker", ...(o.taste.low.length ? { note: `lowest scenes: ${o.taste.low.slice(0, 6).join(", ")}`, shots: o.taste.low.map((x) => x.split(" ")[0]!) } : {}) });
+    add({ id: "film_taste", label: "Taste of the film's scenes against the channel's real shots (trained heads, median)", value: o.taste.median, target: `≥ ${o.taste.realP10} (the channel's median ${o.taste.realMedian})`, pass: o.taste.median >= o.taste.realP10, level: "blocker", ...(o.taste.low.length ? { repair: "redesign_scene" as const, note: `lowest scenes: ${o.taste.low.slice(0, 6).join(", ")}`, shots: o.taste.low.map((x) => x.split(" ")[0]!) } : {}) });
   }
 
   // --- Uniqueness of the plan against earlier films.
@@ -398,11 +359,11 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
 }
 
 /**
- * drop_picture repair: the offending picture is taken out of its shot (the earlier use of a repeated picture
+ * replace_picture, first step: the offending picture is taken out of its shot (the earlier use of a repeated picture
  * stays). Returns the trimmed media list and the shots whose scenes must be designed again without it.
  */
 export function dropPictures(resolution: ResolutionReport, checks: PreflightCheck[], recent: Set<string>): { media: ResolutionReport["media"]; shots: Set<string> } {
-  const failing = checks.filter((c) => !c.pass && c.repair === "drop_picture" && c.shots?.length);
+  const failing = checks.filter((c) => !c.pass && c.repair === "replace_picture" && c.shots?.length);
   const want = (id: string) => new Set(failing.filter((c) => c.id === id).flatMap((c) => c.shots ?? []));
   const repeat = want("repeat_in_film");
   const shared = want("shared_pictures");
@@ -427,16 +388,4 @@ export function dropPictures(resolution: ResolutionReport, checks: PreflightChec
     return !gone;
   });
   return { media, shots };
-}
-
-/** A scene reduced to its clean core: its backdrop and its first spoken phrase (or headline), set in the safe lower-left. */
-export function safeScene(spec: ScenePlan["scenes"][number]): ScenePlan["scenes"][number] {
-  const phrase = spec.elements.find((e) => e.type === "phrase") ?? spec.elements.find((e) => e.type === "text");
-  const picture = spec.backdrop === "footage" || spec.backdrop === "split" ? undefined : spec.elements.find((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d");
-  const els: ScenePlan["scenes"][number]["elements"] = [];
-  if (picture && "x" in picture) els.push({ ...picture, x: 0.52, y: 0.16, w: 0.4, rot: 0, at: 0 });
-  if (phrase && phrase.type === "phrase") els.push({ ...phrase, x: 0.07, y: picture ? 0.36 : 0.6, w: picture ? 0.4 : 0.6, rot: 0, at: 0, align: "left", size: Math.min(phrase.size, 0.07) });
-  else if (phrase && phrase.type === "text") els.push({ ...phrase, x: 0.07, y: picture ? 0.4 : 0.62, w: picture ? 0.4 : 0.6, rot: 0, at: 0, align: "left", size: Math.min(phrase.size, 0.09) });
-  if (!els.length) return spec;
-  return { ...spec, elements: els, idea: `${spec.idea} [reduced to its clean core by the preflight gate]` };
 }

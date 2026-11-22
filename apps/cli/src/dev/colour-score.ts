@@ -26,7 +26,7 @@ const manifest = RenderManifest.parse(await rd("manifest.json"));
 const pack = await buildStylePack(channel, { reference: path.resolve("Reference"), data });
 const prevDir = path.join(jd, "previews_colour");
 const frames = new Map(scenes.scenes.map((x) => [x.shotId, path.join(jd, "previews", `${x.shotId}_1.jpg`)] as [string, string]).filter(([, f]) => existsSync(f)));
-const actStarts = [0, ...manifest.video.filter((l) => l.ref === "chapter_card").map((l) => l.startFrame / manifest.fps)];
+const actStarts = [0, ...manifest.video.filter((l) => l.ref === "chapter").map((l) => l.startFrame / manifest.fps)];
 const look = lookFromProfile(pack.profile.look, design.palette.primarySoft);
 const t0 = Date.now();
 const res = await colouristAgent({
@@ -34,7 +34,7 @@ const res = await colouristAgent({
   actOf: (id) => Math.max(0, actStarts.filter((t) => t <= (board.shots.find((x) => x.id === id)?.startS ?? 0) + 0.01).length - 1),
   lineOf: (id) => { const sh = board.shots.find((x) => x.id === id); return sh ? timed.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; },
   render: async (d, plan, ids) => {
-    const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: library, outputPath: path.join(jd, "_colour.mp4"), narrationPath: timed.voice.audioPath, minRepeatGapS: d.sceneGrammar.minRepeatGapS, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
+    const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: library, outputPath: path.join(jd, "_colour.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: board.aspect === "9:16" || pack.captions.burnLongForm, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
     const prev = await renderShotPreviews({ manifest: m, look, design: d, publicDir: path.join(jd, "public"), outDir: prevDir, shotIds: ids });
     return new Map(prev.map((pv) => [pv.shotId, pv.frames[1]!.path] as [string, string]));
   },

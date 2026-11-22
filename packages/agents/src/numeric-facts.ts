@@ -72,14 +72,6 @@ export const formatFactTable = (nf: NumericFact[]) => nf.map((n) => `${n.id} = $
  */
 export function bindFactProps(kind: string, props: Record<string, unknown>, nf: NumericFact[]): { props: Record<string, unknown>; factIds: string[] } | null {
   const byId = new Map(nf.map((n) => [n.id, n]));
-  if (kind === "money_figure") {
-    const f = byId.get(String(props.fact ?? ""));
-    if (!f) return null;
-    const prefix = f.unit === "$" || f.unit === "€" || f.unit === "£" ? f.unit : "";
-    const suffix = f.unit === "%" ? "%" : "";
-    const { fact: _f, value: _v, ...rest } = props;
-    return { props: { ...rest, value: f.value, prefix, suffix }, factIds: [f.id] };
-  }
   if (kind === "chart") {
     const ids = Array.isArray(props.facts) ? props.facts.map(String) : [];
     const facts = ids.map((id) => byId.get(id));
@@ -90,15 +82,6 @@ export function bindFactProps(kind: string, props: Record<string, unknown>, nf: 
     const unit = u0 === "$" || u0 === "€" || u0 === "£" || u0 === "%" ? u0 : String(props.unit ?? "");
     const { facts: _x, values: _v, ...rest } = props;
     return { props: { ...rest, unit, values: facts.map((f) => f!.value), labels }, factIds: ids };
-  }
-  if (kind === "versus") {
-    // Values in versus cards must quote fact displays verbatim.
-    const l = props.left as { label?: string; fact?: string } | undefined;
-    const r = props.right as { label?: string; fact?: string } | undefined;
-    const fl = byId.get(String(l?.fact ?? ""));
-    const fr = byId.get(String(r?.fact ?? ""));
-    if (!fl || !fr) return null;
-    return { props: { ...props, left: { label: l?.label ?? "", value: fl.display }, right: { label: r?.label ?? "", value: fr.display } }, factIds: [fl.id, fr.id] };
   }
   return { props, factIds: [] };
 }

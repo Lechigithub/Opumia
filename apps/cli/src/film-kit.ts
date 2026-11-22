@@ -8,8 +8,9 @@ import { mkdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { embedPictures, filmDesignerAgent, filmLook, loadTaste, producedJobs, scoreTaste, type FilmDesignerReport } from "@opumia/agents";
+import { rename, writeFile } from "node:fs/promises";
 import type { ChannelId, FilmDesignSystem, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
-import { buildManifest, lookFromProfile, renderShotPreviews, watchClip, type Look } from "@opumia/motion-engine";
+import { buildManifest, renderShotPreviews, watchClip, type Look } from "@opumia/motion-engine";
 import { designIssues, measureDesign, measureLegibility, run } from "@opumia/senses";
 
 /** Every Google font the renderer can load (import names), read from the installed package. */
@@ -37,7 +38,15 @@ async function paletteOf(files: string[]): Promise<string[]> {
   return groups.sort((a, b) => b.n - a.n).slice(0, 8).map((g) => `#${hex(g.c[0])}${hex(g.c[1])}${hex(g.c[2])} (${Math.round((g.n / Math.max(1, cols.length)) * 100)} %)`);
 }
 
-export async function runFilmDesigner(o: { root: string; data: string; library: string; jobDir: string; job: string; channel: ChannelId; title: string; brief: string; board: Storyboard; scenes: ScenePlan | null; resolution: ResolutionReport; timed: TimedScript; design: FilmDesignSystem; look: Look; log: (s: string) => void }): Promise<FilmDesignerReport> {
+export async function runFilmDesigner(o: { root: string; data: string; library: string; jobDir: string; job: string; channel: ChannelId; title: string; topic: string; acts: number; brief: string; board: Storyboard; scenes: ScenePlan | null; resolution: ResolutionReport; timed: TimedScript; look: (d: FilmDesignSystem) => Look; log: (s: string) => void }): Promise<{ report: FilmDesignerReport; design: FilmDesignSystem | null }> {
+  // design.json is written from the kit's own tokens (build list 3, L1): the art director sets them, nothing else does
+  let design: FilmDesignSystem | null = null;
+  const designFile = path.join(o.jobDir, "design.json");
+  const onDesign = async (d: FilmDesignSystem) => {
+    design = d;
+    await writeFile(`${designFile}.tmp`, JSON.stringify(d, null, 1) + "\n");
+    await rename(`${designFile}.tmp`, designFile);
+  };
   const kitDir = path.join(o.jobDir, "design", "film");
   const pub = path.join(o.jobDir, "public");
   const words = o.timed.segments.flatMap((s) => s.words);
@@ -61,18 +70,18 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
   let round = 0;
   const qb = await readFile(path.join(o.data, "quality-profile", `${o.channel}.json`), "utf8").then((t) => JSON.parse(t) as { design?: { frames: never } }, () => null);
   const manifestFor = (plan: ScenePlan, board: Storyboard) => buildManifest({ storyboard: board, script: o.timed, resolution: o.resolution, libraryRoot: o.library, outputPath: path.join(o.jobDir, "_kit.mp4"), narrationPath: o.timed.voice.audioPath, burnCaptions: false, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
-  const basePlan = (): ScenePlan => o.scenes ?? { schemaVersion: 1, storyboardId: o.board.id, scenes: [], generatedAt: new Date().toISOString() };
-  return filmDesignerAgent({
-    channel: o.channel, job: o.job, title: o.title, data: o.data, kitDir, brief: o.brief, shots, fonts: googleFonts(), reference,
+  const basePlan = (): ScenePlan => o.scenes ?? { schemaVersion: 2, storyboardId: o.board.id, scenes: [], generatedAt: new Date().toISOString() };
+  const report = await filmDesignerAgent({
+    channel: o.channel, topic: o.topic, acts: o.acts, onDesign, job: o.job, title: o.title, data: o.data, kitDir, brief: o.brief, shots, fonts: googleFonts(), reference,
     palette: () => paletteOf(o.resolution.media.filter((m) => m.role === "primary" || m.role === "layer").map((m) => m.localPath).filter((f) => existsSync(f))),
     renderSamples: async (samples) => {
       round++;
       const base = basePlan();
-      const scenes = [...base.scenes.filter((x) => !samples.some((s) => s.shotId === x.shotId)), ...samples.map((s) => ({ shotId: s.shotId, idea: "kit sample", backdrop: prim(s.shotId) ? "footage" : "surface", dim: 0.35, camera: { fromScale: 1.03, toScale: 1.09, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: s.elements }))] as ScenePlan["scenes"];
+      const scenes = [...base.scenes.filter((x) => !samples.some((s) => s.shotId === x.shotId)), ...samples.map((s) => ({ shotId: s.shotId, idea: "kit sample", backdrop: prim(s.shotId) ? "footage" : "stage", dim: 0.35, camera: { fromScale: 1.03, toScale: 1.09, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: s.elements }))] as ScenePlan["scenes"];
       const plan: ScenePlan = { ...base, scenes };
       const board: Storyboard = { ...o.board, shots: o.board.shots.map((sh) => (samples.some((s) => s.shotId === sh.id) ? { ...sh, source: { kind: "designed", designed: "scene", props: {} } as never } : sh)) };
       const m = await manifestFor(plan, board);
-      const pv = await renderShotPreviews({ manifest: m, look: o.look, design: o.design, publicDir: pub, outDir: path.join(samplesDir, `r${round}`), shotIds: samples.map((s) => s.shotId), fresh: true });
+      const pv = await renderShotPreviews({ manifest: m, look: o.look(design!), design: design!, publicDir: pub, outDir: path.join(samplesDir, `r${round}`), shotIds: samples.map((s) => s.shotId), fresh: true });
       const out = [];
       for (const p of pv) {
         const mid = p.frames[2]?.path ?? p.frames[1]!.path;
@@ -102,7 +111,7 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
       const board: Storyboard = { ...o.board, shots: o.board.shots.map((sh, i) => (i === k ? { ...sh, transitionIn: "film" } : sh)) };
       const m = await manifestFor(basePlan(), board);
       const cut = board.shots[k]!.startS;
-      const c = await watchClip({ manifest: m, look: o.look, design: o.design, publicDir: pub, jobDir: o.jobDir, fromS: Math.max(0, cut - 0.5), toS: cut + 0.5, stripFrames: 12, scale: 0.5 });
+      const c = await watchClip({ manifest: m, look: o.look(design!), design: design!, publicDir: pub, jobDir: o.jobDir, fromS: Math.max(0, cut - 0.5), toS: cut + 0.5, stripFrames: 12, scale: 0.5 });
       const strip = path.join(samplesDir, `transition_${round}.jpg`);
       await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", c.file, "-vf", "fps=24,scale=240:-2,tile=6x4", "-frames:v", "1", strip]);
       return { strip, text: `every frame across the cut at ${cut.toFixed(2)} s (left to right, top to bottom; the cut in the middle)` };
@@ -110,4 +119,5 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
     memoryDir: path.join(o.data, "agents", "film-designer"),
     log: o.log,
   });
+  return { report, design };
 }
