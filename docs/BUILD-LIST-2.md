@@ -73,8 +73,13 @@ Order (each step depends on the ones before it). Status: ☐ open · ◐ in prog
    - motion components written as code for each film;
    - no stock fallback cards;
    - the looks of produced films stored and enforced, including the same topic made twice.
-6. ☐ **A real editor** (E): craft cuts measured from the reference, watching its own cuts at speed, jumps sent back to
-   it.
+6. ☑ **A real editor.**
+   - **Watching:** it watches its own cuts at speed, with the measured report (step 2).
+   - **Bridging:** `submit_cut` is refused while a same-picture change is unbridged, and `set_transition` gains `film`,
+     the film's own transition from its kit.
+   - **Beats:** `cut_on_beat` lands a cut on the music's beat grid (the beds' measured beats in film time).
+   - **Skill:** craft cuts — bridge the same picture, cut on the music, cut ahead of the word.
+   - **Not built:** match cuts and cutting on action (no motion analysis of the footage yet), and speed ramps.
 7. ☐ **A reliable sandbox** (G):
    - failures go back to their owner, with a budget for retries;
    - an independent final-cut judge with a veto;

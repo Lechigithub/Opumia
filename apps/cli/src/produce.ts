@@ -437,7 +437,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     return { strip: c.strip, text: `${c.fromS.toFixed(1)}–${c.toS.toFixed(1)} s, frames left to right, top to bottom: ${c.frames.join(", ")}; measured motion ${JSON.stringify(c.motion)}\n${listeningText(l)}\n${ins.text}` };
   };
   const runEditor = async (brief?: string) => {
-    const ed = await editFilmAgent({ channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
+    // step 6: the music's beat grid in film time, so cuts can land on the music
+    const apE = await buildAudioProfile({ data: o.data, library: o.library, index }).catch(() => null);
+    const beats = apE ? board.music.flatMap((c) => { const p = apE.music[c.assetId]; if (!p || p.beat.periodS < 0.2) return []; const out: number[] = []; const in0 = c.inS ?? 0; for (let b = p.beat.offsetS + Math.ceil((in0 - p.beat.offsetS) / p.beat.periodS) * p.beat.periodS; b < in0 + (c.endS - c.startS); b += p.beat.periodS) out.push(Math.round((c.startS + b - in0) * 1000) / 1000); return out; }) : [];
+    const ed = await editFilmAgent({ channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, beats, filmTransition: Boolean(filmKit), memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
     board = Storyboard.parse(ed.storyboard);
     scenePlan = ScenePlan.parse(ed.scenes);
     resolution = ed.resolution;

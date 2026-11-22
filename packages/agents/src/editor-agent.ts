@@ -37,6 +37,10 @@ export interface EditorAgentOptions {
   script: TimedScript;
   /** Watch a stretch of the edited film with its sound (renders a low-resolution clip). Optional. */
   watch?: (st: { storyboard: Storyboard; scenes: ScenePlan; resolution: ResolutionReport }, fromS: number, toS: number) => Promise<{ strip: string; text: string }>;
+  /** Step 6: the music's beat times (seconds), so a cut can land on the music. */
+  beats?: number[];
+  /** Step 6: whether the film has its own transition (a kit) to bridge same-picture changes. */
+  filmTransition?: boolean;
   memoryDir?: string;
   /** Sent back by the showrunner: what to change and why. */
   brief?: string;
@@ -210,12 +214,36 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         return w.strip ? [{ type: "text" as const, text: w.text }, await img(w.strip)] : w.text;
       }) as AgentTool["run"],
     },
+    ...(o.beats?.length
+      ? [
+          {
+            name: "cut_on_beat",
+            description: "Move the cut at the start of a shot onto the nearest beat of the music (within 0.25 s) — cutting on the music makes the rhythm felt. Only when the beat is near a word boundary; never into the middle of a word that matters.",
+            schema: z.object({ shotId: z.string() }),
+            run: (async (i: { shotId: string }) => {
+              const k = find(i.shotId);
+              if (k <= 0) return k === 0 ? "the first shot starts the film" : `no shot ${i.shotId}`;
+              const t = board.shots[k]!.startS;
+              const b = o.beats!.reduce((best, x) => (Math.abs(x - t) < Math.abs(best - t) ? x : best), Infinity);
+              if (!Number.isFinite(b) || Math.abs(b - t) > 0.25) return `no beat within 0.25 s of ${t.toFixed(2)} s`;
+              const moveTool = tools.find((x) => x.name === "move_cut")!;
+              const r = await (moveTool.run as (x: { shotId: string; toS: number }) => Promise<string>)({ shotId: i.shotId, toS: Math.round(b * 1000) / 1000 });
+              return `beat at ${b.toFixed(2)} s: ${r}`;
+            }) as AgentTool["run"],
+          } satisfies AgentTool,
+        ]
+      : []),
     {
       name: "submit_cut",
       description: "Submit the cut with a short note of what you changed and why. Refused until you have studied at least two real passages, watched at least one changed stretch, and the cut measures at least as close to the channel as it started.",
       schema: z.object({ note: z.string() }),
       run: (async (i: { note: string }) => {
         if (studied < 2) return `refused: study at least two real passages first (studied ${studied})`;
+        // Step 6: a change of the same picture with nothing bridging it reads as a jump (film 1: 3 unbridged punch-ins;
+        // the channel bridges 4–11 such changes a minute, mostly with light flashes).
+        const BRIDGES = new Set(["film", "whip", "light_leak", "fade", "dip_black"]);
+        const unbridged = board.shots.filter((x) => /_\d+$/.test(x.id) && !BRIDGES.has(x.transitionIn ?? "cut")).map((x) => x.id);
+        if (unbridged.length) return `refused: these halves change the same picture with nothing bridging them — a jump: ${unbridged.join(", ")}. set_transition each to ${o.filmTransition ? "film (the film's own transition)" : "whip or light_leak"}, or merge_with_next to undo the split.`;
         if (o.watch && !watched) return "refused: watch at least one stretch you changed (with its sound) before submitting — numbers alone do not show a jump cut or a cut that lands on the wrong picture";
         const now = measureNow();
         if (now.structure < before.structure) return `refused: the cut measures further from the channel than it started (${now.structure} < ${before.structure}). Read the cut and fix it.`;

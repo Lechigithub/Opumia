@@ -62,3 +62,16 @@ Everything you watch comes with a MEASURED block from the same detectors that ju
 - **voice:** a seam is a join you can hear.
 - **trained taste:** the stretch's score against the channel's real median.
 Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.
+
+## Craft cuts (step 6)
+
+- **Bridge every change of the same picture.** A split (punch-in or pull-out of one clip) or an element vanishing over
+  the same footage is a jump unless a transition carries it. Use `set_transition` with `film`, the film's own
+  transition from its kit; the channel bridges 4–11 such changes a minute, mostly with light flashes. `submit_cut` is
+  refused while a split is unbridged.
+- **Cut on the music.** `cut_on_beat` moves a cut onto the nearest beat when one is within 0.25 s and the cut stays
+  off the middle of an important word. Use it at turns and in bursts, not everywhere.
+- **Cut on the voice, not after it.** A picture that arrives a moment before the word that names it leads the eye;
+  one that arrives late feels slow.
+- **Never twice the same.** Two neighbouring shots of the same size and subject read as a mistake unless bridged.
+
