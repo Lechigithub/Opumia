@@ -27,3 +27,4 @@ export * from "./scene-agent.js";
 export * from "./director-agent.js";
 export * from "./thumbnail-measure.js";
 export * from "./packaging-agent.js";
+export * from "./thumbnail-craft.js";

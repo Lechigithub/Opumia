@@ -122,5 +122,52 @@
         "usd": 0.405
       }
     ]
+  },
+  {
+    "at": "2026-11-22T01:35:51.172Z",
+    "commit": "fa7f868",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": false,
+        "passedBlind": true,
+        "spotted": 0.17,
+        "outsideBand": [],
+        "renders": 17,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 525,
+        "usd": 1.94
+      },
+      {
+        "job": "preview-theranos",
+        "accepted": true,
+        "passedBlind": false,
+        "spotted": 0.22,
+        "outsideBand": [
+          "flat_face"
+        ],
+        "renders": 9,
+        "title": "How Theranos Fooled Silicon Valley",
+        "seconds": 245,
+        "usd": 0.899
+      }
+    ]
+  },
+  {
+    "at": "2026-11-22T01:43:28.451Z",
+    "commit": "fa7f868",
+    "results": [
+      {
+        "job": "preview-kodak",
+        "accepted": true,
+        "passedBlind": true,
+        "spotted": 0.13,
+        "outsideBand": [],
+        "renders": 12,
+        "title": "How Kodak Invented the Digital Camera and Still Died",
+        "seconds": 422,
+        "usd": 1.29
+      }
+    ]
   }
 ]

@@ -19,6 +19,8 @@ export interface ThumbFinish {
   rays?: { color: string; x: number; y: number; opacity?: number; count?: number };
   overlays?: Array<{ slot: number; blend?: "screen" | "lighten" | "multiply" | "overlay"; opacity?: number; under?: boolean; x?: number; y?: number; w?: number; h?: number }>;
   vignette?: number;
+  /** A picture (logo, monogram, icon, object) repeated edge to edge as a wallpaper: the subject's own world. */
+  pattern?: { slot: number; size?: number; opacity?: number; rot?: number; tint?: string; tintStrength?: number; under?: boolean };
   /** Whole-image grade (replaces the fixed push): contrast, saturation, brightness, warmth −1…1. */
   grade?: { contrast?: number; saturation?: number; brightness?: number; warmth?: number };
 }
@@ -48,7 +50,9 @@ export const ThumbnailScene: React.FC<{ spec: ComposedProps["spec"]; slots: Reco
     ...spec,
     elements: spec.elements.map((e) => {
       const font = (e as unknown as { font?: ThumbFont }).font;
-      return e.type === "text" && font && fonts[font] ? { ...e, fontFamily: fonts[font] } : e;
+      const fillSlot = (e as unknown as { fillSlot?: number }).fillSlot;
+      const withFill = fillSlot !== undefined && slots[String(fillSlot)] ? { fillImage: slots[String(fillSlot)] } : {};
+      return e.type === "text" ? { ...e, ...(font && fonts[font] ? { fontFamily: fonts[font] } : {}), ...withFill } : e;
     }),
   };
   const g = finish?.grade;
@@ -71,6 +75,16 @@ export const ThumbnailScene: React.FC<{ spec: ComposedProps["spec"]; slots: Reco
       {rays ? (
         <AbsoluteFill style={{ mixBlendMode: "screen", opacity: clamp(rays.opacity, 0, 1, 0.55), background: `repeating-conic-gradient(from 0deg at ${clamp(rays.x, 0, 1, 0.5) * 100}% ${clamp(rays.y, 0, 1, 0.5) * 100}%, ${hex(rays.color, "#ffffff")} 0deg ${180 / n}deg, transparent ${180 / n}deg ${360 / n}deg)`, WebkitMaskImage: `radial-gradient(circle at ${clamp(rays.x, 0, 1, 0.5) * 100}% ${clamp(rays.y, 0, 1, 0.5) * 100}%, #000 0%, rgba(0,0,0,0.6) 35%, transparent 75%)` }} />
       ) : null}
+      {finish?.pattern && slots[String(finish.pattern.slot)] ? (() => {
+        const pt = finish.pattern!;
+        const size = Math.round(clamp(pt.size, 0.04, 0.5, 0.12) * 1280);
+        return (
+          <AbsoluteFill style={{ overflow: "hidden", opacity: clamp(pt.opacity, 0, 1, 0.35) }}>
+            <div style={{ position: "absolute", inset: "-40%", transform: `rotate(${clamp(pt.rot, -45, 45, -12)}deg)`, backgroundImage: `url(${staticFile(slots[String(pt.slot)]!)})`, backgroundSize: `${size}px auto`, backgroundRepeat: "repeat", backgroundPosition: "center" }} />
+            {pt.tint ? <AbsoluteFill style={{ background: hex(pt.tint, "#000000"), mixBlendMode: "color", opacity: clamp(pt.tintStrength, 0, 1, 0.6) }} /> : null}
+          </AbsoluteFill>
+        );
+      })() : null}
       {finish?.overlays?.length ? <Overlays list={finish.overlays} slots={slots} under /> : null}
       <ComposedScene spec={ownBackground ? { ...spec, backdrop: "footage", wash: undefined } : spec} slots={slots} />
       {finish?.overlays?.length ? <Overlays list={finish.overlays} slots={slots} under={false} /> : null}

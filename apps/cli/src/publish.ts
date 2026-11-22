@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { checkPackage, designThumbnail, ensureThumbBand, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
+import { checkPackage, designThumbnail, ensureThumbBand, ensureThumbCraft, isUsable, learnThumbnailGrammar, packagingAgent, thumbnailImposter, writePublishingText, type PackagingReport, type ThumbnailGrammar, type ThumbSlot } from "@opumia/agents";
 import type { FactSheet, FilmDesignSystem, LibraryIndex, ResolutionReport, Storyboard, TimedScript } from "@opumia/contracts";
 import { renderThumbnailScene } from "@opumia/motion-engine";
 import { closeBrowser, makeThumbnailTools, visionCheck, wikipediaImages, type ThumbCredit, type ThumbPicture } from "@opumia/resolver";
@@ -101,6 +101,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
     log("  ! no thumbnail band (reference thumbnails could not be labelled): single-prompt package");
     return legacyPackage(o, ex, exDir);
   }
+  const craft = await ensureThumbCraft({ data: o.data, channel: o.channel, band, log }).catch((e: Error) => (log(`  ! thumbnail craft unavailable: ${e.message.slice(0, 120)}`), null));
   const tools = makeThumbnailTools({ jobDir: o.jobDir, dataDir: o.data, libraryRoot: o.library, index: o.index, resolution: o.resolution, facts: o.facts, board: o.board, log });
   await tools.gather();
   log(`  packaging agent: ${tools.pics.length} real picture(s) to start — ${tools.pics.map((p) => p.depicts.slice(0, 26)).join("; ")}`);
@@ -113,6 +114,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
     script: o.script,
     design: o.design,
     band,
+    craft,
     references: ex.packaging ?? [],
     // The agent only hands back pictures from this same list.
     pictures: { ...tools, brief: (p) => tools.brief(p as ThumbPicture) },

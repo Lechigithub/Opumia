@@ -40,7 +40,7 @@ type El =
       turnY?: number;
       /** A real texture (blood splatter, cracks, burns, dirt) laid on the subject only. */
       textureSlot?: number;
-      textureBlend?: "multiply" | "screen" | "overlay" | "darken";
+      textureBlend?: "multiply" | "screen" | "overlay" | "darken" | "normal";
       textureOpacity?: number;
     })
   | (Box & {
@@ -60,6 +60,8 @@ type El =
       strokeColor?: string;
       highlightFill?: string;
       italic?: boolean;
+      /** A picture (public path) seen through the letters. */
+      fillImage?: string;
     })
   | (Box & { type: "phrase"; text: string; size: number; align?: "left" | "center" | "right"; color?: Token; emphasis?: string; wordFrames?: number[] })
   | (Box & { type: "text3d"; text: string; color?: Token; spin?: number })
@@ -363,6 +365,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
         : el.letter === "glow" ? ({ color: fill, textShadow: `0 0 ${size * 0.12}px ${fill}, 0 0 ${size * 0.35}px ${fill}aa, 0 ${size * 0.05}px ${size * 0.1}px rgba(0,0,0,0.9)` } as React.CSSProperties)
         : el.letter === "gradient" ? ({ backgroundImage: `linear-gradient(180deg, #ffffff 5%, ${fill} 60%, ${hx(el.boxFill) ?? PALETTE.crimson} 115%)`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", filter: `drop-shadow(0 ${size * 0.05}px ${size * 0.1}px rgba(0,0,0,0.8))` } as React.CSSProperties)
         : { color: fill, textShadow: `0 ${size * 0.04}px ${size * 0.16}px rgba(0,0,0,0.85)` };
+      if (el.fillImage) css = { ...css, backgroundImage: `url(${staticFile(el.fillImage)})`, backgroundSize: "cover", backgroundPosition: "center", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", WebkitTextFillColor: "transparent", textShadow: "none", filter: `drop-shadow(0 ${size * 0.05}px ${size * 0.12}px rgba(0,0,0,0.85))` } as React.CSSProperties;
     } else if (display && el.role !== "stamp") css = el.box ? { color, background: tok(el.box, PALETTE.ink), padding: `${size * 0.12}px ${size * 0.3}px`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties : textCss(TREATMENT.headline, color, size);
     else if (el.role === "stamp") css = { color, border: `${Math.max(4, size * 0.07)}px solid ${color}`, padding: `${size * 0.08}px ${size * 0.25}px`, display: "inline-block", textShadow: "0 3px 10px rgba(0,0,0,0.7)" };
     else if (el.role === "label" || el.role === "kicker") {

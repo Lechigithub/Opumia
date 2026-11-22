@@ -3,13 +3,14 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import * as z4 from "zod/v4";
 
 /** Models named for this pipeline: Sonnet 5.5 for reasoning stages, Haiku 5.5 for high-volume checks. */
-export const MODELS = { sonnet: "claude-sonnet-5-5", haiku: "claude-haiku-5-5" } as const;
+export const MODELS = { sonnet: "claude-sonnet-5-5", haiku: "claude-haiku-5-5", opus: "claude-opus-5-5" } as const;
 export type ModelId = (typeof MODELS)[keyof typeof MODELS];
 
 // $ per 1M tokens (input, output, cache read). Cache writes bill at 1.25× input.
 const PRICE: Record<ModelId, { in: number; out: number; cacheRead: number }> = {
   "claude-sonnet-5-5": { in: 2, out: 10, cacheRead: 0.1 },
   "claude-haiku-5-5": { in: 0.1, out: 0.5, cacheRead: 0.01 },
+  "claude-opus-5-5": { in: 4, out: 20, cacheRead: 0.2 },
 };
 
 let _client: Anthropic | null = null;

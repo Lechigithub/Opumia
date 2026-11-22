@@ -30,10 +30,20 @@ find a real frame where they show it; to show damage, lay a real texture over it
   taken from the subject's own colours (the brand colour, the product, the place).
 - **About two faces in five show a strong expression** — shock, anger, laughter. A calm conference portrait is weak.
 
+## The idea comes first
+
+The channel's thumbnails are each ONE visual idea in which the subject and the twist are fused into a single image:
+the logo IS on fire; the shoe is held by a bloody hand on a heap of cash; the rich man stands waist-deep in money
+between pyramid diagrams; the hacker sits against a wall of the brand's own monogram. A logo, a photo and a label
+placed side by side is a collage — that is what gives an imitation away. Every frame is filled edge to edge:
+piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a dim, blurred, empty backdrop.
+
 ## How to work
 
-1. **Study first.** Look at real thumbnails of the kind you have in mind (`view_reference_thumbnails`) — the hero
-   kind, the background kind, the marks.
+1. **Study the ideas.** `study_reference_ideas` takes real thumbnails apart (idea, fusion, layers, edges, lettering,
+   recipe). Study at least six before you propose.
+2. **Propose 8–12 concepts** (`propose_concepts`), each a fused visual metaphor, different from each other. Build
+   only the ones the creative director names; propose again if none scores well.
 2. **Gather the pictures.** You start with the film's verified press stills and the subjects' Wikipedia photos and
    logos. Get what the idea needs:
    - a real expression: `find_expression` (frames from interviews, news and speeches about the person, rated) →
@@ -44,14 +54,17 @@ find a real frame where they show it; to show damage, lay a real texture over it
      or `search_library` kind `overlay`; blend with `screen`;
    - money, coins, everyday objects: `search_library` kind `object`;
    - then `cut_out` the subjects you want lifted off their backgrounds.
-3. **Write titles and test them** (`test_titles`): five or six candidates in different patterns of the channel's
+3. **Gather sharp pictures** for the chosen concept (`find_product_shot` for crisp studio objects, `find_expression`
+   for real faces, piles and patterns from cut-outs).
+4. **Write titles and test them** (`test_titles`): five or six candidates in different patterns of the channel's
    most-viewed titles. A title that is picked out as the imitation is weaker than one that is not.
-4. **Design, render, look.** `render_thumbnail` shows you the thumbnail full size and at phone size, and measures it
+5. **Design, render, look.** `render_thumbnail` shows you the thumbnail full size and at phone size, and measures it
    against the channel: hero size, words, text size, background, colour, brightness, expression. Fix what it says.
    Try at least two different ideas — not one idea polished.
-5. **Test it blind** (`imposter_test`): it is hidden among real thumbnails of the channel and a judge who knows the
-   channel picks the imitation. Fix what gave it away.
-6. **Submit** the title and the thumbnail that work together.
+6. **Compare and fix** (`critique_thumbnail`): it is set next to the three real thumbnails whose ideas are nearest;
+   apply its fixes, most important first.
+7. **Test it blind** (`imposter_test`, three runs). Fix what gave it away.
+8. **Submit** the title and the thumbnail that work together — at 8/10 or better against the real ones.
 
 ## Compositing a scene from real pictures
 
@@ -61,6 +74,14 @@ find a real frame where they show it; to show damage, lay a real texture over it
   or over the frame as an overlay; `find_overlay` for fire, smoke, explosions.
 - **Drawn looks:** `find_illustration` for human-made illustrations and vectors (mascots, drawn objects), or
   `stylise` a real photo painterly, posterised or as ink.
+
+## Building the idea
+
+- **Piles:** `pile` heaps many copies of one cut-out (cash, coins, bottles, logos) across an area, smaller at the back
+  — a subject rising out of money, a floor of products.
+- **Brand world:** `finish.pattern` repeats a logo, monogram, icon or object edge to edge as the wallpaper.
+- **One picture inside another:** `textureSlot` + `textureBlend: "normal"` fills a cut-out's shape with another
+  picture (fire inside a logo); `fillSlot` shows a picture through the letters.
 
 ## Finishing tools
 

@@ -412,6 +412,34 @@ export function makeThumbnailTools(o: ThumbToolsOptions) {
     return { ok: true, pic };
   }
 
+  /**
+   * A crisp, high-resolution studio shot of a product or object (isolated on a plain ground), rated by eye and cut
+   * out — the sharp hero the channel's thumbnails are built around. Small pictures are skipped.
+   */
+  async function findProductShot(i: { want: string }): Promise<{ ok: true; added: ThumbPicture[] } | Fail> {
+    const base = i.want.replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 5).join(" ");
+    if (base.length < 3) return { ok: false, why: "say what the object or product is" };
+    const found = (await Promise.all([`${base} isolated white background`, `${base} studio`, `${base} close up`].map((q) => searchStock(q, { kind: "image", orientation: "landscape", perPage: 5, providers: ["pexels", "pixabay"] }).catch(() => [])))).flat();
+    const uniq = [...new Map(found.filter((c) => !c.aiGenerated && (c.width ?? 0) >= 1600 && !has(`${c.provider}:${c.externalId}`)).map((c) => [`${c.provider}:${c.externalId}`, c])).values()].slice(0, 12);
+    if (!uniq.length) return { ok: false, why: `no sharp studio picture of "${base}" (≥ 1600 px)` };
+    const withThumb = (await Promise.all(uniq.map(async (c) => {
+      const t = path.join(dl, "prev", `${sha(`${c.provider}:${c.externalId}`, 14)}.jpg`);
+      return (await thumbOf({ url: c.thumbUrl ?? c.fileUrl ?? "" }, t)) ? { c, t } : null;
+    }))).filter((x): x is { c: StockCandidate; t: string } => x !== null);
+    const rated = await reviewPictures(withThumb.map((x) => ({ frameFile: x.t, intent: `a sharp studio picture of ${base}, the object clearly separated from a plain background`, line: film, era: "any period" })));
+    const best = withThumb.map((x, k) => ({ ...x, r: rated[k]! })).filter((x) => x.r.fit >= 6 && !x.r.synthetic && !x.r.banner && !x.r.face).sort((a, b) => b.r.fit - a.r.fit).slice(0, 2);
+    if (!best.length) return { ok: false, why: `${withThumb.length} looked at; none is a clean, sharp ${base}` };
+    const added: ThumbPicture[] = [];
+    for (const b of best) {
+      const file = await downloadCandidate(b.c, dl).catch(() => null);
+      if (!file) continue;
+      const pic = await add(file, { depicts: `studio shot: ${b.r.shows}`, kind: "photo", face: false, named: false, fit: b.r.fit, credit: creditOf(b.c, "stock") });
+      const cut = await cutOut({ slot: pic.slot });
+      added.push(cut.ok ? cut.pic : pic);
+    }
+    return added.length ? { ok: true, added } : { ok: false, why: "the pictures could not be downloaded" };
+  }
+
   /** Copy a chosen render's pictures' public files are already in place; this returns the renderer's slot map. */
   const slotMap = () => Object.fromEntries(pics.map((p) => [String(p.slot), p.pub]));
   const takeDirty = () => {
@@ -421,6 +449,6 @@ export function makeThumbnailTools(o: ThumbToolsOptions) {
   };
   const copyOut = (slot: number, to: string) => copyFile(pics[slot]!.file, to);
 
-  return { pubDir, pics, brief, gather, findPicture, findOverlay, findExpression, usePressStill, findTexture, findIllustration, stylise, filmShots, filmStrip, useFilmFrame, cutOut, searchLibrary, addLibrary, slotMap, takeDirty, copyOut, subjects };
+  return { pubDir, pics, brief, gather, findPicture, findOverlay, findExpression, usePressStill, findTexture, findIllustration, stylise, findProductShot, filmShots, filmStrip, useFilmFrame, cutOut, searchLibrary, addLibrary, slotMap, takeDirty, copyOut, subjects };
 }
 export type ThumbnailTools = ReturnType<typeof makeThumbnailTools>;

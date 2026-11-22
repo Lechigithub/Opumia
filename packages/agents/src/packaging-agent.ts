@@ -19,6 +19,7 @@ import * as z from "zod/v4";
 import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
 import { testTitles, thumbnailImposter } from "./publishing.js";
 import { fitLayout } from "./scene-designer.js";
+import { critiqueConcepts, critiqueThumbnail, deconText, emptyShare, nearestRefs, type ConceptScore, type ThumbConcept, type ThumbCraft, type ThumbCritique } from "./thumbnail-craft.js";
 import { labelThumbnails, THUMB_BACKGROUNDS, THUMB_HEROES, THUMB_MARKS, thumbIssues, type ThumbBand, type ThumbIssue } from "./thumbnail-measure.js";
 
 /** The picture tools (resolver/thumbnail-tools.ts), handed in as functions. */
@@ -34,6 +35,7 @@ export interface PackagingPictureTools {
   findTexture: (i: { want: string }) => Promise<{ ok: true; added: PackagingPicture[] } | Fail>;
   findIllustration: (i: { want: string; style?: "illustration" | "vector" }) => Promise<{ ok: true; added: PackagingPicture[] } | Fail>;
   stylise: (i: { slot: number; style: "painterly" | "posterise" | "ink" | "halftone" | "sharpen" }) => Promise<{ ok: true; pic: PackagingPicture } | Fail>;
+  findProductShot: (i: { want: string }) => Promise<{ ok: true; added: PackagingPicture[] } | Fail>;
   filmShots: () => Array<{ shotId: string; kind: string; origin: string; depicts: string; seconds: number }>;
   filmStrip: (i: { shotId: string }) => Promise<{ ok: true; strip: string; times: number[] } | Fail>;
   useFilmFrame: (i: { shotId: string; atS: number }) => Promise<{ ok: true; pic: PackagingPicture } | Fail>;
@@ -55,7 +57,10 @@ export interface ThumbRender {
   slots: number[];
   issues: ThumbIssue[];
   colourfulness: number;
-  imposter?: { spotted: boolean; confidence: number; tells: string[] };
+  conceptId?: string;
+  empty?: number;
+  imposter?: { spotted: boolean; confidence: number; tells: string[]; runs?: number; spottedRuns?: number };
+  critique?: ThumbCritique;
 }
 export interface PackagingReport {
   pass: boolean;
@@ -72,6 +77,8 @@ export interface PackagingAgentOptions {
   script: TimedScript;
   design: FilmDesignSystem;
   band: ThumbBand;
+  /** Deconstructions of the channel's reachable thumbnails and its measured emptiness (thumbnail-craft.ts). */
+  craft?: ThumbCraft | null;
   references: Array<{ title: string; views: number | null }>;
   pictures: PackagingPictureTools;
   /** Renders a thumbnail spec + finish with the film's scene engine into `out` (1280×720 jpg). */
@@ -85,7 +92,10 @@ export interface PackagingAgentOptions {
 const COLORS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"] as const;
 const HEX = z.string().describe("#RRGGBB");
 const Element = z.object({
-  type: z.enum(["cutout", "photo", "card3d", "text", "shape", "texture"]).describe("card3d = a picture (a logo, a product, a document) as a lit card in real 3D perspective — depth for flat logos"),
+  type: z.enum(["cutout", "photo", "card3d", "pile", "text", "shape", "texture"]).describe("card3d = a picture (a logo, a product, a document) as a lit card in real 3D perspective — depth for flat logos; pile = many copies of one cut-out picture (cash, coins, bottles, logos) heaped across an area, smaller at the back"),
+  h: z.number().optional().describe("pile: height of the area (0–1); photo: height"),
+  count: z.number().optional().describe("pile: 6–40 copies"),
+  itemW: z.number().optional().describe("pile: width of one copy, 0.05–0.4 of the frame"),
   slot: z.number().optional().describe("picture number for cutout/photo/card3d"),
   tilt: z.number().optional().describe("card3d: -40…40 degrees"),
   spin: z.number().optional().describe("card3d: -40…40 degrees of turn"),
@@ -95,7 +105,8 @@ const Element = z.object({
   turnX: z.number().optional().describe("cut-out: -25…25 degrees perspective tilt"),
   turnY: z.number().optional().describe("cut-out: -35…35 degrees perspective turn"),
   textureSlot: z.number().optional().describe("cut-out: a texture picture (blood, cracks, burns, dirt) laid on the subject only"),
-  textureBlend: z.enum(["multiply", "screen", "overlay", "darken"]).optional(),
+  textureBlend: z.enum(["multiply", "screen", "overlay", "darken", "normal"]).optional().describe("normal = the texture picture fills the subject's shape (fire inside a logo)"),
+  fillSlot: z.number().optional().describe("text: a picture seen through the letters (fire, money, footage)"),
   textureOpacity: z.number().optional(),
   brightness: z.number().optional().describe("cut-out: 0.7–1.4"),
   x: z.number().describe("left edge, 0–1 of the frame width"),
@@ -116,7 +127,7 @@ const Element = z.object({
   // photo
   frame: z.enum(["none", "print", "torn", "circle", "tv", "polaroid"]).optional(),
   grade: z.enum(["natural", "mono", "duotone"]).optional(),
-  h: z.number().optional().describe("photo height, 0–1 of the frame height"),
+
   // text
   text: z.string().optional(),
   role: z.enum(["display", "headline", "stamp", "label"]).optional(),
@@ -146,10 +157,12 @@ const Finish = z.object({
   rays: z.object({ color: HEX, x: z.number(), y: z.number(), opacity: z.number().optional(), count: z.number().optional() }).optional().describe("light burst behind the hero"),
   overlays: z.array(z.object({ slot: z.number(), blend: z.enum(["screen", "lighten", "multiply", "overlay"]).optional(), opacity: z.number().optional(), under: z.boolean().optional().describe("behind the composition"), x: z.number().optional(), y: z.number().optional(), w: z.number().optional(), h: z.number().optional() })).optional().describe("fire, smoke, sparks or light filmed on black (library overlays), blended with screen"),
   vignette: z.number().optional(),
+  pattern: z.object({ slot: z.number(), size: z.number().optional().describe("0.04–0.5 of the frame width per tile"), opacity: z.number().optional(), rot: z.number().optional(), tint: HEX.optional(), tintStrength: z.number().optional() }).optional().describe("a logo, monogram, icon or object repeated edge to edge as the background wallpaper — the subject's own world"),
   grade: z.object({ contrast: z.number().optional().describe("0.8–1.6"), saturation: z.number().optional().describe("0.6–2"), brightness: z.number().optional().describe("0.7–1.4"), warmth: z.number().optional().describe("-1 cold … 1 warm") }).optional().describe("whole-image grade (default: saturation 1.35, contrast 1.08)"),
 });
 const Draft = z.object({
-  concept: z.string().describe("one sentence: the hero and the twist"),
+  conceptId: z.string().describe("the id of the critiqued concept this builds (propose_concepts)"),
+  concept: z.string().describe("one sentence: the idea"),
   palette: z.object({ primary: HEX, accent: HEX, surface: HEX }).describe("this thumbnail's own loud palette, from the subject's real colours"),
   world: z.enum(["nebula", "blueprint", "paper", "halftone", "smoke", "stripes", "spotlight"]).describe("procedural colour background, used only when there is no background photo or split"),
   headlineStyle: z.enum(["neon_glow", "solid_stroke", "boxed", "gradient", "paper_cut"]),
@@ -173,6 +186,28 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
   const used = new Set<number>();
   for (const e of d.elements) {
     const box = { x: clamp(e.x, -0.2, 0.98, 0.1), y: clamp(e.y, -0.2, 0.98, 0.1), w: clamp(e.w, 0.03, 1.4, 0.4), rot: clamp(e.rot, -20, 20, 0), z: 0.5, at: 0, enter: "fade" };
+    if (e.type === "pile") {
+      const p = pic(e.slot);
+      if (!p) {
+        dropped.push(`pile with no picture ${e.slot}`);
+        continue;
+      }
+      used.add(p.slot);
+      // Deterministic heap: rows from the back (small, darker) to the front (large), jittered.
+      const n = Math.round(clamp(e.count, 4, 40, 18));
+      const area = { x: clamp(e.x, -0.2, 1, 0), y: clamp(e.y, -0.2, 1, 0.6), w: clamp(e.w, 0.1, 1.4, 1), h: clamp(e.h, 0.05, 1, 0.4) };
+      const iw = clamp(e.itemW, 0.05, 0.4, 0.16);
+      const rnd = (k: number) => {
+        const v = Math.sin(k * 91.7 + n * 13.3 + p.slot * 7.1) * 43758.5453;
+        return v - Math.floor(v);
+      };
+      for (let k = 0; k < n; k++) {
+        const depth = k / Math.max(1, n - 1); // 0 = back row, 1 = front
+        const s = iw * (0.7 + 0.45 * depth) * (0.9 + 0.2 * rnd(k + 3));
+        els.push({ type: "cutout", slot: p.slot, x: area.x + rnd(k) * Math.max(0.01, area.w - s), y: area.y + depth * area.h * 0.85 + (rnd(k + 7) - 0.5) * 0.04, w: s, rot: (rnd(k + 11) - 0.5) * 50, z: 0.5, at: 0, enter: "fade", shadow: true, ...(depth < 0.4 ? { brightness: 0.75 + depth * 0.5 } : {}), ...(e.flip && k % 2 ? { flip: true } : {}) });
+      }
+      continue;
+    }
     if (e.type === "card3d") {
       const p = pic(e.slot);
       if (!p) {
@@ -205,7 +240,7 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
         dropped.push(`text "${t.slice(0, 30)}…" (too long for a thumbnail)`);
         continue;
       }
-      els.push({ type: "text", text: t, role: e.role === "label" ? "label" : e.role === "stamp" ? "stamp" : "display", ...box, size: clamp(e.size, 0.05, 0.3, 0.16), align: e.align ?? "center", color: e.color ?? "text", ...(e.box ? { box: e.box } : {}), ...(e.word?.trim() ? { highlightWord: e.word.trim() } : {}), ...(e.font ? { font: e.font } : {}), ...(e.letter ? { letter: e.letter } : {}), ...(validHex(e.fill) ? { fill: e.fill } : {}), ...(validHex(e.boxFill) ? { boxFill: e.boxFill } : {}), ...(validHex(e.strokeColor) ? { strokeColor: e.strokeColor } : {}), ...(validHex(e.highlightFill) ? { highlightFill: e.highlightFill } : {}), ...(e.italic ? { italic: true } : {}) });
+      els.push({ type: "text", text: t, role: e.role === "label" ? "label" : e.role === "stamp" ? "stamp" : "display", ...box, size: clamp(e.size, 0.05, 0.3, 0.16), align: e.align ?? "center", color: e.color ?? "text", ...(e.box ? { box: e.box } : {}), ...(e.word?.trim() ? { highlightWord: e.word.trim() } : {}), ...(e.font ? { font: e.font } : {}), ...(e.letter ? { letter: e.letter } : {}), ...(validHex(e.fill) ? { fill: e.fill } : {}), ...(validHex(e.boxFill) ? { boxFill: e.boxFill } : {}), ...(validHex(e.strokeColor) ? { strokeColor: e.strokeColor } : {}), ...(validHex(e.highlightFill) ? { highlightFill: e.highlightFill } : {}), ...(e.italic ? { italic: true } : {}), ...(e.fillSlot !== undefined && pic(e.fillSlot) ? (used.add(e.fillSlot), { fillSlot: e.fillSlot }) : {}) });
     } else if (e.type === "shape" && e.shape) els.push({ type: "shape", shape: e.shape, ...box, h: clamp(e.h, 0.005, 0.6, 0.014), color: e.color ?? "accent", ...(e.shape === "arrow" ? { x2: clamp(e.x2, 0, 1, 0.5), y2: clamp(e.y2, 0, 1, 0.5) } : {}) });
     else if (e.type === "texture" && e.texture) els.push({ type: "texture", texture: e.texture, opacity: clamp(e.opacity, 0, 1, 0.3), at: 0 });
   }
@@ -232,6 +267,10 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
   }
   if (f?.vignette) finish.vignette = clamp(f.vignette, 0, 1, 0.4);
   if (f?.grade) finish.grade = f.grade;
+  if (f?.pattern && pic(f.pattern.slot)) {
+    used.add(f.pattern.slot);
+    finish.pattern = f.pattern;
+  }
   const p = base.palette;
   const design: FilmDesignSystem = {
     ...base,
@@ -266,6 +305,10 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   let accepted: { title: string; render: ThumbRender } | null = null;
   let noteSaved = false;
   let imposterRound = 0;
+  const concepts = new Map<string, ThumbConcept & { score?: ConceptScore }>();
+  let conceptRounds = 0;
+  let studied = 0;
+  const craft = o.craft ?? null;
 
   const bandText = [
     `## This channel's thumbnails, measured on ${b.count} real ones`,
@@ -277,6 +320,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     `- text drawn as: ${Object.entries(b.textStyle).filter(([k, v]) => k !== "none" && v > 0).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k.replace("_", " ")} ${pc(v)}`).join(", ")}; looks like: ${b.textLooks.slice(0, 8).join("; ")}`,
     `- focal elements: median ${b.elements.median}, never more than ${b.elements.max}`,
     `- colourfulness ${Math.round(b.colourfulness.p25)}–${Math.round(b.colourfulness.p90)} (median ${Math.round(b.colourfulness.median)}); brightness ${b.luma.p10.toFixed(2)}–${b.luma.p90.toFixed(2)}`,
+    ...(craft ? [`- emptiness (flat, dim or blurred share of the frame): median ${pc(craft.emptyShare.median)}, nine in ten ≤ ${pc(craft.emptyShare.p90)} — the channel fills its frames`, `\n## How the channel's best thumbnails work (taken apart)\n${craft.items.slice(0, 12).map((d) => `- ${deconText(d)}`).join("\n")}`] : []),
     `- made of: real pictures only ${pc(b.makeable.real_pictures)}, retouched ${pc(b.makeable.needs_retouch)}, composited scenes ${pc(b.makeable.needs_invention)}, illustration ${pc(b.makeable.illustration)}; reachable with your tools ${pc(b.reach.reachable)} (the rest alter a real face ${pc(b.reach.face_alteration)} or need new painting ${pc(b.reach.new_painting)} — never do those)`,
   ].join("\n");
   const refTitles = [...o.references].sort((x, y) => (y.views ?? 0) - (x.views ?? 0)).slice(0, 30).map((r) => `- ${r.title} [${r.views ?? "?"}]`).join("\n");
@@ -325,6 +369,34 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
       },
     },
     {
+      name: "study_reference_ideas",
+      description: "Real thumbnails of the channel taken apart by a designer: the one idea, how subject and twist are fused, the layer stack, how the frame is filled, the lettering, and a recipe to rebuild it from real pictures. Filter by words of what you are planning. Returns up to 4 with their images.",
+      schema: z.object({ about: z.string().optional().describe("words of your idea: fire, money, logo, person, pattern…"), max: z.number().optional() }),
+      run: async (i: { about?: string; max?: number }) => {
+        if (!craft) return "no deconstructions available";
+        const pick = i.about ? nearestRefs(craft, i.about, clamp(i.max, 1, 4, 3)) : craft.items.slice(studied, studied + clamp(i.max, 1, 4, 3));
+        studied += pick.length;
+        const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [];
+        for (const d of pick) out.push({ type: "text", text: `${deconText(d)}\nRECIPE: ${d.recipe}` }, await img(d.file));
+        return out.length ? out : "nothing more to study";
+      },
+    },
+    {
+      name: "propose_concepts",
+      description: "Before rendering anything: write 8–12 thumbnail concepts, each ONE visual idea that fuses the subject and the twist into a single image filling the frame. A creative director scores them against the channel's best thumbnails (fused, instant, surprising, the channel's kind of idea, makeable) and names the ones to build. You may propose again with better ones.",
+      schema: z.object({ concepts: z.array(z.object({ id: z.string(), idea: z.string(), hero: z.string(), twist: z.string(), fusion: z.string().describe("how hero and twist become one image"), background: z.string(), fill: z.string().describe("what fills the frame edge to edge"), lettering: z.string(), pictures: z.string().describe("the real pictures it needs") })).min(6).max(14) }),
+      run: async (i: { concepts: ThumbConcept[] }) => {
+        if (!craft) return "no deconstructions available — render directly";
+        const ids = new Set<string>();
+        const list = i.concepts.map((c) => ({ ...c, id: ids.has(c.id) || concepts.has(c.id) ? `${c.id}_${conceptRounds + 1}` : c.id })).map((c) => (ids.add(c.id), c));
+        const r = await critiqueConcepts({ channel: o.channel, craft, film: `${o.script.title}: ${o.facts.summary}`, pictures: o.pictures.pics.map((p) => o.pictures.brief(p)).join("; ").slice(0, 2500), concepts: list });
+        conceptRounds++;
+        for (const c of list) concepts.set(c.id, { ...c, score: r.scores.find((s) => s.id === c.id) });
+        log(`    concepts round ${conceptRounds}: best ${r.best.join(", ")} (${r.scores.slice(0, 3).map((s) => `${s.id} ${s.total}`).join(", ")})`);
+        return `SCORES (fused ×1.5, instant, surprise, channel ×1.5, makeable → total of 10):\n${r.scores.map((s) => `[${s.id}] ${s.total} — fused ${s.fused}, instant ${s.instant}, surprise ${s.surprise}, channel ${s.channel}, makeable ${s.makeable}; nearest: ${s.nearest}; to make it stronger: ${s.note}`).join("\n")}\nBUILD: ${r.best.join(", ")}. Gather the pictures these need, then render with conceptId.`;
+      },
+    },
+    {
       name: "list_pictures",
       description: "Every picture you have so far (its number is what elements and the finish refer to).",
       schema: z.object({}),
@@ -362,6 +434,18 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         const r = await o.pictures.findExpression(i);
         if (!r.ok) return r.why;
         return [{ type: "text", text: `frames in reading order on the sheet (left to right, top row first) — number: expression, score, id:\n${r.frames.map((f) => `${f.expression} — score ${f.score} — id ${f.id}`).join("\n")}` }, await img(r.sheet)];
+      },
+    },
+    {
+      name: "find_product_shot",
+      description: "A crisp, high-resolution studio picture of a product or object (≥ 1600 px), rated by eye and cut out — a sharp hero or a pile item (cash, coins, bottles, shoes, phones…).",
+      schema: z.object({ want: z.string() }),
+      run: async (i: { want: string }) => {
+        const r = await o.pictures.findProductShot(i);
+        if (!r.ok) return r.why;
+        const out: Array<Anthropic.Beta.BetaTextBlockParam | Anthropic.Beta.BetaImageBlockParam> = [{ type: "text", text: r.added.map((p) => o.pictures.brief(p)).join("\n") }];
+        for (const p of r.added) out.push(await img(p.file));
+        return out;
       },
     },
     {
@@ -485,6 +569,12 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
       description: "Render a thumbnail design with the film's scene engine (1280×720) and measure it against the channel. Returns it full size, at phone size (360 and 168 px wide), and what is outside the channel's band.",
       schema: Draft,
       run: async (d: z.infer<typeof Draft>) => {
+        // Cost cap: twelve renders. Polishing one weak idea does not reach the channel; a better concept does.
+        if (renders.length >= 12) return "NOT RENDERED: twelve renders is the limit. Submit the best one you have.";
+        // A weak idea is not built: until a concept scores 7+, propose better ones (at most three rounds).
+        const best = Math.max(0, ...[...concepts.values()].map((c) => c.score?.total ?? 0));
+        if (craft && best < 8 && conceptRounds < 3) return `NOT RENDERED: the best concept so far scores ${best}/10 (8 needed). Study more real ideas and propose better concepts first (round ${conceptRounds + 1} of 3) — fused, instant, surprising.`;
+        if (craft && !concepts.has(d.conceptId)) return `NOT RENDERED: conceptId "${d.conceptId}" is not a critiqued concept. Propose concepts first (propose_concepts) and build one of the best.`;
         const built = build(d, o.design, o.pictures.pics);
         const id = `r${renders.length + 1}`;
         const file = path.join(outDir, `${id}.jpg`);
@@ -493,17 +583,19 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", file, "-filter_complex", "[0]scale=360:-2[a];[0]scale=168:-2,pad=168:202:0:0:0x202020[b];[a]pad=376:202:0:0:0x202020[a2];[a2][b]hstack=inputs=2", "-frames:v", "1", "-update", "1", phone]);
         const [label] = await labelThumbnails([file]);
         const look = await measureLook(file, { fps: 1 });
-        const issues = [...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
-        const r: ThumbRender = { id, file, phone, concept: d.concept, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness };
+        const empty = await emptyShare(file).catch(() => 0);
+        const emptyLimit = craft ? Math.max(0.08, craft.emptyShare.p90) : 0.3;
+        const issues = [...(empty > emptyLimit ? [{ kind: "empty_frame", detail: `${pc(empty)} of the frame is flat, dim or blurred; the channel's thumbnails stay at or under ${pc(emptyLimit)} (median ${pc(craft?.emptyShare.median ?? 0)}). Fill it: a pile, a pattern of the subject's own marks, a sharp background, fire, the hero bigger.` }] : []),...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
+        const r: ThumbRender = { id, file, phone, concept: d.concept, conceptId: d.conceptId, empty, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness };
         renders.push(r);
         log(`    ${id}: "${d.concept.slice(0, 70)}" — ${issues.length ? issues.map((x) => x.kind).join(", ") : "inside the band"}`);
-        const head = `${id}: ${label ? `measured — hero ${label.hero} ${pc(label.heroShare)}, background ${label.background}, ${label.words} word(s)${label.words ? ` drawn ${label.textStyle.replace("_", " ")} (${label.textLook})` : ""}, text ${pc(label.textHeight)} high, ${label.elements} focal elements, marks ${label.marks.join(", ") || "none"}, face ${label.expression}; ` : ""}colourfulness ${Math.round(look.colourfulness)}, brightness ${look.luma.toFixed(2)}.${built.dropped.length ? `\nDropped: ${built.dropped.join("; ")}.` : ""}\n${issues.length ? `OUTSIDE THE CHANNEL'S BAND:\n${issues.map((x) => `- [${x.kind}] ${x.detail}`).join("\n")}` : "Inside the channel's band. Now test it blind (imposter_test)."}`;
+        const head = `${id}: ${label ? `measured — hero ${label.hero} ${pc(label.heroShare)}, background ${label.background}, ${label.words} word(s)${label.words ? ` drawn ${label.textStyle.replace("_", " ")} (${label.textLook})` : ""}, text ${pc(label.textHeight)} high, ${label.elements} focal elements, marks ${label.marks.join(", ") || "none"}, face ${label.expression}; ` : ""}colourfulness ${Math.round(look.colourfulness)}, brightness ${look.luma.toFixed(2)}, empty ${pc(empty)}.${built.dropped.length ? `\nDropped: ${built.dropped.join("; ")}.` : ""}\n${issues.length ? `OUTSIDE THE CHANNEL'S BAND:\n${issues.map((x) => `- [${x.kind}] ${x.detail}`).join("\n")}` : "Inside the channel's band. Now compare it with the real ones (critique_thumbnail) and test it blind (imposter_test)."}`;
         return [{ type: "text", text: head }, await img(file), { type: "text", text: "At phone size (home feed 360 px, suggested 168 px):" }, await img(phone)];
       },
     },
     {
       name: "imposter_test",
-      description: "Hide a render among four real thumbnails of the channel; a judge who knows the channel picks the imitation and says what gave it away.",
+      description: "Hide a render among four real thumbnails of the channel, three times with different real ones; a judge who knows the channel picks the imitation each time and says what gave it away. One lucky pass does not count: the result is how often it was picked out.",
       schema: z.object({ id: z.string() }),
       run: async (i: { id: string }) => {
         const r = renders.find((x) => x.id === i.id);
@@ -513,13 +605,44 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         const pool = [...b.items].sort((x, y) => (y.views ?? 0) - (x.views ?? 0));
         const ok = (x: (typeof pool)[number]) => (x.label.reach ? x.label.reach === "reachable" : x.label.makeable === "real_pictures");
         const realOnes = pool.filter(ok);
-        const rot = (xs: typeof pool) => xs.map((_, k) => xs[(k + imposterRound * 4) % xs.length]!);
-        const real = [...rot(realOnes), ...rot(pool.filter((x) => !ok(x)))].slice(0, 4).map((x) => x.file);
+        const runs = await Promise.all(
+          [0, 1, 2].map(async (k) => {
+            const round = imposterRound * 3 + k;
+            const rot = (xs: typeof pool) => xs.map((_, j) => xs[(j + round * 4) % xs.length]!);
+            const real = [...rot(realOnes), ...rot(pool.filter((x) => !ok(x)))].slice(0, 4).map((x) => x.file);
+            return thumbnailImposter({ channel: o.channel, candidate: r.file, real, seed: round * 2 + 1 });
+          }),
+        );
         imposterRound++;
-        const t = await thumbnailImposter({ channel: o.channel, candidate: r.file, real, seed: imposterRound * 2 + 1 });
-        r.imposter = { spotted: t.spotted, confidence: t.spotted ? t.confidence : 0, tells: t.tells };
-        log(`    imposter ${r.id}: ${t.spotted ? `picked out (${t.confidence.toFixed(2)})` : "passed as real"}`);
-        return t.spotted ? `PICKED OUT as the imitation (confidence ${t.confidence.toFixed(2)}). What gave it away:\n${t.tells.map((x) => `- ${x}`).join("\n")}` : `PASSED as a real thumbnail of the channel${t.tells.length ? ` (the judge's doubts: ${t.tells.join("; ")})` : ""}.`;
+        const spotted = runs.filter((t) => t.spotted);
+        const conf = spotted.length ? spotted.reduce((t, x) => t + x.confidence, 0) / runs.length : 0;
+        const tells = [...new Set(spotted.flatMap((t) => t.tells))].slice(0, 8);
+        r.imposter = { spotted: spotted.length >= 2, confidence: Math.round(conf * 100) / 100, tells, runs: runs.length, spottedRuns: spotted.length };
+        log(`    imposter ${r.id}: picked out ${spotted.length}/3 (avg ${conf.toFixed(2)})`);
+        return `${spotted.length >= 2 ? "PICKED OUT" : "PASSED"} — picked out as the imitation in ${spotted.length} of 3 blind tests (average confidence ${conf.toFixed(2)}).${tells.length ? `\nWhat gave it away:\n${tells.map((x) => `- ${x}`).join("\n")}` : ""}`;
+      },
+    },
+    {
+      name: "critique_thumbnail",
+      description: "A creative director puts your render next to the three real thumbnails whose ideas are nearest and says: fused idea or collage, whether the idea reads in one second, what is empty, what each real one does that yours does not, craft faults, a score out of 10 against them (7 = sits among them unnoticed) and the three fixes that matter most.",
+      schema: z.object({ id: z.string() }),
+      run: async (i: { id: string }) => {
+        const r = renders.find((x) => x.id === i.id);
+        if (!r) return `no render ${i.id}`;
+        if (!craft) return "no deconstructions available";
+        const c = r.conceptId ? concepts.get(r.conceptId) : undefined;
+        const refs = nearestRefs(craft, `${r.concept} ${c?.idea ?? ""} ${c?.fusion ?? ""} ${c?.background ?? ""}`, 3);
+        const { critique } = await critiqueThumbnail({ channel: o.channel, file: r.file, concept: c?.idea ?? r.concept, refs });
+        r.critique = critique;
+        log(`    critique ${r.id}: ${critique.score}/10, ${critique.fused}${critique.ideaReads ? "" : ", idea does not read"}`);
+        const sheet = path.join(outDir, `crit_${r.id}.jpg`);
+        await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", r.file, ...refs.flatMap((x) => ["-i", x.file]), "-filter_complex", `${[r.file, ...refs].map((_, k) => `[${k}]scale=640:360[s${k}]`).join(";")};${[r.file, ...refs].map((_, k) => `[s${k}]`).join("")}xstack=inputs=${refs.length + 1}:layout=0_0|640_0|0_360|640_360:fill=black`, "-frames:v", "1", "-update", "1", sheet]).catch(() => {});
+        const text = `${r.id}: ${critique.score}/10 — ${critique.fused.replace("_", " ")}; idea ${critique.ideaReads ? "reads at a glance" : "does NOT read at a glance"}; empty: ${critique.empty}\nWhat the real ones do that yours does not:\n${critique.perReference.map((x) => `- real ${x.ref}: ${x.doesThatOursDoesNot}`).join("\n")}\nCraft faults: ${critique.craft.join("; ") || "none"}\nFIX FIRST:\n${critique.fixes.map((x, k) => `${k + 1}. ${x}`).join("\n")}\n(sheet: yours top left, then the three real ones)`;
+        try {
+          return [{ type: "text", text }, await img(sheet)];
+        } catch {
+          return text;
+        }
       },
     },
     {
@@ -535,6 +658,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         if (!r) refuse.push(`no render ${i.id}`);
         else {
           if (!r.imposter) refuse.push(`test ${r.id} blind first (imposter_test)`);
+          if (craft && !r.critique) refuse.push(`compare ${r.id} with the real ones first (critique_thumbnail)`);
           const block = r.issues.filter((x) => BLOCKERS.has(x.kind));
           const tw = new Set(content(i.title));
           const texts = (r.spec as { elements: Array<{ type: string; text?: string }> }).elements.filter((e) => e.type === "text").map((e) => e.text ?? "").join(" ");
@@ -542,10 +666,11 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
           if (cw.length && cw.filter((w) => tw.has(w)).length / cw.length >= 0.6) refuse.push(`the thumbnail words "${texts}" repeat this title`);
           if (block.length) refuse.push(`blocking: ${block.map((x) => x.detail).join(" | ")}`);
           const soft = r.issues.filter((x) => !BLOCKERS.has(x.kind));
-          // Keep working while it is picked out or outside the band: at least five renders and two different ideas
-          // tested blind before a thumbnail that was picked out may be submitted.
-          const ideas = new Set(renders.filter((x) => x.imposter).map((x) => x.concept.slice(0, 40))).size;
-          if ((soft.length || r.imposter?.spotted) && (renders.length < 5 || ideas < 2)) refuse.push(`it is still outside the channel's band or was picked out (${[...soft.map((x) => x.kind), ...(r.imposter?.spotted ? [`spotted ${r.imposter.confidence.toFixed(2)}: ${r.imposter.tells.slice(0, 2).join("; ")}`] : [])].join(", ")}). Fix exactly that or try a different idea — ${renders.length} render(s), ${ideas} idea(s) tested blind so far; your other tools (find_expression, find_overlay, find_texture, find_illustration, stylise, compare, card3d, contactShadow, matchBackground) are there for this.`);
+          // Keep working while it is below the channel's level: at least seven renders and two different concepts
+          // before a thumbnail that the critique scores under 7, calls a collage, or the blind test picks out may be submitted.
+          const ideas = new Set(renders.filter((x) => x.imposter).map((x) => x.conceptId ?? x.concept.slice(0, 40))).size;
+          const weak = (r.critique && (r.critique.score < 8 || r.critique.fused === "collage")) || r.imposter?.spotted || soft.length;
+          if (weak && renders.length < 12 && (renders.length < 7 || ideas < 2)) refuse.push(`not yet at the channel's level (${[...(r.critique ? [`critique ${r.critique.score}/10, ${r.critique.fused}`] : []), ...(r.imposter?.spotted ? [`picked out ${r.imposter.spottedRuns}/3`] : [])].join(", ")}). Apply the critique's fixes or build another of the best concepts — ${renders.length} render(s), ${ideas} concept(s) tested so far.`);
         }
         if (refuse.length) return `NOT ACCEPTED:\n${refuse.map((x) => `- ${x}`).join("\n")}`;
         accepted = { title: i.title.trim(), render: r! };
@@ -570,12 +695,12 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   const people = (o.facts.story?.characters ?? []).map((c) => `${c.name} (${c.role})`).join("; ");
   const user = `Package this film.\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
   let grace = 1;
-  const runRes = await agentLoop({ stage: "publish.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 44, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
+  const runRes = await agentLoop({ stage: "publish.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 56, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
 
   // Not submitted: the best render that carries no blocking issue (least confidently picked out), with the best title.
   const fallback = (): ThumbRender | null => {
     const ok = renders.filter((r) => !r.issues.some((x) => BLOCKERS.has(x.kind)));
-    return [...ok].sort((x, y) => (x.imposter?.confidence ?? 0.9) - (y.imposter?.confidence ?? 0.9) || x.issues.length - y.issues.length)[0] ?? null;
+    return [...ok].sort((x, y) => (y.critique?.score ?? 0) - (x.critique?.score ?? 0) || (x.imposter?.confidence ?? 0.9) - (y.imposter?.confidence ?? 0.9) || x.issues.length - y.issues.length)[0] ?? null;
   };
   const final = accepted as { title: string; render: ThumbRender } | null;
   const report: PackagingReport = { pass: final !== null, title: final?.title ?? bestTitle() ?? o.script.title, titles, thumbnail: final?.render ?? fallback(), renders: renders.length, agent: { turns: runRes.turns, calls: runRes.calls, usd: runRes.usd } };
