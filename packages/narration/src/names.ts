@@ -101,7 +101,21 @@ export async function ownPronunciation(o: { term: string; article: string; dataD
     // build list 5: a web search that found nothing is NOT remembered either — the lookup's answer varies run to run
     // (Elop: found on one run in four), so a NONE must never stick for good
     if (w === null) return null;
-    ipa = w;
+    // proof film (WeWork): the lookup returned "/group.softbank/" for SoftBank and "Son Masayoshi" in Japanese order for
+    // "Masayoshi Son" — a target the voice can never match. Only real IPA whose consonants fit the name as written (in
+    // either word order) is used.
+    if (!/^[\p{L}ˈˌːˑ.\s‿ʰʲʷ̩̯̃ʼ-]+$/u.test(w) || /[a-z]{5,}\.[a-z]/i.test(w) || /group|http|www/i.test(w)) return null;
+    const spelt = await espeakIpa(o.term).catch(() => "");
+    if (spelt) {
+      const words = w.trim().split(/\s+/);
+      const orders = [w, [...words].reverse().join(" ")];
+      const fit = Math.max(...orders.map((x) => Math.min(phonemeMatch(x, spelt).consonants, phonemeMatch(spelt, x).consonants)));
+      if (fit < 0.6) return null;
+      if (words.length > 1 && orders[1] && Math.min(phonemeMatch(orders[1], spelt).consonants, phonemeMatch(spelt, orders[1]).consonants) > Math.min(phonemeMatch(w, spelt).consonants, phonemeMatch(spelt, w).consonants)) {
+        ipa = orders[1];
+      }
+    }
+    ipa = ipa ?? w;
   }
   memo[key] = ipa;
   await mkdir(path.dirname(memoF), { recursive: true });

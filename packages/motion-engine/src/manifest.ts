@@ -46,6 +46,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
   const shots = [...o.storyboard.shots].sort((a, b) => a.startS - b.startS);
   const parityLog: string[] = [];
   const unfilled: string[] = [];
+  const holes: Array<{ start: number; end: number }> = [];
 
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i]!;
@@ -88,7 +89,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     } else if (designed) {
       // No footage: the kit's stage carries the shot (a scene on a stage draws it itself; a data graphic sits on it).
       if (designed.designed !== "scene") video.push({ id: `${s.id}_stage`, shotId: s.id, sourceKind: "designed", ref: "stage", startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 0, blend: "normal", keyframes: [], props: { transitionIn: s.transitionIn } });
-    } else unfilled.push(s.id);
+    } else (unfilled.push(s.id), holes.push({ start, end }));
 
     for (const ov of media.filter((m) => m.role === "overlay" && m !== paper)) {
       video.push({ id: `${s.id}_ov_${ov.ref}`, shotId: s.id, sourceKind: "library", ref: ov.ref, src: ov.publicPath, startFrame: start, endFrame: end, trimStartFrame: 0, zIndex: 1, blend: "screen", keyframes: [], props: { kind: ov.kind, opacity: s.overlays[0]?.opacity ?? 0.5 } });
@@ -178,6 +179,16 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     }
   }
   if (parityLog.length) log(`  manifest: number parity — ${parityLog.join("; ")}`);
+  // proof film (WeWork: five shots with neither footage nor a scene rendered black): a hole is never black — the shot
+  // before it holds over it (or the one after it starts early); the gate still sends the shot back to be filled.
+  for (const h of holes.sort((a, b) => a.start - b.start)) {
+    const prev = video.filter((l) => l.zIndex === 0 && l.endFrame === h.start).at(-1);
+    if (prev) prev.endFrame = h.end;
+    else {
+      const next = video.find((l) => l.zIndex === 0 && l.startFrame === h.end);
+      if (next) next.startFrame = h.start;
+    }
+  }
   if (unfilled.length) log(`  manifest: UNFILLED — ${unfilled.join(", ")} have neither footage nor a scene (preflight sends them back)`);
 
   // Word-synced captions on top — suppressed while the kit's chapter card is on screen (no duplicate text).

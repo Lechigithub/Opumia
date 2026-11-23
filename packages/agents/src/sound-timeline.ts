@@ -137,6 +137,12 @@ export function soundKit(o: SoundTimelineOptions) {
       const n = fresh(f);
       if (n.length) return n[0];
     }
+    // proof films: the short risers ran dry under the cooldown and the climax lost its riser — a longer riser (its tail
+    // is what is heard: the lead into the moment is cut to 3.2 s) or a swell is fresh material too
+    if (fam === "riser") {
+      const longer = all.filter((a) => !used.has(a.id) && !o.cooldown.sfx.has(a.id) && (o.sfxProfile[a.id]!.family === "riser" || /reverse_swell|swell_suspense/.test(cls(a))));
+      if (longer.length) return longer.sort((a, b) => rnd(a.id) - rnd(b.id))[0];
+    }
     return undefined;
   };
   /** How many fresh files a family still has (for the agent's read-out). */
@@ -258,15 +264,15 @@ export function designSoundTimeline(o: SoundTimelineOptions): { shots: Storyboar
   const climax = [...tl.turns].sort((a, b) => b.strength - a.strength || a.atS - b.atS)[0];
   for (const e of chosen) {
     const a = kit.pick(e.family, used);
-    if (!a) {
-      skipped++;
-      continue;
+    if (!a) skipped++;
+    else {
+      used.add(a.id);
+      const pl = kit.placement(e.family, a.id, e.atS);
+      place(a.id, pl.atS, pl.gainDb);
+      families[e.family] = (families[e.family] ?? 0) + 1;
     }
-    used.add(a.id);
-    const pl = kit.placement(e.family, a.id, e.atS);
-    place(a.id, pl.atS, pl.gainDb);
-    families[e.family] = (families[e.family] ?? 0) + 1;
-    // A riser into the biggest moments (at most one per 40 s).
+    // A riser into the biggest moments (at most one per 40 s) — even when the hit itself had no fresh file (proof films:
+    // the thuds ran dry under the cooldown and took the climax's riser with them).
     const intoClimax = !!climax && Math.abs(e.atS - climax.atS) < 0.6;
     if ((intoClimax || e.prio >= 4.5) && risers < Math.max(1, Math.floor(dur / 40)) && e.atS > 4) {
       const r = kit.pick("riser", used);

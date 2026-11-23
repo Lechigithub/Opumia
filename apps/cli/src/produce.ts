@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setLaterGuarantee, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
 import { closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -108,6 +108,12 @@ export async function produce(o: ProduceOptions) {
       closeStage();
       open = { stage: line.trim(), t: Date.now(), n: usageLedger().length };
       setCurrentStage(/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? null);
+      // the first-pass shares of the stages still to come are kept from this one (the finish has its own reserve)
+      {
+        const ORDER = ["A1", "A2", "A3", "B1", "B2", "B2d", "B2s", "B3", "B4e", "B4c", "B5", "B5s", "B6"];
+        const at = ORDER.indexOf(/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? "");
+        setLaterGuarantee(at < 0 ? 0 : ORDER.slice(at + 1).reduce((t, c) => t + (plan.stage(c)?.usd ?? 0), 0));
+      }
       const sh = plan.stage(/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? "");
       setStageCap(sh === null || sh.capUsd <= 0 ? null : sh.capUsd);
     }
@@ -150,6 +156,7 @@ export async function produce(o: ProduceOptions) {
     const filmTotal = filmSpent();
     setBudget(null);
     setFilmLength(null);
+    setLaterGuarantee(0);
     // item 1: what every agent was given and used; a starved first pass is a failure of the run
     const al = allotments();
     if (al.length) {

@@ -138,6 +138,14 @@ const sumFrom = (from: number) => ledger.slice(from).reduce((t, r) => t + r.usd,
 export function filmSpent(): number {
   return budget ? budget.spentBefore + sumFrom(budget.from) : 0;
 }
+/**
+ * Proof film (WeWork: the narration ran over and every later first pass got $0 — 0 of 24 scenes designed): the
+ * first-pass shares of the stages still to come are set aside, so an earlier stage can never spend them.
+ */
+let laterGuarantee = 0;
+export function setLaterGuarantee(usd: number) {
+  laterGuarantee = Math.max(0, usd);
+}
 const repairScope = new AsyncLocalStorage<boolean>();
 /** Run repair work (a ladder rung): it is paid from the repair pool and tagged as repair in the ledger. */
 export function inRepair<T>(fn: () => Promise<T>): Promise<T> {
@@ -167,8 +175,13 @@ export function agentLeft(): number | null {
   // a repair: the repair pool (its own cap applies; never the stage's)
   if (repairing()) return budget ? Math.min(budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd), repairLeft()) : null;
   // a first pass: the stage's cap, within what the film has once the repair pool and the finish reserve are set aside
-  const film = budget ? budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd) - repairLeft() : Infinity;
   const stage = stageCap ? stageCap.usd - sumFrom(stageCap.from) : Infinity;
+  if (!budget) return stage;
+  // never a first pass on $0 while money is set aside elsewhere: first the repair pool is borrowed, then half of what
+  // later stages are guaranteed (first passes matter more than repairs; the finish reserve is never touched)
+  const base = budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd);
+  const tiers = [base - repairLeft() - laterGuarantee, base - laterGuarantee, base - laterGuarantee / 2];
+  const film = tiers.find((t) => t >= Math.min(0.1, stage)) ?? tiers[2]!;
   return Math.min(film, stage);
 }
 /**

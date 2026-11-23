@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { directVoice, voiceAgent, runOnPauses, type LineMeasure, type VoiceAgentReport, type Tone, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
+import { usageLedger, directVoice, voiceAgent, runOnPauses, type LineMeasure, type VoiceAgentReport, type Tone, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
 import { TimedScript, type FactSheet, type ScriptDraft } from "@opumia/contracts";
 import { asrBackend, diffSpeech, espeakIpa, measureProsody, pcm, phonemeMatch, phonemeTokens, spokenPhonemes, transcribe, type PronunciationCheck } from "@opumia/senses";
 import { alignWords, tokensFromAlignment } from "./align.js";
@@ -31,6 +31,8 @@ const words = (s: string) => s.trim().split(/\s+/).filter(Boolean);
 const sha = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 16);
 
 export interface DirectedOptions {
+  /** Speech characters allowed beyond the first take of each line, as a share of the script's characters (default 0.8). */
+  extraCharsShare?: number;
   draft: ScriptDraft;
   facts: FactSheet;
   outDir: string;
@@ -126,6 +128,15 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const log = o.log ?? (() => {});
   const voice = o.voice;
   const modelId = o.modelId ?? ttsModel();
+  // proof film (WeWork): 6,882 characters of speech for a 1,400-character script ($2.07) — speech is billed outside the
+  // agents' caps, so narration holds its own budget: every take beyond the first take of each line (names, delivery
+  // retakes, listen-back retakes) may use at most 0.8× the script's characters. A wrong word left after that is logged.
+  const ttsChars = () => usageLedger().filter((r) => r.stage === "narration.tts").reduce((t, r) => t + r.input, 0);
+  const chars0 = ttsChars();
+  const scriptChars = o.draft.segments.reduce((t, sg) => t + sg.text.length, 0);
+  const extraBudget = Math.round(scriptChars * (o.extraCharsShare ?? 0.8));
+  let firstTakeChars = 0;
+  const extraLeft = () => extraBudget - Math.max(0, ttsChars() - chars0 - firstTakeChars);
   await mkdir(path.join(o.outDir, "takes"), { recursive: true });
 
   // Lines = sentences, kept inside their segments.
@@ -236,7 +247,9 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   };
   log(`  narration: ${units.length} line takes → ElevenLabs ${modelId}, voice ${voice.name}, speed ${speedOf("slow").toFixed(2)}–${speedOf("fast").toFixed(2)} (quota left ${remaining ?? "?"})`);
   // build list 5, item 32: a long narration records more lines at once (3 for a short, up to 8)
+  const beforeFirst = ttsChars();
   const takes = await pool(Math.min(8, Math.max(3, Math.ceil(units.length / 15))), units.map((_, i) => () => takeOf(i, 0, new Set())));
+  firstTakeChars = ttsChars() - beforeFirst;
 
   // 2b. B7: the voice director listens to every take (measured) and retakes lines that sound flat or wrong.
   let delivery: VoiceAgentReport | undefined;
@@ -292,7 +305,10 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
       u.text = text; u.words = words(text);
       try { return { id, m: await measureTake(i, t) }; } finally { Object.assign(u, keep); }
     };
+    // the delivery retakes get at most half the speech budget beyond the first takes (in whole lines)
+    const avgLine = Math.max(40, scriptChars / Math.max(1, units.length));
     delivery = await voiceAgent({
+      budget: Math.max(0, Math.min(units.length, Math.floor((extraLeft() * 0.5) / avgLine))),
       channel: o.channel, title: o.draft.title,
       lines: units.map((u) => ({ text: u.text, role: u.role, pace: u.dir.pace, emphasis: u.dir.emphasis, question: /\?\s*$/.test(u.text), act: u.act })),
       narrator: o.narrator ?? null,
@@ -393,6 +409,10 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const failedTerms = new Map<number, Map<string, number>>();
   if (!asr) log(`  ! no speech recogniser available (install whisper-cpp + a model in data/models/, or set CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_AI_TOKEN): narration is NOT verified`);
   for (let round = 0; asr && round < 4; round++) {
+    if (round > 0 && extraLeft() <= 0) {
+      log(`  narration: the speech budget for retakes is used (${extraBudget} characters beyond the first takes) — what is left is logged`);
+      break;
+    }
     const heard = await transcribe(audioPath, { dataDir: o.dataDir });
     const diff = diffSpeech(asm.timed.map((w) => ({ word: w.word, startS: w.startS })), heard.words);
     const unitAt = (t: number) => asm.timed.reduce((best, w) => (Math.abs(w.startS - t) < Math.abs(best.startS - t) ? w : best), asm.timed[0]!).unit;

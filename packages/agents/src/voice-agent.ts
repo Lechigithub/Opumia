@@ -214,7 +214,7 @@ export async function voiceAgent(o: VoiceAgentOptions): Promise<VoiceAgentReport
   // proof film (Blockbuster): 10 whole-line retakes ($0.55) fixed none of 12 flags — a retake re-rolls the take, it
   // cannot place a stress. One retake per flagged line at most; a stress that does not land goes to the writer
   // (reword: the word where the sentence lands) or to punctuation, never to more retakes.
-  const budget = o.budget ?? Math.min(o.lines.length, Math.max(2, flagged));
+  const budget = Math.min(o.budget ?? Infinity, o.lines.length, Math.max(2, flagged));
   const acts = [...new Set(o.lines.map((l) => l.act ?? 0))];
   const heardLines = new Set<number>();
   const cands = new Map<number, Map<string, LineMeasure>>();

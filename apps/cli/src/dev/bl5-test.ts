@@ -6,7 +6,7 @@
 //  - the judge's tells go to their owners; the Nokia proof film is not accepted as the proof.
 //   npx tsx apps/cli/src/dev/bl5-test.ts
 import path from "node:path";
-import { agentLoop, allotments, craftBand, lengthPlan, MODELS, realScoreFloor, resetAllotments, setBudget, stutterCuts } from "@opumia/agents";
+import { agentLeft, recordExternal, setLaterGuarantee, agentLoop, allotments, craftBand, lengthPlan, MODELS, realScoreFloor, resetAllotments, setBudget, stutterCuts } from "@opumia/agents";
 import { ownerOfTell } from "../bl5-checks.js";
 import { proofFilm } from "./proof-film.js";
 import { storyScenesOffline } from "./story-scenes-test.js";
@@ -32,6 +32,15 @@ export async function bl5Test(): Promise<string[]> {
   setBudget(null);
   const al = allotments().find((a) => a.stage === "test.starved");
   if (!al?.starved) fails.push(`a first pass given $0 must be logged as starved (${JSON.stringify(al)})`);
+  // WeWork proof film: a later stage's share is kept from earlier first passes; a starved stage borrows the repair pool,
+  // then half of what later stages are kept, never the finish reserve
+  setBudget(5, { reserveUsd: 0.8, repairUsd: 0.75 });
+  setLaterGuarantee(1.5);
+  if (Math.abs((agentLeft() ?? 0) - (5 - 0.8 - 0.75 - 1.5)) > 1e-9) fails.push(`a first pass keeps later stages' shares aside, got ${agentLeft()}`);
+  recordExternal("test", "test", 1, 3);
+  if (Math.abs((agentLeft() ?? 0) - 0.45) > 1e-9) fails.push(`an overspent film borrows the repair pool and half the later shares ($0.45), got ${agentLeft()}`);
+  setLaterGuarantee(0);
+  setBudget(null);
   // item 4: the craft bands at every length, and the channel's own stretches reach their own floor
   const data = path.join(process.cwd(), "data");
   for (const L of [45, 90, 180, 600]) {
