@@ -6,7 +6,7 @@
 //  - the judge's tells go to their owners; the Nokia proof film is not accepted as the proof.
 //   npx tsx apps/cli/src/dev/bl5-test.ts
 import path from "node:path";
-import { CAPABILITIES, manifestEvents, agentLeft, recordExternal, setLaterGuarantee, agentLoop, allotments, craftBand, lengthPlan, MODELS, realScoreFloor, resetAllotments, setBudget, stutterCuts } from "@opumia/agents";
+import { applyPresets, CAPABILITIES, manifestEvents, agentLeft, recordExternal, setLaterGuarantee, agentLoop, allotments, craftBand, lengthPlan, MODELS, realScoreFloor, resetAllotments, setBudget, stutterCuts } from "@opumia/agents";
 import { ownerOfTell } from "../bl5-checks.js";
 import { proofFilm } from "./proof-film.js";
 import { storyScenesOffline } from "./story-scenes-test.js";
@@ -46,6 +46,13 @@ export async function bl5Test(): Promise<string[]> {
   for (const need of ["atmosphere", "scene_fx", "kit_type", "transitions", "card3d", "text3d"]) if (!CAPABILITIES.some((c) => c.id === need)) fails.push(`the capability catalogue must list ${need}`);
   const ev = manifestEvents({ fps: 24, video: [{ zIndex: 0, startFrame: 0 }, { zIndex: 0, startFrame: 48 }], audio: [{ role: "sfx", startFrame: 50, ref: "x" }, { role: "music", startFrame: 0, dips: [{ fromFrame: 100, toFrame: 130 }] }] })(0, 10);
   if (!/Cuts at: 2\.0/.test(ev) || !/hit at 2\.1/.test(ev) || !/drops out/.test(ev)) fails.push(`our stretch must be described like a real one: ${ev}`);
+  // how the channel uses its techniques: a named technique brings its recipe; the designer's own choices win
+  {
+    const d: Record<string, any> = { backdrop: "footage", world: { kind: "none", slot: -1, slots: [] }, atmos: "none", elements: [{ type: "photo", grade: "natural", frame: "none", enter: "fade" }, { type: "cutout", style: "outline" }], fx: { glitch: false, dof: 0, rack: false, scanlines: false, grid: false, cursorX: -1, cursorY: -1, twotone: false }, finish: { grain: 0.1, vignette: 0.2, leak: 0, halftone: 0 } };
+    applyPresets(d, [{ world: "filmstrip", grade: "mono", frame: "polaroid", atmos: "sprocket", enter: "settle", cutout: "glow", glitch: false, dof: 0.4, rack: false, scanlines: false, grid: false, twotone: false, halftone: 0, grain: 0.3, leak: 0, drift: "none", transition: "none", kit: "" }]);
+    if (d.world.kind !== "filmstrip" || d.backdrop !== "world" || d.atmos !== "sprocket" || d.elements[0].grade !== "mono" || d.elements[0].frame !== "polaroid" || d.elements[0].enter !== "settle" || d.finish.grain !== 0.3 || d.fx.dof !== 0.4) fails.push(`a preset must fill the scene draft: ${JSON.stringify(d).slice(0, 200)}`);
+    if (d.elements[1].style !== "outline") fails.push("a preset must not override the designer's own choice");
+  }
   // item 4: the craft bands at every length, and the channel's own stretches reach their own floor
   const data = path.join(process.cwd(), "data");
   for (const L of [45, 90, 180, 600]) {

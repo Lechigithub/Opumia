@@ -44,6 +44,8 @@ export interface LineMeasure {
   contour: Array<[string, number, number]>;
   /** item 23: pauses of ≥ 0.25 s inside a sentence after a word with no punctuation — where a speaker runs on */
   innerPauses?: Array<{ after: string; gapS: number }>;
+  /** ears: how human the take sounds (trained voice taste, 0–1) and the real narrators' lowest tenth */
+  humanness?: { score: number; realP10: number };
 }
 export const TONES = ["dry", "grave", "wry", "urgent", "warm"] as const;
 export type Tone = (typeof TONES)[number];
@@ -94,7 +96,7 @@ const med = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.fl
 const wordsOf = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}' ]/gu, " ").split(/\s+/).filter(Boolean);
 
 /** The kinds of delivery problem a listener notices. Every one of them blocks submission (item 23). */
-export const BLOCKING = ["rising_end", "stress_missed", "run_on_pause", "flat", "same_shape"] as const;
+export const BLOCKING = ["rising_end", "stress_missed", "run_on_pause", "flat", "same_shape", "synthetic"] as const;
 
 /** What a listener would notice in a line's delivery, as [kind, detail]. */
 export function deliveryIssues(l: VoiceLine, m: LineMeasure, prev: LineMeasure | null, typical: { rangeSt: number; melodySt: number }): Array<[typeof BLOCKING[number], string]> {
@@ -103,6 +105,7 @@ export function deliveryIssues(l: VoiceLine, m: LineMeasure, prev: LineMeasure |
   if (words >= 6 && m.rangeSt < typical.rangeSt * 0.6) f.push(["flat", `flat (pitch travel ${r1(m.rangeSt)} st, the line median ${r1(typical.rangeSt)})`]);
   if (m.emphasis && m.emphasis.liftDb < 0.5 && m.emphasis.liftSt < 0.5) f.push(["stress_missed", `emphasis on "${m.emphasis.word}" did not land (+${r1(m.emphasis.liftDb)} dB, +${r1(m.emphasis.liftSt)} st)`]);
   if (!l.question && words >= 4 && m.endingSt > 1.5) f.push(["rising_end", `statement ends rising (+${r1(m.endingSt)} st) — sounds unsure or listing`]);
+  if (m.humanness && m.humanness.score < m.humanness.realP10) f.push(["synthetic", `sounds synthetic to the ear (humanness ${m.humanness.score} against real narrators' lowest tenth ${m.humanness.realP10}) — a fresh take with another tone, or the line re-set for speech`]);
   for (const p of m.innerPauses ?? []) f.push(["run_on_pause", `stops ${p.gapS.toFixed(2)} s after "${p.after}" in the middle of the sentence — a speaker would run on`]);
   if (prev && words >= 6 && Math.abs(m.rangeSt - prev.rangeSt) < 0.6 && Math.abs(m.endingSt - prev.endingSt) < 0.8 && Math.abs(m.melodySt - prev.melodySt) < 0.3) f.push(["same_shape", "same shape as the line before (a run of identical lines reads synthetic)"]);
   return f;

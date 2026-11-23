@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { usageLedger, directVoice, voiceAgent, runOnPauses, type LineMeasure, type VoiceAgentReport, type Tone, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
+import { scoreSoundTaste, usageLedger, directVoice, voiceAgent, runOnPauses, type LineMeasure, type VoiceAgentReport, type Tone, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
 import { TimedScript, type FactSheet, type ScriptDraft } from "@opumia/contracts";
 import { asrBackend, diffSpeech, espeakIpa, measureProsody, pcm, phonemeMatch, phonemeTokens, spokenPhonemes, transcribe, type PronunciationCheck } from "@opumia/senses";
 import { alignWords, tokensFromAlignment } from "./align.js";
@@ -31,6 +31,8 @@ const words = (s: string) => s.trim().split(/\s+/).filter(Boolean);
 const sha = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 16);
 
 export interface DirectedOptions {
+  /** Ears: score each take with the trained voice taste (needs the project root for the local audio models). */
+  ears?: { root: string };
   /** Speech characters allowed beyond the first take of each line, as a share of the script's characters (default 0.8). */
   extraCharsShare?: number;
   draft: ScriptDraft;
@@ -261,6 +263,8 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     };
     const measureTake = async (i: number, t: Take): Promise<LineMeasure> => {
       const f = await lineFile(t);
+      // ears: how human this take sounds, by the trained voice taste (several real narrators against synthetic speech)
+      const hum = o.ears ? await scoreSoundTaste({ root: o.ears.root, data: o.dataDir, channel: o.channel, kind: "voice", items: [{ file: f, t: 0, dur: Math.min(6, Math.max(1.2, t.audio.length / SR)) }] }).catch(() => null) : null;
       const whole = await measureProsody(f).catch(() => null);
       const lineHz = whole?.f0Hz || 0;
       const levelOf = (a: number, b: number) => {
@@ -282,7 +286,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
       const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
       const voicedEnd = [...contour].reverse().find(([, st]) => st !== 0);
       const secs = (t.words.at(-1)?.endS ?? 0) - (t.words[0]?.startS ?? 0);
-      return {
+      return { ...(hum && hum.scores.length ? { humanness: { score: hum.scores[0]!, realP10: hum.realP10 } } : {}), 
         seconds: Math.round(secs * 100) / 100, wpm: secs > 0 ? (t.words.length / secs) * 60 : 0, f0Hz: lineHz,
         innerPauses: runOnPauses(t.words),
         rangeSt: whole?.f0RangeSt ?? 0, melodySt: whole?.melodySt ?? 0, dynamicsDb: whole?.energyStdDb ?? 0,

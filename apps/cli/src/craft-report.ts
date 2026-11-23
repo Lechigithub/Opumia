@@ -14,7 +14,7 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { colourBand, CRAFT_MEASURES, craftBand, craftHistory, ensureReferenceFilms, ensureSceneBand, judgeCraftPair, labelSceneLines, ourSoundStretch, packagingReferenceMeasures, realScoreFloor, referenceStretches, sceneProfile, scoreAgainst, stretchOfPlan, ensureFillerBan, openingLineCount, VOICE_DELIVERY_BAND, type Craft, type CraftBandFile, type CraftScore } from "@opumia/agents";
+import { scoreSoundTaste, colourBand, CRAFT_MEASURES, craftBand, craftHistory, ensureReferenceFilms, ensureSceneBand, judgeCraftPair, labelSceneLines, ourSoundStretch, packagingReferenceMeasures, realScoreFloor, referenceStretches, sceneProfile, scoreAgainst, stretchOfPlan, ensureFillerBan, openingLineCount, VOICE_DELIVERY_BAND, type Craft, type CraftBandFile, type CraftScore } from "@opumia/agents";
 import type { ChannelId, ResolutionReport, ScenePlan, ScriptDraft, Storyboard, TimedScript } from "@opumia/contracts";
 
 export interface CraftReport { at: string; lengthS: number; scores: CraftScore[]; floors: Partial<Record<Craft, number | null>>; inBand: Partial<Record<Craft, boolean>>; usd: number }
@@ -79,7 +79,9 @@ export async function craftReport(o: { root: string; data: string; reference: st
     const band = await craftBand({ data: o.data, channel: o.channel, craft: "sound", lengthS: L }).catch(() => null);
     if (band) {
       const st = ourSoundStretch({ storyboard: { shots: o.board.shots, durationS: L }, music: o.board.music, scenes: o.scenes, resolution: o.resolution, words });
-      const sc = scoreAgainst("sound", await CRAFT_MEASURES.sound!(st), band);
+      const video = (await import("node:fs")).readdirSync(o.jobDir).find((f) => /_(16x9|9x16)\.mp4$/.test(f));
+      const mix = video ? await scoreSoundTaste({ root: o.root, data: o.data, channel: o.channel, kind: "mix", items: Array.from({ length: Math.max(1, Math.floor((L - 2) / 10)) }, (_, k) => ({ file: path.join(o.jobDir, video), t: 1 + k * 10, dur: 8 })) }).catch(() => null) : null;
+      const sc = scoreAgainst("sound", { ...(await CRAFT_MEASURES.sound!(st)), ...(mix ? { mixTaste: mix.median } : {}) }, mix ? { ...band, bands: { ...band.bands, mixTaste: { p10: mix.realP10, median: mix.realMedian, p90: 1 } } } : band);
       if (o.judge && reals[1]) {
         const desc = (s: typeof st) => `${s.hits.length} strong hits at ${s.hits.map((h) => h.t.toFixed(1)).join(", ")} s; music cue changes at ${s.shots.filter((x) => x.cueChange).map((x) => x.t0.toFixed(1)).join(", ") || "none"}; drop-outs at ${s.shots.filter((x) => x.musicDrop).map((x) => x.t0.toFixed(1)).join(", ") || "none"}; cuts at ${s.shots.map((x) => x.t0.toFixed(1)).join(", ")}`;
         const j = await judgeCraftPair({ channel: o.channel, craft: "sound", ours: { text: desc(st) }, real: { text: desc(reals[1] as typeof st) }, seed: `${o.jobDir}|sound` }).catch(() => null);
@@ -92,7 +94,14 @@ export async function craftReport(o: { root: string; data: string; reference: st
 
   // ---- voice: human delivery (the voice director's own measures)
   const nr = await readFile(path.join(o.jobDir, "narration.report.json"), "utf8").then((t) => JSON.parse(t) as { delivery?: { measures?: Record<string, number> } }, () => null);
-  if (nr?.delivery?.measures) scores.push(scoreAgainst("voice", nr.delivery.measures, asBand("voice", L, VOICE_DELIVERY_BAND)));
+  if (nr?.delivery?.measures) {
+    // ears: how human the narration sounds, by the trained voice taste (several real narrators against synthetic speech)
+    const narr = path.join(o.jobDir, "narration.mp3");
+    const hum = existsSync(narr) ? await scoreSoundTaste({ root: o.root, data: o.data, channel: o.channel, kind: "voice", items: Array.from({ length: Math.max(1, Math.floor((L - 2) / 6)) }, (_, k) => ({ file: narr, t: 1 + k * 6, dur: 4 })) }).catch(() => null) : null;
+    const m = { ...nr.delivery.measures, ...(hum ? { humanness: hum.median } : {}) };
+    const band = { ...VOICE_DELIVERY_BAND, ...(hum ? { humanness: { p10: hum.realP10, median: hum.realMedian, p90: 1 } } : {}) };
+    scores.push(scoreAgainst("voice", m, asBand("voice", L, band)));
+  }
 
   // ---- packaging (after the package exists)
   const pub = await readFile(path.join(o.jobDir, "publish.json"), "utf8").then((t) => JSON.parse(t) as { craft?: Record<string, number> | null }, () => null);

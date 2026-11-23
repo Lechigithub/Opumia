@@ -1,3 +1,4 @@
+import { grammarBrief, seeTechniqueTool } from "@opumia/agents";
 /**
  * Production side of the blank-slate art director (build list 2, step 5): the font catalogue, the channel's real frames,
  * the film's own palette, and rendering kit samples on the film's own shots with every measure attached (legibility
@@ -92,7 +93,7 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
   const manifestFor = (plan: ScenePlan, board: Storyboard) => buildManifest({ storyboard: board, script: o.timed, resolution: o.resolution, libraryRoot: o.library, outputPath: path.join(o.jobDir, "_kit.mp4"), narrationPath: o.timed.voice.audioPath, burnCaptions: false, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
   const basePlan = (): ScenePlan => o.scenes ?? { schemaVersion: 2, storyboardId: o.board.id, scenes: [], generatedAt: new Date().toISOString() };
   const report = await filmDesignerAgent({
-    channel: o.channel, topic: o.topic, acts: o.acts, onDesign, job: o.job, ...(o.change ? { change: o.change } : {}), title: o.title, data: o.data, kitDir, brief: o.brief, shots, fonts: googleFonts(), reference,
+    channel: o.channel, topic: o.topic, acts: o.acts, onDesign, job: o.job, ...(o.change ? { change: o.change } : {}), title: o.title, data: o.data, kitDir, brief: [o.brief, await grammarBrief({ data: o.data, channel: o.channel, owner: "art director", categories: ["type", "structure"] }).catch(() => "")].filter(Boolean).join("\n\n"), extraTools: [seeTechniqueTool({ data: o.data, channel: o.channel })], shots, fonts: googleFonts(), reference,
     palette: () => paletteOf(o.resolution.media.filter((m) => m.role === "primary" || m.role === "layer").map((m) => m.localPath).filter((f) => existsSync(f))),
     renderSamples: async (samples) => {
       round++;

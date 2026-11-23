@@ -92,6 +92,8 @@ export const SceneSpec = z.object({
   world: SceneWorld.optional(),
   finish: SceneFinish.optional(),
   atmos: SceneAtmos.optional(),
+  /** Craft inventory: the channel techniques this scene uses (ids), as the designer named them. */
+  techniques: z.array(z.string()).optional(),
   /** Craft inventory: a glitch burst with RGB split at the shot's start; shallow depth of field (the backdrop defocused
    *  behind the pictures on it, 0–1). */
   /** Craft inventory: a picture slot (a cut-out object: banknotes, coins, documents, leaves) repeated as a falling or

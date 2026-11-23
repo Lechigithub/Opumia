@@ -192,8 +192,10 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   dangling_slot: NO_PICTURE,
   // craft inventory: the channel's staple techniques, to their owners
   staple_picture: SCENE,
+  technique_misuse: SCENE,
   staple_edit: EDIT,
   staple_sound: SOUND,
+  mix_taste: SOUND,
   shot_rhythm: EDIT,
   cut_on_word: EDIT,
   tells_edit: EDIT,

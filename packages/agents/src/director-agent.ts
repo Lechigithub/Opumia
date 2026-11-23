@@ -30,6 +30,8 @@ export interface DirectorReport {
   agent: { turns: number; calls: Record<string, number>; usd: number };
 }
 export interface DirectorAgentOptions {
+  /** Craft inventory: extra tools (see_technique: real examples and the channel's grammar of each technique). */
+  extraTools?: AgentTool[];
   /** Craft inventory: the channel's techniques in this agent's craft, with rates and tools (techniqueBrief). */
   techniques?: string;
   pack: StylePack;
@@ -223,6 +225,7 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
   })()}\n\nNARRATION:\n${o.script.segments.map((s) => `[${s.id} ${s.role}${s.chapter ? ` | chapter "${s.chapter}"` : ""}] ${s.text}`).join("\n")}\n\nWORDS (index:word@seconds):\n${words.map((w, k) => `${k}:${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nStart by reading how the channel shows lines like these.`;
 
   log(`  director: one director with tools — ${words.length} words, ${Math.round(o.script.durationS)} s, about ${Math.round((o.script.durationS / 60) * cuts.mid)} shots at the channel's pace (${ROLE_MODEL.director})…`);
+  tools.push(...(o.extraTools ?? []));
   const run = await agentLoop({ stage: "director.agent", finish: { message: "Your budget for this stage is used up. Call submit_plan NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_plan again." }, model: ROLE_MODEL.director, system, user, tools, effort: "medium", maxTurns: 18, maxSeconds: 300, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The shot list is not accepted yet. Measure it, fix what it shows, and submit.", log });
   const plan = (accepted ?? lastPlan) as DirectorPlan | null;
   if (!plan) throw new Error("director: no shot list was produced");

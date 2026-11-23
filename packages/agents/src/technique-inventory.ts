@@ -49,8 +49,11 @@ export async function stretchSheet(video: string, fromS: number, len: number, ou
 }
 const image = async (f: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: (await readFile(f)).toString("base64") } });
 
-interface RefStretch { film: string; video: string; fromS: number; len: number; text: string }
+interface RefStretch { film: string; video: string; fromS: number; len: number; text: string; position: number }
 /** Real stretches spread over the channel's films and positions (opening, middle, late), deterministic. */
+export async function realStretchesFor(o: { data: string; reference: string; channel: ChannelId; n: number; len: number; salt: string }) {
+  return realStretches(o);
+}
 async function realStretches(o: { data: string; reference: string; channel: ChannelId; n: number; len: number; salt: string }): Promise<RefStretch[]> {
   const ix = await loadReferenceIndex(o.data);
   if (!ix) return [];
@@ -72,7 +75,7 @@ async function realStretches(o: { data: string; reference: string; channel: Chan
       `Sound effects (measured): ${hits.map((h) => `${h.cls} at ${(h.t - fromS).toFixed(1)} s`).join(", ") || "none"}`,
       `Music: ${shots.some((s) => s.cueChange) ? "a music cue changes in this stretch" : "one bed"}${shots.some((s) => s.musicDrop) ? "; the music drops out" : ""}`,
     ].join("\n");
-    out.push({ film: f.id, video, fromS, len: o.len, text });
+    out.push({ film: f.id, video, fromS, len: o.len, text, position: Math.round((fromS / Math.max(1, f.durS)) * 1000) / 1000 });
   }
   return out;
 }

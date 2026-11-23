@@ -71,6 +71,8 @@ export interface SoundMeasure { key: string; what: string; ours: number; band: {
 export interface SoundAgentReport { pass: boolean; before: { score: number; rows: SoundMeasure[] }; after: { score: number; rows: SoundMeasure[] }; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
 export interface SoundAgentOptions extends SoundTimelineOptions {
+  /** Craft inventory: extra tools (see_technique: real examples and the channel's grammar of each technique). */
+  extraTools?: AgentTool[];
   /** Craft inventory: the channel's sound techniques, with rates and tools (techniqueBrief). */
   techniques?: string;
   /** Build list 5, item 22: the voice director's emphasis per line (voice-direction.json), for the shared timeline. */
@@ -416,6 +418,7 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
   const user = `Design the sound of this film. The timeline designer made a first pass from the visual moments; it is yours to improve.${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS BACK:\n${o.brief}` : ""}\n\nStart with read_sound.`;
   log(`  sound designer: ${before.score}/100 at the start (${ROLE_MODEL.soundDesigner})…`);
   let grace = 1;
+  tools.push(...(o.extraTools ?? []));
   const run = await agentLoop({ stage: "sound.agent", model: ROLE_MODEL.soundDesigner, system, user, tools, effort: "medium", maxTurns: 14, maxSeconds: 180, maxTokens: 20000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The sound is not submitted yet. Read it, study the channel, listen, change what is wrong, and submit.", log });
   const after = measureNow();
   const pass = accepted !== null;

@@ -57,6 +57,8 @@ export function stutterCuts(shots: Array<{ id: string; transitionIn?: string; ca
 export interface EditorReport { pass: boolean; before: { structure: number; gaps: FilmGap[] }; after: { structure: number; gaps: FilmGap[] }; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
 export interface EditorAgentOptions {
+  /** Craft inventory: extra tools (see_technique: real examples and the channel's grammar of each technique). */
+  extraTools?: AgentTool[];
   /** Craft inventory: the channel's techniques in this agent's craft, with rates and tools (techniqueBrief). */
   techniques?: string;
   /** Build list 5, item 22: the voice director's stressed words (voice-direction.json), shared with the sound designer. */
@@ -389,6 +391,7 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
   const user = `Edit this film (${o.script.title}, ${o.script.aspect}, ${o.script.durationS.toFixed(1)} s).\n\nNARRATION WORDS (word@start):\n${words.map((w) => `${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nSHOT INTENTS:\n${board.shots.map((s) => `${s.id} ${s.startS.toFixed(2)}–${s.endS.toFixed(2)} [${s.lineLink}] ${s.intent.slice(0, 90)} · said: "${lineOf(s).slice(0, 80)}"`).join("\n")}${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS CUT BACK:\n${o.brief}` : ""}\n\nStart with read_cut.`;
   log(`  editor: ${board.shots.length} shots, structure on the editor's measures ${before.structure}/100 (${ROLE_MODEL.editor})…`);
   let grace = 2;
+  tools.push(...(o.extraTools ?? []));
   const run = await agentLoop({ stage: "editor.agent", model: ROLE_MODEL.editor, system, user, tools, effort: "medium", maxTurns: 16, maxSeconds: 180, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The cut is not submitted yet. Read it, study the channel, edit, and submit.", log });
   const after = measureNow();
   const pass = accepted !== null;

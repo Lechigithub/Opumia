@@ -11,7 +11,7 @@
  */
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { designProblems, embedPictures, figureParity, judgeClips, labelDesign, pictureIssues, textAreas, withinFilmVariety, labelPictures, DESIGN_FIX, type DesignBand, type DesignLabel, type PictureBand, type PictureLabel } from "@opumia/agents";
+import { scoreSoundTaste, checkTechniqueUses, labelTechniques, loadInventory, CATEGORY_OWNER, designProblems, embedPictures, figureParity, judgeClips, labelDesign, pictureIssues, textAreas, withinFilmVariety, labelPictures, DESIGN_FIX, type DesignBand, type DesignLabel, type PictureBand, type PictureLabel } from "@opumia/agents";
 import type { ChannelId, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
 import { figureInputs } from "@opumia/motion-engine";
 import type { PreflightCheck } from "./preflight.js";
@@ -142,4 +142,41 @@ export async function previewTells(o: { data: string; reference: string; root: s
   o.log?.(`  judge on previews: ${stretches.filter((s) => s.picked).length} of ${stretches.length} stretches picked out${checks.length ? ` — tells to ${checks.map((c) => c.id.replace("tells_", "")).join(", ")}` : ""} ($${usd.toFixed(2)})`);
   const clips = at.flatMap((f, k) => (files[k] ? [{ fromS: f, len, file: files[k]!, said: words.filter((w) => w.startS >= f && w.startS < f + len).map((w) => w.word).join(" ") }] : []));
   return { checks, realness: real.length ? Math.round((real.reduce((a, x) => a + x, 0) / real.length) * 100) / 100 : null, usd, stretches, clips };
+}
+
+/**
+ * Craft inventory: is each technique used the way the channel uses it? Every shot's techniques — those the designer
+ * named and those the labeller sees on its final preview — with its line and place in the film, against the channel's
+ * grammar. Misuses go back to their owner before the render.
+ */
+export async function techniqueUseChecks(o: { data: string; channel: string; prevDir: string; board: Storyboard; scenes: ScenePlan; timed: TimedScript }): Promise<PreflightCheck[]> {
+  const inv = await loadInventory(o.data, o.channel);
+  if (!inv) return [];
+  const words = o.timed.segments.flatMap((sg) => sg.words);
+  const dur = o.board.durationS || 1;
+  const uses: Array<{ shotId: string; technique: string; line: string; position: number }> = [];
+  for (const sh of o.board.shots) {
+    const sc = o.scenes.scenes.find((x) => x.shotId === sh.id);
+    const line = words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
+    const named = new Set((sc as { techniques?: string[] } | undefined)?.techniques ?? []);
+    const sheet = [`${sh.id}_sheet.jpg`].map((f) => path.join(o.prevDir, f)).find(existsSync);
+    if (sheet) {
+      const seen = await memoised<Record<string, number>>([sheet], "techniques", async (fs) => Promise.all(fs.map((f) => labelTechniques({ sheet: f, text: `Words spoken: "${line}"`, taxonomy: inv.taxonomy }))));
+      for (const id of Object.keys(seen[0] ?? {})) {
+        const t = inv.taxonomy.find((x) => x.id === id);
+        if (t && CATEGORY_OWNER[t.category] === "scene designer") named.add(id);
+      }
+    }
+    for (const t of named) uses.push({ shotId: sh.id, technique: t, line, position: sh.startS / dur });
+  }
+  const bad = (await checkTechniqueUses({ data: o.data, channel: o.channel, uses }).catch(() => [])).filter((v) => !v.ok);
+  return bad.length ? [{ id: "technique_misuse", label: "Techniques used the way the channel does not use them", value: bad.length, target: "0", pass: false, level: "blocker", shots: [...new Set(bad.map((v) => v.shotId))], note: bad.slice(0, 6).map((v) => `${v.shotId} ${v.technique}: ${v.why}`).join(" | ") }] : [];
+}
+
+/** Ears: the soundtrack of the judge's preview stretches, scored by the trained mix taste against the real channel. */
+export async function mixTasteCheck(o: { root: string; data: string; channel: string; clips: Array<{ file: string; len: number }> }): Promise<PreflightCheck[]> {
+  const items = o.clips.map((c) => ({ file: c.file, t: 0, dur: Math.min(8, c.len) }));
+  const r = await scoreSoundTaste({ root: o.root, data: o.data, channel: o.channel, kind: "mix", items }).catch(() => null);
+  if (!r) return [];
+  return [{ id: "mix_taste", label: "The soundtrack (voice, music, effects together) heard against the channel's", value: Math.round(r.median * 1000) / 1000, target: `≥ ${r.realP10} (the channel's lowest tenth; its median ${r.realMedian})`, pass: !r.below, level: "blocker", shots: [] }];
 }

@@ -1,3 +1,4 @@
+import type { Preset } from "./technique-grammar.js";
 import { readFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
 import { ScenePlan, WORLD_KINDS, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
@@ -56,6 +57,7 @@ const Plan = z.object({
     z.object({
       shotId: z.string(),
       idea: z.string().describe("one line: what the viewer sees and why it fits the line"),
+      techniques: z.array(z.string()).describe("the channel's techniques this shot uses, by id from your brief (see_technique shows how the channel uses each) — their recipes are applied for you; your own fields refine them"),
       backdrop: z.enum(["footage", "world"]).describe("the shot's own footage, or a WORLD built from real pictures (shots without footage, or where a treated picture carries the line better)"),
       world: WorldDraft,
       finish: FinishDraft.describe("the treatment over the whole shot; the channel's frames almost all carry one (grain, vignette, a leak)"),
@@ -91,6 +93,8 @@ export interface DesignScenesOptions {
   kit: FilmKitMeta;
   /** The scene agent's drafts, checked and applied here. */
   raw: SceneDraftScene[];
+  /** Craft inventory: each technique's recipe in the scene format (technique id → preset). */
+  presets?: Record<string, Preset>;
   log?: (s: string) => void;
 }
 
@@ -139,6 +143,8 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   for (const sh of todo) {
     const d = o.raw.find((x) => x.shotId === sh.id);
     if (!d) continue;
+    // craft inventory: the techniques the designer named bring their recipes (the designer's own fields refine them)
+    if (o.presets && (d as { techniques?: string[] }).techniques?.length) applyPresets(d as never, (d as { techniques: string[] }).techniques.map((id) => o.presets![id]).filter((p): p is Preset => Boolean(p)));
     const media = mediaOf(sh.id);
     const slots = new Set(media.filter((m) => m.role === "layer").map((m) => m.slot ?? -1));
     const primaryM = media.find((m) => m.role === "primary");
@@ -204,7 +210,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     if (unsafeFace) nameGuarded++;
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
     if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
-      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack || d.fx.scanlines || d.fx.grid || d.fx.cursorX >= 0 || d.fx.twotone) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}), ...(d.fx.scanlines ? { scanlines: true } : {}), ...(d.fx.grid ? { grid: true } : {}), ...(d.fx.cursorX >= 0 ? { cursor: { x: clamp(d.fx.cursorX, 0.05, 0.95), y: clamp(d.fx.cursorY, 0.05, 0.95) } } : {}), ...(d.fx.twotone ? { twotone: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
+      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), ...((d as { techniques?: string[] }).techniques?.length ? { techniques: (d as { techniques: string[] }).techniques.slice(0, 6) } : {}), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack || d.fx.scanlines || d.fx.grid || d.fx.cursorX >= 0 || d.fx.twotone) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}), ...(d.fx.scanlines ? { scanlines: true } : {}), ...(d.fx.grid ? { grid: true } : {}), ...(d.fx.cursorX >= 0 ? { cursor: { x: clamp(d.fx.cursorX, 0.05, 0.95), y: clamp(d.fx.cursorY, 0.05, 0.95) } } : {}), ...(d.fx.twotone ? { twotone: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
       continue;
     }
     const stage = !hasFootage || unsafeFace || d.backdrop === "world";
@@ -215,7 +221,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     if (!els.length && !(world && world.slot !== undefined)) { dropped++; continue; }
     specs.push({
       shotId: sh.id,
-      idea: d.idea.slice(0, 200),
+      idea: d.idea.slice(0, 200), ...((d as { techniques?: string[] }).techniques?.length ? { techniques: (d as { techniques: string[] }).techniques.slice(0, 6) } : {}),
       backdrop: stage ? "world" : "footage",
       ...(world ? { world } : {}),
       finish: finishOf(d.finish),
@@ -435,4 +441,29 @@ export async function critiqueScenes(o: { channel: string; previews: Array<{ sho
   for (let i = 0; i < parts.length; i += 4) await Promise.all(parts.slice(i, i + 4).map(review));
   const cap = Math.max(1, Math.ceil(o.previews.length * (o.maxShare ?? 0.4)));
   return new Map(found.sort((a, b) => b.severity - a.severity || a.shotId.localeCompare(b.shotId)).slice(0, cap).map((f) => [f.shotId, f.notes]));
+}
+
+
+/** Merge technique recipes into a scene draft: a recipe fills what the designer left at its default. */
+export function applyPresets(d: Record<string, any>, ps: Preset[]): void {
+  for (const p of ps) {
+    if (p.world !== "none" && (!d.world || d.world.kind === "none")) {
+      d.world = { ...(d.world ?? {}), kind: p.world, slot: d.world?.slot ?? -1, slots: d.world?.slots ?? [] };
+      d.backdrop = "world";
+    }
+    if (p.atmos !== "none" && (!d.atmos || d.atmos === "none")) d.atmos = p.atmos;
+    d.fx = { glitch: false, dof: 0, rack: false, scanlines: false, grid: false, cursorX: -1, cursorY: -1, twotone: false, ...(d.fx ?? {}) };
+    d.fx.glitch ||= p.glitch; d.fx.rack ||= p.rack; d.fx.scanlines ||= p.scanlines; d.fx.grid ||= p.grid; d.fx.twotone ||= p.twotone;
+    d.fx.dof = Math.max(d.fx.dof ?? 0, p.dof ?? 0);
+    d.finish = { grain: 0, vignette: 0, leak: 0, halftone: 0, ...(d.finish ?? {}) };
+    d.finish.grain = Math.max(d.finish.grain, p.grain ?? 0); d.finish.leak = Math.max(d.finish.leak, p.leak ?? 0); d.finish.halftone = Math.max(d.finish.halftone ?? 0, p.halftone ?? 0);
+    const els = (d.elements ?? []) as Array<Record<string, any>>;
+    const photo = els.find((e) => e.type === "photo");
+    if (photo && p.grade !== "none" && (!photo.grade || photo.grade === "natural")) photo.grade = p.grade;
+    if (photo && p.frame !== "none" && (!photo.frame || photo.frame === "none")) photo.frame = p.frame;
+    const cut = els.find((e) => e.type === "cutout");
+    if (cut && p.cutout !== "none" && (!cut.style || cut.style === "none")) cut.style = p.cutout;
+    const first = els[0];
+    if (first && p.enter !== "none" && (!first.enter || first.enter === "fade")) first.enter = p.enter;
+  }
 }

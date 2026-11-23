@@ -1,3 +1,4 @@
+import { checkTechniqueUses } from "./technique-grammar.js";
 /**
  * The scene designer agent: it designs every shot, renders its own previews, looks at them, measures the film
  * against the channel's real shots, and revises — until the film passes or it runs out of turns.
@@ -32,6 +33,10 @@ export interface SceneReport {
   agent: { turns: number; calls: Record<string, number>; usd: number; rendered: number };
 }
 export interface SceneAgentOptions {
+  /** Craft inventory: technique recipes (ensureTechniquePresets). */
+  presets?: Record<string, import("./technique-grammar.js").Preset>;
+  /** Craft inventory: extra tools (see_technique: real examples and the channel's grammar of each technique). */
+  extraTools?: AgentTool[];
   /** Craft inventory: the channel's techniques in this agent's craft, with rates and tools (techniqueBrief). */
   techniques?: string;
   /** Build list 5, item 32: design only these shots (one chapter of a long film, designed in parallel with the others). */
@@ -104,6 +109,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const words = o.script.segments.flatMap((s) => s.words);
+  let misuseRounds = 0;
   const lineOf = (sh: StoryboardShot) => words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
   const band = o.visualBand;
   const pc = (x: number) => `${Math.round(x * 100)}%`;
@@ -303,7 +309,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
         const known = new Set(shots.map((s) => s.id));
         const raw = i.scenes.filter((s) => known.has(s.shotId));
         if (!raw.length) throw new Error("none of those shot ids exist");
-        plan = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, channel: o.channel, ...(o.people ? { people: o.people } : {}), kit: o.kit, raw, previous: plan, log: (s) => said.push(s.trim()) });
+        plan = await designScenes({ ...(o.presets ? { presets: o.presets } : {}), storyboard: o.storyboard, script: o.script, resolution: o.resolution, channel: o.channel, ...(o.people ? { people: o.people } : {}), kit: o.kit, raw, previous: plan, log: (s) => said.push(s.trim()) });
         for (const s of raw) (dirty.add(s.shotId), unseen.add(s.shotId));
         const lines = raw.map((r) => {
           const got = plan.scenes.find((x) => x.shotId === r.shotId);
@@ -328,7 +334,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
               const keepFrame = frames.get(i.shotId);
               const cand = [...(base.scenes.some((x) => x.shotId === i.shotId) && keepFrame ? [{ plan: base, mid: keepFrame.mid, sheet: keepFrame.sheet }] : [])];
               for (const d of i.designs) {
-                const p2 = await designScenes({ storyboard: o.storyboard, script: o.script, resolution: o.resolution, channel: o.channel, ...(o.people ? { people: o.people } : {}), kit: o.kit, raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
+                const p2 = await designScenes({ ...(o.presets ? { presets: o.presets } : {}), storyboard: o.storyboard, script: o.script, resolution: o.resolution, channel: o.channel, ...(o.people ? { people: o.people } : {}), kit: o.kit, raw: [{ ...d, shotId: i.shotId }], previous: base, log: () => {} });
                 if (!p2.scenes.some((x) => x.shotId === i.shotId)) continue;
                 const r = (await o.render(p2, [i.shotId]))[0];
                 if (!r) continue;
@@ -479,6 +485,19 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
       schema: z.object({}),
       run: async () => {
         const r = await measure(true);
+        // craft inventory: every named technique checked against the channel's grammar for it (twice at most)
+        if (r.ok && o.designBand && misuseRounds < 2) {
+          const dur = o.storyboard.durationS || 1;
+          const uses = (plan?.scenes ?? []).flatMap((sc) => {
+            const sh = o.storyboard.shots.find((x) => x.id === sc.shotId);
+            return sh ? (sc.techniques ?? []).map((t) => ({ shotId: sc.shotId, technique: t, line: lineOf(sh), position: sh.startS / dur })) : [];
+          });
+          const bad = (await checkTechniqueUses({ data: o.designBand.data, channel: o.channel, uses }).catch(() => [])).filter((v) => !v.ok);
+          if (bad.length) {
+            misuseRounds++;
+            return `NOT YET — ${bad.length} technique(s) used the way the channel does not (see_technique shows how it does):\n${bad.slice(0, 8).map((v) => `- ${v.shotId} ${v.technique}: ${v.why}`).join("\n")}\nChange or drop them, then submit again.`;
+          }
+        }
         if (r.ok) accepted = true;
         return r.ok ? `ACCEPTED.\n${r.report}\nIf this film taught you something, call note_lesson once; then stop.` : r.report;
       },
@@ -514,6 +533,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
   ];
   const system = o.techniques ? [...systemBase, plain(o.techniques)] : systemBase;
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${ROLE_MODEL.sceneDesigner})…`);
+  tools.push(...(o.extraTools ?? []));
   const run = await agentLoop({ stage: "scenes.agent", fixed: o.onlyShots ? 1 : 0.1, finish: { message: "Your budget for this stage is used up. Call submit_scenes NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_scenes again." }, model: ROLE_MODEL.sceneDesigner, system, user: revising
       ? `Revise this film's scenes. The plan below is the current one; redesign ONLY these shots, for these reasons, and keep every other shot as it is:\n${o.revise!.map((r) => `- ${r.shotId}: ${r.note}`).join("\n")}\n\nCURRENT SCENES OF THOSE SHOTS:\n${o.revise!.map((r) => JSON.stringify(plan.scenes.find((x) => x.shotId === r.shotId) ?? null)).join("\n")}\n\n${briefs}\n\nLook at the nearest real shots for these lines (similar_real_shots), redesign, render and look, then submit.`
       : `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: revising ? 16 : 28, maxSeconds: revising ? 240 : 480, maxUsd: revising ? 0.3 : 0.7, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
