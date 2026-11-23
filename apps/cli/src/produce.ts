@@ -69,7 +69,7 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 // not only a report. Sized for the $3 target of a 90 s film with Sonnet for the creative work and Haiku for the rest
 // (film 3, measured with Opus: research 0.37, script 0.37, narration 0.67 + a $0.60 rewrite, director 0.34, art director
 // 2.31, scenes 0.57, showrunner 1.45, preflight 1.92).
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.5, A2: 0.5, A3: 1.0, B1: 0.5, B2: 0.2, B2d: 1.2, B2s: 0.1, B3: 0.7, B4e: 0.08, B4c: 0.05, B5: 0.08, B5s: 0.35, B6: 0.6, C1: 0.02, C2: 0.05, C3: 0.8, C4: 0.15, C4v: 0.15, C4j: 0.3, C5: 0.5 };
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.7, A2: 0.8, A3: 1.6, B1: 0.5, B2: 0.2, B2d: 1.2, B2s: 0.1, B3: 0.7, B4e: 0.08, B4c: 0.05, B5: 0.08, B5s: 0.35, B6: 0.6, C1: 0.02, C2: 0.05, C3: 0.8, C4: 0.15, C4v: 0.15, C4j: 0.3, C5: 0.5 };
 /** What a 90 s film should cost (build list 4); printed with every run. */
 const TARGET_USD_90S = 3;
 
@@ -226,9 +226,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   log(`  "${draft.title}" — ${draft.wordCount} words at ${narrationWpm} wpm (${cal[calKey] ? "calibrated" : "default"}), hook: ${draft.hookFormula.slice(0, 80)}`);
   if (draft.blueprint) await updateMemory(o.data, (m) => recordBlueprint(m, channel, { job: jobId, hook: draft.blueprint!.hook, ending: draft.blueprint!.ending, spine: draft.blueprint!.spine, ...(draft.blueprint!.beats?.length ? { beats: draft.blueprint!.beats } : {}) }));
   {
-    // A script that still misses the channel's story band is not narrated.
+    // Build list 4: a script that still misses the channel's story band is narrated anyway (never a stop). Length is
+    // fitted by the narration's own ladder below; any other miss is logged here and carried into QA (`story_band`).
     const st = await readFile(storyFile, "utf8").then((t) => JSON.parse(t) as StoryReport, () => null);
-    if (st && !st.pass && !(await exists(path.join(jobDir, "timed-script.json")))) throw new Error(`story test: the script still misses the channel's story band (${st.remaining.map((x) => x.kind).join(", ")}) — see script.story.json; nothing was narrated`);
+    if (st && !st.pass) log(`  ! the script misses the channel's story band (${st.remaining.map((x) => x.kind).join(", ")}) — narrated anyway${st.remaining.some((x) => x.kind === "length") ? "; the length is fitted in narration" : ""} (script.story.json)`);
   }
   if (facts.claims.length > claimsBefore) {
     await writeFile(path.join(jobDir, "facts.json"), JSON.stringify(facts, null, 2) + "\n");
@@ -298,10 +299,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         await writeFile(timedPath, JSON.stringify(timed, null, 2) + "\n");
         return `${r.pauses} pause(s) ×${scale.toFixed(2)}: ${r.before.toFixed(1)} → ${r.after.toFixed(1)} s`;
       } },
-      { name: "the writer trims or extends a sentence", owner: "writer", maxUsd: 1.5, run: async () => rewriteFor(`The narration runs ${timed.durationS.toFixed(1)} s; it must land between ${minS} and ${maxS} s. ${wordsOff() > 0 ? `Cut about ${wordsOff()} words` : `Add about ${-wordsOff()} words`} — trim or extend sentences, keep the story and every verified fact.`) },
-      { name: "the writer again, with the exact word count", owner: "writer", maxUsd: 1.5, run: async () => rewriteFor(`Still ${timed.durationS.toFixed(1)} s against ${minS}–${maxS} s at the voice's measured ${paceOf(timed).toFixed(0)} wpm: the script must be ${Math.round((mid * paceOf(timed)) / 60)} words (it is ${timed.segments.reduce((n, sg) => n + sg.words.length, 0)}).`) },
+      { name: "the writer trims or extends a sentence", owner: "writer", maxUsd: 0.6, run: async () => rewriteFor(`The narration runs ${timed.durationS.toFixed(1)} s; it must land between ${minS} and ${maxS} s. ${wordsOff() > 0 ? `Cut about ${wordsOff()} words` : `Add about ${-wordsOff()} words`} — trim or extend sentences, keep the story and every verified fact.`) },
+      { name: "the writer again, with the exact word count", owner: "writer", maxUsd: 0.6, run: async () => rewriteFor(`Still ${timed.durationS.toFixed(1)} s against ${minS}–${maxS} s at the voice's measured ${paceOf(timed).toFixed(0)} wpm: the script must be ${Math.round((mid * paceOf(timed)) / 60)} words (it is ${timed.segments.reduce((n, sg) => n + sg.words.length, 0)}).`) },
     ];
-    const wordsLadder: Array<Rung<VoiceAct>> = [1, 2].map((k) => ({ name: k === 1 ? "the writer rewords the lines the voice could not say" : "the writer rewords them again, more plainly", owner: "writer", maxUsd: 1.5, run: async () => { const un = await readUnresolved(); return un.length ? rewriteFor(`After retakes and respellings these lines still were not said cleanly: ${un.slice(0, 8).map((x) => `"${x}"`).join("; ")}. Reword them ${k === 2 ? "in the plainest words, avoiding the names or terms that fail" : ""} (same facts).`) : null; } }));
+    const wordsLadder: Array<Rung<VoiceAct>> = [1, 2].map((k) => ({ name: k === 1 ? "the writer rewords the lines the voice could not say" : "the writer rewords them again, more plainly", owner: "writer", maxUsd: 0.6, run: async () => { const un = await readUnresolved(); return un.length ? rewriteFor(`After retakes and respellings these lines still were not said cleanly: ${un.slice(0, 8).map((x) => `"${x}"`).join("; ")}. Reword them ${k === 2 ? "in the plainest words, avoiding the names or terms that fail" : ""} (same facts).`) : null; } }));
     const voiceLadders = new Ladders<VoiceAct>({ jobDir, stage: "narration", table: { narration_length: lengthLadder, voice_unresolved: wordsLadder }, log });
     let problems: Problem[] = [];
     for (let round = 0; round < 5; round++) {
@@ -315,9 +316,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     }
     await voiceLadders.close(problems);
   }
-  // A small miss left after the ladder is accepted (the voice is not touched); a large one stops the job.
-  if (timed.durationS > maxS * 1.05) throw new Error(`narration still ${timed.durationS.toFixed(1)} s after every rung of the voice ladder (limit ${maxS.toFixed(1)} s) — see ladders.jsonl`);
-  if (timed.durationS > maxS) log(`  narration runs ${(timed.durationS - maxS).toFixed(1)} s over the target and is kept at its natural pace`);
+  // A miss left after the ladder is kept (the voice is never touched) and logged; it never stops the film (build list 4).
+  if (timed.durationS > maxS || timed.durationS < minS) log(`  ! narration runs ${timed.durationS.toFixed(1)} s against ${minS}–${maxS} s after the voice ladder — kept at its natural pace (ladders.jsonl)`);
   log(`  narration ${timed.durationS.toFixed(2)} s, ${timed.segments.length} segments`);
   if (stop("narration")) return { jobDir };
 
@@ -921,6 +921,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     let fj: Awaited<ReturnType<typeof judgeClips>> | null = null;
     log("\n[C4] QA");
     const qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest, resolution, script: timed, facts, profile: pack.profile, index, jobDir, log });
+    {
+      const st = await readFile(storyFile, "utf8").then((t) => JSON.parse(t) as StoryReport, () => null);
+      if (st && !st.pass) {
+        qa.report.checks.push({ id: "story_band", severity: "major", passed: false, message: `the script missed the channel's story band: ${st.remaining.map((x) => `${x.kind} (${x.detail.slice(0, 80)})`).join("; ")}`, measured: st.remaining.length, atFrames: [] });
+        if (qa.report.verdict === "pass") qa.report.verdict = "review";
+      }
+    }
     if (preUnresolved && !preUnresolved.pass) {
       qa.report.checks.push({ id: "preflight_unresolved", severity: "major", passed: false, message: `rendered with ${preUnresolved.blockers.length} preflight check(s) the ladders could not fix: ${preUnresolved.blockers.join(", ")} (see preflight.json, ladders.jsonl)`, measured: preUnresolved.blockers.length, atFrames: [] });
       if (qa.report.verdict === "pass") qa.report.verdict = "review";

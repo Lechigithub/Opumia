@@ -263,7 +263,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
   ];
   if (!quick) log(`  research: one researcher with tools — search, read, verify each claim on a readable page (${MODELS.sonnet})…`);
   const run = await agentLoop({
-    stage: "research.agent",
+    stage: "research.agent", finish: { message: "Your budget for this stage is used up. Call finish NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call finish again." },
     model: ROLE_MODEL.researchPlan,
     maxSeconds: quick ? 120 : 300,
     system,

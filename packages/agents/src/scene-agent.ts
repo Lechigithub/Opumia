@@ -473,7 +473,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     ),
   ];
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${ROLE_MODEL.sceneDesigner})…`);
-  const run = await agentLoop({ stage: "scenes.agent", model: ROLE_MODEL.sceneDesigner, system, user: revising
+  const run = await agentLoop({ stage: "scenes.agent", finish: { message: "Your budget for this stage is used up. Call submit_scenes NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_scenes again." }, model: ROLE_MODEL.sceneDesigner, system, user: revising
       ? `Revise this film's scenes. The plan below is the current one; redesign ONLY these shots, for these reasons, and keep every other shot as it is:\n${o.revise!.map((r) => `- ${r.shotId}: ${r.note}`).join("\n")}\n\nCURRENT SCENES OF THOSE SHOTS:\n${o.revise!.map((r) => JSON.stringify(plan.scenes.find((x) => x.shotId === r.shotId) ?? null)).join("\n")}\n\n${briefs}\n\nLook at the nearest real shots for these lines (similar_real_shots), redesign, render and look, then submit.`
       : `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: revising ? 16 : 28, maxSeconds: revising ? 240 : 480, maxUsd: revising ? 0.3 : 0.7, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
   // Whatever happened, every shot leaves with a rendered, measured scene plan.

@@ -215,7 +215,7 @@ export interface AgentTool {
  * turn to turn (the stable system blocks plus everything already said), thinking blocks are passed back
  * unchanged, and all results of one turn go back in a single message.
  */
-export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; /** Build list 3, item 31: the agent stops (as at max_turns) once it has spent this much. */ maxUsd?: number; /** Build list 4, item 18: and once it has worked this long (checked before each turn). */ maxSeconds?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns" | "max_usd" | "max_time"; usd: number }> {
+export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; /** Build list 3, item 31: the agent stops (as at max_turns) once it has spent this much. */ maxUsd?: number; /** Build list 4, item 18: and once it has worked this long (checked before each turn). */ maxSeconds?: number; /** Build list 4: work the film needs — at a cap, the agent gets these few turns to hand in what it has, told this message. */ finish?: { message: string; turns?: number }; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns" | "max_usd" | "max_time"; usd: number }> {
   const fb = fallbackFor(o.model);
   const from = ledger.length;
   const tools = o.tools.map((t) => ({ name: t.name, description: t.description, input_schema: z4.toJSONSchema(t.schema) as Anthropic.Beta.BetaTool["input_schema"] }));
@@ -231,14 +231,30 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   let lastTurn = 0;
   let turnFrom = 0;
   const t0 = Date.now();
+  let finishLeft: number | null = null;
   for (let turn = 1; turn <= (o.maxTurns ?? 24); turn++) {
     // what the previous turn cost: its model call plus the tools it ran (some tools call models themselves)
     if (turn > 1) lastTurn = Math.max(lastTurn * 0.6, spent() - turnFrom);
-    if (Number.isFinite(cap) && (turn > 1 || cap <= 0) && spent() + lastTurn > cap) {
+    const overUsd = Number.isFinite(cap) && (turn > 1 || cap <= 0) && spent() + lastTurn > cap;
+    const overTime = o.maxSeconds !== undefined && turn > 1 && (Date.now() - t0) / 1000 > o.maxSeconds;
+    if ((overUsd || overTime) && finishLeft === null && o.finish && !o.done?.() && turn > 1) {
+      // Build list 4: an agent whose work the film needs is never cut off unfinished — at its cap it gets a short
+      // finishing go (at most `finish.turns` turns) told to hand in what it has now.
+      finishLeft = o.finish.turns ?? 2;
+      o.log?.(`    ${o.stage}: at its ${overUsd ? `$${Math.max(0, cap).toFixed(2)} cap` : `${o.maxSeconds} s limit`} — ${finishLeft} turn(s) to hand in what it has`);
+      const last = messages.at(-1)!;
+      const note: Anthropic.Beta.BetaTextBlockParam = { type: "text", text: o.finish.message };
+      if (last.role === "user") last.content = typeof last.content === "string" ? [{ type: "text", text: last.content }, note] : [...last.content, note];
+      else messages.push({ role: "user", content: [note] });
+    } else if (finishLeft !== null) {
+      if (finishLeft-- <= 0) {
+        o.log?.(`    ${o.stage}: finishing turns used — stopping here`);
+        return { turns: turn - 1, calls, stopped: overTime ? "max_time" : "max_usd", usd: spent() };
+      }
+    } else if (overUsd) {
       o.log?.(`    ${o.stage}: $${spent().toFixed(2)} spent, a turn costs about $${lastTurn.toFixed(2)}, cap $${Math.max(0, cap).toFixed(2)} — stopping here`);
       return { turns: turn - 1, calls, stopped: "max_usd", usd: spent() };
-    }
-    if (o.maxSeconds !== undefined && turn > 1 && (Date.now() - t0) / 1000 > o.maxSeconds) {
+    } else if (overTime) {
       o.log?.(`    ${o.stage}: ${Math.round((Date.now() - t0) / 1000)} s of its ${o.maxSeconds} s — stopping here`);
       return { turns: turn - 1, calls, stopped: "max_time", usd: spent() };
     }

@@ -288,7 +288,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const model = ROLE_MODEL.artDirector;
   log(`  art director (blank slate): ${o.title.slice(0, 60)} (${model})…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "film-designer.agent", model, system, user, tools, effort: "medium", maxTurns: o.change ? 14 : 24, maxSeconds: o.change ? 300 : 600, maxUsd: o.change ? 0.6 : 1.2, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
+  const run = await agentLoop({ stage: "film-designer.agent", finish: { message: "Your budget for this stage is used up. Call submit_kit NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_kit again." }, model, system, user, tools, effort: "medium", maxTurns: o.change ? 14 : 24, maxSeconds: o.change ? 300 : 600, maxUsd: o.change ? 0.6 : 1.2, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
   const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), roles, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });
