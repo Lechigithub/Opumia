@@ -189,6 +189,7 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   unbridged_split: SPLIT,
   // build list 5: the new checks, each with its owner's ladder
   stutter_cut: STUTTER,
+  dangling_slot: NO_PICTURE,
   shot_rhythm: EDIT,
   cut_on_word: EDIT,
   tells_edit: EDIT,

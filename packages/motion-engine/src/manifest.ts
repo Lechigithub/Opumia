@@ -109,7 +109,13 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}$%€£.]/gu, "").replace(/\.$/, "");
         const pool = allWords.filter((w) => w.startS >= s.startS - 0.1 && w.startS < s.endS + 0.05);
         const spec = sceneSpec as unknown as { elements: Array<Record<string, unknown>> };
-        const elements = spec.elements.map((el) => {
+        // proof film (Blockbuster sh004): a picture removed after design left a paper world and a photo pointing at empty
+        // slots — a blank frame with a small label. A slot with no picture is never drawn; a world without its picture is
+        // a flat field (the gate's dangling_slot check sends the shot to be refilled with a real picture).
+        const have = new Set(media.filter((m) => m.role === "layer").map((m) => m.slot ?? 0));
+        const wd = (spec as { world?: { kind: string; slot?: number; slots?: number[] } }).world;
+        const worldFix = wd && wd.slot !== undefined && !have.has(wd.slot) ? { ...wd, kind: wd.kind === "collage" && (wd.slots ?? []).some((x) => have.has(x)) ? "collage" : "flat_field", slot: (wd.slots ?? []).find((x) => have.has(x)), slots: (wd.slots ?? []).filter((x) => have.has(x)) } : null;
+        const elements = spec.elements.filter((el) => !("slot" in el) || typeof (el as { slot?: unknown }).slot !== "number" || have.has((el as { slot: number }).slot)).map((el) => {
           const pr = el.props as Record<string, unknown> | undefined;
           if (el.type !== "component" || !pr?.sync) return el;
           const shown = String(pr.text ?? "").split(/\s+/).filter(Boolean);
@@ -121,7 +127,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         });
         // never a black frame: a footage scene whose footage is gone falls back to the kit's stage (build list 4)
         const noFootage = ((spec as { backdrop?: string }).backdrop ?? "footage") === "footage" && !media.some((m) => m.role === "primary");
-        props = { spec: { ...spec, ...(noFootage ? { backdrop: "stage" } : {}), elements }, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
+        props = { spec: { ...spec, ...(noFootage ? { backdrop: "stage" } : {}), ...(worldFix ? { world: worldFix } : {}), elements }, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
       }
       if (s.factIds?.length) props.factIds = s.factIds;
       const win: [number, number] = [s.startS - 1.5, s.endS + 1.0];

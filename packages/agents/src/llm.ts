@@ -77,6 +77,8 @@ export interface UsageRecord {
   servedBy?: string;
   /** Build list 5, item 32: the film stage the call ran in (safe when stages run in parallel). */
   filmStage?: string;
+  /** Spent by a repair (a ladder rung). */
+  repair?: boolean;
 }
 /**
  * Build list 5, item 32: which film stage a call belongs to. Work that runs BESIDE another stage (the publishing package
@@ -109,10 +111,18 @@ export const usageLedger = () => [...ledger];
  *    and the production loop treats a refusal as "no more optional work" (never a stop).
  */
 export class BudgetError extends Error {}
-let budget: { limitUsd: number; reserveUsd: number; spentBefore: number; from: number; finishing: boolean } | null = null;
+let budget: { limitUsd: number; reserveUsd: number; repairUsd: number; spentBefore: number; repairBefore: number; from: number; finishing: boolean } | null = null;
 let stageCap: { usd: number; from: number } | null = null;
-export function setBudget(limitUsd: number | null, o: { spentBefore?: number; reserveUsd?: number } = {}) {
-  budget = limitUsd === null ? null : { limitUsd, reserveUsd: o.reserveUsd ?? 0, spentBefore: o.spentBefore ?? 0, from: ledger.length, finishing: false };
+/**
+ * Proof film fix (Blockbuster: every repair rung skipped at "$0.00 left", the package and judges starved): the film's
+ * money is three buckets.
+ *  - first passes (each stage's own work, up to its stage cap) may spend only what is left after the REPAIR POOL and the
+ *    FINISH RESERVE are set aside;
+ *  - repairs (ladder rungs, run inside `inRepair`) spend the repair pool, never a stage's cap;
+ *  - the finish (package, QA, viewer, judge) opens the reserve with `setFinishing(true)`.
+ */
+export function setBudget(limitUsd: number | null, o: { spentBefore?: number; reserveUsd?: number; repairUsd?: number; repairBefore?: number } = {}) {
+  budget = limitUsd === null ? null : { limitUsd, reserveUsd: o.reserveUsd ?? 0, repairUsd: o.repairUsd ?? 0, spentBefore: o.spentBefore ?? 0, repairBefore: o.repairBefore ?? 0, from: ledger.length, finishing: false };
   stageCap = null;
 }
 /** The finish (render, QA, packaging) may use the reserve. */
@@ -128,12 +138,23 @@ const sumFrom = (from: number) => ledger.slice(from).reduce((t, r) => t + r.usd,
 export function filmSpent(): number {
   return budget ? budget.spentBefore + sumFrom(budget.from) : 0;
 }
-/** What optional work may still spend now: the film's limit less its reserve (until the finish), and the stage's cap. */
+const repairScope = new AsyncLocalStorage<boolean>();
+/** Run repair work (a ladder rung): it is paid from the repair pool and tagged as repair in the ledger. */
+export function inRepair<T>(fn: () => Promise<T>): Promise<T> {
+  return repairScope.run(true, fn);
+}
+const repairing = () => repairScope.getStore() === true;
+/** What repairs have spent so far, earlier runs included. */
+export function repairSpent(): number {
+  return budget ? budget.repairBefore + ledger.slice(budget.from).filter((r) => r.repair).reduce((t, r) => t + r.usd, 0) : 0;
+}
+const repairLeft = () => (budget ? Math.max(0, budget.repairUsd - repairSpent()) : Infinity);
+/** What repair work (ladder rungs) may still spend: the repair pool, within the film's limit less the finish reserve. */
 export function budgetLeft(): number | null {
   if (!budget && !stageCap) return null;
-  const film = budget ? budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd) : Infinity;
-  const stage = stageCap ? stageCap.usd - sumFrom(stageCap.from) : Infinity;
-  return Math.min(film, stage);
+  if (!budget) return stageCap!.usd - sumFrom(stageCap!.from);
+  const film = budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd);
+  return Math.min(film, repairLeft());
 }
 /**
  * What an agent doing its stage's own work may spend: its stage's cap and the film's HARD limit (not the reserve-backed
@@ -143,9 +164,12 @@ export function budgetLeft(): number | null {
  */
 export function agentLeft(): number | null {
   if (!budget && !stageCap) return null;
-  const hard = budget ? budget.limitUsd - filmSpent() : Infinity;
+  // a repair: the repair pool (its own cap applies; never the stage's)
+  if (repairing()) return budget ? Math.min(budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd), repairLeft()) : null;
+  // a first pass: the stage's cap, within what the film has once the repair pool and the finish reserve are set aside
+  const film = budget ? budget.limitUsd - filmSpent() - (budget.finishing ? 0 : budget.reserveUsd) - repairLeft() : Infinity;
   const stage = stageCap ? stageCap.usd - sumFrom(stageCap.from) : Infinity;
-  return Math.min(hard, stage);
+  return Math.min(film, stage);
 }
 /**
  * Build list 5, item 2: the film's length scales every agent's own caps (money per agent and seconds), by how much of
@@ -182,6 +206,7 @@ export function recordExternal(stage: string, provider: string, units: number, u
   const r: UsageRecord = { stage, model: provider, input: units, output: 0, cacheRead: 0, cacheWrite: 0, usd: Math.round(usd * 1e5) / 1e5 };
   const fs = stageNow();
   if (fs) r.filmStage = fs;
+  if (repairing()) r.repair = true;
   ledger.push(r);
   return r;
 }
@@ -197,6 +222,7 @@ function record(stage: string, model: ModelId, msg: { model: string; usage: Anth
   if (msg.model !== model) r.servedBy = msg.model;
   const fs = stageNow();
   if (fs) r.filmStage = fs;
+  if (repairing()) r.repair = true;
   ledger.push(r);
   return r;
 }
@@ -349,7 +375,8 @@ async function agentLoopInner(o: Parameters<typeof agentLoop>[0], lim: { cap: nu
         messages,
         tools: [...(o.serverTools ?? []), ...tools],
         cache_control: { type: "ephemeral" },
-        output_config: { effort: o.effort ?? "medium" },
+        // a repair (ladder rung) works at low effort: it fixes one named thing, it does not design from scratch
+        output_config: { effort: repairing() ? "low" : (o.effort ?? "medium") },
         ...(fb.betas.length ? { betas: fb.betas } : {}),
         ...("fallbacks" in fb ? { fallbacks: fb.fallbacks } : {}),
       })

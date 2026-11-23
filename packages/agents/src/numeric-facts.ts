@@ -90,6 +90,8 @@ export function bindFactProps(kind: string, props: Record<string, unknown>, nf: 
     // invisible one on the proof film). That contrast is told by the numbers, not by a bar chart.
     const vals = facts.map((f) => Math.abs(f!.value)).filter((v) => v > 0);
     if (String(props.type ?? "bar") === "bar" && vals.length >= 2 && Math.min(...vals) / Math.max(...vals) < 0.02) return null;
+    // proof film (Blockbuster): three charts were one lonely bar — one figure is a number on screen, never a chart
+    if (facts.length < 2 && String(props.type ?? "bar") !== "line") return null;
     const { facts: _x, values: _v, ...rest } = props;
     return { props: { ...rest, unit, values: facts.map((f) => f!.value), labels }, factIds: ids };
   }

@@ -76,7 +76,8 @@ export async function produce(o: ProduceOptions) {
   const filmLimit = plan.limitUsd;
   const reserveUsd = plan.reserveUsd;
   const spentBefore = await readFile(path.join(jobDir, "usage.json"), "utf8").then((t) => (JSON.parse(t) as { runs: Array<{ usd: number }> }).runs.reduce((a, r) => a + r.usd, 0), () => 0);
-  setBudget(filmLimit, { spentBefore, reserveUsd });
+  const repairBefore = await readFile(path.join(jobDir, "usage.json"), "utf8").then((t) => (JSON.parse(t) as { runs: Array<{ calls: Array<{ usd: number; repair?: boolean }> }> }).runs.flatMap((r) => r.calls).filter((c) => c.repair).reduce((a, c) => a + c.usd, 0), () => 0);
+  setBudget(filmLimit, { spentBefore, reserveUsd, repairUsd: plan.repairUsd, repairBefore });
   setFilmLength(plan.agentScale);
   resetAllotments();
   if (spentBefore > 0) o.log(`  this film has already spent $${spentBefore.toFixed(2)} of its $${filmLimit.toFixed(2)} limit (target $${plan.targetUsd.toFixed(2)})`);

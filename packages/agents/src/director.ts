@@ -89,6 +89,9 @@ export async function directStoryboard(o: DirectOptions): Promise<Storyboard> {
   dedup[0]!.startWord = 0;
 
   let demoted = 0;
+  // proof film (Blockbuster: five bar charts in 95 s): the channel shows about 3 data shots a minute and only 8 % of them
+  // are bar charts — bar charts are capped at the channel's rate (at least one per film)
+  let barsLeft = Math.max(1, Math.round((o.script.durationS / 60) * 3.1 * 0.08));
 
   const shots: StoryboardShot[] = dedup
     .map((s, i) => {
@@ -107,7 +110,9 @@ export async function directStoryboard(o: DirectOptions): Promise<Storyboard> {
       let factIds: string[] = [];
       if (s.visual === "designed" && s.designedKind !== "none") {
         // Data graphics must bind every number to a verified fact.
-        const bound = bindFactProps(s.designedKind, props, nf);
+        const isBar = s.designedKind === "chart" && String((props as { type?: unknown }).type ?? "bar") === "bar";
+        const bound = isBar && barsLeft <= 0 ? null : bindFactProps(s.designedKind, props, nf);
+        if (bound && isBar) barsLeft--;
         if (bound) {
           source = { kind: "designed", designed: s.designedKind, props: { ...bound.props, background: bg }, assetIds: [] };
           factIds = bound.factIds;

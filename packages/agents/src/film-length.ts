@@ -52,9 +52,11 @@ export interface LengthPlan {
   chapters: number;
   targetUsd: number;
   targetMinutes: number;
-  /** The film's hard spend limit and the reserve kept for the finish. */
+  /** The film's hard spend limit, the reserve kept for the finish (package, QA, viewer, judge) and the pool kept for
+   *  repairs (ladder rungs and the showrunner's send-backs). First passes may not spend either. */
   limitUsd: number;
   reserveUsd: number;
+  repairUsd: number;
   /** What a stage should spend and take (its share), and what its optional work may spend (its cap). */
   stage(code: string): { usd: number; seconds: number; capUsd: number } | null;
   /** Multiplier for an agent's own caps (turn money and seconds) by how much of its work scales with length. */
@@ -98,7 +100,10 @@ export function lengthPlan(durationS: number): LengthPlan {
     targetUsd,
     targetMinutes,
     limitUsd: Number(process.env.OPUMIA_MAX_USD) || Math.round(targetUsd * (5 / 3) * 100) / 100,
-    reserveUsd: Math.round(0.4 * targetUsd * 100) / 100,
+    // proof film (Blockbuster): the package stopped mid-thumbnail and the viewer and judge got $0 — the finish costs about
+    // $0.70 for 90 s; every repair rung was skipped — a quarter of the target is kept for repairs
+    reserveUsd: Math.round(0.27 * targetUsd * 100) / 100,
+    repairUsd: Math.round(0.25 * targetUsd * 100) / 100,
     stage(code) {
       const s = STAGE_SHARE[code];
       if (!s) return null;

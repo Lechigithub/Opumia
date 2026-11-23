@@ -211,7 +211,10 @@ export async function voiceAgent(o: VoiceAgentOptions): Promise<VoiceAgentReport
   const noticesBefore = noticeMap();
   const flagged = Object.keys(noticesBefore).length;
   // item 23: the budget follows the problems — two attempts per flagged line, at least four
-  const budget = o.budget ?? Math.min(o.lines.length * 2, Math.max(4, flagged * 2 + 2));
+  // proof film (Blockbuster): 10 whole-line retakes ($0.55) fixed none of 12 flags — a retake re-rolls the take, it
+  // cannot place a stress. One retake per flagged line at most; a stress that does not land goes to the writer
+  // (reword: the word where the sentence lands) or to punctuation, never to more retakes.
+  const budget = o.budget ?? Math.min(o.lines.length, Math.max(2, flagged));
   const acts = [...new Set(o.lines.map((l) => l.act ?? 0))];
   const heardLines = new Set<number>();
   const cands = new Map<number, Map<string, LineMeasure>>();
@@ -293,6 +296,7 @@ export async function voiceAgent(o: VoiceAgentOptions): Promise<VoiceAgentReport
         if (!heardLines.has(i.line)) return `refused: hear_line ${i.line} first — retake only what you have listened to`;
         if (retakes >= budget) return `refused: the retake budget (${budget}) is spent — choose among the takes you have, or re-set punctuation / ask the writer, then submit`;
         if (i.emphasis && !o.lines[i.line]!.text.toLowerCase().includes(i.emphasis.toLowerCase())) return `"${i.emphasis}" is not a word of that line`;
+        if (flagsOf(i.line).length && flagsOf(i.line).every((f) => /did not land/.test(f))) return "refused: a retake re-rolls the take and cannot place a stress (measured on the proof film: 10 retakes, 0 stresses fixed). Use reword (the writer puts the word where the sentence lands) or repunctuate (end the sentence on the word).";
         retakes++;
         const r = await o.retake(i.line, { ...(i.emphasis ? { emphasis: i.emphasis } : {}), ...(i.tone ? { tone: i.tone } : {}), ...(i.fall ? { fall: true } : {}) });
         return addCand(i.line, r);

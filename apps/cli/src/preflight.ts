@@ -282,6 +282,16 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     add({ id: "unbridged_split", label: "Cuts inside one picture with nothing bridging them (a jump)", value: jumps.length, target: "0", pass: jumps.length === 0, level: "blocker", repair: "redesign_scene", shots: jumps });
   }
 
+  // --- Proof film (Blockbuster): a scene whose picture slot lost its picture (dropped after design) is refilled.
+  {
+    const dangling = o.scenes.scenes.filter((sc) => {
+      const have = new Set(o.resolution.media.filter((m) => m.shotId === sc.shotId && m.role === "layer").map((m) => m.slot ?? 0));
+      const used = [...sc.elements.flatMap((e) => (typeof (e as { slot?: unknown }).slot === "number" ? [(e as { slot: number }).slot] : [])), ...(((sc as { world?: { slot?: number; slots?: number[] } }).world?.slot !== undefined ? [(sc as { world: { slot: number } }).world.slot] : []))];
+      return used.some((x) => !have.has(x));
+    }).map((sc) => sc.shotId);
+    add({ id: "dangling_slot", label: "Scenes whose picture is missing (a slot with no picture)", value: dangling.length, target: "0", pass: dangling.length === 0, level: "blocker", repair: "replace_picture", shots: dangling });
+  }
+
   // --- Build list 5, item 21: a cut back to the same picture needs a different framing AND a transition.
   {
     const st = stutterCuts(o.board.shots as never, o.resolution.media as never);

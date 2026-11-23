@@ -113,9 +113,12 @@ export async function previewTells(o: { data: string; reference: string; root: s
   const stretches: Array<{ fromS: number; toS: number; picked: boolean; tells: string[] }> = [];
   let usd = 0;
   const real: number[] = [];
-  for (const fromS of at) {
+  // the four stretches render two at a time (time), then are judged in order
+  const files = new Array<string | null>(at.length).fill(null);
+  for (let k = 0; k < at.length; k += 2) await Promise.all(at.slice(k, k + 2).map(async (f, j) => { files[k + j] = await o.render(f, f + len).catch(() => null); }));
+  for (const [k, fromS] of at.entries()) {
     const toS = fromS + len;
-    const file = await o.render(fromS, toS).catch(() => null);
+    const file = files[k];
     if (!file) continue;
     const said = words.filter((w) => w.startS >= fromS && w.startS < toS).map((w) => w.word).join(" ");
     const r = await judgeClips({ data: o.data, reference: o.reference, root: o.root, channel: o.channel, video: file, clips: [{ fromS: 0, toS: len, said }], workDir: o.workDir }).catch(() => null);

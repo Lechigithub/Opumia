@@ -16,7 +16,7 @@ import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ChannelId } from "@opumia/contracts";
 import * as z from "zod/v4";
-import { agentLoop, cached, plain, ROLE_MODEL, type AgentTool } from "./llm.js";
+import { agentLoop, cached, inRepair, plain, ROLE_MODEL, type AgentTool } from "./llm.js";
 
 export interface ShowrunnerDecision {
   approved: boolean;
@@ -87,7 +87,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
         // build list 4, item 9: one scene send-back per film, five shots at most (film 3: two full redesigns, $1.45)
         if (rounds.some((r) => r.to === "scene designer")) return "refused: the scene designer has had its one send-back — approve, or name what is still wrong";
         if (sendBacks() >= 3) return "refused: three send-backs already — decide and approve, or say what is still wrong";
-        const r = await o.redesign(i.shots);
+        const r = await inRepair(() => o.redesign(i.shots));
         unchecked = "scene designer";
         rounds.push({ to: "scene designer", what: i.shots.map((s) => `${s.shotId}: ${s.note}`).join(" | ").slice(0, 600), result: r.slice(0, 400) });
         return r;
@@ -99,7 +99,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       schema: z.object({ note: z.string() }),
       run: (async (i: { note: string }) => {
         if (sendBacks() >= 3) return "refused: three send-backs already";
-        const r = await o.reEdit(i.note);
+        const r = await inRepair(() => o.reEdit(i.note));
         unchecked = "editor";
         rounds.push({ to: "editor", what: i.note.slice(0, 400), result: r.slice(0, 400) });
         return r;
@@ -111,7 +111,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       schema: z.object({ note: z.string() }),
       run: (async (i: { note: string }) => {
         if (sendBacks() >= 3) return "refused: three send-backs already";
-        const r = await o.redoSound(i.note);
+        const r = await inRepair(() => o.redoSound(i.note));
         unchecked = "sound designer";
         rounds.push({ to: "sound designer", what: i.note.slice(0, 400), result: r.slice(0, 400) });
         return r;

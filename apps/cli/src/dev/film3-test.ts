@@ -9,20 +9,25 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { bindFactProps, budgetLeft, filmSpent, filmSubject, Ladders, loneText, recordExternal, setBudget, setFinishing, setStageCap, type NumericFact } from "@opumia/agents";
+import { agentLeft, inRepair, bindFactProps, budgetLeft, filmSpent, filmSubject, Ladders, loneText, recordExternal, setBudget, setFinishing, setStageCap, type NumericFact } from "@opumia/agents";
 
 export async function film3Test(): Promise<string[]> {
   const fails: string[] = [];
-  // 1–2: whole-film budget with a reserve
-  setBudget(5, { spentBefore: 3, reserveUsd: 1.2 });
-  if (Math.abs(filmSpent() - 3) > 1e-9) fails.push(`film spent should start at the earlier runs' $3, got ${filmSpent()}`);
-  if (Math.abs((budgetLeft() ?? 0) - 0.8) > 1e-9) fails.push(`optional work should have $0.80 left (5 − 3 − 1.2 reserve), got ${budgetLeft()}`);
+  // 1–2 (and the Blockbuster proof film): the film's money in three buckets — first passes, the repair pool, the finish
+  setBudget(5, { spentBefore: 2, reserveUsd: 1.2, repairUsd: 0.8 });
+  if (Math.abs(filmSpent() - 2) > 1e-9) fails.push(`film spent should start at the earlier runs' $2, got ${filmSpent()}`);
+  if (Math.abs((budgetLeft() ?? 0) - 0.8) > 1e-9) fails.push(`repairs should have the $0.80 pool, got ${budgetLeft()}`);
   recordExternal("test", "test", 1, 0.5);
   setStageCap(0.2);
-  if (Math.abs((budgetLeft() ?? 0) - 0.2) > 1e-9) fails.push(`the stage cap should bound optional work at $0.20, got ${budgetLeft()}`);
+  if (Math.abs((agentLeft() ?? 0) - 0.2) > 1e-9) fails.push(`a first pass is bounded by its stage cap ($0.20), got ${agentLeft()}`);
+  setStageCap(1);
+  if (Math.abs((agentLeft() ?? 0) - 0.5) > 1e-9) fails.push(`a first pass may not touch the repair pool or the finish reserve ($0.50 left of 5 − 2.5 − 1.2 − 0.8), got ${agentLeft()}`);
+  if (Math.abs((budgetLeft() ?? 0) - 0.8) > 1e-9) fails.push(`first-pass spending must not shrink the repair pool, got ${budgetLeft()}`);
+  await inRepair(async () => { recordExternal("test", "test", 1, 0.3); });
+  if (Math.abs((budgetLeft() ?? 0) - 0.5) > 1e-9) fails.push(`a repair spends the pool ($0.50 left), got ${budgetLeft()}`);
   setStageCap(null);
   setFinishing(true);
-  if (Math.abs((budgetLeft() ?? 0) - 1.5) > 1e-9) fails.push(`the finish should open the reserve ($1.50 left), got ${budgetLeft()}`);
+  if (Math.abs((agentLeft() ?? 0) - 1.7) > 1e-9) fails.push(`the finish opens the reserve (5 − 2.8 − 0.5 pool = $1.70), got ${agentLeft()}`);
   setBudget(null);
 
   // 5 and 3: ladders resume at their level, skip futile rungs, and end exhausted (logged), never throwing
@@ -55,7 +60,9 @@ export async function film3Test(): Promise<string[]> {
     { id: "n2", value: 1100, unit: "", display: "1,100", context: "patents unsold", claimId: "c2" } as NumericFact,
   ];
   if (bindFactProps("chart", { facts: ["n1", "n2"], labels: ["Licensing", "Unsold"], unit: "$" }, nf) !== null) fails.push("a chart mixing $3B and 1,100 patents must be refused");
-  if (bindFactProps("chart", { facts: ["n1"], labels: ["Licensing"] }, nf) === null) fails.push("a one-unit chart must bind");
+  const nfTwo = [...nf, { id: "n3", value: 2e9, unit: "$", display: "$2B", context: "royalties", claimId: "c5" } as NumericFact];
+  if (bindFactProps("chart", { facts: ["n1", "n3"], labels: ["Licensing", "Royalties"] }, nfTwo) === null) fails.push("a one-unit chart of two figures must bind");
+  if (bindFactProps("chart", { facts: ["n1"], labels: ["Licensing"] }, nf) !== null) fails.push("a chart of one figure (a lonely bar, the Blockbuster proof film) must be refused");
   // proof film: "promised $100M vs real $100K" drew one bar and an invisible one
   const nf2 = [{ id: "m1", value: 1e8, unit: "$", display: "$100M", context: "promised", claimId: "c3" }, { id: "m2", value: 1e5, unit: "$", display: "$100K", context: "real", claimId: "c4" }] as NumericFact[];
   if (bindFactProps("chart", { type: "bar", facts: ["m1", "m2"], labels: ["Promised", "Real"] }, nf2) !== null) fails.push("a bar chart whose bars cannot be read (1000:1) must be refused");
@@ -63,7 +70,7 @@ export async function film3Test(): Promise<string[]> {
   {
     const jd = mkdtempSync(path.join(tmpdir(), "f3b-"));
     let did = false;
-    setBudget(1.59, { reserveUsd: 1 });
+    setBudget(1.59, { reserveUsd: 1, repairUsd: 0.59 });
     const l = new Ladders<null>({ jobDir: jd, stage: "narration", table: { len: [{ name: "trim", owner: "writer", maxUsd: 0.6, run: async () => ((did = true), "trimmed") }] } });
     await l.step([{ check: "len", shots: [], what: "", measured: "", band: "" }], null);
     setBudget(null);

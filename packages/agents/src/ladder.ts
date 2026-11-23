@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
-import { budgetLeft, usageLedger } from "./llm.js";
+import { budgetLeft, inRepair, usageLedger } from "./llm.js";
 
 /**
  * Escalation ladders (build list 3, item 11). A failed check becomes a precise PROBLEM — what failed, on which shots,
@@ -147,7 +147,7 @@ export class Ladders<A> {
       // and fixed nothing is passed over for the next one — logged, never silently. With no rung left, the problem is
       // exhausted: it is logged as unresolved and the film goes on.
       const left = budgetLeft();
-      const why = (r: Rung<A>) => (this.futile.has(`${g.p.check}|${r.owner}|${r.name}`) ? "it already ran on this film and fixed nothing" : !g.shots.length && this.ownerDown.has(r.owner) ? `the ${r.owner} already failed to get a whole-film change accepted on this film` : left !== null && this.estimate(r) > left * 1.1 + 0.02 ? `needs up to $${this.estimate(r).toFixed(2)}, $${Math.max(0, left).toFixed(2)} left` : null);
+      const why = (r: Rung<A>) => (this.futile.has(`${g.p.check}|${r.owner}|${r.name}`) ? "it already ran on this film and fixed nothing" : !g.shots.length && this.ownerDown.has(r.owner) ? `the ${r.owner} already failed to get a whole-film change accepted on this film` : left !== null && this.estimate(r) > 0 && this.estimate(r) > Math.max(0, left) * 1.1 + 0.02 ? `needs up to $${this.estimate(r).toFixed(2)}, $${Math.max(0, left).toFixed(2)} left` : null);
       let skip = why(rung);
       while (skip) {
         await this.write([{ kind: "skipped", round: this.round, check: g.p.check, rung: rung.name, level, why: skip }]);
@@ -162,7 +162,8 @@ export class Ladders<A> {
       const prob: Problem = { ...g.p, shots: g.shots };
       const before = usageLedger().reduce((t, r) => t + r.usd, 0);
       const t0 = Date.now();
-      const note = await rung.run([prob], act).catch((e: Error) => `FAILED: ${e.message.slice(0, 200)}`);
+      // the rung is repair work: paid from the film's repair pool, not the stage's first-pass cap
+      const note = await inRepair(() => rung.run([prob], act)).catch((e: Error) => `FAILED: ${e.message.slice(0, 200)}`);
       const a: Attempt = { at: new Date().toISOString(), round: this.round, check: g.p.check, rung: rung.name, level, owner: rung.owner, shots: g.shots, measured: g.p.measured, band: g.p.band, note: note ?? "could not act", usd: Math.round((usageLedger().reduce((t, r) => t + r.usd, 0) - before) * 1e4) / 1e4, seconds: Math.round((Date.now() - t0) / 1000) };
       this.attempts.push(a);
       this.cost.set(`${rung.owner}|${rung.name}`, Math.max(this.cost.get(`${rung.owner}|${rung.name}`) ?? 0, a.usd));
