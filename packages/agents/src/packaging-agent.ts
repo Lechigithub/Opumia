@@ -151,6 +151,8 @@ const Element = z.object({
   tint: HEX.optional().describe("colour the cut-out into one hue"),
   tintStrength: z.number().optional().describe("0–1"),
   look: z.enum(["natural", "punch", "mono", "glitch"]).optional(),
+  /** owner 2026-11-23: deterministic face retouching — smooth skin, sharpen, relight, and a warp (0–1) centred on (cx, cy) of the cut-out that exaggerates a feature or expression; never a generative model */
+  retouch: z.object({ smooth: z.number().optional(), sharpen: z.number().optional(), relight: z.number().optional(), warp: z.number().optional(), cx: z.number().optional(), cy: z.number().optional() }).optional(),
   half: z.enum(["left", "right", "top", "bottom"]).optional().describe("show only one half (two halves of two faces make one)"),
   flip: z.boolean().optional(),
   shadow: z.boolean().optional(),
@@ -264,7 +266,7 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
       const tex = e.textureSlot !== undefined && pic(e.textureSlot) ? (used.add(e.textureSlot), { textureSlot: e.textureSlot, textureBlend: e.textureBlend ?? "multiply", textureOpacity: clamp(e.textureOpacity, 0, 1, 0.8) }) : {};
       const comp = { ...(e.contactShadow ? { contactShadow: clamp(e.contactShadow, 0, 1, 0.5) } : {}), ...(e.soften ? { soften: clamp(e.soften, 0, 2, 0.6) } : {}), ...(e.turnX ? { turnX: clamp(e.turnX, -25, 25, 0) } : {}), ...(e.turnY ? { turnY: clamp(e.turnY, -35, 35, 0) } : {}) };
       if (e.type === "cutout" || p.kind !== "photo")
-        els.push({ type: "cutout", slot: p.slot, ...box, ...light, ...tex, ...comp, ...(e.brightness ? { brightness: clamp(e.brightness, 0.7, 1.4, 1) } : {}), shadow: e.shadow ?? true, outline: e.outline ?? false, ...(validHex(e.outlineColor) ? { outlineColor: e.outlineColor } : {}), ...(validHex(e.glowColor) ? { glowColor: e.glowColor, glowSize: clamp(e.glowSize, 0.3, 3, 1) } : {}), ...(validHex(e.tint) ? { tint: e.tint, tintStrength: clamp(e.tintStrength, 0, 1, 0.6) } : {}), ...(e.look ? { look: e.look } : {}), ...(e.half ? { half: e.half } : {}), ...(e.flip ? { flip: true } : {}) });
+        els.push({ type: "cutout", slot: p.slot, ...box, ...light, ...tex, ...comp, ...(e.brightness ? { brightness: clamp(e.brightness, 0.7, 1.4, 1) } : {}), shadow: e.shadow ?? true, outline: e.outline ?? false, ...(validHex(e.outlineColor) ? { outlineColor: e.outlineColor } : {}), ...(validHex(e.glowColor) ? { glowColor: e.glowColor, glowSize: clamp(e.glowSize, 0.3, 3, 1) } : {}), ...(validHex(e.tint) ? { tint: e.tint, tintStrength: clamp(e.tintStrength, 0, 1, 0.6) } : {}), ...(e.look ? { look: e.look } : {}), ...(e.retouch ? { retouch: Object.fromEntries(Object.entries(e.retouch).filter(([, v]) => typeof v === "number").map(([k, v]) => [k, clamp(v as number, 0, 1, 0)])) } : {}), ...(e.half ? { half: e.half } : {}), ...(e.flip ? { flip: true } : {}) });
       else els.push({ type: "photo", slot: p.slot, ...box, frame: e.frame ?? "none", grade: e.grade ?? "natural", ...(e.h ? { h: clamp(e.h, 0.05, 1.2, 0.5) } : {}) });
     } else if (e.type === "text") {
       const t = (e.text ?? "").trim();

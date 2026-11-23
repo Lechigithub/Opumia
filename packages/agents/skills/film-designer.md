@@ -101,3 +101,12 @@ export const FILM = {
 - **Data the channel's way.** Its data shots are one big number (27 %), an annotated picture (25 %), a drawn line
   (17 %), a map, icons; a bar chart is rare (8 %). Your number role must carry a figure alone, huge; your chart role
   should prefer a drawn line with glow over bars.
+
+
+## No template look: draw the film's OWN versions of the engine's styles
+
+The engine can draw bursts, filmstrips, contact grids, split screens, gradients, paper, polaroid / neon / torn frames.
+Each already varies per film, but the strongest films draw their own: export `styles` in the kit (`FILM.styles`), a
+component per world kind or frame name the film leans on (e.g. `styles.burst`, `styles.polaroid`). A world component
+gets { slots, src, t (0–1 over the shot), base, accent, width, height }; a frame gets { src, width, height, children }.
+Our films are compared on the mix of styles they use — a film that leans on the same mix as an earlier one is sent back.

@@ -18,6 +18,9 @@ export interface FilmFingerprint {
   type: { display: string; body: string; casing: string };
   /** The film's own kit: its visual idea and the transition that bridges its cuts. */
   treatment: { transition: string; concept: string };
+  /** Owner 2026-11-23 (no template look): the mix of engine styles the film used — worlds, picture frames and grades,
+   *  atmospheres, effects, 3D elements, entrances and transitions — compared across films like the layout. */
+  styles?: Record<string, number>;
   /** Where designed elements sit: element type × 3×3 screen cell → share of all elements. */
   layout: Record<string, number>;
   /** Share of scenes per backdrop and of shots per designed kind. */
@@ -69,6 +72,28 @@ export function fingerprintOf(o: { job: string; channel: string; design: FilmDes
   }
   const total = Object.values(mix).reduce((a, b) => a + b, 0) || 1;
   for (const k of Object.keys(mix)) mix[k] = Math.round((mix[k]! / total) * 1000) / 1000;
+  const styles: Record<string, number> = {};
+  const addS = (k: string) => (styles[k] = (styles[k] ?? 0) + 1);
+  for (const sc of (o.scenes?.scenes ?? []) as Array<Record<string, unknown> & { elements: Array<Record<string, unknown>> }>) {
+    const w = sc.world as { kind?: string } | undefined;
+    if (w?.kind) addS(`world:${w.kind}`);
+    const at = sc.atmos as { kind?: string } | undefined;
+    if (at?.kind) addS(`atmos:${at.kind}`);
+    for (const [k, v] of Object.entries((sc.fx as Record<string, unknown>) ?? {})) if (v) addS(`fx:${k}`);
+    if (sc.drift) addS("drift");
+    for (const e of sc.elements) {
+      if (e.type === "text3d" || e.type === "card3d" || e.type === "prop3d") addS(`el:${e.type}`);
+      if (e.frame && e.frame !== "none") addS(`frame:${String(e.frame)}`);
+      if (e.grade && e.grade !== "natural") addS(`grade:${String(e.grade)}`);
+      if (e.enter && e.enter !== "fade") addS(`enter:${String(e.enter)}`);
+      if (e.silhouette) addS("cutout:silhouette");
+      if (e.outline) addS("cutout:outline");
+      if (e.glow) addS("cutout:glow");
+    }
+  }
+  for (const sh of shots) if (sh.transitionIn && sh.transitionIn !== "cut") addS(`transition:${sh.transitionIn}`);
+  const sTot = Object.values(styles).reduce((a, b) => a + b, 0) || 1;
+  for (const k of Object.keys(styles)) styles[k] = Math.round((styles[k]! / sTot) * 1000) / 1000;
   const text = (o.draft?.segments ?? []).map((s) => s.text).join(" ");
   const words = text.split(/\s+/).filter(Boolean);
   return {
@@ -78,6 +103,7 @@ export function fingerprintOf(o: { job: string; channel: string; design: FilmDes
     colour: { primary: o.design.palette.primary, accent: o.design.palette.accent, surface: o.design.palette.surface },
     type: { display: o.design.fonts.display, body: o.design.fonts.body, casing: "" },
     treatment: { transition: o.transition ?? "", concept: o.design.concept },
+    styles,
     layout,
     mix,
     story: { hook: o.draft?.blueprint?.hook ?? "", spine: o.draft?.blueprint?.spine ?? "", ending: o.draft?.blueprint?.ending ?? "" },
@@ -133,7 +159,11 @@ export function similarity(a: FilmFingerprint, b: FilmFingerprint): Similarity {
   // the kit: same typefaces, the same transition, the same visual idea in other words
   const tf: Array<[string, string]> = [[a.type.display, b.type.display], [a.type.body, b.type.body], [a.treatment.transition ?? "", b.treatment.transition ?? ""]];
   const idea = jaccard(content(a.treatment.concept ?? ""), content(b.treatment.concept ?? ""));
-  const treatment = (tf.filter(([x, y]) => x && x === y).length + Math.min(1, idea * 2)) / (tf.length + 1);
+  // the engine styles the two films lean on (owner: no template look) count with the typefaces and the transition
+  const hasSt = Boolean(a.styles && b.styles && Object.keys(a.styles).length && Object.keys(b.styles).length);
+  const st = hasSt ? cosine(a.styles!, b.styles!) : 0;
+  const base = tf.filter(([x, y]) => x && x === y).length + Math.min(1, idea * 2);
+  const treatment = hasSt ? (base + st * 1.5) / (tf.length + 2.5) : base / (tf.length + 1);
   const layout = Object.keys(a.layout).length && Object.keys(b.layout).length ? cosine(a.layout, b.layout) : 0;
   const story = (Number(a.story.hook && a.story.hook === b.story.hook) + Number(a.story.ending && a.story.ending === b.story.ending) + Number(a.story.spine && a.story.spine === b.story.spine)) / 3;
   const firstWords = (s: string) => s.toLowerCase().split(/\s+/).slice(0, 3).join(" ");

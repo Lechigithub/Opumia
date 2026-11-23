@@ -29,7 +29,7 @@ import { edl, findPassages } from "./reference-library.js";
 export const EDITOR_KEYS = ["cutsPerMin", "shotMedianS", "shotCv", "cutInPause", "cutToWordMedianS", "wordsPerShot"];
 /** Build list 5, item 20: the at-length rhythm measures the editor is held to (CRAFT_MEASURES.edit on real stretches of the film's length). */
 export const RHYTHM_KEYS = ["shotMedianS", "shotCv", "shotP90S", "cutToWordMedianS", "cutInPause", "stillHolds"];
-const BRIDGE_TRANSITIONS = new Set(["film", "whip", "light_leak", "fade", "dip_black", "match", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink"]);
+const BRIDGE_TRANSITIONS = new Set(["film", "whip", "light_leak", "fade", "dip_black", "match", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink", "smoke_cover", "fire_cover"]);
 
 /**
  * Build list 5, item 21: a cut to the same picture (the same source on both sides) needs a different framing AND a
@@ -295,8 +295,8 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
     },
     {
       name: "set_transition",
-      description: "How a shot is entered: cut (default), film (the film's OWN transition from its kit — use it to bridge every change of the same picture and on turns; the channel bridges 4–11 same-picture changes a minute, mostly with light flashes), whip, fade, dip_black, light_leak, match, flash (a white flash cut, the channel uses it on hits and turns), zoom_punch (a punch-in on a hit), zoom_through (the next shot revealed through a shape that scales through the frame), flash_color (a flash in the film's accent), prism (a prismatic flare), bar_wipe (coloured bars sweep the next shot in), ink (an ink blot spreads to reveal it). A same-picture change with no bridge reads as a jump.",
-      schema: z.object({ shotId: z.string(), kind: z.enum(["cut", "film", "fade", "whip", "dip_black", "light_leak", "match", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink"]) }),
+      description: "How a shot is entered: cut (default), film (the film's OWN transition from its kit — use it to bridge every change of the same picture and on turns; the channel bridges 4–11 same-picture changes a minute, mostly with light flashes), whip, fade, dip_black, light_leak, match, flash (a white flash cut, the channel uses it on hits and turns), zoom_punch (a punch-in on a hit), zoom_through (the next shot revealed through a shape that scales through the frame), flash_color (a flash in the film's accent), prism (a prismatic flare), bar_wipe (coloured bars sweep the next shot in), ink (an ink blot spreads to reveal it), smoke_cover / fire_cover (real smoke or a film burn washes over the cut). A same-picture change with no bridge reads as a jump.",
+      schema: z.object({ shotId: z.string(), kind: z.enum(["cut", "film", "fade", "whip", "dip_black", "light_leak", "match", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink", "smoke_cover", "fire_cover"]) }),
       run: (async (i: { shotId: string; kind: Storyboard["shots"][number]["transitionIn"] }) => {
         const k = find(i.shotId);
         if (k < 0) return `no shot ${i.shotId}`;
@@ -345,7 +345,7 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         if (studied < 2) return `refused: study at least two real passages first (studied ${studied})`;
         // Step 6: a change of the same picture with nothing bridging it reads as a jump (film 1: 3 unbridged punch-ins;
         // the channel bridges 4–11 such changes a minute, mostly with light flashes).
-        const BRIDGES = new Set(["film", "whip", "light_leak", "fade", "dip_black", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink"]);
+        const BRIDGES = new Set(["film", "whip", "light_leak", "fade", "dip_black", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink", "smoke_cover", "fire_cover"]);
         const unbridged = board.shots.filter((x) => /_\d+$/.test(x.id) && !BRIDGES.has(x.transitionIn ?? "cut")).map((x) => x.id);
         if (unbridged.length) return `refused: these halves change the same picture with nothing bridging them — a jump: ${unbridged.join(", ")}. set_transition each to ${o.filmTransition ? "film (the film's own transition)" : "whip or light_leak"}, or merge_with_next to undo the split.`;
         if (o.watch && !watched) return "refused: watch at least one stretch you changed (with its sound) before submitting — numbers alone do not show a jump cut or a cut that lands on the wrong picture";

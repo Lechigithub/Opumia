@@ -132,7 +132,7 @@ const ConceptScores = z.object({
       surprise: z.number().describe("0–10: a twist that makes you need to know more"),
       story: z.number().describe("0–10: the one image tells THIS film's turn (given below) — 10 = it shows the surprise itself; 3 = it shows only the topic or the company (a logo on fire, the product alone)"),
       channel: z.number().describe("0–10: the kind of idea this channel makes (compare with the deconstructions)"),
-      makeable: z.number().describe("0–10: buildable from the pictures listed and real photos/objects/fire/textures, without altering a face or painting"),
+      makeable: z.number().describe("0–10: buildable from the pictures listed and real photos/objects/fire/textures, without a generative model; retouching a real face with deterministic tools is allowed"),
       nearest: z.string().describe("the reference thumbnail whose idea it is closest to"),
       note: z.string().describe("the one change that would make it stronger"),
     }),

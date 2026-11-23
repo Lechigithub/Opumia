@@ -2,7 +2,8 @@ import React from "react";
 import { AbsoluteFill, continueRender, delayRender, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { ThreeCanvas } from "@remotion/three";
 import * as THREE from "three";
-import { PALETTE } from "../types";
+import { PALETTE, pick, vary } from "../types";
+import { FILM } from "@film";
 
 /**
  * Build list 5, items 10–11: the worlds a designed shot is built in, and the finish laid over every shot.
@@ -15,7 +16,7 @@ import { PALETTE } from "../types";
  */
 export type WorldKind = "mono_accent" | "duotone" | "burst" | "collage" | "flat_field" | "paper" | "terminal" | "filmstrip" | "contact_grid" | "split" | "gradient" | "room3d";
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted" | "black" | "white";
-export interface WorldSpec { kind: WorldKind; slot?: number; slots?: number[]; color?: Token; accent?: Token }
+export interface WorldSpec { kind: WorldKind; slot?: number; slots?: number[]; color?: Token; accent?: Token; texture?: number }
 export interface FinishSpec { grain?: number; vignette?: number; leak?: number; halftone?: number }
 
 export const tokenColor = (t: Token | undefined, d: string): string =>
@@ -83,6 +84,9 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
   const id = useId(world.kind);
   const src = world.slot !== undefined ? slots[String(world.slot)] : undefined;
   const drift = 1.04 + 0.05 * t;
+  // the film's own version of this world, when its kit draws one (no template look)
+  const Own = FILM.styles?.[world.kind];
+  if (Own) return <AbsoluteFill><Own slots={slots} src={src} t={t} base={base} accent={acc} width={width} height={height} /></AbsoluteFill>;
   switch (world.kind) {
     case "mono_accent":
       // a real picture in black and white, with one bar of the accent colour cutting through it
@@ -102,11 +106,15 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
       );
     case "burst": {
       // rays turning slowly behind the subject (the designer places the cut-out over it)
-      const rays = 18;
-      const stops = Array.from({ length: rays }, (_, k) => `${k % 2 ? acc : base} ${(k / rays) * 360}deg ${((k + 1) / rays) * 360}deg`).join(", ");
+      // per film: ray count, ray width ratio, turn speed and direction, centre (no two films draw the same burst)
+      const rays = Math.round(vary("burst.rays", 10, 28)) * 2;
+      const ratio = vary("burst.ratio", 0.35, 0.65);
+      const spin = vary("burst.spin", 8, 40) * pick("burst.dir", [1, -1]);
+      const cx = vary("burst.cx", 0.38, 0.62), cy = vary("burst.cy", 0.38, 0.62);
+      const stops = Array.from({ length: rays / 2 }, (_, k) => { const a0 = (k / (rays / 2)) * 360, a1 = a0 + (360 / (rays / 2)) * ratio, a2 = ((k + 1) / (rays / 2)) * 360; return `${acc} ${a0}deg ${a1}deg, ${base} ${a1}deg ${a2}deg`; }).join(", ");
       return (
         <AbsoluteFill style={{ background: base, overflow: "hidden" }}>
-          <div style={{ position: "absolute", left: width / 2 - width, top: height / 2 - width, width: width * 2, height: width * 2, background: `conic-gradient(from ${t * 25}deg, ${stops})`, opacity: 0.85 }} />
+          <div style={{ position: "absolute", left: width * cx - width, top: height * cy - width, width: width * 2, height: width * 2, background: `conic-gradient(from ${t * spin}deg, ${stops})`, opacity: vary("burst.opacity", 0.6, 0.92) }} />
           <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 50%, rgba(255,255,255,0.28) 0%, transparent 38%, rgba(0,0,0,0.5) 100%)` }} />
         </AbsoluteFill>
       );
@@ -136,9 +144,9 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
       // craft inventory: the channel's filmstrip / contact sheet — real pictures as frames on a strip with sprocket
       // holes, sliding frame to frame
       const list = [world.slot, ...(world.slots ?? [])].filter((s): s is number => s !== undefined).map((s) => slots[String(s)]).filter((s): s is string => Boolean(s)).slice(0, 5);
-      const fw = width * 0.46;
-      const fh = fw * 0.62;
-      const gap = width * 0.05;
+      const fw = width * vary("strip.frame", 0.36, 0.56);
+      const fh = fw * vary("strip.aspect", 0.56, 0.75);
+      const gap = width * vary("strip.gap", 0.02, 0.07);
       const slide = -t * Math.max(0, list.length - 1.6) * (fw + gap);
       const holes = Array.from({ length: Math.ceil(width / 40) + 4 }, (_, k) => k);
       return (
@@ -151,7 +159,7 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
             ))}
             {list.map((s, k) => (
               <div key={k} style={{ position: "absolute", top: height * 0.07, left: width * 0.27 + k * (fw + gap) + slide, width: fw, height: fh, overflow: "hidden", border: "3px solid #2a241c" }}>
-                <Picture src={s} filter={k % 2 ? "grayscale(1) contrast(1.2)" : "sepia(0.35) contrast(1.1)"} scale={1.03} />
+                <Picture src={s} filter={pick("strip.look", ["grayscale(1) contrast(1.2)", "sepia(0.45) contrast(1.1)", "contrast(1.1) saturate(0.8)"]) + (k % 2 ? " brightness(0.92)" : "")} scale={1.03} />
               </div>
             ))}
           </div>
@@ -163,17 +171,17 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
       // frame edges, the grid sliding so the next cell comes to the centre
       const list = [world.slot, ...(world.slots ?? [])].filter((s): s is number => s !== undefined).map((s) => slots[String(s)]).filter((s): s is string => Boolean(s));
       if (!list.length) return <AbsoluteFill style={{ background: base }} />;
-      const cw = width * 0.38, ch = cw * 0.62, g = width * 0.03;
+      const cw = width * vary("grid.cell", 0.28, 0.44), ch = cw * vary("grid.aspect", 0.56, 0.8), g = width * vary("grid.gap", 0.015, 0.05);
       const cols = 5, rows = 4;
       const ox = width / 2 - cw / 2 - t * (cw + g) * Math.min(1.5, list.length - 1), oy = height / 2 - ch / 2 - (ch + g);
       return (
-        <AbsoluteFill style={{ background: "#d9d3c7" }}>
+        <AbsoluteFill style={{ background: pick("grid.grout", ["#d9d3c7", "#111111", "#ece6da", "#2a2622", base]) }}>
           {Array.from({ length: cols * rows }, (_, k) => {
             const c = (k % cols) - 1, r = Math.floor(k / cols);
             const s = list[(k + Math.floor(k / cols)) % list.length]!;
             const centre = r === 1 && c >= 0;
             return (
-              <div key={k} style={{ position: "absolute", left: ox + c * (cw + g), top: oy + r * (ch + g), width: cw, height: ch, borderRadius: width * 0.012, overflow: "hidden", boxShadow: "0 6px 18px rgba(0,0,0,0.25)" }}>
+              <div key={k} style={{ position: "absolute", left: ox + c * (cw + g), top: oy + r * (ch + g), width: cw, height: ch, borderRadius: width * vary("grid.radius", 0, 0.025), overflow: "hidden", boxShadow: "0 6px 18px rgba(0,0,0,0.25)" }}>
                 <Picture src={s} filter={centre ? "contrast(1.08)" : "grayscale(0.6) brightness(0.8)"} scale={1.04} />
               </div>
             );
@@ -190,7 +198,7 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
         <AbsoluteFill style={{ background: "#0b0b0b" }}>
           <div style={{ position: "absolute", left: 0, top: 0, width: width / 2 - 4, height, overflow: "hidden", transform: `translateX(${(open - 1) * width * 0.2}px)` }}>{a ? <Picture src={a} filter="contrast(1.08)" scale={drift} /> : null}</div>
           <div style={{ position: "absolute", left: width / 2 + 4, top: 0, width: width / 2 - 4, height, overflow: "hidden", transform: `translateX(${(1 - open) * width * 0.2}px)` }}>{b ? <Picture src={b} filter="contrast(1.08)" scale={drift} /> : null}</div>
-          <div style={{ position: "absolute", left: width / 2 - 4, top: 0, width: 8, height: height * open, background: acc }} />
+          <div style={{ position: "absolute", left: width / 2 - vary("split.bar", 2, 10), top: pick("split.from", [0, 1]) ? height * (1 - open) : 0, width: vary("split.bar", 2, 10) * 2, height: height * open, background: pick("split.colour", [acc, "#ffffff", "#000000"]) }} />
         </AbsoluteFill>
       );
     }
@@ -215,7 +223,12 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
     case "paper":
       return (
         <AbsoluteFill style={{ background: tokenColor("paper", "#ece5d3") }}>
-          <PaperGrain strong />
+          {world.texture !== undefined && slots[String(world.texture)] ? (
+            <>
+              <Picture src={slots[String(world.texture)]!} filter="contrast(1.15)" />
+              <AbsoluteFill style={{ background: base, mixBlendMode: "multiply", opacity: 0.28 }} />
+            </>
+          ) : <PaperGrain strong />}
           {src ? <Picture src={src} filter="grayscale(1) contrast(1.3) sepia(0.25)" style={{ mixBlendMode: "multiply", opacity: 0.85 }} scale={drift} /> : null}
           <AbsoluteFill style={{ background: `repeating-linear-gradient(180deg, transparent 0, transparent ${height / 28 - 1}px, rgba(60,40,20,0.07) ${height / 28 - 1}px, rgba(60,40,20,0.07) ${height / 28}px)` }} />
           <AbsoluteFill style={{ boxShadow: `inset 0 0 ${width * 0.08}px rgba(80,50,20,0.45)` }} />
@@ -292,3 +305,34 @@ export const gradeFilter = (g: string | undefined): string | undefined =>
   g === "warm_glow" ? "sepia(0.25) saturate(1.35) brightness(1.12) contrast(0.95)" : g === "thermal" ? "grayscale(1) invert(1) sepia(1) saturate(6) hue-rotate(-50deg) contrast(1.4)" : g === "solarise" ? "contrast(2.1) saturate(1.5) invert(0.2) brightness(1.1)" :
   g === "contrast_bw" ? "grayscale(1) contrast(1.55) brightness(0.95)" : g === "split" ? "sepia(0.35) hue-rotate(-12deg) saturate(1.3) contrast(1.15)" : g === "invert" ? "invert(1) hue-rotate(180deg) contrast(1.1)" : g === "lowkey" ? "saturate(0.6) contrast(1.35) brightness(0.72)" :
   g === "mono" ? "grayscale(1) contrast(1.12)" : g === "duotone" ? "grayscale(1) sepia(0.6) hue-rotate(160deg) saturate(1.6) contrast(1.1)" : g === "punch" ? "contrast(1.22) saturate(1.25)" : g === "sepia" ? "sepia(0.75) contrast(1.08)" : undefined;
+
+/**
+ * Owner, 2026-11-23: a real face may be retouched with deterministic tools (never a generative model) — the channel's
+ * own designers do it. One SVG filter: skin smoothing (a soft copy blended back), sharpening (a convolution), and a
+ * bulge warp centred on (cx, cy) that exaggerates a feature or an expression (a displacement map). Relighting is a
+ * brightness/contrast lift applied with the filter.
+ */
+export interface RetouchSpec { smooth?: number; sharpen?: number; relight?: number; warp?: number; cx?: number; cy?: number }
+export const RetouchFilter: React.FC<{ id: string; r: RetouchSpec }> = ({ id, r }) => {
+  const sm = Math.max(0, Math.min(1, r.smooth ?? 0));
+  const sh = Math.max(0, Math.min(1, r.sharpen ?? 0));
+  const wp = Math.max(0, Math.min(1, r.warp ?? 0));
+  const k = 1 + sh * 1.6;
+  const edge = -(k - 1) / 4;
+  return (
+    <svg width={0} height={0} style={{ position: "absolute" }}>
+      <filter id={id} colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation={(sm * 2.2).toFixed(2)} result="soft" />
+        <feComposite in="soft" in2="SourceGraphic" operator="arithmetic" k1="0" k2={(sm * 0.55).toFixed(3)} k3={(1 - sm * 0.55).toFixed(3)} k4="0" result="smoothed" />
+        <feConvolveMatrix in="smoothed" order="3" kernelMatrix={`0 ${edge} 0 ${edge} ${k} ${edge} 0 ${edge} 0`} preserveAlpha="true" result="sharp" />
+        {wp > 0 ? (
+          <>
+            <feImage href={`data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><defs><radialGradient id='g' cx='${((r.cx ?? 0.5) * 100).toFixed(0)}%' cy='${((r.cy ?? 0.4) * 100).toFixed(0)}%' r='35%'><stop offset='0' stop-color='rgb(255,255,128)'/><stop offset='1' stop-color='rgb(128,128,128)'/></radialGradient></defs><rect width='100' height='100' fill='rgb(128,128,128)'/><rect width='100' height='100' fill='url(#g)'/></svg>`)}`} preserveAspectRatio="none" result="map" />
+            <feDisplacementMap in="sharp" in2="map" scale={(wp * 40).toFixed(1)} xChannelSelector="R" yChannelSelector="G" />
+          </>
+        ) : null}
+      </filter>
+    </svg>
+  );
+};
+export const retouchCss = (r: RetouchSpec | undefined) => (r?.relight ? `brightness(${(1 + Math.max(0, Math.min(1, r.relight)) * 0.18).toFixed(3)}) contrast(${(1 + Math.max(0, Math.min(1, r.relight)) * 0.12).toFixed(3)})` : "");

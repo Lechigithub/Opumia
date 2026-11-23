@@ -25,6 +25,13 @@ export interface FilmKit {
   transitionFrames?: number;
   /** The film's typefaces (CSS font-family stacks, loaded by the kit): every word the shared primitives draw uses them. */
   fonts?: { display: string; body: string };
+  /**
+   * Owner, 2026-11-23 (no template look): the film's OWN version of any engine-drawn style, by name — a world kind
+   * ("burst", "filmstrip", "contact_grid", "split", "gradient", "paper", …) or a picture frame ("polaroid", "neon",
+   * "torn"). When the kit draws one, it replaces the engine's for this film. A world gets { slots, src, t, base, accent,
+   * width, height }; a frame gets { src, width, height, children }.
+   */
+  styles?: Record<string, React.FC<FilmComponentProps>>;
   /** For the scene designer: what each component is for and the props it takes. */
   meta?: Record<string, { use: string; props: string }>;
 }

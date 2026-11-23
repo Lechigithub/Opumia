@@ -10,8 +10,9 @@ Nothing in the thumbnail comes from a generative model. Every picture is a real 
 frame of real footage, real texture, or a human-made licensed illustration — or a cut-out of one of these. You may
 grade, tint, glow, outline, split, crop, mirror, filter (painterly, posterise, ink, halftone) and composite real
 pixels into a scene that never happened: that is photo manipulation, the way the channel's own designers work.
-You never alter a real person's face (expression, features, injuries painted onto skin by hand): to show a feeling,
-find a real frame where they show it; to show damage, lay a real texture over it.
+You may retouch a real face with deterministic tools (smoothing, sharpening, relighting, contrast, a warp that
+exaggerates an expression, real textures laid over skin) the way the channel's own designers do — never with a
+generative model. A real frame where the person shows the feeling is still the strongest start.
 
 ## What the channel's thumbnails do (measured — the numbers you are given are the truth)
 
@@ -132,7 +133,7 @@ of a blurred one) and `finish.grain` / `finish.sharpen`. Never blur a background
 
 ## What you never do
 
-- No generated, drawn or rendered imagery; no altered faces; no invented scenes.
+- No generated imagery (no AI model); faces may be retouched with deterministic tools; no invented scenes.
 - No pictures from photo agencies (Getty, AP, Reuters, Alamy…).
 - No thumbnail text that repeats the title, names someone the film does not, or states a figure the film never says.
 - Never submit a thumbnail you have not rendered, looked at and tested blind.

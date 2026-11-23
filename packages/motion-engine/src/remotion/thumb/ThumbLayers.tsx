@@ -1,3 +1,4 @@
+import { RetouchFilter, retouchCss, type RetouchSpec } from "../scenes/Worlds";
 import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT, FONT_BODY, PALETTE } from "../types";
@@ -26,6 +27,8 @@ type El =
       tint?: string;
       tintStrength?: number;
       look?: "natural" | "punch" | "mono" | "glitch";
+      /** Owner 2026-11-23: deterministic face retouching (smoothing, sharpening, relighting, an exaggerating warp). */
+      retouch?: RetouchSpec;
       half?: "left" | "right" | "top" | "bottom";
       flip?: boolean;
       outlineColor?: string;
@@ -297,7 +300,8 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       <div style={{ position: "relative", ...(turn ? { transform: turn } : {}), filter: `${outline}${glow}${el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.65))"}`.trim() || undefined }}>
         {el.contactShadow ? <div style={mask({ background: "#000", opacity: Math.max(0, Math.min(1, el.contactShadow)), top: "auto", height: "100%", transform: `translateY(48%) scaleY(0.12) ${flip ?? ""}`, filter: `blur(${Math.round(w * 0.02)}px)` })} /> : null}
         <div style={{ position: "relative", ...(clip ? { clipPath: clip } : {}) }}>
-          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: grade, ...(flip ? { transform: flip } : {}) }} />
+          {el.retouch ? <RetouchFilter id={`trt${el.slot}`} r={el.retouch} /> : null}
+          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: el.retouch ? `url(#trt${el.slot}) ${retouchCss(el.retouch)} ${grade ?? ""}`.trim() : grade, ...(flip ? { transform: flip } : {}) }} />
           {tc ? <div style={mask({ background: tc, mixBlendMode: "color", opacity: Math.max(0, Math.min(1, el.tintStrength ?? 0.6)) })} /> : null}
           {texSrc ? <div style={mask({ backgroundImage: `url(${staticFile(texSrc)})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: el.textureBlend ?? "multiply", opacity: Math.max(0, Math.min(1, el.textureOpacity ?? 0.8)) })} /> : null}
           {hex(el.matchColor) ? <div style={mask({ background: `radial-gradient(ellipse at 50% 30%, transparent 20%, ${hex(el.matchColor)} 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.matchStrength ?? 0.55)) })} /> : null}

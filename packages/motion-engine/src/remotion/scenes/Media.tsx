@@ -1,4 +1,4 @@
-import { PALETTE } from "../types";
+import { PALETTE, pick, vary } from "../types";
 import React from "react";
 import { AbsoluteFill, Img, interpolate, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig, Easing } from "remotion";
 import type { Layer } from "../types";
@@ -19,7 +19,7 @@ const inkPath = (k: number) => {
   const pts: string[] = [];
   for (let a = 0; a < 36; a++) {
     const ang = (a / 36) * Math.PI * 2;
-    const rr = k * 95 * (0.75 + 0.25 * Math.sin(a * 2.3) * Math.cos(a * 1.1));
+    const rr = k * 95 * (0.75 + vary("ink.rough", 0.1, 0.35) * Math.sin(a * vary("ink.lobes", 1.5, 4.5)) * Math.cos(a * 1.1 + vary("ink.phase", 0, 6)));
     pts.push(`${(50 + Math.cos(ang) * rr).toFixed(1)}% ${(50 + Math.sin(ang) * rr).toFixed(1)}%`);
   }
   return `polygon(${pts.join(", ")})`;
@@ -27,10 +27,13 @@ const inkPath = (k: number) => {
 /** Six vertical bars growing across the frame, staggered. */
 const barsPath = (k: number) => {
   const pts: string[] = ["0% 0%"];
-  for (let b = 0; b < 6; b++) {
-    const g = Math.max(0, Math.min(1, k * 1.6 - b * 0.12));
-    const x0 = (b * 100) / 6, x1 = x0 + (100 / 6) * g;
-    pts.push(`${x0}% 0%`, `${x0}% 100%`, `${x1}% 100%`, `${x1}% 0%`, `${x0}% 0%`);
+  const n = Math.round(vary("bars.count", 3, 9));
+  const vertical = pick("bars.dir", [true, false]);
+  for (let b = 0; b < n; b++) {
+    const g = Math.max(0, Math.min(1, k * 1.6 - b * (0.6 / n)));
+    const a0 = (b * 100) / n, a1 = a0 + (100 / n) * g;
+    if (vertical) pts.push(`${a0}% 0%`, `${a0}% 100%`, `${a1}% 100%`, `${a1}% 0%`, `${a0}% 0%`);
+    else pts.push(`0% ${a0}%`, `100% ${a0}%`, `100% ${a1}%`, `0% ${a1}%`, `0% ${a0}%`);
   }
   return `polygon(${pts.join(", ")})`;
 };
@@ -59,6 +62,11 @@ export function useTransitionIn(kind: string | undefined) {
       return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: 1, bars: interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) }) };
     case "ink":
       return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: 1, iris: interpolate(f, [0, 12], [0, 1], { extrapolateRight: "clamp", easing: Easing.in(Easing.quad) }), ink: true };
+    // craft inventory: smoke / fire cover — the next shot fades in under a real smoke or film-burn clip (the overlay
+    // itself is placed by the platform over the cut)
+    case "smoke_cover":
+    case "fire_cover":
+      return { opacity: interpolate(f, [0, 14], [0, 1], { extrapolateRight: "clamp" }), blur: interpolate(f, [0, 14], [8, 0], { extrapolateRight: "clamp" }), dx: 0, flash: 0, white: 0, punch: 1 };
     // craft inventory: zoom-through — the next shot is revealed through a shape that scales through the frame
     case "zoom_through":
       return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: interpolate(f, [0, 10], [1.25, 1], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }), iris: interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp", easing: Easing.in(Easing.quad) }) };
@@ -125,7 +133,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
         </AbsoluteFill>
         {tr.flash > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle at 30% 40%, #ffd28a, #ff7a1a 45%, transparent 75%)", mixBlendMode: "screen", opacity: tr.flash }} /> : null}
       {tr.white > 0 ? <AbsoluteFill style={{ background: tr.tint === "accent" ? PALETTE.accent : "#ffffff", opacity: tr.white }} /> : null}
-      {tr.prism > 0 ? <AbsoluteFill style={{ background: "linear-gradient(115deg, transparent 20%, rgba(255,0,80,0.6) 35%, rgba(255,200,0,0.6) 45%, rgba(0,255,160,0.55) 55%, rgba(0,140,255,0.6) 65%, transparent 80%)", mixBlendMode: "screen", opacity: tr.prism }} /> : null}
+      {tr.prism > 0 ? <AbsoluteFill style={{ background: `linear-gradient(${Math.round(vary("prism.angle", 60, 150))}deg, transparent 20%, rgba(255,0,80,0.6) 35%, rgba(255,200,0,0.6) 45%, rgba(0,255,160,0.55) 55%, rgba(0,140,255,0.6) 65%, transparent 80%)`, mixBlendMode: "screen", opacity: tr.prism }} /> : null}
       </AbsoluteFill>
     );
   }

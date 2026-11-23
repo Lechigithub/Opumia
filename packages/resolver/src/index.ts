@@ -6,3 +6,4 @@ export * from "./widen.js";
 export * from "./scene-tools.js";
 export * from "./thumbnail-tools.js";
 export * from "./composite.js";
+export * from "./props3d.js";

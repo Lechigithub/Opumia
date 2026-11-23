@@ -18,9 +18,10 @@ import { MODELS, plain, ROLE_MODEL, structured } from "./llm.js";
 
 const ENTER = ["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom", "settle", "glitch", "swoop"] as const;
 const El = z.object({
-  type: z.enum(["photo", "cutout", "card3d", "text3d", "component"]),
+  type: z.enum(["photo", "cutout", "card3d", "text3d", "prop3d", "component"]),
+  prop: z.string().describe("prop3d: what real 3D object to place, in a few words (\"vintage office chair\", \"gold bars\", \"wooden barrel\") — a licensed CC0 model is found and rendered in 3D; else empty"),
   text: z.string().describe("text3d: two to five words the narrator says in this shot, set as real extruded 3D type; else empty"),
-  style: z.enum(["none", "silhouette", "outline", "glow"]).describe("cutout: the channel's black silhouette figure, a white outline, or a coloured glow around the cut-out; else none"),
+  style: z.enum(["none", "silhouette", "outline", "glow", "retouch", "exaggerate"]).describe("cutout: the channel's black silhouette figure, a white outline, a coloured glow; retouch (deterministic: smoothed, sharpened, relit portrait) or exaggerate (retouched with a warp that pushes the expression) — owner allows retouching real faces with deterministic tools; else none"),
   slot: z.number().describe("picture slot index for photo/cutout/card3d, else -1"),
   component: z.string().describe("component: the name of one of THIS film's kit components, else empty"),
   propsJson: z.string().describe("component: its props as a JSON object — words must be words the narrator says in this shot, figures spoken figures, slots existing picture slots; else empty"),
@@ -32,6 +33,8 @@ const El = z.object({
   z: z.number().describe("depth 0 far .. 1 near"),
   at: z.number().describe("seconds after the shot starts"),
   enter: z.enum(ENTER),
+  pinX: z.number().describe("to place a caption ON a moving subject in the footage and have it follow the subject: the subject's point x (0–1 of the frame); -1 for none"),
+  pinY: z.number().describe("the subject's point y (0–1); -1 for none"),
   exit: z.enum(["none", "slide", "erode"]).describe("how it leaves before the cut: slide off, or erode away (blur, crumble, fade) — the channel's text exits; none for most"),
   spin: z.number().describe("degrees the 3D card turns over the shot (card3d), else 0"),
   frame: z.enum(["none", "polaroid", "neon", "torn", "perspective"]).describe("photo: a white-bordered polaroid print (several swooping in at different depths read as the channel's floating photo cards), a glowing neon frame, ripped paper edges, or a screen/document tilted in 3D perspective; else none"),
@@ -132,6 +135,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   const refusals: string[] = [];
   let three = 0;
   let threeText = 0;
+  let threeProps = 0;
   for (const sh of todo) {
     const d = o.raw.find((x) => x.shotId === sh.id);
     if (!d) continue;
@@ -146,13 +150,21 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     const dur = sh.endS - sh.startS;
     const els: SceneElement[] = [];
     for (const e of d.elements) {
-      const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter , ...(e.exit && e.exit !== "none" ? { exit: e.exit } : {}) };
+      const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter , ...(e.exit && e.exit !== "none" ? { exit: e.exit } : {}), ...(e.pinX >= 0 && e.pinY >= 0 && hasFootage ? { track: { x: clamp(e.pinX, 0, 1), y: clamp(e.pinY, 0, 1) } } : {}) };
       if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
         if (!slots.has(e.slot)) { dropped++; continue; }
         if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), ...(e.blend === "screen" ? { blend: "screen" as const } : {}), ...(e.frame && e.frame !== "none" ? { frame: e.frame } : {}) });
-        else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true, ...(e.style === "silhouette" ? { silhouette: true } : e.style === "outline" ? { outline: true } : e.style === "glow" ? { glow: "accent" as const } : {}) });
+        else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true, ...(e.style === "silhouette" ? { silhouette: true } : e.style === "outline" ? { outline: true } : e.style === "glow" ? { glow: "accent" as const } : e.style === "retouch" ? { retouch: { smooth: 0.5, sharpen: 0.45, relight: 0.4 } } : e.style === "exaggerate" ? { retouch: { smooth: 0.4, sharpen: 0.5, relight: 0.4, warp: 0.45, cx: 0.5, cy: 0.38 } } : {}) });
         else if (three < 4) (three++, els.push({ type: "card3d", slot: e.slot, ...box, tilt: e.spin >= 0 ? -14 : 14, spin: clamp(e.spin || 22, -40, 40) }));
         else els.push({ type: "photo", slot: e.slot, ...box, grade: "natural" });
+        continue;
+      }
+      // craft inventory: a real 3D prop (licensed CC0 model, found and placed after design) — at most 4 in a film
+      if (e.type === "prop3d") {
+        const q = (e.prop ?? "").trim();
+        if (q.length < 3 || threeProps >= 4) { dropped++; continue; }
+        threeProps++;
+        els.push({ type: "prop3d", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.1, 0.9) } : {}), query: q.slice(0, 80), spin: clamp(e.spin || 30, -180, 180), tilt: 22 });
         continue;
       }
       // craft inventory: 3D type — spoken words only, a phrase not a lone common word, at most 4 in a film

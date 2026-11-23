@@ -4,6 +4,7 @@ import { continueRender, delayRender, interpolate, spring, staticFile, useCurren
 import * as THREE from "three";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import helvetiker from "three/examples/fonts/helvetiker_bold.typeface.json";
 import optimer from "three/examples/fonts/optimer_bold.typeface.json";
 import gentilis from "three/examples/fonts/gentilis_bold.typeface.json";
@@ -105,6 +106,40 @@ export const Card3D: React.FC<{ src: string; tilt: number; spin: number; at: num
           <planeGeometry args={[cw * 1.5, chh * 1.5]} />
           <meshBasicMaterial color={PALETTE.primary} transparent opacity={0.16} />
         </mesh>
+      </group>
+    </ThreeCanvas>
+  );
+};
+
+/** Craft inventory: a real 3D prop (a licensed glTF model), fitted to its box, lit by the film's accent, turning. */
+export const Prop3D: React.FC<{ src: string; spin: number; tilt: number; at: number; w: number; h: number }> = ({ src, spin, tilt, at, w, h }) => {
+  const f = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
+  const [scene, setScene] = useState<THREE.Group | null>(null);
+  const [handle] = useState(() => delayRender(`prop3d ${src}`));
+  useEffect(() => {
+    new GLTFLoader().load(staticFile(src), (g) => {
+      const box = new THREE.Box3().setFromObject(g.scene);
+      const size = box.getSize(new THREE.Vector3());
+      const centre = box.getCenter(new THREE.Vector3());
+      g.scene.position.sub(centre);
+      const k = 2.2 / Math.max(size.x, size.y, size.z, 1e-6);
+      const holder = new THREE.Group();
+      holder.add(g.scene);
+      holder.scale.setScalar(k);
+      setScene(holder);
+      continueRender(handle);
+    }, undefined, () => continueRender(handle));
+  }, [src, handle]);
+  const t = f - Math.round(at * fps);
+  const inP = spring({ frame: t, fps, config: { damping: 15, stiffness: 110, mass: 0.9 } });
+  const prog = interpolate(f, [0, Math.max(1, durationInFrames - 1)], [0, 1], { extrapolateRight: "clamp" });
+  if (t < 0 || !scene) return null;
+  return (
+    <ThreeCanvas width={Math.round(w)} height={Math.round(h)} camera={{ fov: 32, position: [0, 0.4, 4.6], near: 0.05, far: 100 }} style={{ position: "absolute", inset: 0 }}>
+      <Lights accent={PALETTE.accent} />
+      <group rotation={[(tilt * Math.PI) / 180, ((-spin / 2 + spin * prog) * Math.PI) / 180, 0]} scale={0.6 + 0.4 * inP}>
+        <primitive object={scene} />
       </group>
     </ThreeCanvas>
   );

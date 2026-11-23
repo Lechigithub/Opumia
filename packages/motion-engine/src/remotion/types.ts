@@ -54,8 +54,25 @@ export interface DesignTokens {
 }
 
 /** Install one film's design tokens (call at the top of a composition, before children render). */
+/**
+ * Owner, 2026-11-23: no template look. Every engine-drawn style (bursts, grids, filmstrips, frames, wipes, particle
+ * density…) takes its own variant per film from this seed, set from the film's own design (its palette and typefaces,
+ * which the art director must make different from every earlier film), so two films never draw them the same way.
+ */
+export const STYLE = { seed: 0 };
+const hashStr = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+/** A per-film value in [lo, hi] for a named style parameter. */
+export const vary = (key: string, lo: number, hi: number) => lo + ((hashStr(`${STYLE.seed}|${key}`) % 10007) / 10006) * (hi - lo);
+/** A per-film choice among options. */
+export const pick = <T,>(key: string, opts: readonly T[]): T => opts[hashStr(`${STYLE.seed}|${key}`) % opts.length]!;
+
 export function applyDesign(d?: DesignTokens) {
   if (!d) return;
+  STYLE.seed = hashStr(JSON.stringify([d.palette, d.fonts]));
   Object.assign(PALETTE, d.palette);
   Object.assign(TEXTURE, { grain: d.texture.grain, vignette: d.texture.vignette });
   setFilmFonts(d.fonts);

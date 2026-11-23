@@ -6,7 +6,7 @@ import { z } from "zod";
  * Coordinates are fractions of the frame (0..1); times are seconds from the shot start.
  */
 export const SceneEnter = z.enum(["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom", "settle", "glitch", "swoop"]);
-const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade"), /** craft inventory: how it leaves before the cut — slides off, or erodes away (blur, crumble, fade) */ exit: z.enum(["none", "slide", "erode"]).optional() };
+const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade"), /** craft inventory: how it leaves before the cut — slides off, or erodes away (blur, crumble, fade) */ exit: z.enum(["none", "slide", "erode"]).optional(), /** craft inventory: the element follows the subject it is placed on (a motion-tracked caption): the footage point it is pinned to, and the tracked path filled in by the platform */ track: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), path: z.array(z.object({ t: z.number(), x: z.number(), y: z.number() })).optional() }).optional() };
 export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"]);
 /** Treatment of a placed picture (build list 5, item 11): its own grade. */
 export const PhotoGrade = z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey", "warm_glow", "thermal", "solarise"]);
@@ -29,6 +29,9 @@ export const SceneElement = z.discriminatedUnion("type", [
     type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true),
     /** Craft inventory: the channel's black silhouette figures, and cut-outs with a white outline or a coloured glow. */
     silhouette: z.boolean().optional(),
+    /** Owner 2026-11-23: deterministic retouching of a real face (never a generative model): smoothing, sharpening,
+     *  relighting, a warp exaggerating a feature or expression centred on (cx, cy) of the cut-out. */
+    retouch: z.object({ smooth: z.number().min(0).max(1).optional(), sharpen: z.number().min(0).max(1).optional(), relight: z.number().min(0).max(1).optional(), warp: z.number().min(0).max(1).optional(), cx: z.number().min(0).max(1).optional(), cy: z.number().min(0).max(1).optional() }).optional(),
     outline: z.boolean().optional(),
     glow: z.enum(["primary", "accent", "white"]).optional(),
     /** Compositing into the backdrop: its colour laid over the subject, light from the backdrop's own direction, a
@@ -46,6 +49,8 @@ export const SceneElement = z.discriminatedUnion("type", [
   z.object({ type: z.literal("card3d"), slot: z.number().int().min(0), ...Box, tilt: z.number().min(-40).max(40).default(-14), spin: z.number().min(-60).max(60).default(22) }),
   /** Real 3D type (Three.js): words the narrator says, extruded and lit, turning through `spin` degrees (craft inventory). */
   z.object({ type: z.literal("text3d"), ...Box, h: z.number().optional(), text: z.string().min(1).max(40), spin: z.number().min(-60).max(60).default(18), serif: z.boolean().optional(), color: z.enum(["primary", "accent", "white", "paper"]).optional(), /** craft inventory: a metallic chrome or gold title */ material: z.enum(["paint", "chrome", "gold"]).optional() }),
+  /** Craft inventory: a real 3D prop — a licensed (CC0) glTF model found by `query`, lit and turning in the frame. */
+  z.object({ type: z.literal("prop3d"), ...Box, h: z.number().optional(), query: z.string().min(2).max(80), model: z.string().optional(), spin: z.number().min(-180).max(180).default(30), tilt: z.number().min(-40).max(60).default(22) }),
   /** One of THIS film's kit components, with its props (words spoken in the shot; slots; verified data). */
   z.object({ type: z.literal("component"), ...Box, h: z.number().optional(), name: z.string(), props: z.record(z.string(), z.unknown()).default({}) }),
 ]);
@@ -68,6 +73,8 @@ export const SceneWorld = z.object({
   slots: z.array(z.number().int().min(0)).max(5).optional(),
   color: ColorToken.default("primary"),
   accent: ColorToken.default("accent"),
+  /** craft inventory: a real paper scan from the library (crumpled, folded, aged) under a paper world, tinted */
+  texture: z.number().int().min(0).optional(),
 });
 export type SceneWorld = z.infer<typeof SceneWorld>;
 /** Build list 5, item 11: the treatment laid over the whole shot (the channel's frames almost all carry one). */

@@ -1089,6 +1089,20 @@ export async function resolveAtmosphere(o: { storyboard: Storyboard; scenes: Arr
   let last = "";
   let placed = 0;
   const shots = o.storyboard.shots.map((s) => ({ ...s, overlays: s.overlays.filter((ov) => !all.some((a) => a.id === ov.assetId && Object.values(RE).some((re) => re.test(a.relPath)))) }));
+  // cover transitions: a real smoke or film-burn clip over the first 1.2 s of the shot
+  for (const sh of shots) {
+    const kind = sh.transitionIn === "smoke_cover" ? "smoke" : sh.transitionIn === "fire_cover" ? "burn" : null;
+    if (!kind || sh.overlays.some((ov) => ov.durS !== undefined)) continue;
+    const pool = all.filter((a) => RE[kind]!.test(a.relPath)).sort((a, b) => h(o.seed + sh.id + a.id) - h(o.seed + sh.id + b.id));
+    const a = pool[0];
+    if (!a) continue;
+    const file = `atmos_cover_${sh.id}_${a.id}.mp4`;
+    const out = path.join(mediaDir, file);
+    if (!(await exists(out))) await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), "video", out, 0, 1.6, false);
+    media.push({ shotId: sh.id, role: "overlay", origin: "library", ref: a.id, provider: "library", kind: "video", localPath: out, publicPath: `media/${file}`, license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: 1, query: `${kind} cover transition` });
+    sh.overlays = [...sh.overlays, { assetId: a.id, blend: "screen", opacity: 0.95, durS: 1.2 }];
+    placed++;
+  }
   for (const sc of o.scenes) {
     if (!sc.atmos) continue;
     const re = RE[sc.atmos.kind];
@@ -1107,4 +1121,33 @@ export async function resolveAtmosphere(o: { storyboard: Storyboard; scenes: Arr
     placed++;
   }
   return { storyboard: { ...o.storyboard, shots }, resolution: ResolutionReport.parse({ ...o.resolution, media }), placed };
+}
+
+
+/**
+ * Craft inventory: paper worlds stand on a real paper scan from the library (aged, folded, foxed, crumpled, newsprint)
+ * instead of drawn grain — laid in as a picture slot of the shot (slot 90+), licensed and logged like any layer.
+ */
+export async function resolvePaperTextures(o: { scenes: Array<{ shotId: string; world?: { kind: string; texture?: number } }>; index: LibraryIndex; libraryRoot: string; jobDir: string; resolution: ResolutionReport; seed: string }): Promise<{ resolution: ResolutionReport; placed: number }> {
+  const papers = o.index.assets.filter((a) => isUsable(a) && a.category === "overlays" && a.kind === "image" && /paper|parchment|newsprint|card_/.test(a.relPath));
+  if (!papers.length) return { resolution: o.resolution, placed: 0 };
+  const media = [...o.resolution.media];
+  const mediaDir = path.join(o.jobDir, "public", "media");
+  await mkdir(mediaDir, { recursive: true });
+  const h = (s: string) => parseInt(createHash("sha1").update(s).digest("hex").slice(0, 8), 16);
+  let placed = 0;
+  for (const sc of o.scenes) {
+    if (sc.world?.kind !== "paper") continue;
+    if (sc.world.texture !== undefined && media.some((m) => m.shotId === sc.shotId && m.role === "layer" && m.slot === sc.world!.texture)) continue;
+    const a = [...papers].sort((x, y) => h(o.seed + sc.shotId + x.id) - h(o.seed + sc.shotId + y.id))[0]!;
+    const slot = 90;
+    const file = `paper_${sc.shotId}_${a.id}.${a.ext === "png" ? "png" : "jpg"}`;
+    const out = path.join(mediaDir, file);
+    if (!(await exists(out))) await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), "image", out, 0, 5, a.ext === "png");
+    for (let k = media.length - 1; k >= 0; k--) if (media[k]!.shotId === sc.shotId && media[k]!.role === "layer" && media[k]!.slot === slot) media.splice(k, 1);
+    media.push({ shotId: sc.shotId, role: "layer", slot, origin: "library", ref: a.id, provider: "library", kind: "image", localPath: out, publicPath: `media/${file}`, license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: 1, query: "paper texture" });
+    sc.world.texture = slot;
+    placed++;
+  }
+  return { resolution: ResolutionReport.parse({ ...o.resolution, media }), placed };
 }

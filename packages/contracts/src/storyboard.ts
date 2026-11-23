@@ -55,10 +55,10 @@ export const StoryboardShot = z
     source: ShotSource,
     trimInS: Seconds.optional(),
     camera: CameraMove.default({ type: "static" }),
-    overlays: z.array(z.object({ assetId: z.string(), blend: z.enum(["screen", "multiply", "overlay", "normal"]), opacity: z.number().min(0).max(1) })).default([]),
+    overlays: z.array(z.object({ assetId: z.string(), blend: z.enum(["screen", "multiply", "overlay", "normal"]), opacity: z.number().min(0).max(1), /** craft inventory: an overlay that covers only the cut (a smoke or fire cover transition) lasts this long */ durS: z.number().positive().optional() })).default([]),
     onScreenText: z.string().optional(),
     sfx: z.array(z.object({ assetId: z.string(), atS: Seconds, gainDb: z.number().default(0) })).default([]),
-    transitionIn: z.enum(["cut", "fade", "whip", "dip_black", "light_leak", "match", "film", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink"]).default("cut"),
+    transitionIn: z.enum(["cut", "fade", "whip", "dip_black", "light_leak", "match", "film", "flash", "zoom_punch", "zoom_through", "flash_color", "prism", "bar_wipe", "ink", "smoke_cover", "fire_cover"]).default("cut"),
     /** Named real-world entities on screen in this shot (archive-first sourcing). */
     entities: z.array(z.object({ name: z.string(), type: z.enum(["person", "company", "place", "landmark", "event", "product"]), year: z.number().int().optional() })).optional(),
     /** Numeric facts (FactSheet-derived ids) a designed graphic displays. */

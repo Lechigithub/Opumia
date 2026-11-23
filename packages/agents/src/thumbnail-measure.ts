@@ -39,7 +39,8 @@ makeable: could a designer make this exact thumbnail from real photographs alone
 why: one short sentence on what decided makeable.
 reach: could a designer make it WITHOUT any generative model, using only: compositing real photos into one scene (cut-outs, matched light, shadows, perspective), real textures laid over things (blood splatter, cracks, burns, smoke, fire footage), recolouring and filters (tint, glitch, painterly, posterise, halftone), splitting two real faces into halves, and human-made licensed illustrations or vector art?
 - reachable: yes, all of it.
-- face_alteration: it depends on changing a real person's face itself — an expression they never made, features or make-up painted onto their skin, a distorted face.
+- reachable also covers retouching a real person's face with deterministic tools (smoothing, sharpening, relighting, a warp that exaggerates an expression, real textures laid on skin) — owner decision 2026-11-23.
+- face_alteration: it depends on a face that could only come from a generative model (a new face, an expression painted from nothing).
 - new_painting: it depends on artwork painted or drawn specifically for this thumbnail that no licensed illustration would supply (a custom caricature, a painted portrait of the real person).`
 
 const Labels = z.object({
@@ -179,7 +180,7 @@ export interface ThumbIssue { kind: string; detail: string }
 export function thumbIssues(l: ThumbLabel, look: { colourfulness: number; luma: number }, band: ThumbBand): ThumbIssue[] {
   const out: ThumbIssue[] = [];
   const pct = (x: number) => `${Math.round(x * 100)} %`;
-  if (l.reach !== "reachable") out.push({ kind: "not_real_pictures", detail: `it reads as needing ${l.reach.replace("_", " ")} (${l.why}). Nothing may alter a real face or be painted new.` });
+  if (l.reach !== "reachable") out.push({ kind: "not_real_pictures", detail: `it reads as needing ${l.reach.replace("_", " ")} (${l.why}). Nothing may come from a generative model; a real face may be retouched with deterministic tools.` });
   if (l.hero !== "text" && l.heroShare < band.heroShare.p10) out.push({ kind: "hero_too_small", detail: `the hero covers ${pct(l.heroShare)} of the frame; the channel's heroes cover ${pct(band.heroShare.p10)}–${pct(band.heroShare.p90)} (median ${pct(band.heroShare.median)}). Make it bigger — crop it with the frame edge if needed.` });
   if (l.words > Math.max(band.words.p90, 1)) out.push({ kind: "too_many_words", detail: `${l.words} words; the channel uses at most ${band.words.p90} on nine thumbnails in ten (median ${band.words.median}, ${pct(band.words.noTextShare)} have none).` });
   if (l.words > 0 && l.textHeight < band.textHeight.p10 * 0.9) out.push({ kind: "text_too_small", detail: `the text is ${pct(l.textHeight)} of the frame height; the channel's biggest text is ${pct(band.textHeight.p10)}+ (median ${pct(band.textHeight.median)}). Fewer words, bigger.` });

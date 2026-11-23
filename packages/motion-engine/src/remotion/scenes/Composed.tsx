@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FILM } from "@film";
-import { PALETTE } from "../types";
-import { Card3D, Text3D } from "./Three";
-import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec } from "./Worlds";
+import { PALETTE, pick, vary } from "../types";
+import { Card3D, Prop3D, Text3D } from "./Three";
+import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec , RetouchFilter, retouchCss, type RetouchSpec } from "./Worlds";
 
 /**
  * ComposedScene: a film scene as its scene designer wrote it, drawn from the film's OWN kit (build list 3, L2/L3).
@@ -13,12 +13,13 @@ import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec } from "./W
  */
 type Enter = "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down" | "pop" | "stamp" | "type" | "draw" | "wipe" | "zoom" | "settle" | "glitch" | "swoop";
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted";
-interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter; exit?: "none" | "slide" | "erode" }
+interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter; exit?: "none" | "slide" | "erode"; track?: { x: number; y: number; path?: Array<{ t: number; x: number; y: number }> } }
 type El =
   | (Box & { type: "photo"; slot: number; grade?: string; h?: number; blend?: "normal" | "screen"; frame?: "none" | "polaroid" | "neon" | "torn" | "perspective" })
   | (Box & {
       type: "cutout";
       silhouette?: boolean;
+      retouch?: RetouchSpec;
       outline?: boolean;
       glow?: "primary" | "accent" | "white";
       slot: number;
@@ -36,6 +37,7 @@ type El =
       flip?: boolean;
     })
   | (Box & { type: "card3d"; slot: number; tilt?: number; spin?: number })
+  | (Box & { type: "prop3d"; query: string; model?: string; spin?: number; tilt?: number; h?: number })
   | (Box & { type: "text3d"; text: string; spin?: number; serif?: boolean; color?: "primary" | "accent" | "white" | "paper"; h?: number; material?: "paint" | "chrome" | "gold" })
   | (Box & { type: "component"; name: string; props?: Record<string, unknown>; h?: number });
 
@@ -125,6 +127,15 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       </div>
     );
   }
+  if (el.type === "prop3d") {
+    if (!el.model) return null;
+    const hp = el.h ? el.h * height : w * 0.85;
+    return (
+      <div style={{ position: "absolute", left, top, width: w, height: hp, opacity: e.opacity }}>
+        <Prop3D src={el.model} spin={el.spin ?? 30} tilt={el.tilt ?? 22} at={at} w={w} h={hp} />
+      </div>
+    );
+  }
   if (el.type === "text3d") {
     // craft inventory: 3D type in films (it was reachable only in thumbnails)
     const h3 = el.h ? el.h * height : w * 0.32;
@@ -147,6 +158,9 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
   if (!src) return null;
   if (el.type === "photo") {
     const h = el.h ? el.h * height : undefined;
+    // the film's own version of this frame, when its kit draws one
+    const OwnFrame = el.frame && el.frame !== "none" ? FILM.styles?.[el.frame] : undefined;
+    if (OwnFrame) return wrap(<OwnFrame src={src} width={w} height={h ?? w * 0.62}><Img src={staticFile(src)} style={{ width: "100%", height: h ? "100%" : "auto", objectFit: "cover", display: "block", filter: gradeFilter(el.grade) }} /></OwnFrame>, h);
     const filter = gradeFilter(el.grade);
     const inner = 1.04 + 0.06 * interpolate(f, [0, fps * 6], [0, 1], { extrapolateRight: "clamp" });
     return wrap(
@@ -154,8 +168,8 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       <div style={{ position: "relative", ...(el.frame === "perspective" ? { transform: `perspective(${Math.round(w * 2.4)}px) rotateY(${-18 + 6 * interpolate(f, [0, fps * 6], [0, 1], { extrapolateRight: "clamp" })}deg) rotateX(6deg)` } : {}) }}>
         <div style={{ position: "relative", height: h, overflow: "hidden",
           ...(el.blend === "screen" ? { mixBlendMode: "screen", opacity: 0.7 } : { boxShadow: "0 20px 50px rgba(0,0,0,0.55)" }),
-          ...(el.frame === "polaroid" ? { background: "#f6f3ec", padding: `${w * 0.04}px ${w * 0.04}px ${w * 0.16}px`, boxShadow: "0 18px 40px rgba(0,0,0,0.5)" } : {}),
-          ...(el.frame === "neon" ? { outline: `${Math.max(3, w * 0.008)}px solid ${PALETTE.accent}`, outlineOffset: w * 0.012, boxShadow: `0 0 ${w * 0.04}px ${PALETTE.accent}, 0 0 ${w * 0.09}px ${PALETTE.accent}` } : {}),
+          ...(el.frame === "polaroid" ? { background: pick("polaroid.paper", ["#f6f3ec", "#ffffff", "#efe6d2"]), padding: `${w * vary("polaroid.border", 0.025, 0.06)}px ${w * vary("polaroid.border", 0.025, 0.06)}px ${w * vary("polaroid.foot", 0.1, 0.2)}px`, boxShadow: "0 18px 40px rgba(0,0,0,0.5)" } : {}),
+          ...(el.frame === "neon" ? { outline: `${Math.max(2, w * vary("neon.width", 0.004, 0.013))}px solid ${pick("neon.colour", [PALETTE.accent, PALETTE.primary, "#ffffff"])}`, outlineOffset: w * vary("neon.offset", 0, 0.025), borderRadius: w * vary("neon.round", 0, 0.04), boxShadow: `0 0 ${w * vary("neon.glow", 0.02, 0.06)}px ${PALETTE.accent}, 0 0 ${w * 0.09}px ${PALETTE.accent}` } : {}),
           ...(el.frame === "torn" ? { clipPath: tornPath(i) } : {}) }}>
           <Img src={staticFile(src)} style={{ width: "100%", height: h ? "100%" : "auto", objectFit: "cover", display: "block", filter, transform: `scale(${inner})` }} />
         </div>
@@ -163,6 +177,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       h,
     );
   }
+  const rid = `rt${i}${React.useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   if (el.type === "cutout") {
     const hex = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
     const bright = el.brightness ? `brightness(${Math.max(0.6, Math.min(1.5, el.brightness))}) ` : "";
@@ -174,8 +189,9 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       // craft inventory: white outline (four tight drop-shadows) and a coloured glow around the cut-out
       <div style={{ position: "relative", ...(turn ? { transform: turn } : {}), filter: [el.outline ? "drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff)" : "", el.glow ? `drop-shadow(0 0 ${Math.round(w * 0.03)}px ${el.glow === "accent" ? PALETTE.accent : el.glow === "primary" ? PALETTE.primary : "#ffffff"})` : "", el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.6))"].filter(Boolean).join(" ") || undefined }}>
         {el.contactShadow ? <div style={mask({ background: "#000", opacity: Math.max(0, Math.min(1, el.contactShadow)), top: "auto", height: "100%", transform: `translateY(48%) scaleY(0.12) ${flip ?? ""}`, filter: `blur(${Math.round(w * 0.02)}px)` })} /> : null}
+        {el.retouch ? <RetouchFilter id={rid} r={el.retouch} /> : null}
         <div style={{ position: "relative" }}>
-          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: `${el.silhouette ? "brightness(0) " : ""}${bright}${soft}`.trim() || undefined, ...(flip ? { transform: flip } : {}) }} />
+          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: `${el.silhouette ? "brightness(0) " : ""}${el.retouch ? `url(#${rid}) ${retouchCss(el.retouch)} ` : ""}${bright}${soft}`.trim() || undefined, ...(flip ? { transform: flip } : {}) }} />
           {hex(el.matchColor) ? <div style={mask({ background: `radial-gradient(ellipse at 50% 30%, transparent 20%, ${hex(el.matchColor)} 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.matchStrength ?? 0.55)) })} /> : null}
           {el.lightAngle !== undefined ? <div style={mask({ background: `linear-gradient(${Math.round(el.lightAngle)}deg, ${hex(el.lightColor) ?? "#fff4e0"} 0%, transparent 55%, rgba(0,0,0,0.55) 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.lightStrength ?? 0.45)) })} /> : null}
         </div>
@@ -192,7 +208,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
 
 /** Ripped paper edges: a jagged polygon, stable per element. */
 const tornPath = (seed: number) => {
-  const r = (k: number) => { const x = Math.sin(k * 91.7 + seed * 13.3) * 43758.5; return x - Math.floor(x); };
+  const r = (k: number) => { const x = Math.sin(k * 91.7 + (seed + vary("torn.seed", 0, 999)) * 13.3) * 43758.5; return (x - Math.floor(x)) * vary("torn.depth", 0.6, 1.4); };
   const pts: string[] = [];
   for (let k = 0; k <= 20; k++) pts.push(`${(k * 5).toFixed(1)}% ${(r(k) * 4).toFixed(1)}%`);
   for (let k = 0; k <= 14; k++) pts.push(`${(100 - r(k + 40) * 3).toFixed(1)}% ${(k * 7.14).toFixed(1)}%`);
@@ -206,7 +222,7 @@ const AirLayer: React.FC<{ kind: "snow" | "confetti" | "bokeh" }> = ({ kind }) =
   const f = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const r = (k: number, s: number) => { const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
-  const n = kind === "bokeh" ? 14 : 70;
+  const n = Math.round((kind === "bokeh" ? 14 : 70) * vary(`air.${kind}`, 0.6, 1.4));
   const cols = [PALETTE.accent, PALETTE.primary, "#ffffff", "#f2c14e"];
   return (
     <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: kind === "bokeh" ? "screen" : "normal" }}>
@@ -253,6 +269,21 @@ const FxLayer: React.FC<{ fx: { scanlines?: boolean; grid?: boolean; cursor?: { 
   );
 };
 
+/** Craft inventory: an element pinned to a moving subject follows its tracked path (offset from where it was placed). */
+const TrackWrap: React.FC<{ track?: { x: number; y: number; path?: Array<{ t: number; x: number; y: number }> }; children: React.ReactNode }> = ({ track, children }) => {
+  const f = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  const p = track?.path;
+  if (!track || !p || p.length < 2) return <>{children}</>;
+  const t = f / fps;
+  const k = Math.max(0, p.findIndex((q, i) => i === p.length - 1 || p[i + 1]!.t > t));
+  const a = p[k]!, b = p[Math.min(p.length - 1, k + 1)]!;
+  const u = b.t > a.t ? Math.max(0, Math.min(1, (t - a.t) / (b.t - a.t))) : 0;
+  const dx = (a.x + (b.x - a.x) * u - track.x) * width;
+  const dy = (a.y + (b.y - a.y) * u - track.y) * height;
+  return <AbsoluteFill style={{ transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)` }}>{children}</AbsoluteFill>;
+};
+
 /** Craft inventory: an element leaves before the cut — it slides off, or erodes away (blurs, crumbles from the edges, fades). */
 const ExitWrap: React.FC<{ exit?: "none" | "slide" | "erode"; children: React.ReactNode }> = ({ exit, children }) => {
   const f = useCurrentFrame();
@@ -273,7 +304,7 @@ const DriftLayer: React.FC<{ drift: DriftSpec; slots: Record<string, string> }> 
   const { width, height, durationInFrames } = useVideoConfig();
   const src = slots[String(drift.slot)];
   if (!src) return null;
-  const n = Math.max(3, Math.min(24, drift.count ?? 10));
+  const n = Math.max(3, Math.min(24, Math.round((drift.count ?? 10) * vary("drift.density", 0.7, 1.3))));
   const rnd = (k: number, s: number) => {
     const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453;
     return x - Math.floor(x);
@@ -341,7 +372,9 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
         <div style={{ position: "absolute", inset: 0, width, height, ...(fxs?.twotone ? { filter: "sepia(0.35) saturate(1.3) hue-rotate(-10deg)" } : {}) }}>
           {spec.elements.map((el, i) => (
             <ExitWrap key={i} exit={el.exit}>
-              <Element el={el} i={i} slots={slots} drift={drift} />
+              <TrackWrap track={el.track}>
+                <Element el={el} i={i} slots={slots} drift={drift} />
+              </TrackWrap>
             </ExitWrap>
           ))}
         </div>

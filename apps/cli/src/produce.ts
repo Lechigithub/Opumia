@@ -7,14 +7,14 @@ import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setLaterGuarantee, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, techniqueBrief, stapleGaps, stretchSheet, manifestEvents, loadInventory, techniqueCoverage, recordCoverage, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
-import { resolveAtmosphere, closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
+import { resolvePaperTextures, findProp3d, materializeProp3d, resolveAtmosphere, closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { loadKeys } from "./keys.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
 import { makeLikeness, runFilmDesigner } from "./film-kit.js";
-import { ensurePlucks, run, PausedError, setPauseHooks } from "@opumia/senses";
+import { ensurePlucks, trackPoint, run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
 import { designChecks, pictureChecks, previewTells } from "./bl5-checks.js";
@@ -531,7 +531,65 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // craft inventory: the scene designer's atmospheres become real filmed overlays from the Library (smoke, embers,
   // dust, scratches, film burn, sprocket gate, light leak) on their shots
   const placeAtmosphere = async () => {
-    if (!scenePlan.scenes.some((x) => (x as { atmos?: unknown }).atmos)) return;
+    // craft inventory: real 3D props — each prop3d element gets a licensed CC0 model (Poly Haven), credited in props.json
+    {
+      const used = new Set<string>();
+      const credits: Array<{ shotId: string; query: string; model: string; credit: string }> = [];
+      let changed = false;
+      for (const sc of scenePlan.scenes) {
+        const els = sc.elements as Array<Record<string, unknown>>;
+        for (let k = els.length - 1; k >= 0; k--) {
+          const el = els[k]!;
+          if (el.type !== "prop3d") continue;
+          if (typeof el.model === "string" && el.model) { used.add(String(el.model).split("/")[1] ?? ""); credits.push({ shotId: sc.shotId, query: String(el.query), model: String(el.model), credit: "" }); continue; }
+          const hit = await findProp3d({ dataDir: o.data, query: String(el.query), avoid: used }).catch(() => null);
+          const got = hit ? await materializeProp3d({ dataDir: o.data, publicDir: pub, id: hit.id }).catch((e: Error) => (log(`  ! 3D prop ${hit.id}: ${e.message.slice(0, 100)}`), null)) : null;
+          changed = true;
+          if (!got || !hit) { els.splice(k, 1); log(`  3D prop: nothing licensed fits "${String(el.query)}" — element removed from ${sc.shotId}`); continue; }
+          el.model = got.publicPath;
+          used.add(hit.id);
+          credits.push({ shotId: sc.shotId, query: String(el.query), model: got.publicPath, credit: got.credit });
+        }
+      }
+      if (changed) {
+        scenePlan = ScenePlan.parse(scenePlan);
+        await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+      }
+      if (credits.length) {
+        await writeFile(path.join(jobDir, "props.json"), JSON.stringify({ at: new Date().toISOString(), props: credits }, null, 2) + "\n");
+        log(`  3D props: ${credits.length} real model(s) placed (CC0, credited in props.json)`);
+      }
+    }
+    // craft inventory: paper worlds on real paper scans from the library
+    {
+      const pt = await resolvePaperTextures({ scenes: scenePlan.scenes as never, index, libraryRoot: o.library, jobDir, resolution, seed: jobId }).catch(() => null);
+      if (pt?.placed) {
+        resolution = pt.resolution;
+        scenePlan = ScenePlan.parse(scenePlan);
+        await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+        await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+      }
+    }
+    // craft inventory: captions pinned to a moving subject follow it (deterministic point tracking on the footage)
+    {
+      let tracked = 0;
+      for (const sc of scenePlan.scenes) {
+        const prim = resolution.media.find((m) => m.shotId === sc.shotId && m.role === "primary" && m.kind === "video");
+        const sh = board.shots.find((x) => x.id === sc.shotId);
+        if (!prim || !sh) continue;
+        for (const el of sc.elements as Array<{ track?: { x: number; y: number; path?: unknown[] } }>) {
+          if (!el.track || el.track.path) continue;
+          el.track.path = await trackPoint(prim.localPath, { ss: sh.trimInS ?? 0, t: Math.max(0.5, sh.endS - sh.startS), x: el.track.x, y: el.track.y }).catch(() => undefined);
+          if (el.track.path) tracked++;
+        }
+      }
+      if (tracked) {
+        scenePlan = ScenePlan.parse(scenePlan);
+        await writeFile(sceneFile, JSON.stringify(scenePlan, null, 2) + "\n");
+        log(`  tracking: ${tracked} caption(s) follow their subject`);
+      }
+    }
+    if (!scenePlan.scenes.some((x) => (x as { atmos?: unknown }).atmos) && !board.shots.some((x) => x.transitionIn === "smoke_cover" || x.transitionIn === "fire_cover")) return;
     const at = await resolveAtmosphere({ storyboard: board, scenes: scenePlan.scenes as never, index, libraryRoot: o.library, jobDir, resolution, seed: jobId }).catch((e: Error) => (log(`  ! atmosphere: ${e.message.slice(0, 120)}`), null));
     if (!at) return;
     board = Storyboard.parse(at.storyboard);
