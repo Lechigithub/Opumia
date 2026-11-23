@@ -86,6 +86,10 @@ export function bindFactProps(kind: string, props: Record<string, unknown>, nf: 
     if (facts.some((f) => kindOf(f!.unit) !== kindOf(u0))) return null;
     const unit = u0 === "$" || u0 === "€" || u0 === "£" || u0 === "%" ? u0 : String(props.unit ?? "");
     if (kindOf(u0) === "count" && /^[$€£%]$/.test(unit)) return null;
+    // Bars that cannot be read: one value under 2 % of another ("promised $100M vs real $100K" drew one bar and an
+    // invisible one on the proof film). That contrast is told by the numbers, not by a bar chart.
+    const vals = facts.map((f) => Math.abs(f!.value)).filter((v) => v > 0);
+    if (String(props.type ?? "bar") === "bar" && vals.length >= 2 && Math.min(...vals) / Math.max(...vals) < 0.02) return null;
     const { facts: _x, values: _v, ...rest } = props;
     return { props: { ...rest, unit, values: facts.map((f) => f!.value), labels }, factIds: ids };
   }

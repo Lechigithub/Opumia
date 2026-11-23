@@ -232,16 +232,17 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   let turnFrom = 0;
   const t0 = Date.now();
   let finishLeft: number | null = null;
-  for (let turn = 1; turn <= (o.maxTurns ?? 24); turn++) {
+  const maxT = o.maxTurns ?? 24;
+  for (let turn = 1; turn <= maxT + (o.finish ? (o.finish.turns ?? 2) : 0); turn++) {
     // what the previous turn cost: its model call plus the tools it ran (some tools call models themselves)
     if (turn > 1) lastTurn = Math.max(lastTurn * 0.6, spent() - turnFrom);
     const overUsd = Number.isFinite(cap) && (turn > 1 || cap <= 0) && spent() + lastTurn > cap;
-    const overTime = o.maxSeconds !== undefined && turn > 1 && (Date.now() - t0) / 1000 > o.maxSeconds;
+    const overTime = (o.maxSeconds !== undefined && turn > 1 && (Date.now() - t0) / 1000 > o.maxSeconds) || turn > maxT;
     if ((overUsd || overTime) && finishLeft === null && o.finish && !o.done?.() && turn > 1) {
       // Build list 4: an agent whose work the film needs is never cut off unfinished — at its cap it gets a short
       // finishing go (at most `finish.turns` turns) told to hand in what it has now.
       finishLeft = o.finish.turns ?? 2;
-      o.log?.(`    ${o.stage}: at its ${overUsd ? `$${Math.max(0, cap).toFixed(2)} cap` : `${o.maxSeconds} s limit`} — ${finishLeft} turn(s) to hand in what it has`);
+      o.log?.(`    ${o.stage}: at its ${overUsd ? `$${Math.max(0, cap).toFixed(2)} cap` : `${turn > maxT ? `${maxT}-turn` : `${o.maxSeconds} s`} limit`} — ${finishLeft} turn(s) to hand in what it has`);
       const last = messages.at(-1)!;
       const note: Anthropic.Beta.BetaTextBlockParam = { type: "text", text: o.finish.message };
       if (last.role === "user") last.content = typeof last.content === "string" ? [{ type: "text", text: last.content }, note] : [...last.content, note];

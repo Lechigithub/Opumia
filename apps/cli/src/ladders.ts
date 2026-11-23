@@ -36,12 +36,14 @@ export interface Act {
   defects(id: string): string[];
 }
 
+// Build list 4: estimates are what each owner's rung costs with Sonnet for creative work and Haiku for the measured
+// agents (bl4b-theranos), not the Opus-era figures that made the gate skip every scene rung.
 const rung = (name: string, owner: string, maxUsd: number, run: Rung<Act>["run"]): Rung<Act> => ({ name, owner, maxUsd, run });
 const shotsOf = (ps: Problem[]) => [...new Set(ps.flatMap((p) => p.shots))];
 const said = (p: Problem) => `${p.what} (measured ${p.measured}, target ${p.band})`;
 
 // ---- Pictures (item 12)
-const replacePicture = rung("replace the picture", "picture researcher", 0.4, async (ps, a) => {
+const replacePicture = rung("replace the picture", "picture researcher", 0.15, async (ps, a) => {
   const touched = new Set<string>();
   for (const p of ps) for (const id of await a.dropOffending(p)) touched.add(id);
   const ids = [...new Set([...touched, ...shotsOf(ps)])];
@@ -49,14 +51,14 @@ const replacePicture = rung("replace the picture", "picture researcher", 0.4, as
   for (const id of ids) a.scene(id, got.has(id) ? `this shot has new footage (the old picture broke a rule: ${ps[0]!.what}): design the scene for it — let it play clean if it carries the line` : `the picture was taken out of this shot (${ps[0]!.what}) and no footage was found: get a picture with find_picture and build the shot around it`);
   return `${ids.length} shot(s): ${got.size} given new footage`;
 });
-const timelessCloseUp = rung("a timeless close-up that tells the line", "picture researcher", 0.4, async (ps, a) => {
+const timelessCloseUp = rung("a timeless close-up that tells the line", "picture researcher", 0.15, async (ps, a) => {
   const ids = shotsOf(ps);
   for (const p of ps) await a.dropOffending(p);
   const got = new Set(await a.refill(ids, (id) => `${a.line(id).split(/\s+/).filter((w) => w.length > 3).slice(0, 3).join(" ")} close up hands objects`));
   for (const id of ids) a.scene(id, got.has(id) ? "new footage: a timeless close-up chosen because nothing period-true was found — design the scene for it" : "no honest footage exists for this line: build it on the kit's stage around a real picture (find_picture) or the kit's number or label");
   return `${got.size}/${ids.length} given a timeless close-up`;
 });
-const directorReplans = rung("the director re-plans the shot", "director", 0.3, async (ps, a) => {
+const directorReplans = rung("the director re-plans the shot", "director", 0.1, async (ps, a) => {
   const ids = shotsOf(ps);
   for (const p of ps) await a.dropOffending(p);
   const plans = await a.replan(ids);
@@ -76,7 +78,7 @@ const designedFromKit = rung("a designed shot from the kit", "scene designer", 0
   for (const id of ids) a.scene(id, `no picture could carry this line honestly (${ps[0]!.what}): design it on the kit's stage — a real picture slot (find_picture, a library object), the kit's number, label or quote`);
   return `${ids.length} shot(s) designed from the kit`;
 });
-const writerRewords = rung("the writer rewords the line so it can be shown", "writer", 1.5, async (ps, a) => {
+const writerRewords = rung("the writer rewords the line so it can be shown", "writer", 0.6, async (ps, a) => {
   const ids = shotsOf(ps);
   const ok = a.rewrite(`These lines found no honest picture after three tries; reword them so they can be shown (concrete, filmable, same facts): ${ids.map((id) => `"${a.line(id)}"`).join("; ")}`);
   return ok ? `rewrite requested for ${ids.length} line(s)` : null;
@@ -84,7 +86,7 @@ const writerRewords = rung("the writer rewords the line so it can be shown", "wr
 const PICTURE = [replacePicture, timelessCloseUp, directorReplans, designedFromKit];
 const FIT = [replacePicture, directorReplans, writerRewords];
 const NO_PICTURE = [
-  rung("find footage for the shot", "picture researcher", 0.4, async (ps, a) => {
+  rung("find footage for the shot", "picture researcher", 0.15, async (ps, a) => {
     const ids = shotsOf(ps);
     const got = new Set(await a.refill(ids));
     for (const id of got) a.scene(id, "this shot now has real footage: design the scene for it — let it play clean if it carries the line");
@@ -100,15 +102,15 @@ const sceneNote = (prefix: string) => (ps: Problem[], a: Act) => {
   return Promise.resolve(`${shotsOf(ps).length} scene(s) sent back`);
 };
 const SCENE = [
-  rung("the scene designer fixes the named defect", "scene designer", 0.4, async (ps, a) => {
+  rung("the scene designer fixes the named defect", "scene designer", 0.3, async (ps, a) => {
     const halves = shotsOf(ps).filter((id) => /_\d+$/.test(id) && ps.some((p) => p.check === "dead_frames"));
     const merged = halves.length ? a.mergeSplit(halves) : [];
     await sceneNote("fix this:")(ps.map((p) => ({ ...p, shots: p.shots.filter((s) => !halves.includes(s)) })), a);
     return `${merged.length ? `split undone: ${merged.join(", ")}; ` : ""}${shotsOf(ps).length - halves.length} scene(s) sent back`;
   }),
-  rung("variants: genuinely different designs, the best kept", "scene designer", 0.5, sceneNote("use try_variants: two or three genuinely different designs of this shot (another composition, another picture), keep the closest to the channel —")),
-  rung("a different kind of shot", "scene designer", 0.5, sceneNote("change the KIND of shot (clean footage, a picture composition, the kit's number, a quote, a label over footage — not the kind it is now):")),
-  rung("the art director adds a component the film was missing", "art director", 2.5, async (ps, a) => {
+  rung("variants: genuinely different designs, the best kept", "scene designer", 0.3, sceneNote("use try_variants: two or three genuinely different designs of this shot (another composition, another picture), keep the closest to the channel —")),
+  rung("a different kind of shot", "scene designer", 0.3, sceneNote("change the KIND of shot (clean footage, a picture composition, the kit's number, a quote, a label over footage — not the kind it is now):")),
+  rung("the art director adds a component the film was missing", "art director", 0.6, async (ps, a) => {
     const need = ps.map((p) => `${p.what} on ${p.shots.join(", ")} (lines: ${p.shots.slice(0, 3).map((id) => `"${a.line(id).slice(0, 80)}"`).join("; ")})`).join("; ");
     const note = await a.kit(`the scene designer could not make these shots good enough with the kit as it is — add the component this film is missing for them (keep every existing component): ${need}`, false);
     for (const id of shotsOf(ps)) a.scene(id, `the art director added a component for this shot (${note.slice(0, 160)}): redesign it with the kit's new component`);
@@ -118,23 +120,23 @@ const SCENE = [
 
 // ---- Look (item 14) and colour
 const LOOK = [
-  rung("the kit is redesigned against what made it close", "art director", 2.5, async (ps, a) => {
+  rung("the kit is redesigned against what made it close", "art director", 0.6, async (ps, a) => {
     const note = await a.kit(`the film looks too close to an earlier film of ours: ${ps.map(said).join("; ")}. Change what made it close (palette, typefaces, card shapes, transition) and keep the components' names and props`, false);
     a.allScenes("the kit was redesigned so the film no longer looks like an earlier one: check every scene with the new kit");
     return note;
   }),
-  rung("a new visual concept", "art director", 4, async (ps, a) => {
+  rung("a new visual concept", "art director", 1.2, async (ps, a) => {
     const note = await a.kit(`the film still looks too close to an earlier film after the kit was changed: ${ps.map(said).join("; ")}. Make a different visual idea`, true);
     a.allScenes("the film has a new kit (a new visual concept): design every scene again from it");
     return note;
   }),
 ];
 const COLOUR = [
-  rung("the colourist, told what was measured", "colourist", 0.5, async (ps, a) => {
+  rung("the colourist, told what was measured", "colourist", 0.05, async (ps, a) => {
     a.colour(ps.map(said).join("; "));
     return "colourist sent back";
   }),
-  rung("the art director retunes the palette, then the colourist", "art director", 2, async (ps, a) => {
+  rung("the art director retunes the palette, then the colourist", "art director", 0.6, async (ps, a) => {
     const note = await a.kit(`the colour measures stay outside the channel after grading: ${ps.map(said).join("; ")}. Retune the palette and act grades (set_tokens) and any component colours that cause it`, false);
     a.colour(`the art director retuned the palette: ${ps.map(said).join("; ")}`);
     a.allScenes("the palette changed: check every scene");
@@ -145,18 +147,18 @@ const ONE_COLOUR = [NO_PICTURE[0]!, ...COLOUR];
 
 // ---- Sound and edit (item 16)
 const SOUND = [
-  rung("the sound designer, told what was measured", "sound designer", 0.4, async (ps, a) => (a.sound(ps.map(said).join("; "), false), "sound designer sent back")),
-  rung("the sound designer from a fresh selection", "sound designer", 0.4, async (ps, a) => (a.sound(`a fresh selection — the first pass still failed: ${ps.map(said).join("; ")}`, true), "fresh sound selection")),
+  rung("the sound designer, told what was measured", "sound designer", 0.08, async (ps, a) => (a.sound(ps.map(said).join("; "), false), "sound designer sent back")),
+  rung("the sound designer from a fresh selection", "sound designer", 0.08, async (ps, a) => (a.sound(`a fresh selection — the first pass still failed: ${ps.map(said).join("; ")}`, true), "fresh sound selection")),
 ];
 const SPLIT = [
   rung("bridge it with the film's transition", "editor", 0, async (ps, a) => { const b = a.bridge(shotsOf(ps)); return b.length ? `bridged ${b.join(", ")}` : null; }),
   rung("undo the split", "editor", 0, async (ps, a) => { const m = a.mergeSplit(shotsOf(ps)); return m.length ? `split undone: ${m.join(", ")}` : null; }),
 ];
 const EDIT = [
-  rung("the editor, told what was measured", "editor", 0.5, async (ps, a) => (a.editor(ps.map(said).join("; ")), "editor sent back")),
-  rung("the editor again, re-cutting the stretch", "editor", 0.5, async (ps, a) => (a.editor(`re-cut the stretch: split, join and move cuts until it is inside the channel — ${ps.map(said).join("; ")}`), "editor re-cut")),
+  rung("the editor, told what was measured", "editor", 0.08, async (ps, a) => (a.editor(ps.map(said).join("; ")), "editor sent back")),
+  rung("the editor again, re-cutting the stretch", "editor", 0.08, async (ps, a) => (a.editor(`re-cut the stretch: split, join and move cuts until it is inside the channel — ${ps.map(said).join("; ")}`), "editor re-cut")),
 ];
-const WRITER_ONLY = [rung("the writer rewords the lines", "writer", 1.5, async (ps, a) => (a.rewrite(`The narration failed after its retakes: ${ps.map(said).join("; ")}. Reword the lines that cannot be said cleanly.`) ? "rewrite requested" : null))];
+const WRITER_ONLY = [rung("the writer rewords the lines", "writer", 0.6, async (ps, a) => (a.rewrite(`The narration failed after its retakes: ${ps.map(said).join("; ")}. Reword the lines that cannot be said cleanly.`) ? "rewrite requested" : null))];
 
 /** Check id → its ladder. Checks with no ladder here are measured and reported only. */
 export const PREFLIGHT_LADDERS: LadderTable<Act> = {
@@ -176,7 +178,7 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   scene_defects: SCENE,
   unreadable_text: SCENE,
   film_taste: SCENE,
-  designed_share: [rung("the scene designer decides every shot", "scene designer", 0.4, sceneNote("this shot has no decided scene:"))],
+  designed_share: [rung("the scene designer decides every shot", "scene designer", 0.3, sceneNote("this shot has no decided scene:"))],
   slow_zoom_share: EDIT,
   cut_pace: EDIT,
   unbridged_split: SPLIT,
@@ -195,7 +197,7 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
 };
 
 /** The finished film (item 17): QA's picture faults, the viewer's notes by owner and the final-cut judge's tells. */
-const RERENDER = [rung("render the stretch again", "render", 0, async (ps, a) => (a.touch(shotsOf(ps)), `${shotsOf(ps).length} shot(s) marked to render again`)), ...SCENE.slice(0, 2)];
+const RERENDER = [rung("render the stretch again", "render", 0.0, async (ps, a) => (a.touch(shotsOf(ps)), `${shotsOf(ps).length} shot(s) marked to render again`)), ...SCENE.slice(0, 2)];
 export const FINISHED_LADDERS: LadderTable<Act> = {
   qa_picture: [replacePicture, directorReplans, designedFromKit],
   viewer_sourcing: [replacePicture, directorReplans, designedFromKit],

@@ -7,7 +7,7 @@ import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
 import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
-import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
+import { closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { loadKeys } from "./keys.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
@@ -69,7 +69,9 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 // not only a report. Sized for the $3 target of a 90 s film with Sonnet for the creative work and Haiku for the rest
 // (film 3, measured with Opus: research 0.37, script 0.37, narration 0.67 + a $0.60 rewrite, director 0.34, art director
 // 2.31, scenes 0.57, showrunner 1.45, preflight 1.92).
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.7, A2: 0.8, A3: 1.6, B1: 0.5, B2: 0.2, B2d: 1.2, B2s: 0.1, B3: 0.7, B4e: 0.08, B4c: 0.05, B5: 0.08, B5s: 0.35, B6: 0.6, C1: 0.02, C2: 0.05, C3: 0.8, C4: 0.15, C4v: 0.15, C4j: 0.3, C5: 0.5 };
+// C1/C2 (manifest, render) have no cap: they call no model, and the publishing package runs beside the render under
+// its own agent cap (a C2 cap of $0.05 starved the packaging agent on the first proof film).
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.7, A2: 0.8, A3: 1.6, B1: 0.5, B2: 0.2, B2d: 1.2, B2s: 0.1, B3: 0.7, B4e: 0.08, B4c: 0.05, B5: 0.08, B5s: 0.35, B6: 0.9, C3: 0.9, C4: 0.15, C4v: 0.15, C4j: 0.3, C5: 0.5 };
 /** What a 90 s film should cost (build list 4); printed with every run. */
 const TARGET_USD_90S = 3;
 
@@ -144,6 +146,7 @@ export async function produce(o: ProduceOptions) {
     throw err;
   } finally {
     setPauseHooks({});
+    await closeBrowser().catch(() => {});
     // item 30: this film's escalations join the platform's log; a check escalating in two films becomes a fix to make
     await recordEscalations({ data: o.data, jobDir, job: jobId, channel: o.channel }).then(() => analyseEscalations({ data: o.data, channel: o.channel, log: o.log })).catch(() => null);
     closeStage();
@@ -757,6 +760,15 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const flush = async (q: Queue, done: string[]): Promise<{ shots: Set<string>; all: boolean }> => {
     const shots = new Set(q.touched);
     let all = q.kitChanged;
+    // Build list 4 (proof film): a scene whose footage a rung took away and nothing replaced would render black
+    // (bl4b-theranos sh026, 83.8–86.1 s). Every such scene goes to the scene designer in the same round, to be built
+    // on the kit's stage around a real picture.
+    for (const sc of scenePlan.scenes) {
+      if (sc.backdrop === "footage" && !resolution.media.some((m) => m.shotId === sc.shotId && m.role === "primary") && !q.revise.has(sc.shotId)) {
+        q.revise.set(sc.shotId, "its footage was removed and nothing replaced it: design this shot on the kit's stage around a real picture (find_picture as a slot), never an empty or black frame");
+        log(`  ${sc.shotId}: footage gone with no replacement — sent to the scene designer`);
+      }
+    }
     if (q.all || q.revise.size) {
       const list = q.all ? scenePlan.scenes.map((sc) => ({ shotId: sc.shotId, note: [q.revise.get(sc.shotId), q.all].filter(Boolean).join("; ") })) : [...q.revise.entries()].map(([shotId, note]) => ({ shotId, note }));
       log(`  ladder → scene designer: ${list.map((u) => u.shotId).join(", ")}`);
@@ -990,11 +1002,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       for (const i of (r.viewer?.issues ?? []).filter((x) => x.severity >= 5 && x.fix !== "none")) (byOwner.get(i.owner) ?? byOwner.set(i.owner, []).get(i.owner)!).push(i);
       for (const [owner, is] of byOwner) out.push({ check: `viewer_${owner.replace(/\s+/g, "_")}`, shots: [...new Set(is.map((i) => i.shotId ?? shotAt(i.atS)))], what: is.map((i) => `${i.atS.toFixed(1)} s: ${i.what}`).join("; ").slice(0, 400), measured: `${is.length} issue(s)`, band: "0" });
       const fjc = r.qa.report.checks.find((x) => x.id === "final_cut" && !x.passed);
-      if (fjc && r.fj) out.push({ check: "final_cut", shots: [...new Set(r.fj.clips.filter((c) => c.picked).flatMap((c) => board.shots.filter((x) => x.endS > c.fromS && x.startS < c.toS).map((x) => x.id)))], what: `picked out as the imitation — tells: ${[...new Set(r.fj.clips.flatMap((c) => c.tells))].slice(0, 4).join("; ")}`, measured: String(fjc.measured ?? ""), band: "≤ a real stretch + 0.2" });
+      if (fjc && r.fj) out.push({ check: "final_cut", shots: [...new Set(r.fj.clips.filter((c) => c.picked).flatMap((c) => board.shots.filter((x) => x.endS > c.fromS && x.startS < c.toS).map((x) => x.id)))].slice(0, 3), what: `picked out as the imitation — tells: ${[...new Set(r.fj.clips.flatMap((c) => c.tells))].slice(0, 4).join("; ")}`, measured: String(fjc.measured ?? ""), band: "≤ a real stretch + 0.2" });
       return out.filter((p) => p.shots.length);
     };
     let problems = problemsOf(rv);
-    for (let round = 0; round < 3 && problems.length && existsSync(finalPath); round++) {
+    // Build list 4: ONE round on the finished film (three rounds took 25 of the proof film's 56 minutes, each with a
+    // 2.5-minute final-cut judge); what it leaves is logged in the verdict.
+    for (let round = 0; round < 1 && problems.length && existsSync(finalPath); round++) {
       log(`\n[C5] the finished film's ladders, round ${round + 1}: ${problems.map((p) => `${p.check} (${p.shots.join(", ")})`).join("; ")}`);
       const q = newQueue();
       const viewerNotes = new Map<string, string[]>();

@@ -65,3 +65,35 @@ Wait for the owner's "start fixing".
 
 22. ☐ One fresh 90 s film from a new frozen tag: renders, QA, packaging. Check it against the targets.
 23. ☐ Only then the 10-film suite.
+
+## Found while proving build list 4 (to fix after the proof film; the platform is frozen during the run)
+
+- A run that ends in an error never exits: the headless browser it opened for previews keeps the process alive
+  (`bl4-theranos` sat idle 1 h 24 min after its error). Close the shared browser in `produce`'s `finally`.
+- A ladder rung is skipped when its estimate exceeds what is left by a cent (writer trim: needs $0.60, $0.59 left) —
+  narration kept 6 s long. Allow a rung when it fits within a small tolerance, or size the narration cap for one trim.
+- The scene designer stopped at its 28-turn limit without the finishing go (only money and time caps give it).
+- **Proof film `bl4b-theranos` (tag platform-frozen-bl4.1): it FINISHED** — rendered, QA verdict FAIL (exit 2), 56 min,
+  $4.60 (target $3, limit $5). Art director on Sonnet: $0.38 / 4 min (film 3 on Opus: $2.31 / 13 min). Measured agents on
+  Haiku: editor $0.01, colourist $0.004, sound $0.006. Found:
+- No thumbnail: the package starts beside the render, and the render's stage header set the stage cap to C2's $0.05,
+  so the packaging agent stopped at $0.05. Stage caps must belong to the work, not the last log header.
+- Preflight ladders skipped every scene rung (estimates $0.40–0.50, $0.33 left in B6); scene_defects and film_taste
+  shipped unresolved. The finished-film ladders then spent more (3 rounds, $0.57, 4 final-cut judges at ~$0.10 and
+  2.5 min each — about 25 of the 56 min) and sent ~25 shots to the scene designer for `final_cut`. Cap C5 to one round,
+  worst three shots, and judge once.
+- Black / blank frames at 83.8–85.5 s and 11.5 s, a frozen stretch at 69 s: survived three C5 rounds (sh004 replaced,
+  re-planned, then designed). Needs a cause found in the render, not another rung.
+- The `chapters` check fired on a 95 s film (it treats anything over 90 s as long-form): use the requested duration.
+- In the frames: a "Promised vs real" chart with one bar and a label cut off at the right edge ($100M vs $100,00…);
+  a person-and-arrows icon over lab footage; generic stock (calculator and money twice, laptop typing twice).
+  Better than film 3: Holmes portrait with the real Theranos machine, a Walgreens store, the CMS "Immediate jeopardy"
+  document card, a quote card.
+
+**Fixed after the proof film (tag platform-frozen-bl4.2):** packaging has its own $0.70 cap and render stages no cap;
+a footage scene whose footage is gone goes back to the scene designer in the same round, and the render falls back to
+the kit's stage (never black); rung estimates resized to Sonnet/Haiku costs, a one-cent tolerance, preflight cap $0.90;
+one finished-film round, final-cut fixes on the worst three shots; the finishing go also at the turn limit; chapters
+only past 150 s; every run closes its browser and exits; unreadable bar charts (one value under 2 % of another) are
+refused; a lone icon over footage is flagged as a placeholder. Not covered by a regression yet: the black-frame
+fallback (checked on the next film).

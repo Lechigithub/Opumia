@@ -101,3 +101,5 @@ Fix what it names in your own part of the film. Pass on what belongs to another 
   fragment ("EARNED FROM"). One word is fine only for a name, a figure or a label under a picture. The guard refuses
   the rest; when it does, write the phrase or show a picture instead.
 - No strong one-colour wash on real footage: a picture keeps its own colours (the colourist sets the film grade).
+- Line icons belong in an icon grid or an infographic on the stage; a lone icon dropped over footage reads as a
+  placeholder and is flagged.

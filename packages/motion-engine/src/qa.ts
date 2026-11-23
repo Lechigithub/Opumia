@@ -170,7 +170,7 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
 
   // --- Long-form chapters: ≥ 3, first at 0:00, each ≥ 10 s (YouTube's rules); re-hook cadence 25–35 s.
   const chapterList = youtubeChapters(q.script);
-  if (chapterList.length || durS > 90) {
+  if (chapterList.length || durS > 150) { // build list 4: a 95 s short is not long-form
     const short10 = chapterList.filter((c, i) => (chapterList[i + 1]?.startS ?? durS) - c.startS < 10);
     // Tension turns measured the way the reference was: pivot sentences, questions, cliffhanger phrases, and
     // hook-type beats; the gap allowed is the reference p75 (56 s) rounded up.

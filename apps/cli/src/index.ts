@@ -188,4 +188,8 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   // 3 = paused by a failure outside the platform (resumable with `opumia resume <job>`), 1 = an error
   process.exitCode = (err as { name?: string; resumeAt?: string })?.resumeAt ? 3 : 1;
+}).finally(() => {
+  // Build list 4: a run always ends. A headless browser or socket left open (bl4-theranos sat 1 h 24 min after its
+  // error) must not keep the process alive: once the command is done, exit with its code after a short grace.
+  setTimeout(() => process.exit(), 5000).unref();
 });

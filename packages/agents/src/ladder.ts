@@ -147,7 +147,7 @@ export class Ladders<A> {
       // and fixed nothing is passed over for the next one — logged, never silently. With no rung left, the problem is
       // exhausted: it is logged as unresolved and the film goes on.
       const left = budgetLeft();
-      const why = (r: Rung<A>) => (this.futile.has(`${g.p.check}|${r.owner}|${r.name}`) ? "it already ran on this film and fixed nothing" : !g.shots.length && this.ownerDown.has(r.owner) ? `the ${r.owner} already failed to get a whole-film change accepted on this film` : left !== null && this.estimate(r) > left ? `needs up to $${this.estimate(r).toFixed(2)}, $${Math.max(0, left).toFixed(2)} left` : null);
+      const why = (r: Rung<A>) => (this.futile.has(`${g.p.check}|${r.owner}|${r.name}`) ? "it already ran on this film and fixed nothing" : !g.shots.length && this.ownerDown.has(r.owner) ? `the ${r.owner} already failed to get a whole-film change accepted on this film` : left !== null && this.estimate(r) > left * 1.1 + 0.02 ? `needs up to $${this.estimate(r).toFixed(2)}, $${Math.max(0, left).toFixed(2)} left` : null);
       let skip = why(rung);
       while (skip) {
         await this.write([{ kind: "skipped", round: this.round, check: g.p.check, rung: rung.name, level, why: skip }]);

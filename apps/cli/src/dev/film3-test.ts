@@ -56,6 +56,19 @@ export async function film3Test(): Promise<string[]> {
   ];
   if (bindFactProps("chart", { facts: ["n1", "n2"], labels: ["Licensing", "Unsold"], unit: "$" }, nf) !== null) fails.push("a chart mixing $3B and 1,100 patents must be refused");
   if (bindFactProps("chart", { facts: ["n1"], labels: ["Licensing"] }, nf) === null) fails.push("a one-unit chart must bind");
+  // proof film: "promised $100M vs real $100K" drew one bar and an invisible one
+  const nf2 = [{ id: "m1", value: 1e8, unit: "$", display: "$100M", context: "promised", claimId: "c3" }, { id: "m2", value: 1e5, unit: "$", display: "$100K", context: "real", claimId: "c4" }] as NumericFact[];
+  if (bindFactProps("chart", { type: "bar", facts: ["m1", "m2"], labels: ["Promised", "Real"] }, nf2) !== null) fails.push("a bar chart whose bars cannot be read (1000:1) must be refused");
+  // proof film: a rung needing $0.60 was skipped with $0.59 left — a cent is inside the tolerance
+  {
+    const jd = mkdtempSync(path.join(tmpdir(), "f3b-"));
+    let did = false;
+    setBudget(1.59, { reserveUsd: 1 });
+    const l = new Ladders<null>({ jobDir: jd, stage: "narration", table: { len: [{ name: "trim", owner: "writer", maxUsd: 0.6, run: async () => ((did = true), "trimmed") }] } });
+    await l.step([{ check: "len", shots: [], what: "", measured: "", band: "" }], null);
+    setBudget(null);
+    if (!did) fails.push("a rung one cent over what is left must still run");
+  }
 
   // 14: lone words and fragments
   const line = "Kodak engineer Steven Sasson built the camera, and the investment market kept competing. Kodak earned from it.";
