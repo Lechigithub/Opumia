@@ -1,3 +1,4 @@
+import { lengthPlan } from "./film-length.js";
 import { createHash } from "node:crypto";
 import { Storyboard, type CameraMove, type FactSheet, type LibraryIndex, type StoryboardShot, type TimedScript } from "@opumia/contracts";
 import * as z from "zod/v4";
@@ -81,7 +82,7 @@ export async function directStoryboard(o: DirectOptions): Promise<Storyboard> {
   const words: Word[] = o.script.segments.flatMap((s) => s.words.map((w) => ({ ...w, seg: s.id, ...(s.chapter ? { chapter: s.chapter } : {}) })));
   const menu = buildMenu(o.index);
   const nf = numericFacts(o.facts);
-  const short = o.script.durationS <= 90;
+  const short = lengthPlan(o.script.durationS).chapters === 0;
   const planned = [...o.raw.shots].filter((s) => s.startWord >= 0 && s.startWord < words.length).sort((a, b) => a.startWord - b.startWord);
   if (!planned.length) throw new Error("director: the plan has no shot inside the narration");
   const dedup = planned.filter((s, i) => i === 0 || s.startWord > planned[i - 1]!.startWord);

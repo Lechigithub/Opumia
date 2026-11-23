@@ -69,6 +69,9 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   // Never desaturate below natural: the reference is 1.5-2x more colourful than a neutral grade.
   const sat = Math.max(1.05, satRaw + 0.15);
   const con = act ? act.contrast : Math.max(look.contrast, 1.12);
+  // build list 5, item 28: the act's exposure (the colourist's), crossfaded between acts like saturation
+  const brOf = (x?: { brightness?: number }) => Math.max(0.7, Math.min(1.4, x?.brightness ?? 1));
+  const bri = act ? brOf(act) * blend + brOf(acts[Math.max(0, Math.min(actIdx - 1, acts.length - 1))] ?? act) * (1 - blend) : 1;
   const layers = [...manifest.video].sort((a, b) => a.zIndex - b.zIndex || a.startFrame - b.startFrame);
   const below = layers.filter((l) => l.zIndex < 50);
   const above = layers.filter((l) => l.zIndex >= 50);
@@ -87,7 +90,7 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
   );
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      <AbsoluteFill style={{ filter: `saturate(${sat.toFixed(3)}) contrast(${Math.min(con, 1.14).toFixed(3)}) brightness(1.0)` }}>{below.map(render)}</AbsoluteFill>
+      <AbsoluteFill style={{ filter: `saturate(${sat.toFixed(3)}) contrast(${Math.min(con, 1.14).toFixed(3)}) brightness(${bri.toFixed(3)})` }}>{below.map(render)}</AbsoluteFill>
       <Grade {...(act ? { act } : {})} />
       {above.map(render)}
       {/* The film's own transition across every cut a shot asks to bridge ("film"), centred on the cut. */}

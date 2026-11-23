@@ -130,6 +130,7 @@ const ConceptScores = z.object({
       fused: z.number().describe("0–10: one fused image (10) or elements side by side (0)"),
       instant: z.number().describe("0–10: understood in one second at phone size"),
       surprise: z.number().describe("0–10: a twist that makes you need to know more"),
+      story: z.number().describe("0–10: the one image tells THIS film's turn (given below) — 10 = it shows the surprise itself; 3 = it shows only the topic or the company (a logo on fire, the product alone)"),
       channel: z.number().describe("0–10: the kind of idea this channel makes (compare with the deconstructions)"),
       makeable: z.number().describe("0–10: buildable from the pictures listed and real photos/objects/fire/textures, without altering a face or painting"),
       nearest: z.string().describe("the reference thumbnail whose idea it is closest to"),
@@ -140,17 +141,17 @@ const ConceptScores = z.object({
 });
 export type ConceptScore = z.infer<typeof ConceptScores>["scores"][number] & { total: number };
 
-export async function critiqueConcepts(o: { channel: string; craft: ThumbCraft; film: string; pictures: string; concepts: ThumbConcept[] }): Promise<{ scores: ConceptScore[]; best: string[]; usd: number }> {
+export async function critiqueConcepts(o: { channel: string; craft: ThumbCraft; film: string; /** build list 5, item 29: the lines where the story turns */ turn?: string; pictures: string; concepts: ThumbConcept[] }): Promise<{ scores: ConceptScore[]; best: string[]; usd: number }> {
   const res = await structured({
     stage: "publish.concepts",
     model: craftModel(),
-    system: [plain(`You are the creative director of the YouTube channel ${o.channel}. Here is how its own best thumbnails work, taken apart:\n${o.craft.items.slice(0, 20).map((d) => `- ${deconText(d)}`).join("\n")}\n\nJudge a junior designer's thumbnail concepts against that standard. Be hard: a collage of a logo, a photo and a label side by side is not an idea. Reward one fused visual metaphor that fills the frame and reads in one second.`)],
-    user: `FILM: ${o.film}\n\nPICTURES AVAILABLE NOW (more can be found): ${o.pictures}\n\nCONCEPTS:\n${o.concepts.map((c) => `[${c.id}] IDEA: ${c.idea} | HERO: ${c.hero} | TWIST: ${c.twist} | FUSION: ${c.fusion} | BACKGROUND: ${c.background} | FILLS THE FRAME WITH: ${c.fill} | LETTERING: ${c.lettering} | PICTURES NEEDED: ${c.pictures}`).join("\n")}`,
+    system: [plain(`You are the creative director of the YouTube channel ${o.channel}. Here is how its own best thumbnails work, taken apart:\n${o.craft.items.slice(0, 20).map((d) => `- ${deconText(d)}`).join("\n")}\n\nJudge a junior designer's thumbnail concepts against that standard. Be hard: a collage of a logo, a photo and a label side by side is not an idea. Reward one fused visual metaphor that fills the frame and reads in one second. The channel's thumbnails sell the story's twist — the contradiction or surprise — never just its subject: a concept that shows only the company, its logo or its product (even on fire) tells the topic, not the turn.`)],
+    user: `FILM: ${o.film}\n${o.turn ? `THE STORY'S TURN: ${o.turn}\n` : ""}\nPICTURES AVAILABLE NOW (more can be found): ${o.pictures}\n\nCONCEPTS:\n${o.concepts.map((c) => `[${c.id}] IDEA: ${c.idea} | HERO: ${c.hero} | TWIST: ${c.twist} | FUSION: ${c.fusion} | BACKGROUND: ${c.background} | FILLS THE FRAME WITH: ${c.fill} | LETTERING: ${c.lettering} | PICTURES NEEDED: ${c.pictures}`).join("\n")}`,
     schema: ConceptScores,
     effort: "medium",
     maxTokens: 6000,
   });
-  const scores = res.data.scores.map((s) => ({ ...s, total: Math.round((s.fused * 1.5 + s.instant + s.surprise + s.channel * 1.5 + s.makeable) * 10 / 6) / 10 })).sort((a, b) => b.total - a.total);
+  const scores = res.data.scores.map((s) => ({ ...s, total: Math.round(((s.fused * 1.5 + s.instant + s.surprise + s.story * 1.5 + s.channel * 1.5 + s.makeable) * 10) / 7.5) / 10 })).sort((a, b) => b.total - a.total);
   return { scores, best: res.data.best, usd: res.usage.usd };
 }
 

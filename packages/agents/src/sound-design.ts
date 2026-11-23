@@ -1,4 +1,5 @@
 import type { AssetRecord, Storyboard, StoryboardShot, StyleProfile, TimedScript } from "@opumia/contracts";
+import { lengthPlan } from "./film-length.js";
 
 /**
  * Music moods and the channel's hit budget, used by the director (one bed per chapter on a mood arc) and the sound
@@ -85,3 +86,64 @@ type Sfx = StoryboardShot["sfx"][number];
 
 /** Total SFX allowed in a film: the channel's strong hits/min (p75) + 1. */
 export const sfxCap = (profile: StyleProfile, durS: number) => Math.round((((profile.audio as { strongHitsPerMin?: { p50?: number } | null }).strongHitsPerMin?.p50 ?? 3.0) * durS) / 60);
+
+/**
+ * Build list 5, item 26: the channel's music-to-story rates at the film's length — the medians of the sound craft band
+ * (craft-score.ts: real stretches of the same length, measured with the same function as ours).
+ */
+export interface MusicRates { cueChangesPerMin: number; musicDropsPerMin: number; hitOnCutShare: number; hitsPerMin?: number }
+
+/** Mood of a stretch of the story from the roles the writer marked in it (and its words). */
+function moodOfStory(roles: string[], text: string, first: boolean, last: boolean): Mood {
+  if (first) return "tension";
+  if (roles.some((r) => r === "climax" || r === "fall")) return COLLAPSE_WORDS.test(text) ? "collapse" : "tension";
+  if (roles.includes("twist") || roles.includes("rehook")) return "tension";
+  if (last && roles.includes("resolution")) return COLLAPSE_WORDS.test(text) ? "collapse" : "resolve";
+  if (roles.includes("rise") || RISE_WORDS.test(text)) return "rise";
+  return "intrigue";
+}
+
+/**
+ * Music that follows the story: cue changes at the strongest writer-marked turns (as many as lengthPlan.musicCues and
+ * the channel's measured cue rate at this length allow), never closer than a fair share of the film apart; drop-outs
+ * (silence as punctuation) just before the biggest turns, as many as the channel's drop rate at this length; the moods
+ * from what each stretch of the story does. Pure; the sound timeline and the sound agent both use it.
+ */
+export function storyMusicPlan(script: TimedScript, tl: { turns: Array<{ atS: number; segId: string; role: string; strength: number }>; pauses: Array<{ startS: number; endS: number }> }, rates?: MusicRates): { spans: Array<{ startS: number; endS: number; mood: Mood; turn: string | null }>; drops: Array<{ startS: number; endS: number }>; climaxS: number | null } {
+  const dur = script.durationS;
+  const minutes = dur / 60;
+  const lp = lengthPlan(dur);
+  const strong = tl.turns.filter((t) => t.strength >= 0.5 && t.atS > 6 && t.atS < dur - 6);
+  let cues = lp.musicCues(strong.length);
+  if (rates) cues = Math.max(1, Math.min(cues, Math.round(rates.cueChangesPerMin * minutes) + 1));
+  const gap = Math.max(8, dur / (cues * 2));
+  const picked: typeof strong = [];
+  for (const t of [...strong].sort((a, b) => b.strength - a.strength || a.atS - b.atS)) {
+    if (picked.length >= cues - 1) break;
+    if (picked.every((p) => Math.abs(p.atS - t.atS) >= gap)) picked.push(t);
+  }
+  picked.sort((a, b) => a.atS - b.atS);
+  const bounds = [0, ...picked.map((t) => t.atS), dur];
+  const spans = bounds.slice(0, -1).map((a, i) => {
+    const b = bounds[i + 1]!;
+    const segs = script.segments.filter((sg) => sg.startS < b - 0.5 && sg.endS > a + 0.5);
+    return { startS: Math.round(a * 1000) / 1000, endS: Math.round(b * 1000) / 1000, mood: moodOfStory(segs.map((sg) => sg.role), segs.map((sg) => sg.text).join(" "), i === 0, i === bounds.length - 2), turn: i ? picked[i - 1]!.role : null };
+  });
+  // two neighbouring spans of one mood still change bed; the mood says what the bed is for
+  // drop-outs: before the strongest turns, in the breath before the line (1.2–1.6 s), never in the first 4 s
+  const nDrops = rates ? Math.round(rates.musicDropsPerMin * minutes) : Math.max(1, Math.round(minutes * 0.7));
+  const drops: Array<{ startS: number; endS: number }> = [];
+  for (const t of [...tl.turns].filter((x) => x.atS > 5).sort((a, b) => b.strength - a.strength || a.atS - b.atS)) {
+    if (drops.length >= Math.max(dur >= 30 ? 1 : 0, nDrops)) break;
+    const p = tl.pauses.find((x) => x.endS >= t.atS - 0.15 && x.endS <= t.atS + 0.15);
+    const endS = Math.round((p ? p.endS : t.atS) * 100) / 100;
+    const startS = Math.round(Math.max(endS - 1.5, (p?.startS ?? endS - 1.3) - 0.6) * 100) / 100;
+    if (endS - startS < 0.8 || drops.some((d) => Math.abs(d.endS - endS) < 10)) continue;
+    // a drop sits inside one cue: end it just before the cue change at this turn
+    const cueAt = spans.find((sp) => Math.abs(sp.startS - endS) < 0.3);
+    drops.push(cueAt ? { startS: Math.round((startS - 0.05) * 100) / 100, endS: Math.round((cueAt.startS - 0.05) * 100) / 100 } : { startS, endS });
+  }
+  drops.sort((a, b) => a.startS - b.startS);
+  const climax = [...tl.turns].sort((a, b) => b.strength - a.strength || a.atS - b.atS)[0];
+  return { spans, drops, climaxS: climax ? climax.atS : null };
+}

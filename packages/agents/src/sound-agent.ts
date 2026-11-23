@@ -26,6 +26,42 @@ import { edl, findPassages } from "./reference-library.js";
 import { chapterMoods, type Mood } from "./sound-design.js";
 import { arcDistance, bedArc, endingGap, landEnding, offBar, snapCueChanges } from "./music-edit.js";
 import { designSoundTimeline, soundKit, SOUND_FAMILIES, STRONG_FAMILIES, visualEvents, type SoundFamily, type SoundTimelineOptions } from "./sound-timeline.js";
+import { buildCutTimeline } from "./cut-timeline.js";
+import { craftBand, type Stretch } from "./craft-score.js";
+import type { MusicRates } from "./sound-design.js";
+import type { Band } from "./channel-profile.js";
+
+/**
+ * Build list 5, item 26: the channel's music-to-story rates at this film's length, from the sound craft band (real
+ * stretches of the same length measured with the same function as ours). Null when the band cannot be built.
+ */
+export async function musicRatesFor(data: string, channel: ChannelId, durationS: number): Promise<(MusicRates & { bands: Record<string, Band> }) | null> {
+  const b = await craftBand({ data, channel, craft: "sound", lengthS: durationS }).catch(() => null);
+  if (!b) return null;
+  const m = (k: string) => b.bands[k]?.median;
+  if (m("cueChangesPerMin") === undefined) return null;
+  return { cueChangesPerMin: m("cueChangesPerMin")!, musicDropsPerMin: m("musicDropsPerMin") ?? 0, hitOnCutShare: m("hitOnCutShare") ?? 0.25, hitsPerMin: m("hitsPerMin") ?? 3, bands: b.bands };
+}
+
+/**
+ * Our film (or a stretch of it) as a craft-score Stretch, so CRAFT_MEASURES.sound measures ours with the function it
+ * uses on the reference: shots as reference-index rows with musicDrop / cueChange set from the music cues, and the
+ * strong hits.
+ */
+export function ourSoundStretch(o: { storyboard: { shots: StoryboardShot[]; durationS: number }; music: Storyboard["music"]; scenes: ScenePlan; resolution: ResolutionReport; words: Array<{ word: string; startS: number; endS: number }>; sfxFamily?: Map<string, string>; fromS?: number; toS?: number }): Stretch {
+  const fps = PLATFORM_FPS;
+  const audio = [
+    ...o.storyboard.shots.flatMap((sh) => sh.sfx.map((f) => ({ role: "sfx", ref: f.assetId, startFrame: Math.round(f.atS * fps), endFrame: Math.round(f.atS * fps) + 10 }))),
+    ...o.music.map((m) => ({ role: "music", startFrame: Math.round(m.startS * fps), endFrame: Math.round(m.endS * fps), dips: (m.drops ?? []).map((d) => ({ fromFrame: Math.round(d.startS * fps), toFrame: Math.round(d.endS * fps) })) })),
+  ];
+  const plan = ourShotsFrom({ storyboard: o.storyboard, scenes: o.scenes.scenes as never, media: o.resolution.media as never, words: o.words as never, manifest: { fps, audio }, ...(o.sfxFamily ? { sfxFamily: o.sfxFamily } : {}) });
+  const from = o.fromS ?? 0, to = o.toS ?? plan.durS;
+  // a drop counts once (on the shot where it starts), as the reference index marks it
+  const dropStarts = o.music.flatMap((m) => (m.drops ?? []).map((d) => d.startS));
+  const cueStarts = o.music.map((m) => m.startS).filter((t) => t > 0.5);
+  const shots = plan.shots.filter((x) => x.t0 >= from && x.t0 < to).map((x) => ({ ...x, t0: x.t0 - from, t1: Math.min(x.t1, to) - from, musicDrop: dropStarts.some((d) => d >= x.t0 && d < x.t1), cueChange: cueStarts.some((c) => c >= x.t0 && c < x.t1) }));
+  return { film: "ours", fromS: from, toS: to, position: "opening", shots, hits: plan.hits.filter((h) => h.t >= from && h.t < to).map((h) => ({ t: h.t - from })), words: o.words.filter((w) => w.startS >= from && w.startS < to).map((w) => w.word).join(" ") };
+}
 
 export const SOUND_KEYS = ["hitsPerMin", "hitOnCutShare"];
 
@@ -35,6 +71,8 @@ export interface SoundMeasure { key: string; what: string; ours: number; band: {
 export interface SoundAgentReport { pass: boolean; before: { score: number; rows: SoundMeasure[] }; after: { score: number; rows: SoundMeasure[] }; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
 export interface SoundAgentOptions extends SoundTimelineOptions {
+  /** Build list 5, item 22: the voice director's emphasis per line (voice-direction.json), for the shared timeline. */
+  emphasis?: Array<{ emphasis: string }>;
   channel: ChannelId;
   data: string;
   resolution: ResolutionReport;
@@ -54,7 +92,11 @@ const REF_CLASS: Record<string, SoundFamily[]> = { "thud/hit": ["thud", "impact"
 export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: StoryboardShot[]; music: Storyboard["music"]; report: SoundAgentReport }> {
   const log = o.log ?? (() => {});
   const prof = await loadChannelProfile(o.data, o.channel);
-  const draft = designSoundTimeline({ ...o, log: () => {} });
+  // item 22 + 26: the shared cut/stress/turn timeline and the channel's music-to-story rates at this length
+  const tl = o.timeline ?? buildCutTimeline({ storyboard: o.storyboard, script: o.script, ...(o.emphasis ? { emphasis: o.emphasis } : {}) });
+  const rates = o.musicRates ?? (await musicRatesFor(o.data, o.channel, o.script.durationS));
+  const draft = designSoundTimeline({ ...o, timeline: tl, ...(rates ? { musicRates: rates } : {}), log: () => {} });
+  const ratesBands = rates && "bands" in rates ? (rates as { bands: Record<string, Band> }).bands : null;
   const kit = soundKit(o);
   const dur = o.script.durationS;
   const fps = PLATFORM_FPS;
@@ -117,11 +159,24 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
       const t = prof.relations.hitOnScreen.textSlam;
       add("hitOnText", "share of strong hits on a shot with text", onText, { p10: r2(Math.max(0, t - 0.2)), median: t, p90: r2(Math.min(1, t + 0.2)) });
       const mus = prof.relations.music;
-      // a cue change = a new bed starting after the first; per 10 minutes, scaled to the film (never below one for a short)
-      const cues10 = (Math.max(0, music.length - 1) / dur) * 600;
-      if (dur >= 120) add("music.cuesPer10Min", "music cue changes per 10 min", cues10, mus.cuesPer10Min);
-      const drops10 = (music.reduce((t2, m) => t2 + (m.drops?.length ?? 0), 0) / dur) * 600;
-      add("music.dropsPer10Min", "music drop-outs per 10 min", drops10, mus.dropsPer10Min);
+      // item 26: cue changes and drop-outs against REAL stretches of this film's length (any length, shorts included);
+      // the whole-film per-10-min band is the fallback when the length band cannot be built
+      const cuesPerMin = Math.max(0, music.length - 1) / (dur / 60);
+      const dropsPerMin = music.reduce((t2, m) => t2 + (m.drops?.length ?? 0), 0) / (dur / 60);
+      if (ratesBands?.cueChangesPerMin) add("music.cueChangesPerMin", `music cue changes a minute (real ${Math.round(dur)} s stretches)`, cuesPerMin, ratesBands.cueChangesPerMin);
+      else add("music.cuesPer10Min", "music cue changes per 10 min", cuesPerMin * 10, mus.cuesPer10Min);
+      if (ratesBands?.musicDropsPerMin) add("music.dropsPerMin", `music drop-outs a minute (real ${Math.round(dur)} s stretches)`, dropsPerMin, ratesBands.musicDropsPerMin);
+      else add("music.dropsPer10Min", "music drop-outs per 10 min", dropsPerMin * 10, mus.dropsPer10Min);
+      // item 26: the cue changes sit on the story's turns (a change in the middle of a thought is not following the story)
+      if (music.length > 1) {
+        const onTurn = music.slice(1).filter((m) => tl.turns.some((t) => Math.abs(t.atS - m.startS) <= 1.5)).length / (music.length - 1);
+        add("music.cueOnTurn", "share of cue changes on a story turn the writer marked", onTurn, { p10: 0.67, median: 1, p90: 1 });
+      }
+      // item 27: fresh effects — none a recent film used, none twice in this film
+      const ids = hits.map((h) => h.assetId);
+      const recent = new Set(ids).size ? [...new Set(ids)].filter((x) => o.cooldown.sfx.has(x)).length / new Set(ids).size : 0;
+      add("sfx.recentShare", "share of effects a recent film already used", recent, { p10: 0, median: 0, p90: 0 });
+      add("sfx.repeats", "effects used twice in this film", ids.length - new Set(ids).size, { p10: 0, median: 0, p90: 0 });
     }
     // B6 music editing: cue changes on a bar line, the ending landing with the film, the energy arc.
     const mp = (id: string) => kit.musicProfile(id);
@@ -157,7 +212,8 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
         const free = events.filter((e) => !hits.some((h) => Math.abs(h.momentS - e.atS) < 0.6)).map((e) => `${e.atS.toFixed(2)}s ${e.family} (${e.why})`);
         const ml = music.map((m, i) => { const p = kit.musicProfile(m.assetId); return `cue ${i}: ${m.startS.toFixed(1)}–${m.endS.toFixed(1)} s, ${m.mood}, "${kit.title(m.assetId)}" ${p ? `${Math.round(p.bpm)} bpm, pulse ${p.pulse.toFixed(2)}` : ""}, enters at ${m.inS ?? 0}s of the bed${m.drops?.length ? `, drops ${m.drops.map((d) => `${d.startS.toFixed(1)}–${d.endS.toFixed(1)}`).join(", ")}` : ""}`; });
         const segs = o.script.segments.map((s) => `[${s.id} ${s.role} ${s.startS.toFixed(1)}–${s.endS.toFixed(1)}] ${s.text.slice(0, 90)}`);
-        return `HITS (${hits.length}):\n${hl.join("\n")}\n\nVISUAL MOMENTS WITHOUT A HIT:\n${free.slice(0, 30).join("\n") || "none"}\n\nMUSIC:\n${ml.join("\n")}\n\nNARRATION:\n${segs.join("\n")}\n\n${rowsText(measureNow())}`;
+        const tlText = `SHARED TIMELINE (the editor reads the same):\n- story turns: ${tl.turns.map((t) => `${t.atS.toFixed(1)}s ${t.role} (${t.strength})`).join(", ") || "none"}\n- stressed words: ${tl.stressed.map((w) => `${w.atS.toFixed(2)}s "${w.word}"${tl.cuts.some((c) => Math.abs(c.atS - w.atS) <= 0.35) ? " [on a cut]" : ""}`).join(", ") || "none (no voice direction)"}\n- fresh files left: ${(["thud", "sub_boom", "impact", "click", "riser"] as SoundFamily[]).map((f) => `${f} ${kit.freshLeft(f, used())}`).join(", ")}`;
+        return `${tlText}\n\nHITS (${hits.length}):\n${hl.join("\n")}\n\nVISUAL MOMENTS WITHOUT A HIT:\n${free.slice(0, 30).join("\n") || "none"}\n\nMUSIC:\n${ml.join("\n")}\n\nNARRATION:\n${segs.join("\n")}\n\n${rowsText(measureNow())}`;
       }) as AgentTool["run"],
     },
     {
@@ -177,7 +233,7 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
       run: (async (i: { atS: number; family: SoundFamily; why: string }) => {
         if (i.atS < 0 || i.atS > dur) return `outside the film (0–${dur.toFixed(1)} s)`;
         const a = kit.pick(i.family, used());
-        if (!a) return `no ${i.family} sound in the library`;
+        if (!a) return `no fresh ${i.family} sound left (every file is used in this film or by a recent film) — try another family or leave the moment to breathe`;
         const h: Hit = { id: `h${++n}`, family: i.family, assetId: a.id, momentS: r2(i.atS), why: i.why.slice(0, 80) };
         hits.push(h);
         ops.push(`add ${h.id} ${i.family} @${h.momentS}`);
@@ -219,7 +275,7 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
         const u = used();
         u.delete(h.assetId);
         const a = kit.pick(fam, u, i.family ? 0 : i.alternative);
-        if (!a) return `no ${fam} sound`;
+        if (!a) return `no fresh ${fam} sound left`;
         ops.push(`change ${h.id} ${h.family}→${fam}`);
         h.family = fam;
         h.assetId = a.id;
@@ -329,6 +385,8 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
         if (studied < 2) return `refused: study at least two real passages first (${studied} so far)`;
         if (o.listen && heard < 1) return "refused: listen to at least one stretch first (the cold open is a good one)";
         const now = measureNow();
+        const blocking = now.rows.filter((x) => x.outside > 0 && (x.key.startsWith("sfx.") || x.key === "music.cueChangesPerMin" || x.key === "music.cueOnTurn"));
+        if (blocking.length) return `refused: ${blocking.map((x) => `${x.what} is ${x.ours} (channel ${x.band.p10}–${x.band.p90})`).join("; ")} — fix these first`;
         if (now.score < before.score) return `refused: the sound score fell from ${before.score} to ${now.score} — undo what made it worse, or fix the rows outside the band`;
         accepted = i.note;
         return `Accepted at ${now.score}/100. If this film taught you something about sound, call note_lesson once; then stop.`;

@@ -12,6 +12,9 @@ export const FactClaim = z.object({
   sourceTitle: z.string().optional(),
   /** Verbatim support from the source, captured during verification (≤ 300 chars). */
   evidence: z.string().max(400).optional(),
+  /** Build list 5, item 8: what the claim gives the story — a moment (place + date + action), a person's want, fear or
+   *  decision, a turning point, a quote that carries an image. Declared by the researcher, kept with the claim. */
+  storyUse: z.array(z.enum(["moment", "want", "turn", "image"])).optional(),
   verdict: z.enum(["supported", "partially_supported", "unsupported", "unreachable", "unchecked"]),
   checkedBy: z.string().optional(),
 });
@@ -33,12 +36,15 @@ export const StoryScene = z.object({
   claimIds: z.array(z.string()).min(1),
 });
 export const ContrastAnchor = z.object({ text: z.string().describe("one comparative sentence, e.g. '$5M revenue vs $800M in late fees alone'"), us: z.string(), them: z.string(), claimIds: z.array(z.string()).min(1) });
-export const StoryQuote = z.object({ text: z.string(), speaker: z.string(), context: z.string(), claimId: z.string() });
+export const StoryQuote = z.object({ text: z.string(), speaker: z.string(), context: z.string(), claimId: z.string(), /** the picture inside the words ("a burning platform", "jumping into icy water"), if any */ image: z.string().optional() });
+/** Build list 5, item 8: the moments the story turns on, in order — what changed, when, and who it changed for. */
+export const StoryTurn = z.object({ when: z.string(), what: z.string().describe("what changed, concretely"), who: z.array(z.string()), claimIds: z.array(z.string()).min(1) });
 export const StoryLayer = z.object({
   characters: z.array(StoryCharacter),
   scenes: z.array(StoryScene),
   contrasts: z.array(ContrastAnchor),
   quotes: z.array(StoryQuote),
+  turns: z.array(StoryTurn).optional(),
 });
 export type StoryLayer = z.infer<typeof StoryLayer>;
 

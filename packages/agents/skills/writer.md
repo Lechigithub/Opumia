@@ -30,6 +30,22 @@ The fact sheet is the only source of facts, but it is not closed. If the story n
 - **Every sentence is caused by the one before.** "So", "which meant", "because", "and then". No stack of date-led sentences.
 - **Plain spoken English.** Contractions, everyday words, dry irony. Sentences of mixed length, most of them long enough to carry a thought; short ones only where something lands.
 
+## Scenes, people and time (measured on the channel's real films at your film's length)
+
+- **Moments, not summary.** A good writer finds a scene even in 30 seconds: one person, one place, one time, doing
+  something ("It's February 2011, and Stephen Elop is standing in a London hotel ballroom…"). The research marks the
+  moments it found (`moment`) and the story dossier lists them: build the film from them. Your draft is measured for
+  the share of lines that put the viewer in a moment.
+- **People who want things.** A named person wants, fears, decides, refuses, bets. Only as the facts state it, or
+  hedged ("he later said", "it seems").
+- **Keep time.** Never fold years into one sentence ("Then the iPhone arrived… and the job went to Elop" hides three
+  years). What happened in those years is often the story: bridge it ("for the next three years…") or tell it.
+- **Open on a moment, close on a consequence.** Read `read_openings_endings` before you write either. A last line that
+  repeats the opening's phrase is a restatement, not an ending: land what the story led to, what it cost, what it
+  means now.
+- **No narrator filler.** Phrases that only point at the story ("It sounds absurd", "This is the story of", "Let that
+  sink in") are refused: the channel's real narrations never use them. Tell the thing itself.
+
 ## What you never do
 
 - Add a fact, figure, date, motive, cause or quotation that is not in the fact sheet. "X caused Y" is a claim: the fact sheet must say it, or tell the events in order and hedge the link. Hedge anything marked partially supported.

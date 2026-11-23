@@ -78,3 +78,13 @@ Fix what it names in your own part of the film. Pass on what belongs to another 
   one that arrives late feels slow.
 - **Never twice the same.** Two neighbouring shots of the same size and subject read as a mistake unless bridged.
 
+
+## Rhythm at the film's length and no stutter cuts (build list 5)
+
+- `read_cut` shows the cut against real stretches of the channel as long as this film: median shot, spread of shot
+  lengths, the long shots, holds with nothing moving, and how far cuts sit from word boundaries. A 45 s film and a
+  10-minute film are each held to their own length's band. The channel cuts slightly off the word, into the motion,
+  never mechanically on every word boundary.
+- A cut back to the same picture is a stutter unless BOTH the framing changes (`reframe`: a punch-in on part of the
+  frame, or another moment of the clip) AND a transition bridges it (`set_transition`: whip, light leak, the film's
+  own transition). `submit_cut` refuses any stutter.

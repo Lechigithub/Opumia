@@ -19,6 +19,8 @@ import { agentLoop, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { designScenes, SceneDraftSchema, type SceneDraftScene } from "./scene-designer.js";
 import { colourCover, measureLegibility, textBoxesOf } from "@opumia/senses";
 import { nearestByMeaning } from "./retrieve.js";
+import { designProblems, labelDesign, textAreas, withinFilmVariety, type DesignBand, type DesignProblem } from "./design-measure.js";
+import { embedPictures } from "./reference-index.js";
 import { labelShots, SHOT_KINDS, visualIssues, visualProfile, type VisualBand, type VisualProfile } from "./visual-measure.js";
 
 export type PictureResult = { ok: true; shotId: string; as: "footage" | "slot"; slot?: number; kind: "video" | "image"; depicts: string; fit?: number; preview: string } | { ok: false; why: string };
@@ -30,6 +32,8 @@ export interface SceneReport {
   agent: { turns: number; calls: Record<string, number>; usd: number; rendered: number };
 }
 export interface SceneAgentOptions {
+  /** Build list 5, item 32: design only these shots (one chapter of a long film, designed in parallel with the others). */
+  onlyShots?: string[];
   storyboard: Storyboard;
   script: TimedScript;
   resolution: ResolutionReport;
@@ -63,8 +67,27 @@ export interface SceneAgentOptions {
   /** Revision (sent back by the showrunner or the gate): start from this plan and redesign only these shots. */
   previous?: ScenePlan;
   revise?: Array<{ shotId: string; note: string }>;
+  /** Build list 5, items 10–14: the channel's design band (data/design-profile) and where to measure (OCR, SigLIP). */
+  designBand?: { band: DesignBand; root: string; data: string };
   log?: (s: string) => void;
 }
+
+/** How the scene designer fixes each design problem (build list 5, items 10–14). */
+export const DESIGN_FIX: Record<string, string> = {
+  one_world: "build these shots in a different world (backdrop \"world\": duotone or mono_accent of a real picture, collage, paper, flat_field in a colour that fits the idea, burst behind a cut-out, terminal) — the channel changes the ground with every idea",
+  template_stage: "these read as a generic template ground; rebuild them as a treated real picture (duotone, mono_accent), a collage, paper, or a bold flat field",
+  backdrop_back_to_back: "never the same world twice in a row: change the world of the second shot",
+  world_variety: "your designed frames look alike: vary the world, its colour and the picture it is made of from shot to shot",
+  untreated: "give these pictures a treatment: finish.grain / vignette / leak, a photo grade (mono, duotone, punch, sepia), a cut-out, or a world",
+  raw_stock: "stock shown raw reads as stock: grade it (photo grade or a world), add grain and vignette, crop in, or cut the subject out",
+  small_text: "set the words at the channel's scale (a tenth of the frame or more), into the picture, not as a small label",
+  boxed_labels: "too many words in small boxed labels: set the line big into the picture (the kit's headline/phrase over or beside the subject)",
+  repeat_card: "the next shot repeats the same card: let it carry a different phrase, a picture or play clean",
+  data_rate: "more data shots than the channel uses at this length: turn the weaker ones into a picture with one figure, or clean footage",
+  chart_slides: "the channel rarely uses a chart: show one big number, a line drawn over a picture, an annotated picture or an icon share",
+  data_hold: "a data shot held too long: end it sooner or move to a picture while the voice continues",
+  repeat_picture: "this picture is used again: use another picture; a second use needs a different crop AND treatment, never a third",
+};
 
 const isScene = (s: StoryboardShot) => s.source.kind === "designed" && s.source.designed === "scene";
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
@@ -72,7 +95,7 @@ const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> =>
 
 export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan> {
   const log = o.log ?? (() => {});
-  const shots = o.storyboard.shots.filter(isScene);
+  const shots = o.storyboard.shots.filter(isScene).filter((s) => !o.onlyShots || o.onlyShots.includes(s.id));
   const empty = () => ScenePlan.parse({ schemaVersion: 2, storyboardId: o.storyboard.id, scenes: [], generatedAt: new Date().toISOString() });
   if (!shots.length) return empty();
   const skill = await readFile(new URL("../skills/scenes.md", import.meta.url), "utf8");
@@ -143,7 +166,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     const staged = plan.scenes.filter((sc) => sc.backdrop !== "footage");
     const roleOf = (name: string) => o.kit.components[name]?.role ?? "";
     // a picture, or a kit component that draws something (data, a number) rather than words alone
-    const hasPicture = (sc: (typeof staged)[number]) => sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || (e.type === "component" && ["number", "chart", "map", "document"].includes(roleOf(e.name))));
+    const hasPicture = (sc: (typeof staged)[number]) => sc.world?.slot !== undefined || sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d" || (e.type === "component" && ["number", "chart", "map", "document"].includes(roleOf(e.name))));
     // G25: what a footage-less shot could be built around, read from its own line.
     const said = (id: string) => { const sh = o.storyboard.shots.find((x) => x.id === id); return sh ? o.script.segments.flatMap((sg) => sg.words).filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : ""; };
     const suggest = (id: string) => {
@@ -203,6 +226,21 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     if (overused.length) issues.push({ kind: "same_picture_repeated", detail: `the same picture is placed in more than two shots: ${overused.map(([, v]) => v.join(", ")).join(" | ")}. Show it at most twice; give the other shots a different picture or let their footage play.` });
     const washAllow = Math.floor(plan.scenes.length * 0.1);
     if (washed.length > washAllow) issues.push({ kind: "washed_footage", detail: `${washed.length} footage shot(s) are tinted so heavily that the whole frame reads as one colour (${washed.join(", ")}); the channel's footage keeps its natural colour. Set wash to false on these (at most ${washAllow} may stay washed, for a deliberate mood moment).` });
+    // build list 5, items 10–14: worlds, treatment, type scale, data, repetition — the gate's own check
+    let design: DesignProblem[] = [];
+    if (o.designBand) {
+      const files = ids.map((id) => frames.get(id)!.mid);
+      const dl = await labelDesign(files, { data: o.designBand.data }).catch(() => files.map(() => null));
+      const ta = await textAreas(files, o.designBand).catch(() => files.map(() => null));
+      const dIds = ids.filter((_, k) => dl[k] && dl[k]!.world !== "footage");
+      const vecs: Float32Array[] = dIds.length >= 3 ? (await embedPictures({ ...o.designBand, items: dIds.map((id) => ({ file: frames.get(id)!.mid })) }).catch((): Array<Float32Array | null> => [])).filter((v): v is Float32Array => v !== null) : [];
+      design = designProblems({
+        scenes: plan.scenes, shots: o.storyboard.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), durationS: o.storyboard.durationS, band: o.designBand.band,
+        labels: Object.fromEntries(ids.map((id, k) => [id, dl[k] ?? null])), textArea: Object.fromEntries(ids.map((id, k) => [id, ta[k] ?? null])), variety: withinFilmVariety(vecs),
+        refOf: (shotId, slot) => o.resolution.media.find((m) => m.shotId === shotId && m.role === "layer" && m.slot === slot)?.ref,
+      });
+      for (const p of design) issues.push({ kind: p.check, detail: `${p.what}: ${p.measured} (channel: ${p.band}) — ${p.shots.join(", ")}. ${DESIGN_FIX[p.check] ?? ""}` });
+    }
     if (submitting) {
       if (unseen.size) issues.push({ kind: "not_looked_at", detail: `you have not looked at these shots since designing or changing them: ${[...unseen].sort().join(", ")}. Render them with render_previews and look before you submit.` });
       if (referenceViews < 3) issues.push({ kind: "reference_not_studied", detail: `you have looked at the channel's real shots ${referenceViews} time(s). Look at least at clean footage ("none"), words over footage and one composed kind before you submit.` });
@@ -270,7 +308,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
           if (!got) return `${r.shotId}: REJECTED (nothing usable was left)`;
           const lost = r.clean && got.elements.length ? " — could not be clean (no moving footage): its elements were kept" : !r.clean && got.elements.length < r.elements.length ? ` — ${r.elements.length - got.elements.length} element(s) removed by the checks` : "";
           const moved = r.backdrop !== got.backdrop ? ` — backdrop changed to ${got.backdrop}` : "";
-          return `${r.shotId}: ${got.elements.length ? got.elements.map((e) => (e.type === "component" ? e.name : e.type)).join("+") : "clean footage"} on ${got.backdrop}${lost}${moved}`;
+          return `${r.shotId}: ${got.elements.length ? got.elements.map((e) => (e.type === "component" ? e.name : e.type)).join("+") : "clean footage"} on ${got.backdrop === "world" && got.world ? `the ${got.world.kind} world${got.world.slot !== undefined ? ` of picture [${got.world.slot}]` : ""}` : got.backdrop}${lost}${moved}`;
         });
         return `${plan.scenes.length}/${shots.length} shots have a scene.\n${lines.join("\n")}${said.length ? `\nchecks: ${said.join(" ").slice(0, 500)}` : ""}`;
       }) as AgentTool["run"],
@@ -473,7 +511,7 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     ),
   ];
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${ROLE_MODEL.sceneDesigner})…`);
-  const run = await agentLoop({ stage: "scenes.agent", finish: { message: "Your budget for this stage is used up. Call submit_scenes NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_scenes again." }, model: ROLE_MODEL.sceneDesigner, system, user: revising
+  const run = await agentLoop({ stage: "scenes.agent", fixed: o.onlyShots ? 1 : 0.1, finish: { message: "Your budget for this stage is used up. Call submit_scenes NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_scenes again." }, model: ROLE_MODEL.sceneDesigner, system, user: revising
       ? `Revise this film's scenes. The plan below is the current one; redesign ONLY these shots, for these reasons, and keep every other shot as it is:\n${o.revise!.map((r) => `- ${r.shotId}: ${r.note}`).join("\n")}\n\nCURRENT SCENES OF THOSE SHOTS:\n${o.revise!.map((r) => JSON.stringify(plan.scenes.find((x) => x.shotId === r.shotId) ?? null)).join("\n")}\n\n${briefs}\n\nLook at the nearest real shots for these lines (similar_real_shots), redesign, render and look, then submit.`
       : `Design this film's scenes.\n\n${briefs}\n\nStart by looking at the channel's real shots.`, tools, effort: "medium", maxTurns: revising ? 16 : 28, maxSeconds: revising ? 240 : 480, maxUsd: revising ? 0.3 : 0.7, maxTokens: 32000, done: () => accepted && (noteSaved || grace-- <= 0), nudge: "The scenes are not accepted yet. Measure the film, fix what it shows, and submit.", log });
   // Whatever happened, every shot leaves with a rendered, measured scene plan.

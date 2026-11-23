@@ -3,6 +3,7 @@ import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, u
 import { FILM } from "@film";
 import { PALETTE } from "../types";
 import { Card3D } from "./Three";
+import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec } from "./Worlds";
 
 /**
  * ComposedScene: a film scene as its scene designer wrote it, drawn from the film's OWN kit (build list 3, L2/L3).
@@ -14,7 +15,7 @@ type Enter = "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down" |
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted";
 interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter }
 type El =
-  | (Box & { type: "photo"; slot: number; grade?: "natural" | "mono"; h?: number })
+  | (Box & { type: "photo"; slot: number; grade?: "natural" | "mono" | "duotone" | "punch" | "sepia"; h?: number })
   | (Box & {
       type: "cutout";
       slot: number;
@@ -35,7 +36,7 @@ type El =
   | (Box & { type: "component"; name: string; props?: Record<string, unknown>; h?: number });
 
 export interface ComposedProps {
-  spec: { backdrop?: "footage" | "stage"; wash?: { color: Token; strength: number; mode: "tint" | "duotone" }; camera: { fromScale: number; toScale: number; fromX: number; toX: number; fromY: number; toY: number }; elements: El[] };
+  spec: { backdrop?: "footage" | "stage" | "world"; world?: WorldSpec; finish?: FinishSpec; wash?: { color: Token; strength: number; mode: "tint" | "duotone" }; camera: { fromScale: number; toScale: number; fromX: number; toX: number; fromY: number; toY: number }; elements: El[] };
   slots: Record<string, string>;
   accent?: string;
 }
@@ -123,7 +124,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
   if (!src) return null;
   if (el.type === "photo") {
     const h = el.h ? el.h * height : undefined;
-    const filter = el.grade === "mono" ? "grayscale(1) contrast(1.12)" : undefined;
+    const filter = gradeFilter(el.grade);
     const inner = 1.04 + 0.06 * interpolate(f, [0, fps * 6], [0, 1], { extrapolateRight: "clamp" });
     return wrap(
       <div style={{ position: "relative", height: h, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,0.55)" }}>
@@ -179,6 +180,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
         </>
       ) : null}
       {bd === "stage" ? <KitStage /> : null}
+      {bd === "world" && spec.world ? <World world={spec.world} slots={slots} /> : bd === "world" ? <KitStage /> : null}
       <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.3})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
         <div style={{ position: "absolute", inset: 0, width, height }}>
           {spec.elements.map((el, i) => (
@@ -186,6 +188,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
           ))}
         </div>
       </AbsoluteFill>
+      {spec.finish ? <Finish finish={spec.finish} /> : null}
     </AbsoluteFill>
   );
 };

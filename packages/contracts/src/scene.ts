@@ -8,6 +8,8 @@ import { z } from "zod";
 export const SceneEnter = z.enum(["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"]);
 const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade") };
 export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"]);
+/** Treatment of a placed picture (build list 5, item 11): its own grade. */
+export const PhotoGrade = z.enum(["natural", "mono", "duotone", "punch", "sepia"]);
 
 
 
@@ -20,7 +22,7 @@ export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDee
  */
 export const SceneElement = z.discriminatedUnion("type", [
   /** A real picture placed as it is (framing, if any, comes from a kit component holding the slot). */
-  z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, grade: z.enum(["natural", "mono"]).default("natural"), h: z.number().optional() }),
+  z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, grade: PhotoGrade.default("natural"), h: z.number().optional() }),
   z.object({
     type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true),
     /** Compositing into the backdrop: its colour laid over the subject, light from the backdrop's own direction, a
@@ -43,10 +45,33 @@ export type SceneElement = z.infer<typeof SceneElement>;
 
 
 
+/**
+ * Build list 5, item 10: the worlds a designed shot is built in, learned from the reference (it almost never uses a
+ * plain stage): a treated real picture (black and white with a colour accent, duotone), a cut-out over a burst, a
+ * collage of real pictures, a bold flat field that changes with the idea, paper and print, a terminal or UI.
+ * Drawn deterministically by the engine (remotion/scenes/Worlds.tsx) from real pictures and designed shapes only.
+ */
+export const WORLD_KINDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "paper", "terminal"] as const;
+export const SceneWorld = z.object({
+  kind: z.enum(WORLD_KINDS),
+  /** The real picture the world is made of (mono_accent, duotone; the first of a collage). */
+  slot: z.number().int().min(0).optional(),
+  /** Further real pictures of a collage. */
+  slots: z.array(z.number().int().min(0)).max(5).optional(),
+  color: ColorToken.default("primary"),
+  accent: ColorToken.default("accent"),
+});
+export type SceneWorld = z.infer<typeof SceneWorld>;
+/** Build list 5, item 11: the treatment laid over the whole shot (the channel's frames almost all carry one). */
+export const SceneFinish = z.object({ grain: z.number().min(0).max(1).default(0), vignette: z.number().min(0).max(1).default(0), leak: z.number().min(0).max(1).default(0) });
+
 export const SceneSpec = z.object({
   shotId: z.string(),
   /** What sits behind the elements: the shot's own footage (sharp, dimmed), or the kit's own stage. */
-  backdrop: z.enum(["footage", "stage"]).default("footage"),
+  backdrop: z.enum(["footage", "stage", "world"]).default("footage"),
+  /** backdrop "world": which world, made of which real pictures. */
+  world: SceneWorld.optional(),
+  finish: SceneFinish.optional(),
   /** Colour the footage backdrop into the film's world. */
   wash: z.object({ color: ColorToken, strength: z.number().min(0).max(0.85), mode: z.enum(["tint", "duotone"]) }).optional(),
   dim: z.number().min(0).max(0.85).default(0.45),

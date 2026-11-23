@@ -19,7 +19,7 @@ import type { FilmDesignSystem, ScenePlan } from "@opumia/contracts";
 import { colourCover, contactSheet, measureLook } from "@opumia/senses";
 import * as z from "zod/v4";
 import { readMemory } from "./lessons.js";
-import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
+import { agentLoop, BudgetError, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 
 interface ShotColour { luma: number; colourfulness: number; cover: number }
 export interface ColourBand { luma: { p25: number; p75: number }; colourfulness: { p25: number; p75: number }; tintedShare: { median: number; max: number } }
@@ -112,6 +112,52 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
     return { luma, colourfulness, tinted, tintedShare: share, outside };
   };
   const before = summary();
+  // ---- build list 5, item 28: the colourist ALWAYS grades the film, before any model turn. A model-free first grade
+  // pulls the film's brightness and colourfulness to the channel's median (one exposure and saturation per act) and
+  // pulls stock that sits far brighter than the film into its grade; it is checked on the re-rendered previews and kept
+  // only if the film moved closer to the channel. The agent then refines it. With no budget, this grade stands.
+  if (band && measured.size) {
+    const s0 = summary();
+    const lumaT = (band.luma.p25 + band.luma.p75) / 2;
+    const colT = (band.colourfulness.p25 + band.colourfulness.p75) / 2;
+    const bright = Math.max(0.85, Math.min(1.35, s0.luma > 0 ? Math.sqrt(lumaT / s0.luma) * (s0.luma < band.luma.p25 ? 1.04 : 1) : 1));
+    const satF = Math.max(0.75, Math.min(1.25, s0.colourfulness > 0 ? colT / s0.colourfulness : 1));
+    const design0 = design, plan0 = plan;
+    const auto: string[] = [];
+    if (Math.abs(bright - 1) > 0.03 || Math.abs(satF - 1) > 0.05) {
+      design = { ...design, acts: design.acts.map((a) => ({ ...a, brightness: Math.round(Math.max(0.7, Math.min(1.4, (a.brightness ?? 1) * bright)) * 100) / 100, saturation: Math.round(Math.max(0.4, Math.min(1.3, a.saturation * satF)) * 100) / 100 })) };
+      auto.push(`every act: exposure ×${bright.toFixed(2)}, saturation ×${satF.toFixed(2)}`);
+      for (const sc of plan.scenes) dirty.add(sc.shotId);
+    }
+    // stock far brighter than the film (a white office against a dark film) is dimmed toward the film's level
+    const med = s0.luma;
+    for (const [id, m] of measured) {
+      const sc = plan.scenes.find((x) => x.shotId === id);
+      if (!sc || sc.backdrop !== "footage" || m.luma < med * 1.45) continue;
+      const dim = Math.round(Math.min(0.5, 1 - (med * 1.2) / m.luma) * 100) / 100;
+      if (dim <= 0.05) continue;
+      plan = { ...plan, scenes: plan.scenes.map((x) => (x.shotId === id ? ({ ...x, dim: Math.max((x as { dim?: number }).dim ?? 0, dim) } as typeof x) : x)) };
+      dirty.add(id);
+      auto.push(`${id} dimmed ${dim} (it sat at ${m.luma.toFixed(2)} against the film's ${med.toFixed(2)})`);
+    }
+    if (dirty.size) {
+      const ids = [...dirty];
+      const got = await o.render(design, plan, ids).catch(() => new Map<string, string>());
+      const saved = new Map(measured);
+      for (const [id, f] of got) { frames.set(id, f); measured.set(id, await measureFrame(f)); }
+      dirty.clear();
+      const s1 = summary();
+      const off = (x: ColourSummary) => Math.abs(x.luma - lumaT) / Math.max(1e-6, lumaT) + Math.abs(x.colourfulness - colT) / Math.max(1e-6, colT);
+      if (got.size && (s1.outside.length < s0.outside.length || (s1.outside.length === s0.outside.length && off(s1) < off(s0)))) {
+        ops.push(...auto.map((a) => `auto: ${a}`));
+        log(`  colourist: first grade — ${auto.join("; ")} → brightness ${s0.luma} → ${s1.luma}, colourfulness ${s0.colourfulness} → ${s1.colourfulness}`);
+      } else {
+        design = design0; plan = plan0;
+        for (const [id, m] of saved) measured.set(id, m);
+        log(`  colourist: the first grade did not bring the film closer to the channel — kept as it was`);
+      }
+    }
+  }
   const sumText = (s: ColourSummary) => `Film: brightness ${s.luma}, colourfulness ${s.colourfulness}, ${s.tinted} shot(s) carried by one colour (${Math.round(s.tintedShare * 100)} %).${band ? ` Channel: brightness ${band.luma.p25}–${band.luma.p75}, colourfulness ${band.colourfulness.p25}–${band.colourfulness.p75}, one-colour shots ${Math.round(band.tintedShare.median * 100)} % typical.` : ""}${s.outside.length ? `\nOUTSIDE THE CHANNEL: ${s.outside.join("; ")}` : "\nInside the channel's colour band."}${dirty.size ? `\n(${dirty.size} shot(s) changed and not yet rendered — call render_changes)` : ""}`;
   const sceneOf = (id: string) => plan.scenes.find((s) => s.shotId === id);
 
@@ -231,9 +277,10 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film's colour world (art director): primary ${design.palette.primary}, accent ${design.palette.accent}.`)];
   log(`  colourist: ${sumText(before).split("\n")[0]}${before.outside.length ? ` — outside: ${before.outside.join("; ")}` : ""} (${ROLE_MODEL.colourist})`);
   let grace = 1;
-  const run = await agentLoop({ stage: "colourist.agent", model: ROLE_MODEL.colourist, system, user: `Grade "${o.title}".${o.brief ? ` The preflight gate sent the colour back: ${o.brief}` : ""} Start with read_grade.`, tools, effort: "medium", maxTurns: 12, maxSeconds: 180, maxTokens: 16000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the grade, look, change what is outside the channel, render and submit.", log });
+  // the first grade above stands if the film has no money left for model turns
+  const run = await agentLoop({ stage: "colourist.agent", model: ROLE_MODEL.colourist, system, user: `Grade "${o.title}".${o.brief ? ` The preflight gate sent the colour back: ${o.brief}` : ""} Start with read_grade.`, tools, effort: "medium", maxTurns: 12, maxSeconds: 180, maxTokens: 16000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the grade, look, change what is outside the channel, render and submit.", log }).catch((e: unknown) => { if (e instanceof BudgetError) return { turns: 0, calls: {}, stopped: "max_usd" as const, usd: 0 }; throw e; });
   const after = summary();
-  const keep = accepted !== null || after.outside.length < before.outside.length;
+  const keep = accepted !== null || after.outside.length < before.outside.length || ops.some((x) => x.startsWith("auto:"));
   const report: ColouristReport = { pass: accepted !== null, before, after: keep ? after : before, ops, note: accepted ?? (keep ? "not submitted; kept its rendered state" : "not submitted: the original grade was kept"), agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
-import { ScenePlan, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
+import { ScenePlan, WORLD_KINDS, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { MODELS, plain, ROLE_MODEL, structured } from "./llm.js";
 
@@ -31,13 +31,25 @@ const El = z.object({
   at: z.number().describe("seconds after the shot starts"),
   enter: z.enum(ENTER),
   spin: z.number().describe("degrees the 3D card turns over the shot (card3d), else 0"),
+  grade: z.enum(["natural", "mono", "duotone", "punch", "sepia"]).describe("photo: its own grade (treatment) — mono, duotone, punch or sepia tie a stock picture into the film; natural for press photos that must stay as they are"),
 });
+const TOKENS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "black", "white"] as const;
+const WorldDraft = z.object({
+  kind: z.enum([...WORLD_KINDS, "none"]).describe("backdrop world: mono_accent (a real picture in black and white with one accent bar), duotone (a real picture in two colours), burst (rays behind a cut-out), collage (2–5 real pictures as prints), flat_field (one bold colour field that changes with the idea), paper (paper and print, a real picture printed on it optional), terminal (a terminal / UI window); none for footage backdrops"),
+  slot: z.number().describe("the real picture slot the world is made of (mono_accent, duotone, paper, terminal, the first of a collage), else -1"),
+  slots: z.array(z.number()).describe("collage: the further picture slots, else []"),
+  color: z.enum(TOKENS).describe("the world's main colour — change it with the idea, do not reuse one colour for every shot"),
+  accent: z.enum(TOKENS),
+});
+const FinishDraft = z.object({ grain: z.number().describe("0..1 film grain"), vignette: z.number().describe("0..1"), leak: z.number().describe("0..1 light leak sweeping across (sparingly)") });
 const Plan = z.object({
   scenes: z.array(
     z.object({
       shotId: z.string(),
       idea: z.string().describe("one line: what the viewer sees and why it fits the line"),
-      backdrop: z.enum(["footage", "stage"]).describe("the shot's own footage, or the kit's stage (shots without footage)"),
+      backdrop: z.enum(["footage", "world"]).describe("the shot's own footage, or a WORLD built from real pictures (shots without footage, or where a treated picture carries the line better)"),
+      world: WorldDraft,
+      finish: FinishDraft.describe("the treatment over the whole shot; the channel's frames almost all carry one (grain, vignette, a leak)"),
       clean: z.boolean().describe("true = let the footage play clean, with NO elements on it — only for a shot whose footage is moving video that shows what the line is about; the real channel leaves about four shots in ten this way"),
       wash: z.boolean().describe("colour this shot's footage into the film's palette (mood, reenactment and generic footage; leave real press footage and photos natural)"),
       dim: z.number().describe("how much the footage is darkened under the design, 0.1..0.6"),
@@ -127,7 +139,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter };
       if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
         if (!slots.has(e.slot)) { dropped++; continue; }
-        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}) });
+        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}) });
         else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true });
         else if (three < 4) (three++, els.push({ type: "card3d", slot: e.slot, ...box, tilt: e.spin >= 0 ? -14 : 14, spin: clamp(e.spin || 22, -40, 40) }));
         else els.push({ type: "photo", slot: e.slot, ...box, grade: "natural" });
@@ -160,15 +172,19 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     if (unsafeFace) nameGuarded++;
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
     if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
-      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
+      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
       continue;
     }
-    if (!els.length) { dropped++; continue; }
-    const stage = !hasFootage || unsafeFace || d.backdrop === "stage";
+    const stage = !hasFootage || unsafeFace || d.backdrop === "world";
+    // build list 5, item 10: no plain stage — a shot without footage is built in a world made of real pictures
+    const world = stage ? worldOf(d.world, [...slots].filter((x) => x >= 0).sort((a, b) => a - b), specs.length) : undefined;
+    if (!els.length && !(world && (world.slot !== undefined || world.kind === "terminal" || world.kind === "flat_field"))) { dropped++; continue; }
     specs.push({
       shotId: sh.id,
       idea: d.idea.slice(0, 200),
-      backdrop: stage ? "stage" : "footage",
+      backdrop: stage ? "world" : "footage",
+      ...(world ? { world } : {}),
+      finish: finishOf(d.finish),
       dim: clamp(d.dim, 0.1, 0.6),
       ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.16, mode: "tint" as const } } : {}),
       camera: (() => {
@@ -182,11 +198,98 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     });
   }
   specs.sort((a, b) => a.shotId.localeCompare(b.shotId));
-  if (refusals.length) log(`  words refused (one common word or a broken fragment — write a phrase from the line, or use a picture): ${refusals.join("; ")}`);
+  // build list 5, items 10, 12 and 14: across the film — no world twice in a row, no phrase card repeated in the next
+  // shot, each picture once (a second use only with a different crop AND treatment).
+  const order = new Map(o.storyboard.shots.map((x, k) => [x.id, k] as [string, number]));
+  const ordered = [...specs].sort((a, b) => (order.get(a.shotId) ?? 0) - (order.get(b.shotId) ?? 0));
+  const refOf = (shotId: string, slot: number) => o.resolution.media.find((m) => m.shotId === shotId && m.role === "layer" && m.slot === slot)?.ref;
+  refusals.push(...repetitionGuard(ordered, refOf, (id) => mediaOf(id).filter((m) => m.role === "layer").map((m) => m.slot ?? -1).filter((x) => x >= 0)));
+  if (refusals.length) log(`  refused or changed by the guards: ${refusals.join("; ")}`);
   const kinds = new Map<string, number>();
   for (const s of specs) for (const e of s.elements) kinds.set(e.type === "component" ? `component:${e.name}` : e.type, (kinds.get(e.type === "component" ? `component:${e.name}` : e.type) ?? 0) + 1);
   log(`  scenes: ${specs.length}/${all.length} ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) or scene(s) refused (missing slot, unknown component, unspoken words or figures)` : ""}${nameGuarded ? `; ${nameGuarded} scene(s) moved to the kit's stage (a real name over a face that is not verified as that person)` : ""}`);
   return ScenePlan.parse({ schemaVersion: 2, storyboardId: o.storyboard.id, scenes: specs, generatedAt: new Date().toISOString() });
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Worlds, finish and repetition (build list 5, items 10, 11, 12, 14)
+
+type WorldOut = NonNullable<SceneSpec["world"]>;
+const NEEDS_PICTURE = new Set(["mono_accent", "duotone", "collage"]);
+/** The world a draft asks for, made valid: its pictures must exist; with none it falls to a field that needs none. */
+export function worldOf(d: z.infer<typeof WorldDraft> | undefined, slots: number[], k: number): WorldOut {
+  const has = (x: number) => slots.includes(x);
+  let kind = d && d.kind !== "none" ? d.kind : slots.length ? (["duotone", "mono_accent", "collage", "paper"] as const)[k % (slots.length >= 2 ? 4 : 2)]! : (["flat_field", "burst", "terminal"] as const)[k % 3]!;
+  let slot = d && has(d.slot) ? d.slot : slots[0];
+  const more = (d?.slots ?? []).filter((x) => has(x) && x !== slot).slice(0, 4);
+  if (kind === "collage" && more.length === 0) more.push(...slots.filter((x) => x !== slot).slice(0, 3));
+  if (kind === "collage" && more.length === 0) kind = "duotone";
+  if (NEEDS_PICTURE.has(kind) && slot === undefined) kind = "flat_field";
+  if (kind === "burst" || kind === "flat_field") slot = undefined;
+  const color = (d?.color ?? "primary") as WorldOut["color"];
+  const accent = (d?.accent && d.accent !== d.color ? d.accent : color === "accent" ? "primary" : "accent") as WorldOut["accent"];
+  return { kind, ...(slot !== undefined ? { slot } : {}), ...(kind === "collage" ? { slots: more } : {}), color, accent };
+}
+/** The finish over a shot, with a floor: every frame of the channel carries some treatment. */
+export function finishOf(f: { grain: number; vignette: number; leak: number } | undefined): { grain: number; vignette: number; leak: number } {
+  return { grain: clamp(Math.max(f?.grain ?? 0, 0.18), 0, 1), vignette: clamp(Math.max(f?.vignette ?? 0, 0.22), 0, 1), leak: clamp(f?.leak ?? 0, 0, 0.8) };
+}
+const cardText = (e: SceneElement) => (e.type === "component" ? norm(Object.entries(e.props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit|prefix|suffix)$/i.test(k)).map(([, v]) => v as string).join(" ")) : "");
+const treatmentOf = (sc: SceneSpec, e: SceneElement | null) => (e ? (e.type === "photo" ? e.grade ?? "natural" : e.type) : `world:${sc.world?.kind ?? "?"}`);
+const cropOf = (e: SceneElement | null) => (e && "w" in e ? e.w : 1);
+
+/**
+ * Mutates `ordered` (scenes in film order). Returns what it refused, for the designer's log.
+ *  - the same world kind never twice in a row (the later one turns to the next kind its pictures allow);
+ *  - a phrase/headline card never repeats in the next shot;
+ *  - a picture placed once; a second use only with a different crop (≥ 30 % size) AND a different treatment; never a third.
+ */
+export function repetitionGuard(ordered: SceneSpec[], refOf: (shotId: string, slot: number) => string | undefined, slotsOf: (shotId: string) => number[]): string[] {
+  const refused: string[] = [];
+  const uses = new Map<string, Array<{ shotId: string; crop: number; treat: string }>>();
+  const base = (id: string) => id.replace(/(_\d+)+$/, "");
+  const accept = (ref: string | undefined, shotId: string, crop: number, treat: string): boolean => {
+    if (!ref) return true;
+    const u = (uses.get(ref) ?? []).filter((x) => base(x.shotId) !== base(shotId));
+    const ok = u.length === 0 || (u.length === 1 && Math.abs(crop - u[0]!.crop) / Math.max(crop, u[0]!.crop) >= 0.3 && treat !== u[0]!.treat);
+    if (ok) uses.set(ref, [...(uses.get(ref) ?? []), { shotId, crop, treat }]);
+    return ok;
+  };
+  let prev: SceneSpec | null = null;
+  for (const sc of ordered) {
+    if (sc.world && prev?.world && prev.world.kind === sc.world.kind) {
+      const slots = slotsOf(sc.shotId);
+      const options = (slots.length ? ["duotone", "mono_accent", "paper", "collage", "terminal", "flat_field", "burst"] : ["flat_field", "burst", "terminal"]).filter((k) => k !== prev!.world!.kind && (k !== "collage" || slots.length >= 2));
+      const was = sc.world.kind;
+      sc.world = { ...sc.world, kind: options[0] as WorldOut["kind"], ...(options[0] === "collage" ? { slots: slots.filter((x) => x !== sc.world!.slot).slice(0, 3) } : {}) };
+      if ((sc.world.kind === "flat_field" || sc.world.kind === "burst") && sc.world.slot !== undefined) delete sc.world.slot;
+      refused.push(`${sc.shotId}: world "${was}" again right after ${prev.shotId} — turned to "${sc.world.kind}"`);
+    }
+    if (prev) {
+      const before = new Set(prev.elements.map(cardText).filter((t) => t.length > 3));
+      for (let i = sc.elements.length - 1; i >= 0; i--) {
+        const t = cardText(sc.elements[i]!);
+        if (t.length > 3 && before.has(t) && sc.elements.length > 1) {
+          refused.push(`${sc.shotId}: the card "${t.slice(0, 30)}" repeats the shot before — removed`);
+          sc.elements.splice(i, 1);
+        }
+      }
+    }
+    if (sc.world?.slot !== undefined && !accept(refOf(sc.shotId, sc.world.slot), sc.shotId, 1, treatmentOf(sc, null))) {
+      refused.push(`${sc.shotId}: its world picture is already used in this film — world turned to a field`);
+      sc.world = { kind: "flat_field", color: sc.world.color, accent: sc.world.accent };
+    }
+    for (let i = sc.elements.length - 1; i >= 0; i--) {
+      const e = sc.elements[i]!;
+      if (e.type !== "photo" && e.type !== "cutout" && e.type !== "card3d") continue;
+      if (!accept(refOf(sc.shotId, e.slot), sc.shotId, cropOf(e), treatmentOf(sc, e))) {
+        refused.push(`${sc.shotId}: picture [${e.slot}] already used in this film (a second use needs another crop and treatment) — removed`);
+        sc.elements.splice(i, 1);
+      }
+    }
+    prev = sc;
+  }
+  return refused;
 }
 
 // ---------------------------------------------------------------------------------------------------------

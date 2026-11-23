@@ -22,7 +22,8 @@ const StorySchema = z.object({
   characters: z.array(z.object({ name: z.string(), role: z.string(), want: z.string(), flaw: z.string(), cost: z.string(), claimIds: z.array(z.string()) })),
   scenes: z.array(z.object({ kind: z.enum(["confrontation", "humiliation", "memo", "gamble", "decision", "launch", "collapse", "deal", "other"]), when: z.string(), where: z.string(), who: z.array(z.string()), what: z.string(), stakes: z.string(), claimIds: z.array(z.string()) })),
   contrasts: z.array(z.object({ text: z.string(), us: z.string(), them: z.string(), claimIds: z.array(z.string()) })),
-  quotes: z.array(z.object({ text: z.string(), speaker: z.string(), context: z.string(), claimId: z.string() })),
+  quotes: z.array(z.object({ text: z.string(), speaker: z.string(), context: z.string(), claimId: z.string(), image: z.string().describe("the concrete picture inside the quote's words, e.g. 'a man on a burning oil platform jumping into icy water'; empty if none") })),
+  turns: z.array(z.object({ when: z.string(), what: z.string(), who: z.array(z.string()), claimIds: z.array(z.string()) })).describe("the turning points in order: what changed, when, for whom"),
 });
 
 const VerifySchema = z.object({
@@ -62,7 +63,7 @@ async function storyLayer(topic: string, claims: FactClaim[], log: (s: string) =
     const { data } = await structured({
       stage: "research.story",
       model: MODELS.sonnet,
-      system: [plain("You are a documentary story producer. Organise VERIFIED CLAIMS into a story dossier: characters (want, flaw, cost), dramatic scenes (kind, when, where, who, what happens, stakes), contrast anchors (one comparative sentence: us vs them) and verbatim quotes. Use ONLY information stated in the claims; cite the claim ids each item rests on. Do not invent motives, places or numbers: if a claim does not state a want or a flaw, describe it as what the claims show (e.g. 'bet the company on Symbian'), never as speculation. Quotes must be claims of kind quote, verbatim.")],
+      system: [plain("You are a documentary story producer. Organise VERIFIED CLAIMS into a story dossier: characters (want, flaw, cost), dramatic scenes (kind, when, where, who, what happens, stakes — each one a MOMENT a viewer could be dropped into: a place, a date, people doing something), contrast anchors (one comparative sentence: us vs them), verbatim quotes with the concrete picture inside their words, and the turning points in order. Characters' wants are what the claims show each person wanted, feared or decided. Use ONLY information stated in the claims; cite the claim ids each item rests on. Do not invent motives, places or numbers: if a claim does not state a want or a flaw, describe it as what the claims show (e.g. 'bet the company on Symbian'), never as speculation. Quotes must be claims of kind quote, verbatim.")],
       user: `TOPIC: ${topic}\n\nVERIFIED CLAIMS:\n${usable.map((c) => `[${c.id}] (${c.kind}) ${c.text}`).join("\n")}`,
       schema: StorySchema,
       effort: "medium",
@@ -74,9 +75,10 @@ async function storyLayer(topic: string, claims: FactClaim[], log: (s: string) =
       characters: data.characters.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
       scenes: data.scenes.map((c, i) => ({ ...c, id: `sc${String(i + 1).padStart(2, "0")}`, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
       contrasts: data.contrasts.map((c) => ({ ...c, claimIds: bound(c.claimIds) })).filter((c) => c.claimIds.length),
-      quotes: data.quotes.filter((q) => ok.has(q.claimId) && usable.find((c) => c.id === q.claimId)?.kind === "quote"),
+      quotes: data.quotes.filter((q) => ok.has(q.claimId) && usable.find((c) => c.id === q.claimId)?.kind === "quote").map((q) => ({ text: q.text, speaker: q.speaker, context: q.context, claimId: q.claimId, ...(q.image.trim() ? { image: q.image.trim() } : {}) })),
+      turns: data.turns.map((t) => ({ ...t, claimIds: bound(t.claimIds) })).filter((t) => t.claimIds.length),
     });
-    log(`  research: dossier — ${story.characters.length} characters, ${story.scenes.length} scenes, ${story.contrasts.length} contrasts, ${story.quotes.length} quotes`);
+    log(`  research: dossier — ${story.characters.length} characters, ${story.scenes.length} scenes, ${story.contrasts.length} contrasts, ${story.quotes.length} quotes, ${story.turns?.length ?? 0} turns`);
   } catch (e) {
     log(`  ! story dossier failed (${(e as Error).message.slice(0, 120)}); continuing with claims only`);
   }

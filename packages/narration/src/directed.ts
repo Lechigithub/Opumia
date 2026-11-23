@@ -4,13 +4,14 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { directVoice, voiceAgent, type LineMeasure, type VoiceAgentReport, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
+import { directVoice, voiceAgent, runOnPauses, type LineMeasure, type VoiceAgentReport, type Tone, loadPronunciationLexicon, savePronunciationLexicon, sentencesOf, type Lexicon, type LineDirection } from "@opumia/agents";
 import { TimedScript, type FactSheet, type ScriptDraft } from "@opumia/contracts";
 import { asrBackend, diffSpeech, espeakIpa, measureProsody, pcm, phonemeMatch, phonemeTokens, spokenPhonemes, transcribe, type PronunciationCheck } from "@opumia/senses";
 import { alignWords, tokensFromAlignment } from "./align.js";
 import { SR, tighten } from "./passage.js";
 import { remainingCharacters, ttsWithTimestamps, type CharAlignment } from "./elevenlabs.js";
 import { ttsModel, type ChannelVoice } from "./voice.js";
+import { solveNames, type NameCheck } from "./names.js";
 
 /**
  * Directed narration: the script is spoken line by line under a voice director, then LISTENED TO and corrected.
@@ -39,6 +40,10 @@ export interface DirectedOptions {
   modelId?: string;
   /** Reference narrator band (data/exemplars): target pace and pauses, and its expressiveness. */
   narrator?: { wpm: number; wpmLow: number; f0RangeSt?: number; melodySt?: number };
+  /** Build list 5, item 25: the Library (its read-only IPA cache is a pronunciation source). */
+  libraryDir?: string;
+  /** Build list 5, item 23: the writer rewords one sentence for speech (same facts); null keeps it. */
+  reword?: (o: { text: string; why: string; context: string }) => Promise<string | null>;
   log?: (s: string) => void;
 }
 
@@ -57,22 +62,36 @@ export interface NarrationReport {
   directorUsd: number;
   /** B7: what the listening voice director changed. */
   delivery?: VoiceAgentReport;
+  /** Build list 5, item 25: every name's check before the first take; names no form could make right. */
+  names?: { checks: NameCheck[]; unsolved: string[] };
+  /** Build list 5, item 23: delivery problems still open after the voice director (blocking for the gate). */
+  deliveryUnresolved?: string[];
 }
 
 /** A passage: consecutive sentences spoken in ONE take (no cut inside it). `emphases` holds each sentence's word. */
-interface Unit { seg: number; text: string; words: string[]; dir: LineDirection; emphases?: string[]; role: string; chapter?: string; sentences: number }
+interface Unit { seg: number; text: string; words: string[]; dir: LineDirection; emphases?: string[]; role: string; chapter?: string; sentences: number; /** item 24 */ act: number; tone?: Tone; fall?: boolean }
+
+/** Build list 5, item 24: acts of the story — its chapters, or for one continuous film the setup, the rise and the fall. */
+const ACT_OF_ROLE: Record<string, number> = { cold_open: 0, hook: 0, thesis: 0, context: 0, rise: 1, twist: 1, climax: 1, rehook: 1, chapter: 1, fall: 2, resolution: 2, cta: 2 };
+
+/** Build list 5, item 23: a tone changes the voice's steadiness and expressiveness for one take — never its speed. */
+const TONE_SETTINGS: Record<Tone, { stability: number; style: number }> = { grave: { stability: 0.12, style: -0.2 }, dry: { stability: 0.1, style: -0.3 }, wry: { stability: -0.03, style: 0.1 }, urgent: { stability: -0.08, style: 0.2 }, warm: { stability: 0.04, style: -0.05 } };
+const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 interface Take { audio: Float32Array; words: Array<{ word: string; startS: number; endS: number }>; key: string }
 
 const GAP = { none: 0.03, short: 0.1, beat: 0.36 } as const;
 const CHAPTER_GAP = 0.6;
 
 /** The text sent to the voice: expansions always; respelling only for the terms listed; emphasis in capitals. */
-function speakText(u: Unit, lex: Lexicon, respell: Set<string>): string {
+function speakText(u: Unit, lex: Lexicon, respell: Set<string>, vkey = ""): string {
   let t = u.text;
   for (const [term, e] of Object.entries(lex).sort((a, b) => b[0].length - a[0].length)) {
     if (!t.includes(term)) continue;
     const re = new RegExp(`(?<![\\p{L}\\p{N}])${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "gu");
+    const v = e.verified?.[vkey];
     if (e.spoken) t = t.replace(re, e.spoken);
+    // item 25: the form that passed the name check for this voice and model, exactly as it was checked
+    else if (v && !respell.has(term)) { if (v.form === "respelling") t = t.replace(re, v.text.replace(/^./, (c) => c.toUpperCase())); }
     else if ((respell.has(term) || e.works === "respelling") && e.respelling) t = t.replace(re, e.respelling.toLowerCase().replace(/[^a-z' ]/g, "").replace(/^./, (c) => c.toUpperCase()));
   }
   for (const raw of u.emphases ?? [u.dir.emphasis]) {
@@ -103,15 +122,17 @@ async function writeMp3(samples: Float32Array, out: string): Promise<void> {
   await import("node:fs/promises").then((fs) => fs.unlink(raw).catch(() => {}));
 }
 
-export async function narrateDirected(o: DirectedOptions): Promise<{ script: TimedScript; audioPath: string; alignmentPath: string; characters: number; report: NarrationReport }> {
+export async function narrateDirected(o: DirectedOptions): Promise<{ script: TimedScript; audioPath: string; alignmentPath: string; characters: number; report: NarrationReport; /** the script as spoken (item 23: punctuation re-set or lines reworded for speech) */ draft: ScriptDraft }> {
   const log = o.log ?? (() => {});
   const voice = o.voice;
   const modelId = o.modelId ?? ttsModel();
   await mkdir(path.join(o.outDir, "takes"), { recursive: true });
 
   // Lines = sentences, kept inside their segments.
+  // item 23: the voice director may re-set punctuation or have the writer reword a line; the draft returned carries it
+  const draft: ScriptDraft = structuredClone(o.draft);
   const raw: Array<{ seg: number; text: string; role: string; chapter?: string }> = [];
-  o.draft.segments.forEach((s, si) => {
+  draft.segments.forEach((s, si) => {
     for (const t of sentencesOf(s.text)) raw.push({ seg: si, text: t, role: s.role, ...(s.chapter ? { chapter: s.chapter } : {}) });
   });
 
@@ -127,7 +148,19 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const cachedDir = existsSync(dirFile) ? (JSON.parse(await readFile(dirFile, "utf8")) as { key: string; dv: Awaited<ReturnType<typeof directVoice>> }) : null;
   const dv = cachedDir?.key === dirKey ? cachedDir.dv : await directVoice({ channel: o.channel, sentences: raw.map((r) => ({ text: r.text, role: r.role })), people, known, ...(o.narrator ? { narratorWpm: o.narrator.wpm } : {}) });
   if (cachedDir?.key !== dirKey) await writeFile(dirFile, JSON.stringify({ key: dirKey, dv }, null, 1) + "\n");
-  const lex: Lexicon = { ...known, ...dv.terms };
+  let lex: Lexicon = { ...known, ...dv.terms };
+  // 1b. Build list 5, item 25: every name, place and brand is solved and checked BEFORE the first take — its own
+  // pronunciation as the target, the voice saying it alone, a strict check of its sounds including the stressed vowel.
+  const vkey = `${voice.voiceId}|${modelId}`;
+  let names: { checks: NameCheck[]; unsolved: string[] } | undefined;
+  {
+    const sn = await solveNames({ lexicon: lex, scriptText, people, voice, modelId, dataDir: o.dataDir, outDir: o.outDir, ...(o.libraryDir ? { libraryDir: o.libraryDir } : {}), log }).catch((e: Error) => { log(`  ! name check failed: ${e.message.slice(0, 160)}`); return null; });
+    if (sn) {
+      lex = sn.lexicon;
+      names = { checks: sn.checks, unsolved: sn.unsolved };
+      await savePronunciationLexicon(o.dataDir, { ...lexAll, ...lex });
+    }
+  }
   // Step 3 (seamless voice): sentences are spoken in passages — consecutive sentences of one segment and chapter, up to
   // about 600 characters, ending at a held beat — so the voice is never cut inside a passage: its intonation runs
   // across sentences, and its breaths and pauses are its own. Passages meet on their own room sound.
@@ -143,7 +176,16 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
       cur.emphases = [...(cur.emphases ?? []), d.emphasis];
       cur.dir = { ...cur.dir, pauseAfter: d.pauseAfter };
       cur.sentences++;
-    } else units.push({ seg: r.seg, text: r.text, words: words(r.text), dir: d, emphases: [d.emphasis], role: r.role, ...(r.chapter ? { chapter: r.chapter } : {}), sentences: 1 });
+    } else units.push({ seg: r.seg, text: r.text, words: words(r.text), dir: d, emphases: [d.emphasis], role: r.role, ...(r.chapter ? { chapter: r.chapter } : {}), sentences: 1, act: 0 });
+  }
+  {
+    // acts: chapters when there are chapters, else setup → rise → fall by segment role (never going back)
+    const chapters = [...new Set(units.map((u) => u.chapter).filter(Boolean))];
+    let act = 0;
+    for (const u of units) {
+      act = chapters.length >= 2 ? Math.max(0, chapters.indexOf(u.chapter)) : Math.max(act, ACT_OF_ROLE[u.role] ?? act);
+      u.act = act;
+    }
   }
   log(`  voice director: ${raw.length} sentences in ${units.length} passage(s) — ${units.filter((u) => u.dir.pace === "fast").length} fast, ${units.filter((u) => u.dir.pace === "slow").length} slow, ${units.filter((u) => u.dir.pauseAfter === "beat").length} held beat(s); ${Object.keys(lex).length} risky word(s): ${Object.keys(lex).slice(0, 14).join(", ")}${Object.keys(lex).length > 14 ? ", …" : ""}`);
 
@@ -160,10 +202,12 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const alignDump: unknown[] = [];
   const takeOf = async (i: number, attempt: number, respell: Set<string>): Promise<Take> => {
     const u = units[i]!;
-    const text = speakText(u, lex, respell);
+    const text = speakText(u, lex, respell, vkey);
     const prev = units.slice(Math.max(0, i - 2), i).map((x) => x.text).join(" ").slice(-300);
-    const next = units[i + 1]?.text.slice(0, 200);
-    const req = { voiceId: voice.voiceId, modelId, text, speed: speedOf(u.dir.pace), stability: voice.settings.stability, similarityBoost: voice.settings.similarityBoost, style: voice.settings.style, seed: (parseInt(sha(text).slice(0, 6), 16) % 100000) + attempt * 101, ...(prev ? { previousText: prev } : {}), ...(next ? { nextText: next } : {}) };
+    // item 23: a statement that must fall is taken without the continuation after it (the voice ends it)
+    const next = u.fall ? undefined : units[i + 1]?.text.slice(0, 200);
+    const ts = u.tone ? TONE_SETTINGS[u.tone] : { stability: 0, style: 0 };
+    const req = { voiceId: voice.voiceId, modelId, text, speed: speedOf(u.dir.pace), stability: clamp(voice.settings.stability + ts.stability, 0.05, 0.95), similarityBoost: voice.settings.similarityBoost, style: clamp(voice.settings.style + ts.style, 0, 1), seed: (parseInt(sha(text).slice(0, 6), 16) % 100000) + attempt * 101, ...(prev ? { previousText: prev } : {}), ...(next ? { nextText: next } : {}) };
     const key = sha(JSON.stringify(req));
     const mp3 = path.join(o.outDir, "takes", `${key}.mp3`);
     const meta = path.join(o.outDir, "takes", `${key}.json`);
@@ -191,7 +235,8 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     return out;
   };
   log(`  narration: ${units.length} line takes → ElevenLabs ${modelId}, voice ${voice.name}, speed ${speedOf("slow").toFixed(2)}–${speedOf("fast").toFixed(2)} (quota left ${remaining ?? "?"})`);
-  const takes = await pool(3, units.map((_, i) => () => takeOf(i, 0, new Set())));
+  // build list 5, item 32: a long narration records more lines at once (3 for a short, up to 8)
+  const takes = await pool(Math.min(8, Math.max(3, Math.ceil(units.length / 15))), units.map((_, i) => () => takeOf(i, 0, new Set())));
 
   // 2b. B7: the voice director listens to every take (measured) and retakes lines that sound flat or wrong.
   let delivery: VoiceAgentReport | undefined;
@@ -225,33 +270,70 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
       const voicedEnd = [...contour].reverse().find(([, st]) => st !== 0);
       const secs = (t.words.at(-1)?.endS ?? 0) - (t.words[0]?.startS ?? 0);
       return {
-        seconds: Math.round(secs * 100) / 100, wpm: secs > 0 ? (t.words.length / secs) * 60 : 0,
+        seconds: Math.round(secs * 100) / 100, wpm: secs > 0 ? (t.words.length / secs) * 60 : 0, f0Hz: lineHz,
+        innerPauses: runOnPauses(t.words),
         rangeSt: whole?.f0RangeSt ?? 0, melodySt: whole?.melodySt ?? 0, dynamicsDb: whole?.energyStdDb ?? 0,
         emphasis: k >= 0 ? { word: contour[k]![0], liftDb: Math.round((contour[k]![2] - mean(rest.map((x) => x[2]))) * 10) / 10, liftSt: Math.round((contour[k]![1] - mean(rest.map((x) => x[1]))) * 10) / 10 } : null,
         endingSt: voicedEnd?.[1] ?? 0, contour,
       };
     };
-    const candidates = new Map<string, { i: number; take: Take; dir: LineDirection }>();
+    const candidates = new Map<string, { i: number; take: Take; set: Partial<Unit>; text?: string }>();
     let nCand = 0;
+    /** A candidate take of a line with other text (punctuation re-set, or the writer's rewording). */
+    const candidateWithText = async (i: number, text: string) => {
+      const u = units[i]!;
+      const keep = { text: u.text, words: u.words };
+      u.text = text;
+      u.words = words(text);
+      const t = await takeOf(i, 20 + ++nCand, new Set()).finally(() => Object.assign(u, keep));
+      const id = `c${nCand}`;
+      candidates.set(id, { i, take: t, set: {}, text });
+      // measured against the new words
+      u.text = text; u.words = words(text);
+      try { return { id, m: await measureTake(i, t) }; } finally { Object.assign(u, keep); }
+    };
     delivery = await voiceAgent({
       channel: o.channel, title: o.draft.title,
-      lines: units.map((u) => ({ text: u.text, role: u.role, pace: u.dir.pace, emphasis: u.dir.emphasis, question: /\?\s*$/.test(u.text) })),
+      lines: units.map((u) => ({ text: u.text, role: u.role, pace: u.dir.pace, emphasis: u.dir.emphasis, question: /\?\s*$/.test(u.text), act: u.act })),
       narrator: o.narrator ?? null,
       measure: (i) => measureTake(i, takes[i]!),
       retake: async (i, r) => {
         const u = units[i]!;
-        const keep = u.dir, keepE = u.emphases;
+        const keep = { dir: u.dir, emphases: u.emphases, tone: u.tone, fall: u.fall };
         if (r.emphasis) (u.dir = { ...u.dir, emphasis: r.emphasis }), (u.emphases = [r.emphasis]);
-        const t = await takeOf(i, 20 + ++nCand, new Set()).finally(() => { u.dir = keep; u.emphases = keepE; });
+        if (r.tone) u.tone = r.tone;
+        if (r.fall) u.fall = true;
+        const set = { dir: u.dir, emphases: u.emphases, tone: u.tone, fall: u.fall };
+        const t = await takeOf(i, 20 + ++nCand, new Set()).finally(() => Object.assign(u, keep));
         const id = `c${nCand}`;
-        candidates.set(id, { i, take: t, dir: r.emphasis ? { ...keep, emphasis: r.emphasis } : keep });
+        candidates.set(id, { i, take: t, set });
         return { id, m: await measureTake(i, t) };
       },
+      repunctuate: async (i, text) => candidateWithText(i, text),
+      ...(o.reword ? {
+        reword: async (i: number, why: string) => {
+          const u = units[i]!;
+          const segText = draft.segments[u.seg]!.text;
+          if (!segText.includes(u.text)) return null;
+          const nt = (await o.reword!({ text: u.text, why, context: segText }).catch(() => null))?.trim();
+          if (!nt || nt === u.text) return null;
+          const c = await candidateWithText(i, nt);
+          return { ...c, text: nt };
+        },
+      } : {}),
       choose: async (i, id) => {
         const c = candidates.get(id);
         if (!c || c.i !== i) return;
         takes[i] = c.take;
-        units[i]!.dir = c.dir;
+        const u = units[i]!;
+        Object.assign(u, c.set);
+        if (c.text && c.text !== u.text) {
+          // the new wording becomes the script's: the segment's text carries it (words and captions follow)
+          const sg = draft.segments[u.seg]!;
+          if (sg.text.includes(u.text)) sg.text = sg.text.replace(u.text, c.text);
+          u.text = c.text;
+          u.words = words(c.text);
+        }
       },
       memoryDir: path.join(o.dataDir, "agents", "voice"), log,
     }).catch((e: Error) => { log(`  ! voice director (listening) failed: ${e.message.slice(0, 200)} — the first takes are kept`); return undefined; });
@@ -303,7 +385,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
 
   // 4–5. Listen back, check the sounds of risky words, regenerate only what failed.
   const asr = await asrBackend(o.dataDir);
-  const report: NarrationReport = { lines: units.length, takes: 0, retakes: 0, characters: 0, wpm: 0, tempo: 1, asr, wer: null, speechIssues: [], pronunciation: [], unresolved: [], directorUsd: cachedDir?.key === dirKey ? 0 : dv.usd, ...(delivery ? { delivery } : {}) };
+  const report: NarrationReport = { lines: units.length, takes: 0, retakes: 0, characters: 0, wpm: 0, tempo: 1, asr, wer: null, speechIssues: [], pronunciation: [], unresolved: [], directorUsd: cachedDir?.key === dirKey ? 0 : dv.usd, ...(delivery ? { delivery, deliveryUnresolved: Object.entries(delivery.unresolved).map(([k, f]) => `line ${Number(k) + 1}: ${f.join("; ")}`).concat(delivery.tone?.oneColour ? ["the story is told in one colour from start to end"] : []) } : {}), ...(names ? { names } : {}) };
   const phonemeTerms = Object.entries(lex).filter(([, e]) => ["name", "place", "brand", "foreign", "rare"].includes(e.kind) && (e.ipa || e.respelling));
   const respellFor = new Map<number, Set<string>>();
   /** Best take seen per line (fewest problems), so a retake can never make a line worse. */
@@ -467,7 +549,7 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
   const r3 = (x: number) => Math.round(x * 1000) / 1000;
   const claimsById = new Map(o.facts.claims.map((c) => [c.id, c]));
   let cursor = 0;
-  const segments = o.draft.segments.map((s) => {
+  const segments = draft.segments.map((s) => {
     const n = words(s.text).length;
     const ws = timed.slice(cursor, cursor + n);
     cursor += n;
@@ -484,6 +566,6 @@ export async function narrateDirected(o: DirectedOptions): Promise<{ script: Tim
     };
   });
   for (let i = 1; i < segments.length; i++) if (segments[i]!.startS < segments[i - 1]!.endS) segments[i]!.startS = segments[i - 1]!.endS;
-  const script = TimedScript.parse({ schemaVersion: 1, id: `ts_${o.draft.id.slice(3)}`, title: o.draft.title, styleProfileId: o.draft.styleProfileId, aspect: o.draft.aspect, language: "en", voice: { provider: "elevenlabs", voiceId: voice.voiceId, modelId, audioPath }, segments, durationS: r3(durationS), generatedAt: new Date().toISOString() });
-  return { script, audioPath, alignmentPath, characters, report };
+  const script = TimedScript.parse({ schemaVersion: 1, id: `ts_${draft.id.slice(3)}`, title: draft.title, styleProfileId: draft.styleProfileId, aspect: draft.aspect, language: "en", voice: { provider: "elevenlabs", voiceId: voice.voiceId, modelId, audioPath }, segments, durationS: r3(durationS), generatedAt: new Date().toISOString() });
+  return { script, audioPath, alignmentPath, characters, report, draft };
 }

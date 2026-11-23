@@ -50,7 +50,7 @@ export interface DesignTokens {
   palette: Record<PaletteKey, string>;
   fonts?: { display: string; body: string };
   texture: { grain: number; vignette: number };
-  acts: Array<{ name: string; tint: string; tintStrength: number; saturation: number; contrast: number }>;
+  acts: Array<{ name: string; tint: string; tintStrength: number; saturation: number; contrast: number; /** build list 5, item 28: the colourist's exposure (1 = as shot) */ brightness?: number }>;
 }
 
 /** Install one film's design tokens (call at the top of a composition, before children render). */

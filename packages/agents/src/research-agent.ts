@@ -72,7 +72,9 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
   const kw = (t: string) => new Set(t.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !STOP.has(w)));
   const mine = kw(o.topic);
   const subjects = o.memoryDir && !quick ? await readFile(path.join(o.memoryDir, "subjects.jsonl"), "utf8").then((t) => t.split("\n").filter(Boolean).map((l) => JSON.parse(l) as { topic: string; claims: Array<{ text: string; kind: string; sourceUrl: string; evidence: string }> }), () => []) : [];
-  const leads = subjects.filter((x) => x.topic !== o.topic && [...kw(x.topic)].filter((w) => mine.has(w)).length >= 1).flatMap((x) => x.claims.map((c) => ({ ...c, from: x.topic }))).slice(0, 40);
+  // build list 5, item 33: a subject researched once is reused — the same topic first (it was excluded before), then
+  // overlapping subjects
+  const leads = subjects.filter((x) => x.topic === o.topic || [...kw(x.topic)].filter((w) => mine.has(w)).length >= 1).sort((a, b) => Number(b.topic === o.topic) - Number(a.topic === o.topic)).flatMap((x) => x.claims.map((c) => ({ ...c, from: x.topic }))).slice(0, 40);
 
   // ---- pages (each read once per run; the outcome per site is remembered across runs)
   const pages = new Map<string, Promise<{ text: string; via: "live" | "archive" | "browser" } | null>>();
@@ -124,6 +126,14 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
     if (count("quote") < 3) need.push(`${3 - count("quote")} more word-for-word quotation(s) by a named person`);
     if (count("number") < 5) need.push(`${5 - count("number")} more figure(s) — above all contrasts against a rival or peer at the same moment, and then-versus-later`);
     if (count("event") + count("date") < 8) need.push(`${8 - count("event") - count("date")} more dated events (scenes with when, where and who was there)`);
+    // build list 5, item 8: material for SCENES, not only facts — the writer builds the film from these
+    const use = (k: string) => u.filter((c) => (c as { storyUse?: string[] }).storyUse?.includes(k)).length;
+    if (!quick) {
+      if (use("moment") < 3) need.push(`${3 - use("moment")} more MOMENT(s): a place, a date and people doing something there (mark storyUse "moment")`);
+      if (use("want") < 2) need.push(`${2 - use("want")} more fact(s) on what a named person WANTED, FEARED or DECIDED, in their own words or a source's (storyUse "want")`);
+      if (use("turn") < 1) need.push("the turning point: the moment things changed, dated (storyUse \"turn\")");
+      if (count("quote") >= 1 && use("image") < 1) need.push("a quotation that carries a concrete picture in its words (storyUse \"image\") — the line a film can show");
+    }
     if (srcs.size < 5) need.push(`facts from ${5 - srcs.size} more independent source(s)`);
     const top = [...srcs].map((h) => ({ h, n: u.filter((c) => hostOf(c.sourceUrl) === h).length })).sort((a, b) => b.n - a.n)[0];
     if (top && u.length >= 8 && top.n / u.length > 0.45) need.push(`less reliance on ${top.h} (${top.n} of ${u.length} facts) — bring facts from other sources, ideally primary ones`);
@@ -169,8 +179,8 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
     {
       name: "record_claim",
       description: "Record one fact with its source. `evidence` must be the exact sentence from that page that supports it (copy it from read_page). The page is read and the claim checked against it; you get back whether it was verified. If the page is unreadable or the claim is not supported, find the fact on another source and record it again.",
-      schema: z.object({ text: z.string().describe("exactly one fact, stated plainly"), kind: KIND, sourceUrl: z.string(), sourceTitle: z.string(), evidence: z.string().describe("the exact supporting sentence from the page") }),
-      run: (async (i: { text: string; kind: z.infer<typeof KIND>; sourceUrl: string; sourceTitle: string; evidence: string }) => {
+      schema: z.object({ text: z.string().describe("exactly one fact, stated plainly"), kind: KIND, sourceUrl: z.string(), sourceTitle: z.string(), evidence: z.string().describe("the exact supporting sentence from the page"), storyUse: z.array(z.enum(["moment", "want", "turn", "image"])).describe("what this gives the story, if anything: moment = a place + a date + people doing something; want = what a named person wanted, feared or decided; turn = the point where things changed; image = a quotation with a concrete picture inside it").optional() }),
+      run: (async (i: { text: string; kind: z.infer<typeof KIND>; sourceUrl: string; sourceTitle: string; evidence: string; storyUse?: Array<"moment" | "want" | "turn" | "image"> }) => {
         if (!/^https?:\/\//.test(i.sourceUrl)) throw new Error("sourceUrl is not a URL");
         const words = (t: string) => new Set(norm(t).split(" ").filter((w) => w.length > 3));
         const mine = words(i.text);
@@ -181,6 +191,14 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
         });
         if (dup) return `already verified as [${dup.id}] — "${dup.text.slice(0, 100)}". Record a different fact.`;
         if (i.kind === "quote" && !/["“][^"”]{8,}["”]/.test(i.text)) return "NOT RECORDED — a quotation must carry the speaker's exact words in quotation marks. If the page only reports what was said, record it as an event instead.";
+        // item 33: a fact verified for an earlier film (same source, same evidence, within 60 days) is reused as it was
+        // verified then — no page read and no check again
+        const fresh = subjects.some((x) => Date.now() - Date.parse((x as { at?: string }).at ?? "") < 60 * 86400e3 && x.claims.some((c) => c.sourceUrl === i.sourceUrl && norm(c.evidence) === norm(i.evidence) && norm(c.text) === norm(i.text)));
+        if (fresh) {
+          const id = `c${String(claims.length + 1 + (o.idStart ?? 0)).padStart(2, "0")}`;
+          claims.push({ id, text: i.text.trim(), kind: i.kind, sourceUrl: i.sourceUrl, ...(i.sourceTitle.trim() ? { sourceTitle: i.sourceTitle.trim() } : {}), evidence: i.evidence.trim().slice(0, 300), ...(i.storyUse?.length ? { storyUse: [...new Set(i.storyUse)] } : {}), verdict: "supported", checkedBy: "reused (verified for an earlier film)" });
+          return `VERIFIED [${id}] (reused: verified for an earlier film on this subject).${status().need.length === 0 ? " The sheet now has what the film needs — record only what a must-have still lacks, then finish." : ""}`;
+        }
         const p = await page(i.sourceUrl);
         if (!p) {
           rejected++;
@@ -208,7 +226,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
           return `NOT VERIFIED — the passage does not support the claim: ${chk?.data.why.slice(0, 200)}. Correct the claim to what the page says, or use another source.`;
         }
         const id = `c${String(claims.length + 1 + (o.idStart ?? 0)).padStart(2, "0")}`;
-        claims.push({ id, text: i.text.trim(), kind: i.kind, sourceUrl: i.sourceUrl, ...(i.sourceTitle.trim() ? { sourceTitle: i.sourceTitle.trim() } : {}), evidence: i.evidence.trim().slice(0, 300), verdict, checkedBy: MODELS.haiku });
+        claims.push({ id, text: i.text.trim(), kind: i.kind, sourceUrl: i.sourceUrl, ...(i.sourceTitle.trim() ? { sourceTitle: i.sourceTitle.trim() } : {}), evidence: i.evidence.trim().slice(0, 300), ...(i.storyUse?.length ? { storyUse: [...new Set(i.storyUse)] } : {}), verdict, checkedBy: MODELS.haiku });
         // Enough is enough: once the sheet has what the film needs, the researcher is told to stop collecting.
         const enough = status().need.length === 0;
         return `VERIFIED [${id}] (${verdict}${p.via === "archive" ? ", from the archived copy" : ""}).${enough ? " The sheet now has what the film needs — record only what a must-have still lacks, then finish." : ""}`;
@@ -263,7 +281,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
   ];
   if (!quick) log(`  research: one researcher with tools — search, read, verify each claim on a readable page (${MODELS.sonnet})…`);
   const run = await agentLoop({
-    stage: "research.agent", finish: { message: "Your budget for this stage is used up. Call finish NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call finish again." },
+    stage: "research.agent", fixed: 0.6, finish: { message: "Your budget for this stage is used up. Call finish NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call finish again." },
     model: ROLE_MODEL.researchPlan,
     maxSeconds: quick ? 120 : 300,
     system,
@@ -292,7 +310,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
       await writeFile(`${hostsFile}.tmp`, JSON.stringify(Object.fromEntries(Object.entries(hosts).sort(([a], [b]) => a.localeCompare(b))), null, 1) + "\n");
       await rename(`${hostsFile}.tmp`, hostsFile);
     }
-    if (!quick && claims.length) await appendFile(path.join(o.memoryDir, "subjects.jsonl"), JSON.stringify({ topic: o.topic, at: new Date().toISOString(), claims: claims.filter((c) => c.verdict === "supported").map((c) => ({ text: c.text, kind: c.kind, sourceUrl: c.sourceUrl, evidence: c.evidence })) }) + "\n");
+    if (!quick && claims.length) await appendFile(path.join(o.memoryDir, "subjects.jsonl"), JSON.stringify({ topic: o.topic, at: new Date().toISOString(), claims: claims.filter((c) => c.verdict === "supported" && !String(c.checkedBy ?? "").startsWith("reused")).map((c) => ({ text: c.text, kind: c.kind, sourceUrl: c.sourceUrl, evidence: c.evidence })) }) + "\n");
     if (!quick) await appendFile(path.join(o.memoryDir, "notes.md"), `- LOG ${new Date().toISOString().slice(0, 10)} "${o.topic.slice(0, 60)}": ${fin ? "complete" : "not finished"}, ${u.length} verified, ${rejected} rejected, must-haves ${fin ? fin.covered.length : 0}/${thePlan?.mustHave.length ?? 0} covered${fin?.gaps.length ? `, gaps: ${fin.gaps.join("; ").slice(0, 200)}` : ""}\n`);
   }
   const srcUrls = [...new Set(claims.map((c) => c.sourceUrl))];

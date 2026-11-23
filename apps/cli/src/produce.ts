@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
 import { closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -17,6 +17,8 @@ import { makeLikeness, runFilmDesigner } from "./film-kit.js";
 import { run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
+import { designChecks, pictureChecks, previewTells } from "./bl5-checks.js";
+import { craftReport } from "./craft-report.js";
 import { FINISHED_LADDERS, PREFLIGHT_LADDERS, type Act } from "./ladders.js";
 import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, renderShotPreviews, renderVideo, runQA, toSrt, renderStretches } from "@opumia/motion-engine";
 
@@ -61,58 +63,52 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
   return v;
 }
 
-/** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-// Build list 3, item 31: sized from the stages measured on the films made with the agents (out/*/timing.json medians,
-// with headroom for the ladders): research 0.43, script 0.33, narration 0.84, director 0.42, art director 1.8, scenes
-// 0.27–0.69, showrunner 0.42, packaging 1.08.
-// Build list 4, item 6: these are now CAPS on each stage's optional work (agent turns, rungs, revisions: `setStageCap`),
-// not only a report. Sized for the $3 target of a 90 s film with Sonnet for the creative work and Haiku for the rest
-// (film 3, measured with Opus: research 0.37, script 0.37, narration 0.67 + a $0.60 rewrite, director 0.34, art director
-// 2.31, scenes 0.57, showrunner 1.45, preflight 1.92).
-// C1/C2 (manifest, render) have no cap: they call no model, and the publishing package runs beside the render under
-// its own agent cap (a C2 cap of $0.05 starved the packaging agent on the first proof film).
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.7, A2: 0.8, A3: 1.6, B1: 0.5, B2: 0.2, B2d: 1.2, B2s: 0.1, B3: 0.7, B4e: 0.08, B4c: 0.05, B5: 0.08, B5s: 0.35, B6: 0.9, C3: 0.9, C4: 0.15, C4v: 0.15, C4j: 0.3, C5: 0.5 };
-/** What a 90 s film should cost (build list 4); printed with every run. */
-const TARGET_USD_90S = 3;
-
+// Build list 5, items 2 and 31: every stage's budget, cap and time share comes from ONE length table
+// (`@opumia/agents` film-length.ts), set per minute of film — a 90 s film ≤ $3 and ≤ 30 min, longer films by the same
+// per-minute figures. A stage over its share is a failure in timing.json (`overShare`), not a note.
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
   const jobDir = path.join(o.root, "out", jobId);
   const before = usageLedger().length;
   // Stage clock: every "[XX] name" header in the log opens a stage; its seconds and Claude spend are recorded,
-  // compared with the stage's budget and written to timing.json. A film-level limit stops further model calls.
-  const k = Math.max(1, o.durationS / 90) ** 0.7;
-  // item 31: the limit fits what a film made by the agents costs (about $6 for 90 s, measured) with room for its ladders;
-  // a rung the remaining budget cannot cover is skipped and logged (ladder.ts), never a stop mid-stage.
-  // Build list 4, items 1–2: the limit counts the whole film (earlier runs of this job included: a resume does not start
-  // again from $0), and a reserve is kept for the finish (render, QA, packaging) that no optional work may spend.
-  const filmLimit = Number(process.env.OPUMIA_MAX_USD) || (o.durationS <= 90 ? 5 : o.durationS <= 240 ? 9 : 20);
-  const reserveUsd = Math.round(1.2 * k * 100) / 100;
+  // compared with the stage's share (length table) and written to timing.json. A film-level limit stops model calls.
+  const plan = lengthPlan(o.durationS);
+  const filmLimit = plan.limitUsd;
+  const reserveUsd = plan.reserveUsd;
   const spentBefore = await readFile(path.join(jobDir, "usage.json"), "utf8").then((t) => (JSON.parse(t) as { runs: Array<{ usd: number }> }).runs.reduce((a, r) => a + r.usd, 0), () => 0);
   setBudget(filmLimit, { spentBefore, reserveUsd });
-  if (spentBefore > 0) o.log(`  this film has already spent $${spentBefore.toFixed(2)} of its $${filmLimit.toFixed(2)} limit (target $${(TARGET_USD_90S * k).toFixed(2)})`);
-  const stages: Array<{ stage: string; seconds: number; usd: number; budgetUsd: number | null; over: boolean }> = [];
+  setFilmLength(plan.agentScale);
+  resetAllotments();
+  if (spentBefore > 0) o.log(`  this film has already spent $${spentBefore.toFixed(2)} of its $${filmLimit.toFixed(2)} limit (target $${plan.targetUsd.toFixed(2)})`);
+  const stages: Array<{ stage: string; seconds: number; usd: number; budgetUsd: number | null; shareSeconds: number | null; over: boolean; overShare: boolean }> = [];
   let open: { stage: string; t: number; n: number } | null = null;
   const closeStage = () => {
     if (!open) return;
     const cur = open;
     open = null;
     setStageCap(null);
-    const usd = Math.round(usageLedger().slice(cur.n).reduce((t, r) => t + r.usd, 0) * 1e4) / 1e4;
     const code = /^\[([A-Z]\d+[a-z]?)\]/.exec(cur.stage)?.[1] ?? "";
-    const b = STAGE_BUDGET_USD[code];
-    const budgetUsd = b === undefined ? null : Math.round(b * k * 100) / 100;
-    const over = budgetUsd !== null && usd > budgetUsd;
-    stages.push({ stage: cur.stage, seconds: Math.round((Date.now() - cur.t) / 100) / 10, usd, budgetUsd, over });
-    if (over) o.log(`  ! ${cur.stage.split("]")[0]}] spent $${usd.toFixed(2)}, over its budget of $${budgetUsd!.toFixed(2)}`);
+    // item 32: a stage's spend is what was tagged with it — work running beside it (the package beside the render) is
+    // charged to its own stage, not to whichever stage's header was printed last
+    const usd = Math.round((code ? stageSpent(code) : usageLedger().slice(cur.n).reduce((t, r) => t + r.usd, 0)) * 1e4) / 1e4;
+    const sh = plan.stage(code);
+    const budgetUsd = sh ? sh.usd : null;
+    const seconds = Math.round((Date.now() - cur.t) / 100) / 10;
+    // a cent and a few seconds of slack, so a stage at exactly its share is not a failure
+    const over = budgetUsd !== null && usd > budgetUsd + 0.01;
+    const overTime = sh !== null && seconds > sh.seconds + 5;
+    stages.push({ stage: cur.stage, seconds, usd, budgetUsd, shareSeconds: sh?.seconds ?? null, over, overShare: over || overTime });
+    if (over) o.log(`  ! ${cur.stage.split("]")[0]}] spent $${usd.toFixed(2)}, over its share of $${budgetUsd!.toFixed(2)}`);
+    if (overTime) o.log(`  ! ${cur.stage.split("]")[0]}] took ${seconds.toFixed(0)} s, over its share of ${sh!.seconds} s`);
   };
   const baseLog = o.log;
   const log = (line: string) => {
     if (line.startsWith("\n[")) {
       closeStage();
       open = { stage: line.trim(), t: Date.now(), n: usageLedger().length };
-      const cap = STAGE_BUDGET_USD[/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? ""];
-      setStageCap(cap === undefined ? null : cap * k);
+      setCurrentStage(/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? null);
+      const sh = plan.stage(/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? "");
+      setStageCap(sh === null || sh.capUsd <= 0 ? null : sh.capUsd);
     }
     baseLog(line);
   };
@@ -152,12 +148,20 @@ export async function produce(o: ProduceOptions) {
     closeStage();
     const filmTotal = filmSpent();
     setBudget(null);
+    setFilmLength(null);
+    // item 1: what every agent was given and used; a starved first pass is a failure of the run
+    const al = allotments();
+    if (al.length) {
+      await writeFile(path.join(jobDir, "allotments.json"), JSON.stringify({ at: new Date().toISOString(), starved: al.filter((a) => a.starved).length, agents: al }, null, 2) + "\n").catch(() => {});
+      const st = al.filter((a) => a.starved);
+      if (st.length) baseLog(`\n! ${st.length} agent run(s) were STARVED (given less than a first pass needs): ${st.map((a) => `${a.stage} $${a.givenUsd?.toFixed(2)}/$${a.needUsd.toFixed(2)}`).join(", ")}`);
+    }
     if (stages.length) {
       const tf = path.join(jobDir, "timing.json");
       const prevT = (await exists(tf)) ? (JSON.parse(await readFile(tf, "utf8")) as { runs: unknown[] }) : { runs: [] };
-      prevT.runs.push({ at: new Date().toISOString(), filmLimitUsd: filmLimit, spentBeforeUsd: Math.round(spentBefore * 100) / 100, filmUsd: Math.round(filmTotal * 100) / 100, seconds: Math.round(stages.reduce((t, x) => t + x.seconds, 0)), usd: Math.round(stages.reduce((t, x) => t + x.usd, 0) * 1e4) / 1e4, stages });
+      prevT.runs.push({ at: new Date().toISOString(), durationS: o.durationS, targetUsd: plan.targetUsd, targetMinutes: plan.targetMinutes, overShare: stages.filter((x) => x.overShare).map((x) => x.stage.split("]")[0] + "]"), filmLimitUsd: filmLimit, spentBeforeUsd: Math.round(spentBefore * 100) / 100, filmUsd: Math.round(filmTotal * 100) / 100, seconds: Math.round(stages.reduce((t, x) => t + x.seconds, 0)), usd: Math.round(stages.reduce((t, x) => t + x.usd, 0) * 1e4) / 1e4, stages });
       await writeFile(tf, JSON.stringify(prevT, null, 2) + "\n").catch(() => {});
-      baseLog(`\nThe whole film so far: $${filmTotal.toFixed(2)} (target $${(TARGET_USD_90S * k).toFixed(2)}, limit $${filmLimit.toFixed(2)})\nWhere the time and money went:\n${stages.filter((x) => x.seconds >= 1 || x.usd > 0).map((x) => `  ${x.stage.slice(0, 44).padEnd(44)} ${x.seconds.toFixed(0).padStart(5)} s  $${x.usd.toFixed(3)}${x.over ? "  OVER BUDGET" : ""}`).join("\n")}`);
+      baseLog(`\nThe whole film so far: $${filmTotal.toFixed(2)} (target $${plan.targetUsd.toFixed(2)} and ${plan.targetMinutes} min, limit $${filmLimit.toFixed(2)})\nWhere the time and money went:\n${stages.filter((x) => x.seconds >= 1 || x.usd > 0).map((x) => `  ${x.stage.slice(0, 44).padEnd(44)} ${x.seconds.toFixed(0).padStart(5)} s  $${x.usd.toFixed(3)}${x.overShare ? "  OVER ITS SHARE" : ""}`).join("\n")}`);
     }
     // Every run is logged, including runs stopped early with --until or by an error.
     const calls = usageLedger().slice(before);
@@ -186,11 +190,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const index = LibraryIndex.parse(JSON.parse(await readFile(path.join(o.data, "library-index.json"), "utf8")));
   const pack = await buildStylePack(channel, { reference: o.reference, data: o.data });
   log(`  style pack: ${pack.text.length.toLocaleString()} chars from ${pack.sources.length} sources`);
-  const short = o.durationS <= 90;
+  // build list 5, item 2: one continuous film or chapters, research depth and the fit window all come from the length table
+  const lp = lengthPlan(o.durationS);
+  const short = lp.chapters === 0;
 
   // ---- Stage A: research → script → narration
   log("\n[A1] research & fact-check");
-  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: short ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: short ? 10 : Math.min(40, Math.round(12 + o.durationS / 12)), memoryDir: path.join(o.data, "agents", "research"), browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log }), log);
+  const facts = await cachedJson(path.join(jobDir, "facts.json"), FactSheet, redo("research"), () => researchTopic({ topic: o.topic, format: o.durationS <= 120 ? `${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}` : "long-form documentary", minClaims: lp.minClaims, memoryDir: path.join(o.data, "agents", "research"), browserRead: pageTextViaBrowser, videoTranscript: youtubeTranscript, log }), log);
   // Uniqueness: what the recent films did, so every planning stage can do something else. (The film's look is
   // designed later, by its art director with its own kit, once its pictures are known — stage B2d.)
   const producedSet = await producedJobs(o.data);
@@ -215,7 +221,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const narratorRef = await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { narrator?: { prosody?: { melodySt?: { p25: number }; f0RangeSt?: { p25: number } } } }).narrator?.prosody, () => undefined);
   const natural = (await storedVoiceMeasure(o.data, voice.voiceId, ttsModel)) ?? (scriptCached ? null : await ensureVoiceMeasured({ dataDir: o.data, voice, modelId: ttsModel, ...(narratorRef?.melodySt && narratorRef.f0RangeSt ? { reference: { melodySt: narratorRef.melodySt.p25, pitchTravelSt: narratorRef.f0RangeSt.p25 } } : {}), log }));
   const narrationWpm = Math.round(Math.min(cal[calKey]?.wpm ?? natural?.wpm ?? 145, maxWpm));
-  const narrationTargetS = short ? o.durationS - 3 : o.durationS;
+  const narrationTargetS = o.durationS <= 120 ? o.durationS - 3 : o.durationS;
   // The channel's story band (what each line of its real films does), measured once and stored.
   const storyBand = await ensureStoryBand({ reference: o.reference, data: o.data, channelId: channel, log }).catch(() => null);
   const films = await ensureReferenceFilms({ reference: o.reference, data: o.data, channelId: channel }).catch(() => []);
@@ -247,8 +253,19 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     fresh = true;
     // Directed narration: voice director → line takes → listen-back (Whisper + sound check) → retakes.
     const nar = await readFile(path.join(o.data, "exemplars", channel, "index.json"), "utf8").then((t) => (JSON.parse(t) as { narrator?: { wpm: { p25: number; p50: number }; prosody?: { f0RangeSt?: { p50: number }; melodySt?: { p50: number } } } }).narrator, () => undefined);
-    const res = await narrateDirected({ draft, facts, outDir: jobDir, dataDir: o.data, channel, voice, modelId: ttsModel, ...(nar ? { narrator: { wpm: nar.wpm.p50, wpmLow: nar.wpm.p25, ...(nar.prosody?.f0RangeSt ? { f0RangeSt: nar.prosody.f0RangeSt.p50 } : {}), ...(nar.prosody?.melodySt ? { melodySt: nar.prosody.melodySt.p50 } : {}) } } : {}), log });
+    // build list 5, items 23 and 25: names are solved before the first take (the library's IPA lexicon, read only), and
+    // a line whose delivery cannot be fixed by retakes is reworded for speech by the writer (same facts)
+    const reword = async (x: { text: string; why: string; context: string }) => rewordForSpeech({ text: x.text, why: x.why, context: x.context, facts: facts.claims.filter((c) => c.verdict === "supported" || c.verdict === "partially_supported").map((c) => c.text) }).catch(() => null);
+    const res = await narrateDirected({ draft, facts, outDir: jobDir, dataDir: o.data, channel, voice, modelId: ttsModel, libraryDir: o.library, reword, ...(nar ? { narrator: { wpm: nar.wpm.p50, wpmLow: nar.wpm.p25, ...(nar.prosody?.f0RangeSt ? { f0RangeSt: nar.prosody.f0RangeSt.p50 } : {}), ...(nar.prosody?.melodySt ? { melodySt: nar.prosody.melodySt.p50 } : {}) } } : {}), log });
     if (res.report.unresolved.length) log(`  ! narration has ${res.report.unresolved.length} unresolved line(s): ${res.report.unresolved.slice(0, 3).join("; ")}`);
+    // the script as spoken (punctuation re-set or a line reworded for speech) is the script from here on
+    if (res.draft && JSON.stringify(res.draft.segments.map((sg) => sg.text)) !== JSON.stringify(draft.segments.map((sg) => sg.text))) {
+      draft = ScriptDraft.parse(res.draft);
+      await writeFile(path.join(jobDir, "script.draft.json"), JSON.stringify(draft, null, 2) + "\n");
+      log("  narration: the script as spoken was saved (lines re-set or reworded for speech)");
+    }
+    if (res.report.names?.unsolved.length) log(`  ! names not yet said right: ${res.report.names.unsolved.join(", ")}`);
+    if (res.report.deliveryUnresolved?.length) log(`  ! delivery still open: ${res.report.deliveryUnresolved.slice(0, 3).join("; ")}`);
     // L12: the voice's real pace on this narration teaches the next script its length
     {
       const ws = res.script.segments.flatMap((sg) => sg.words);
@@ -268,8 +285,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     return { measured: Math.round(wpm * 10) / 10, avg: cal[calKey]!.wpm };
   };
   // Fit window: a short must land within [duration − 8 s, duration − 1 s]; long-form within ±10 %.
-  const maxS = short ? o.durationS - 1 : o.durationS * 1.1;
-  const minS = short ? o.durationS - 8 : o.durationS * 0.9;
+  const maxS = o.durationS <= 120 ? o.durationS - 1 : o.durationS * 1.08;
+  const minS = o.durationS - Math.max(3, o.durationS * 0.09);
   if (fresh) await recordCalibration(timed);
   // The voice ladder (build list 3, item 15): length is fitted first inside the pauses (no new take, no model), then
   // by the writer trimming or extending a sentence (takes are cached per passage, so only changed ones are recorded
@@ -277,7 +294,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // writer. The voice's speed is never touched.
   {
     type VoiceAct = { note: string[] };
-    const readUnresolved = async () => (await readFile(path.join(jobDir, "narration.report.json"), "utf8").then((t) => JSON.parse(t) as { unresolved?: string[] }, () => ({ unresolved: [] as string[] }))).unresolved ?? [];
+    const readReport = async () => await readFile(path.join(jobDir, "narration.report.json"), "utf8").then((t) => JSON.parse(t) as { unresolved?: string[]; deliveryUnresolved?: string[]; names?: { unsolved: string[] } }, () => ({}) as { unresolved?: string[]; deliveryUnresolved?: string[]; names?: { unsolved: string[] } });
+    const readUnresolved = async () => (await readReport()).unresolved ?? [];
     const paceOf = (t: TimedScript) => {
       const words = t.segments.reduce((n, sg) => n + sg.words.length, 0);
       const span = (t.segments.at(-1)?.endS ?? t.durationS) - (t.segments[0]?.startS ?? 0);
@@ -306,7 +324,14 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       { name: "the writer again, with the exact word count", owner: "writer", maxUsd: 0.6, run: async () => rewriteFor(`Still ${timed.durationS.toFixed(1)} s against ${minS}–${maxS} s at the voice's measured ${paceOf(timed).toFixed(0)} wpm: the script must be ${Math.round((mid * paceOf(timed)) / 60)} words (it is ${timed.segments.reduce((n, sg) => n + sg.words.length, 0)}).`) },
     ];
     const wordsLadder: Array<Rung<VoiceAct>> = [1, 2].map((k) => ({ name: k === 1 ? "the writer rewords the lines the voice could not say" : "the writer rewords them again, more plainly", owner: "writer", maxUsd: 0.6, run: async () => { const un = await readUnresolved(); return un.length ? rewriteFor(`After retakes and respellings these lines still were not said cleanly: ${un.slice(0, 8).map((x) => `"${x}"`).join("; ")}. Reword them ${k === 2 ? "in the plainest words, avoiding the names or terms that fail" : ""} (same facts).`) : null; } }));
-    const voiceLadders = new Ladders<VoiceAct>({ jobDir, stage: "narration", table: { narration_length: lengthLadder, voice_unresolved: wordsLadder }, log });
+    // build list 5, items 23 and 25: delivery problems the voice director could not fix with retakes, and names not yet
+    // said right, are blocking: the writer rewords those lines for speech (never a change of pace)
+    const deliveryLadder: Array<Rung<VoiceAct>> = [{ name: "the writer rewords the lines whose delivery stayed wrong", owner: "writer", maxUsd: 0.6, run: async () => {
+      const rp = await readReport();
+      const open = [...(rp.deliveryUnresolved ?? []), ...(rp.names?.unsolved ?? []).map((n) => `the name "${n}" is not said right`)];
+      return open.length ? rewriteFor(`The narration's delivery is still wrong after the voice director's retakes: ${open.slice(0, 8).join("; ")}. Reword those lines so a narrator says them naturally — statements that end falling, the stressed word where the sentence lands, no break where a speaker would run on${rp.names?.unsolved.length ? "; where a name keeps failing, say it once in full and then use the person's role" : ""} (same facts, same length).`) : null;
+    } }];
+    const voiceLadders = new Ladders<VoiceAct>({ jobDir, stage: "narration", table: { narration_length: lengthLadder, voice_unresolved: wordsLadder, voice_delivery: deliveryLadder }, log });
     let problems: Problem[] = [];
     for (let round = 0; round < 5; round++) {
       const un = await readUnresolved();
@@ -315,6 +340,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         // build list 4: one word the recogniser still hears wrong after its retakes is logged, not rewritten — on the
         // Nokia proof film one name ("Elop") cost a full rewrite and a second narration ($0.90)
         ...(un.length >= 2 ? [{ check: "voice_unresolved", shots: [], what: `${un.length} line(s) not said cleanly after retakes`, measured: String(un.length), band: "0" }] : []),
+        ...(await readReport().then((rp) => { const n = (rp.deliveryUnresolved?.length ?? 0) + (rp.names?.unsolved.length ?? 0); return n ? [{ check: "voice_delivery", shots: [], what: `${n} delivery problem(s) or name(s) still wrong after retakes`, measured: String(n), band: "0" }] : []; })),
       ];
       if (!problems.length) break;
       if (!(await voiceLadders.step(problems, { note: [] })).length) break;
@@ -371,7 +397,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const cool = await cooldownRefs(o.data, jobId);
     const blocked = new Set([...blockedRefs(memory), ...cool.pictures]);
     log(`  cooldown: ${cool.pictures.size} picture ref(s) used by recent films are off limits`);
-    return resolveAssets({ ...(softBelow ? { softBelow } : {}), storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), probes: new Map(Object.entries(await readFile(probesFile, "utf8").then((t) => (JSON.parse(t) as { probes: Record<string, StockCandidate[]> }).probes, () => ({}) as Record<string, StockCandidate[]>))), log });
+    // build list 5, item 16: stock people doing nothing in particular are capped at the channel's own share
+    const picBandR = await ensurePictureBand({ data: o.data, channelId: channel, log }).catch(() => null);
+    return resolveAssets({ ...(picBandR ? { idleCap: picBandR.idleCap } : {}), ...(softBelow ? { softBelow } : {}), storyboard: board, index, libraryRoot: o.library, jobDir, narration: timed.segments.map((sg) => sg.text).join(" "), words: timed.segments.flatMap((sg) => sg.words), blocked, era: eraOfFacts(facts), factText: facts.claims.map((c) => c.text).join(" "), sources: new Map(timed.segments.map((sg) => [sg.id, sg.claims ?? []])), cacheDir: path.join(o.data, ".cache"), probes: new Map(Object.entries(await readFile(probesFile, "utf8").then((t) => (JSON.parse(t) as { probes: Record<string, StockCandidate[]> }).probes, () => ({}) as Record<string, StockCandidate[]>))), log });
   }, log);
   // [B2d] The art director from a blank slate: the film's own motion-design kit, written as code (design/film/),
   // rendered on the film's own shots, measured and revised. It owns the film's look: its tokens (design.json:
@@ -380,13 +408,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const designFile = path.join(jobDir, "design.json");
   if (redo("resolve") || !(await exists(kitMetaFile)) || !(await exists(designFile))) {
     log("\n[B2d] art director (the film's own kit, from a blank slate)");
-    const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: short ? 1 : chapterCount(o.durationS), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), log });
+    const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: Math.max(1, lp.chapters), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), log });
     await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(kr.report, null, 2) + "\n");
     if (!kr.report.pass) {
       // Build list 4, item 3: never a stop. The art director gets one more, shorter go to finish what it started and submit.
       log(`  art director: kit not accepted (${kr.report.note.slice(0, 120)}) — one more go to finish and submit it`);
       setStageCap(0.6); // the second go has a small allowance of its own (the film's reserve still stands)
-      const k2 = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: short ? 1 : chapterCount(o.durationS), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), change: { request: "Finish the kit you started (design/film/index.tsx) and SUBMIT it: fix only what submit_kit names as missing.", fresh: false }, log });
+      const k2 = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: Math.max(1, lp.chapters), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), change: { request: "Finish the kit you started (design/film/index.tsx) and SUBMIT it: fix only what submit_kit names as missing.", fresh: false }, log });
       await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(k2.report, null, 2) + "\n");
       if (!k2.report.pass || !(await exists(kitMetaFile)) || !(await exists(designFile))) throw new Error(`art director: no kit could be made for this film (${k2.report.note.slice(0, 200)}) — see film-kit.report.json`);
     }
@@ -434,7 +462,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // build list 4, item 10: first design + the showrunner's one send-back + two batched rounds from the gates
   const MAX_SCENE_RUNS = 4;
   let sceneRuns = 0;
-  const runSceneAgent = async (extra: { previous?: ScenePlan; revise?: Array<{ shotId: string; note: string }> } = {}) => {
+  const runSceneAgent = async (extra: { previous?: ScenePlan; revise?: Array<{ shotId: string; note: string }>; onlyShots?: string[] } = {}) => {
     if (extra.previous && sceneRuns >= MAX_SCENE_RUNS) {
       log(`  scene designer: run cap reached (${MAX_SCENE_RUNS} runs this film) — ${extra.revise?.length ?? 0} revision(s) not made`);
       return extra.previous;
@@ -455,7 +483,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const coolS = await cooldownRefs(o.data, jobId);
     const eraS = eraOfFacts(facts);
     const pictures = makeSceneTools({ ...(softBelow ? { softBelow } : {}), jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
-    return designScenesAgent({ storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(likeness.films ? { likeness: { near: likeness.near, limit: 0.9 } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
+    // build list 5, items 10–14: the scene designer measures worlds, treatment, type scale, data and repeats as the gate does
+    const designBandB = await ensureDesignBand({ root: o.root, data: o.data, channelId: channel, log }).catch(() => null);
+    return designScenesAgent({ ...(designBandB ? { designBand: { band: designBandB, root: o.root, data: o.data } } : {}), storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(likeness.films ? { likeness: { near: likeness.near, limit: 0.9 } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
       // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
       const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
@@ -464,8 +494,26 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       return { strip: c.strip, text: `${c.fromS.toFixed(1)}–${c.toS.toFixed(1)} s, frames left to right, top to bottom: ${c.frames.join(", ")}\n${listeningText(l)}\n${ins.text}` };
     }, memoryDir: path.join(o.data, "agents", "scenes"), people, ...(habits.layouts ? { avoidLayouts: habits.layouts } : {}), onReport: (r) => (sceneReport = r), ...extra, log });
   };
+  // build list 5, item 32: a long film's chapters are designed in parallel (three at a time), each by its own scene
+  // designer run that sees the whole film; their scenes are merged in film order
+  const runScenesByChapter = async (): Promise<ScenePlan> => {
+    const starts = [0, ...timed.segments.filter((sg, k) => k > 0 && sg.chapter && sg.chapter !== timed.segments[k - 1]!.chapter).map((sg) => sg.startS)];
+    if (lp.chapters < 2 || starts.length < 2) return runSceneAgent();
+    const groups = starts.map((t, k) => board.shots.filter((sh) => sh.startS >= t - 0.01 && sh.startS < (starts[k + 1] ?? Infinity)).map((sh) => sh.id)).filter((g) => g.length);
+    log(`  scene designer: ${groups.length} chapters designed in parallel`);
+    const plans: ScenePlan[] = new Array(groups.length);
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(3, groups.length) }, async () => {
+      while (next < groups.length) {
+        const k = next++;
+        plans[k] = await runSceneAgent({ onlyShots: groups[k]! });
+      }
+    }));
+    const order = new Map(board.shots.map((sh, i) => [sh.id, i]));
+    return ScenePlan.parse({ ...plans[0]!, scenes: plans.flatMap((p) => p.scenes).sort((a, b) => (order.get(a.shotId) ?? 0) - (order.get(b.shotId) ?? 0)), generatedAt: new Date().toISOString() });
+  };
   let scenePlan = await cachedJson(sceneFile, ScenePlan, freshScenes, async () => {
-    const plan = await runSceneAgent();
+    const plan = await runScenesByChapter();
     await writeFile(path.join(jobDir, "scenes.review.json"), JSON.stringify({ previewed: plan.scenes.length, flagged: {}, agent: sceneReport }, null, 2) + "\n");
     // Pictures the designer fetched are part of the film: saved with their licences, counted for the cooldown.
     await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
@@ -502,7 +550,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     // step 6: the music's beat grid in film time, so cuts can land on the music
     const apE = await buildAudioProfile({ data: o.data, library: o.library, index }).catch(() => null);
     const beats = apE ? board.music.flatMap((c) => { const p = apE.music[c.assetId]; if (!p || p.beat.periodS < 0.2) return []; const out: number[] = []; const in0 = c.inS ?? 0; for (let b = p.beat.offsetS + Math.ceil((in0 - p.beat.offsetS) / p.beat.periodS) * p.beat.periodS; b < in0 + (c.endS - c.startS); b += p.beat.periodS) out.push(Math.round((c.startS + b - in0) * 1000) / 1000); return out; }) : [];
-    const ed = await editFilmAgent({ channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, beats, filmTransition: Boolean(filmKit), memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
+    const emphasisE = await emphasisOf(jobDir).catch(() => undefined);
+    const ed = await editFilmAgent({ ...(emphasisE ? { emphasis: emphasisE } : {}), channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, beats, filmTransition: Boolean(filmKit), memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
     board = Storyboard.parse(ed.storyboard);
     scenePlan = ScenePlan.parse(ed.scenes);
     resolution = ed.resolution;
@@ -576,7 +625,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const res = await resolveAudio({ storyboard: sb, index, libraryRoot: o.library, jobDir, resolution });
       return watchPlan({ storyboard: sb, scenes: scenePlan, resolution: res }, a, b);
     };
-    const sd = await soundAgent({ ...sopts, kitRoles: Object.fromEntries(Object.entries(filmKit.roles ?? {}).map(([r, c]) => [c, r])), channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
+    // build list 5, items 22 and 26–27: one timeline of cuts, stressed words and turns, shared with the editor
+    const emphasis = await emphasisOf(jobDir).catch(() => undefined);
+    const sd = await soundAgent({ ...sopts, ...(emphasis ? { emphasis } : {}), kitRoles: Object.fromEntries(Object.entries(filmKit.roles ?? {}).map(([r, c]) => [c, r])), channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
     board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
     await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
     resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
@@ -826,6 +877,19 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       return { check: c.id === "unique_plan" && c.repair === "reseed_sound" ? "unique_plan_sound" : c.id, shots, what: `${c.label}${c.note ? ` — ${c.note}` : ""}`, measured: String(c.value), band: c.target, evidence: shots.map((id) => path.join(prevDir, `${id}_1.jpg`)).filter((f) => existsSync(f)) };
     });
     let problems: Problem[] = [];
+    // build list 5: the gate checks the same measures the owners work to — the edit at this film's length, the design
+    // and picture measures on the final previews, and the final-cut judge's tells on cheap preview stretches (item 15)
+    const editBand = await craftBand({ data: o.data, channel, craft: "edit", lengthS: board.durationS }).catch(() => null);
+    const designBandP = await ensureDesignBand({ root: o.root, data: o.data, channelId: channel, log }).catch(() => null);
+    const pictureBandP = await ensurePictureBand({ data: o.data, channelId: channel, log }).catch(() => null);
+    const subjects = [o.topic, ...(facts.story?.characters ?? []).map((c) => c.name)].join(", ");
+    let tells: PreflightCheck[] = [];
+    let tellRuns = 0;
+    let touchedSinceTells = new Set<string>();
+    const judgeRender = async (fromS: number, toS: number) => {
+      const m = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts(), outputPath: path.join(jobDir, "_edit.mp4"), scenes: new Map<string, unknown>(scenePlan.scenes.map((x) => [x.shotId, x])) });
+      return (await watchClip({ manifest: m, look: lookP, design, publicDir: pub, jobDir, fromS, toS })).file;
+    };
     for (let round = 0; round < 8; round++) {
       if (stale.size) {
         await renderShotPreviews({ manifest, look: lookP, design, publicDir: pub, outDir: prevDir, shotIds: [...stale], log });
@@ -843,7 +907,20 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const pfTaste = tasteModel && pfFrames.length ? (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: pfFrames.map((x) => ({ file: x.f })) }).catch(() => [])).map((x, k) => ({ id: pfFrames[k]!.id, v: x?.score ?? null })).filter((x): x is { id: string; v: number } => x.v !== null) : [];
       const pfSorted = [...pfTaste].sort((a2, b2) => a2.v - b2.v);
       const tasteIn = tasteModel && pfSorted.length ? { taste: { median: pfSorted[Math.floor(pfSorted.length / 2)]!.v, realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median, low: pfSorted.filter((x) => x.v < tasteModel.calibration.real.p10).map((x) => `${x.id} ${x.v}`) } } : {};
-      checks = await preflightChecks({ ...tasteIn, era: eraG ? { min: eraG.min, max: eraG.max } : null, cutBand: { lo: (pack.profile.pacing.cutsPerMin?.p25 ?? 12) * 0.85, hi: (pack.profile.pacing.cutsPerMin?.p75 ?? 21) * 1.15 }, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
+      const tellShots = new Set(tells.flatMap((c) => c.shots ?? []));
+      if (tellRuns === 0 || (tells.length && tellRuns < 2 && [...touchedSinceTells].some((id) => tellShots.has(id)))) {
+        const pt = await previewTells({ data: o.data, reference: o.reference, root: o.root, channel, board, timed, workDir: path.join(jobDir, "judge-previews"), render: judgeRender, log }).catch((e: Error) => (log(`  ! judge on previews failed: ${e.message.slice(0, 120)}`), null));
+        tells = pt?.checks ?? [];
+        tellRuns++;
+        touchedSinceTells = new Set();
+        if (pt) await writeFile(path.join(jobDir, "judge-previews.json"), JSON.stringify({ at: new Date().toISOString(), run: tellRuns, realness: pt.realness, usd: pt.usd, stretches: pt.stretches }, null, 2) + "\n");
+      }
+      const extra = [
+        ...(await designChecks({ root: o.root, data: o.data, prevDir, board, scenes: scenePlan, resolution, timed, band: designBandP }).catch((e: Error) => (log(`  ! design checks failed: ${e.message.slice(0, 120)}`), []))),
+        ...(await pictureChecks({ prevDir, board, scenes: scenePlan, resolution, timed, subjects, band: pictureBandP }).catch((e: Error) => (log(`  ! picture checks failed: ${e.message.slice(0, 120)}`), []))),
+        ...tells,
+      ];
+      checks = await preflightChecks({ ...tasteIn, editBand, extra, era: eraG ? { min: eraG.min, max: eraG.max } : null, cutBand: { lo: (pack.profile.pacing.cutsPerMin?.p25 ?? 12) * 0.85, hi: (pack.profile.pacing.cutsPerMin?.p75 ?? 21) * 1.15 }, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
       problems = problemsOf(checks);
       const q = newQueue();
       // Build list 4, item 3: the film's limit ends the optional repair work, never the film
@@ -859,7 +936,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         log(`  preflight: ${err.message} — no more repairs; the film goes on with what is left logged`);
         break;
       }
-      for (const id of changed.all ? scenePlan.scenes.map((x) => x.shotId) : changed.shots) (stale.add(id), look2.add(id));
+      for (const id of changed.all ? scenePlan.scenes.map((x) => x.shotId) : changed.shots) (stale.add(id), look2.add(id), touchedSinceTells.add(id));
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       rounds.push({ round, failing: failing.map((c) => c.id), repairs: done });
       log(`  preflight round ${round + 1}: ${checks.filter((c) => c.pass).length}/${checks.length} checks pass${failing.length ? ` — failing: ${failing.map((c) => c.id).join(", ")}` : ""}${done.length ? ` → ${done.join(", ")}` : ""}`);
@@ -889,7 +966,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     log(`  ! publishing package failed: ${err.message.slice(0, 160)}`);
     return { thumbnailPath: null as string | null, usd: 0 };
   });
-  const packageP = needPackage && !stop("render") ? (log("\n[C3] publishing package — started beside the render"), startPackage()) : null;
+  const packageP = needPackage && !stop("render") ? (log("\n[C3] publishing package — started beside the render"), inFilmStage("C3", () => startPackage())) : null;
   log("\n[C2] Remotion render + FFmpeg mastering");
   const silent = path.join(jobDir, "video_silent.mp4");
   const master = path.join(jobDir, "master.wav");
@@ -1060,6 +1137,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   await writeFile(path.join(jobDir, "LICENSES.md"), licenseMarkdown);
   for (const c of report.checks) log(`  ${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`);
   log(`  verdict: ${report.verdict.toUpperCase()}`);
+
+  // Build list 5, item 4: every agent's craft score against real stretches as long as this film (craft.json)
+  log("\n[C6] craft scores against the reference");
+  {
+    const jp = await readFile(path.join(jobDir, "judge-previews.json"), "utf8").then((t) => JSON.parse(t) as { realness?: number | null }, () => null);
+    await craftReport({ root: o.root, data: o.data, reference: o.reference, jobDir, channel, draft, timed, board, scenes: scenePlan, resolution, judge: true, pictureRealness: jp?.realness ?? null, log }).catch((e: Error) => log(`  ! craft scores failed: ${e.message.slice(0, 160)}`));
+  }
 
   const spent = usageLedger().reduce((t, r) => t + r.usd, 0);
   log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(0)} s — Claude spend this run $${spent.toFixed(4)}`);

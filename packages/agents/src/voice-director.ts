@@ -21,6 +21,10 @@ export interface LexiconEntry {
   /** Which form passed the phoneme check last time: "plain" or "respelling". */
   works?: "plain" | "respelling";
   checks?: { ok: number; fail: number };
+  /** Build list 5, item 25: where the target pronunciation came from (the person's or place's own, from Wikipedia, beats the director's guess). */
+  ipaSource?: "director" | "sourced";
+  /** Build list 5, item 25: the form that passed the name check before narration, per voice and model (`voiceId|modelId`). */
+  verified?: Record<string, { form: "plain" | "respelling"; text: string; score: number; consonants: number; vowel: boolean; at: string }>;
 }
 export type Lexicon = Record<string, LexiconEntry>;
 

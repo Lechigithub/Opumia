@@ -158,6 +158,11 @@ const EDIT = [
   rung("the editor, told what was measured", "editor", 0.08, async (ps, a) => (a.editor(ps.map(said).join("; ")), "editor sent back")),
   rung("the editor again, re-cutting the stretch", "editor", 0.08, async (ps, a) => (a.editor(`re-cut the stretch: split, join and move cuts until it is inside the channel — ${ps.map(said).join("; ")}`), "editor re-cut")),
 ];
+// build list 5, item 21: a stutter needs a new framing AND a transition — the editor reframes; failing that, the split is undone
+const STUTTER = [
+  rung("the editor reframes and bridges the cut", "editor", 0.08, async (ps, a) => (a.editor(`stutter cuts — the same picture on both sides of a cut: reframe the second shot (reframe: punch-in or another moment of the clip) AND set a transition (whip, light_leak, film): ${ps.map(said).join("; ")}`), "editor sent back")),
+  rung("undo the split", "editor", 0, async (ps, a) => { const m = a.mergeSplit(shotsOf(ps)); return m.length ? `split undone: ${m.join(", ")}` : null; }),
+];
 const WRITER_ONLY = [rung("the writer rewords the lines", "writer", 0.6, async (ps, a) => (a.rewrite(`The narration failed after its retakes: ${ps.map(said).join("; ")}. Reword the lines that cannot be said cleanly.`) ? "rewrite requested" : null))];
 
 /** Check id → its ladder. Checks with no ladder here are measured and reported only. */
@@ -182,6 +187,32 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   slow_zoom_share: EDIT,
   cut_pace: EDIT,
   unbridged_split: SPLIT,
+  // build list 5: the new checks, each with its owner's ladder
+  stutter_cut: STUTTER,
+  shot_rhythm: EDIT,
+  cut_on_word: EDIT,
+  tells_edit: EDIT,
+  tells_picture: SCENE,
+  tells_colour: COLOUR,
+  tells_footage: PICTURE,
+  idle_stock: PICTURE,
+  generic_pictures: PICTURE,
+  weak_meaning: FIT,
+  // build list 5, items 10–14: the scene designer, told what the design measure found (DESIGN_FIX in the note)
+  one_world: SCENE,
+  template_stage: SCENE,
+  backdrop_back_to_back: SCENE,
+  world_variety: SCENE,
+  untreated: SCENE,
+  raw_stock: SCENE,
+  small_text: SCENE,
+  boxed_labels: SCENE,
+  repeat_card: SCENE,
+  data_rate: SCENE,
+  chart_slides: SCENE,
+  data_hold: SCENE,
+  repeat_picture: PICTURE,
+  figure_parity: SCENE,
   preview_luma: COLOUR,
   preview_colourfulness: COLOUR,
   preview_hue_spread: COLOUR,

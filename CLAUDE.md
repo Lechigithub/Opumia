@@ -380,6 +380,36 @@ Film 3 (`docs/FILM3-FINDINGS.md`) cost $18.73 over two runs and never rendered. 
 - **Not measured yet:** whether a film now lands near $3 and 30 minutes, and whether the Haiku agents hold their scores;
   that is the next frozen film.
 
+## Build list 5: craft at the reference's level, at any length (2026-11-23, `docs/BUILD-LIST-5.md`)
+
+From the Nokia proof film (`docs/NOKIA-GAP-ANALYSIS.md`). Length is never the excuse; a craft gap is (owner).
+- **One length table** (`agents/film-length.ts:lengthPlan`): every budget, stage share and cap, agent cap, shot count,
+  chapter count, music cue count, data-shot quota, re-hook gap, opening/ending window and research depth. Per minute of
+  film: $2 and 20 min (90 s: $3, 30 min; shorter films keep the 90 s floor). Nothing else may assume 90 s.
+- **No starved agent** (`llm.ts`): every agent run logs asked/given/used (`allotments.json`); a first pass given less
+  than it needs is STARVED and a test failure. A stage over its share is `overShare` in timing.json.
+- **Craft score per agent at the film's length** (`agents/craft-score.ts`, `apps/cli/src/craft-report.ts` → stage
+  C6, `craft.json`): real stretches of the same length (openings, middles, endings), each craft's band and floor, blind
+  pairwise judges. A change to an agent is kept only if its craft score improves (`data/craft-scores/`).
+- **Story** (`agents/story-scenes.ts`): moments, wants and kept time labelled on real windows of the film's length and
+  on drafts; narrator filler learned as what the reference never says; open on a moment, close on a consequence. The
+  researcher tags `moment / want / turn / image`; the writer is refused until both the line-kind and scene bands pass.
+- **Picture design:** worlds instead of one stage (`remotion/scenes/Worlds.tsx`), treatment on every picture, type at
+  the reference's scale (OCR), data kinds/rate/holds, repeats (`agents/design-measure.ts`, band
+  `data/design-profile/`). **Pictures:** rated by meaning (bar 5 = the channel's own footage median), idle stock capped,
+  story-specific share, watermarks rejected (`agents/picture-measure.ts`, `senses/watermark.ts`).
+- **Edit:** rhythm at the film's length and stutter cuts blocking (`editor-agent.ts:stutterCuts`, `reframe`); one cut
+  timeline with stressed words and turns shared by editor and sound designer (`agents/cut-timeline.ts`).
+- **Voice:** delivery problems blocking and fixed by retakes and rewording for speech, never pace; tone per act; names
+  solved before the first take (`narration/names.ts`). **Sound:** cues at the turns, drop-outs, riser, fresh effects.
+  **Colourist:** a model-free first grade always runs. **Packaging:** words where the channel uses them, titles that
+  promise a person or a turn.
+- **The gate checks the same measures** (`apps/cli/src/bl5-checks.ts`; ladders in `ladders.ts`), including the
+  final-cut judge's tells on four cheap preview stretches before the render (`judge-previews.json`).
+- **Proof:** `npx tsx apps/cli/src/dev/proof-film.ts out/<job>` checks item 34 (no human, cost, time, no stage over
+  share, no starved agent, every craft in band, judge no better than on real stretches, taste ≥ channel p10).
+  Offline tests: `dev/bl5-test.ts`, `dev/bl5-gate-test.ts out/<job>`, `dev/craft-score.ts out/<job>`.
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

@@ -29,7 +29,8 @@ const sfx = usable.find((a) => a.category === "sfx" && a.facets.class)!;
 
 const ASPECT = (process.env.SMOKE_ASPECT ?? "9:16") as "9:16" | "16:9";
 const words = "In 1928 a small company made a bet that would change the world forever and then paid $19 billion for a rival nobody saw coming until far too late".split(" ");
-const dur = 24;
+const WORLDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "paper", "terminal"] as const;
+const dur = 24 + WORLDS.length * 2.5;
 const tw = words.map((w, i) => ({ word: w, startS: +(i * (dur - 1) / words.length).toFixed(3), endS: +((i + 0.8) * (dur - 1) / words.length).toFixed(3) }));
 ff(["-f", "lavfi", "-i", `sine=frequency=220:duration=${dur}`, "-af", "volume=0.3", path.join(job, "narration.mp3")]);
 const script = TimedScript.parse({ schemaVersion: 1, id: "ts_smoke", title: "Smoke test", styleProfileId: "magnates-media", aspect: ASPECT, voice: { provider: "elevenlabs", voiceId: "x", modelId: "x", audioPath: path.join(job, "narration.mp3") }, segments: [{ id: "s01", role: "hook", text: words.join(" "), startS: 0, endS: dur - 1, words: tw }], durationS: dur, generatedAt: new Date().toISOString() });
@@ -41,6 +42,8 @@ const kinds: Array<[string, Record<string, unknown>]> = [
   ["scene", { brief: "cutout over footage with the kit's headline and phrase" }],
   ["scene", { brief: "a stage scene: photo and the kit's number and label" }],
   ["scene", { brief: "clean footage" }],
+  // build list 5, item 10: every world a designed shot can be built in
+  ...WORLDS.map((w): [string, Record<string, unknown>] => ["scene", { brief: `world ${w}` }]),
 ];
 const shotLen = dur / kinds.length;
 const shots: StoryboardShot[] = kinds.map(([k, props], i) => ({
@@ -63,16 +66,24 @@ const mat = (shotId: string, role: "primary" | "overlay" | "sfx" | "music", a: t
   media.push({ shotId, role, origin: "library", ref: a.id, provider: "library", kind, localPath: out, publicPath: kind === "audio" ? `../audio/${file}` : `media/${file}`, durationS: kind === "audio" ? a.probe?.durationS : shotLen, license: a.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: role });
 };
 // sh007 sits on the kit's stage (no footage); every other shot has footage.
-shots.forEach((s, i) => { if (s.id !== "sh007") mat(s.id, "primary", i === 1 ? photo : i % 2 ? cine : film, i === 1 ? "image" : "video", i % 2 ? 0 : (film.segments![5]?.inS ?? 0)); });
+const worldIds = WORLDS.map((_, k) => `sh${String(9 + k).padStart(3, "0")}`);
+shots.forEach((s, i) => { if (s.id !== "sh007" && !worldIds.includes(s.id)) mat(s.id, "primary", i === 1 ? photo : i % 2 ? cine : film, i === 1 ? "image" : "video", i % 2 ? 0 : (film.segments![5]?.inS ?? 0)); });
 mat("sh001", "overlay", leak, "video");
 mat("sh005", "overlay", paper, "image");
 shots.filter((s) => s.sfx.length).forEach((s) => mat(s.id, "sfx", sfx, "audio"));
 mat("music", "music", music, "audio");
 // Composed-scene picture slots (layer role).
-for (const id of ["sh006", "sh007"]) {
+for (const id of ["sh006", "sh007", ...worldIds]) {
   const out = path.join(pub, "media", `layer_${id}_0.png`);
   ff(["-i", path.join(LIB, photo.relPath), "-vf", "scale='min(1200,iw)':-2", "-frames:v", "1", out]);
   media.push({ shotId: id, role: "layer", slot: 0, origin: "library", ref: `${photo.id}#layer${id}`, provider: "library", kind: "image", localPath: out, publicPath: `media/layer_${id}_0.png`, license: photo.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: "layer", depicts: "object cutout" });
+}
+// a second real picture for the collage: a frame of the library film
+{
+  const id = worldIds[3]!;
+  const out = path.join(pub, "media", `layer_${id}_1.jpg`);
+  ff(["-ss", "5", "-i", path.join(LIB, film.relPath), "-frames:v", "1", "-vf", "scale=1200:-2", out]);
+  media.push({ shotId: id, role: "layer", slot: 1, origin: "library", ref: `${film.id}#frame`, provider: "library", kind: "image", localPath: out, publicPath: `media/layer_${id}_1.jpg`, license: film.provenance.license!, attributionRequired: false, aiGenerated: false, score: 1, query: "layer", depicts: "film frame" });
 }
 const scenes = new Map<string, unknown>([
   ["sh006", { shotId: "sh006", idea: "smoke A", backdrop: "footage", dim: 0.45, camera: { fromScale: 1.02, toScale: 1.14, fromX: 0.45, toX: 0.55, fromY: 0.5, toY: 0.48 }, elements: [
@@ -85,7 +96,12 @@ const scenes = new Map<string, unknown>([
     { type: "component", name: "NumberC", props: { value: "$19 billion", label: "paid for a rival" }, x: 0.55, y: 0.3, w: 0.4, rot: 0, z: 0.6, at: 0.3, enter: "fade" },
     { type: "component", name: "Label", props: { text: "a rival", sub: "nobody saw coming" }, x: 0.55, y: 0.62, w: 0.35, rot: 0, z: 0.6, at: 0.5, enter: "fade" },
   ] }],
-  ["sh008", { shotId: "sh008", idea: "clean", backdrop: "footage", dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [] }],
+  ["sh008", { shotId: "sh008", idea: "clean", backdrop: "footage", finish: { grain: 0.3, vignette: 0.4, leak: 0.5 }, dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [] }],
+  ...WORLDS.map((w, k): [string, unknown] => [worldIds[k]!, { shotId: worldIds[k]!, idea: `world ${w}`, backdrop: "world", world: { kind: w, ...(w === "burst" || w === "flat_field" ? {} : { slot: 0 }), ...(w === "collage" ? { slots: [1] } : {}), color: k % 2 ? "accentDeep" : "primary", accent: "accent" }, finish: { grain: 0.25, vignette: 0.3, leak: 0 }, dim: 0.3, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
+    ...(w === "burst" ? [{ type: "cutout", slot: 0, x: 0.3, y: 0.15, w: 0.4, rot: 0, z: 0.8, at: 0, enter: "pop", shadow: true }] : []),
+    ...(w === "flat_field" ? [{ type: "photo", slot: 0, x: 0.1, y: 0.2, w: 0.4, rot: -3, z: 0.6, at: 0, enter: "zoom", grade: "duotone" }] : []),
+    { type: "component", name: "Headline", props: { text: "a bet" }, x: 0.52, y: 0.62, w: 0.4, rot: 0, z: 0.6, at: 0.2, enter: "fade" },
+  ] }]),
 ]);
 const resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 7, stock: 0, archival: 0, designed: 6 }, generatedAt: new Date().toISOString() });
 

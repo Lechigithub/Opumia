@@ -162,7 +162,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
   const user = `Run this film: "${o.title}".\n\nTREATMENT:\n${o.treatment.slice(0, 3000)}\n\nNARRATION:\n${o.segments.map((s) => `[${s.id} ${s.role}] ${s.text}`).join("\n")}\n\nStart with film_report, then watch the opening.`;
   log(`  showrunner: reviewing "${o.title.slice(0, 60)}" (${ROLE_MODEL.showrunner})…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "showrunner.agent", model: ROLE_MODEL.showrunner, system, user, tools, effort: "medium", maxTurns: 14, maxSeconds: 420, maxUsd: 0.35, maxTokens: 24000, done: () => decision !== null && (rewrite !== null || noteSaved || grace-- <= 0), nudge: "You have not decided. Watch what you have not seen, send back what is wrong, then approve (or send lines to the writer).", log });
+  const run = await agentLoop({ stage: "showrunner.agent", fixed: 0.5, model: ROLE_MODEL.showrunner, system, user, tools, effort: "medium", maxTurns: 14, maxSeconds: 420, maxUsd: 0.35, maxTokens: 24000, done: () => decision !== null && (rewrite !== null || noteSaved || grace-- <= 0), nudge: "You have not decided. Watch what you have not seen, send back what is wrong, then approve (or send lines to the writer).", log });
   const d = (decision as { approved: boolean; summary: string } | null) ?? { approved: false, summary: "the showrunner did not decide within its turns" };
   const out: ShowrunnerDecision = { approved: d.approved, summary: d.summary, rounds, rewrite, agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {

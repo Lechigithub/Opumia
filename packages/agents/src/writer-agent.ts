@@ -1,3 +1,5 @@
+import { lengthPlan } from "./film-length.js";
+import { endingKind, ensureFillerBan, ensureSceneBand, labelSceneLines, openingLineCount, sceneIssues, type FillerBan, type SceneBand } from "./story-scenes.js";
 /**
  * The writer agent: one author with tools, a skill file and a memory of its own.
  *
@@ -14,7 +16,7 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { ScriptDraft, usableClaims, type Aspect, type FactClaim, type FactSheet } from "@opumia/contracts";
 import * as z from "zod/v4";
-import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
+import { agentLoop, cached, plain, structured, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
@@ -85,7 +87,8 @@ export function causesAsFact(lines: string[], claims: string[]): string[] {
 
 export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const log = o.log ?? (() => {});
-  const short = o.durationS <= 90;
+  const lp = lengthPlan(o.durationS);
+  const short = lp.chapters === 0;
   const targetWords = Math.round((o.durationS * o.narrationWpm) / 60);
   const claims = usableClaims(o.facts);
   const known = new Set(claims.map((c) => c.id));
@@ -97,17 +100,34 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.pack.channelId, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
 
+  // ---- build list 5, items 5–9: the scene-and-character band at THIS film's length and the filler the channel never
+  // uses, both learned from the real narrations (built once, cached in data/story-profile/).
+  const dataDir = o.memoryDir ? path.dirname(path.dirname(o.memoryDir)) : null;
+  let sceneBand: SceneBand | null = null;
+  let fillerBan: FillerBan | null = null;
+  if (dataDir) {
+    sceneBand = await ensureSceneBand({ data: dataDir, channelId: o.pack.channelId, films: o.films, lengthS: o.durationS, log }).catch(() => null);
+    fillerBan = await ensureFillerBan({ data: dataDir, root: path.dirname(dataDir), channelId: o.pack.channelId, films: o.films }).catch(() => null);
+  }
+  const datedFacts = claims.filter((c) => c.kind === "date" || c.kind === "event").map((c) => c.text);
+  const dossierMoments = (st?.scenes ?? []).map((c) => ({ what: c.what, when: c.when, where: c.where }));
+  const openWords = Math.round((lp.openingS * o.narrationWpm) / 60);
+
   // ---- one evaluation, used by measure_draft and submit_script: the same checks, nothing rewritten.
   const rounds: StoryReport["rounds"] = [];
   let last: { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null = null;
   const evaluate = async (segments: z.infer<typeof Segment>[]) => {
     const lines = segments.flatMap((sg) => sentencesOf(sg.text));
-    const labels = await labelLines(lines);
+    const openLines = openingLineCount(lines, openWords);
+    const [labels, sceneLabels, ending] = await Promise.all([labelLines(lines), sceneBand ? labelSceneLines(lines, datedFacts) : Promise.resolve(null), sceneBand ? endingKind(lines.slice(0, openLines), lines.slice(-Math.max(1, Math.min(3, Math.ceil(lines.length / 6))))) : Promise.resolve(null)]);
     const story = storyIssues(lines, labels, band);
     const issues: Array<{ kind: string; detail: string }> = story.issues.map((x) => ({ kind: x.kind, detail: `${x.detail}${x.lines.length ? ` Lines: ${x.lines.slice(0, 8).map((k) => `"${lines[k]}"`).join(" | ")}` : ""}` }));
+    // the scene measure decides together with the line-kind band (item 5): both must pass
+    const scenes = sceneBand && sceneLabels ? sceneIssues({ lines, labels: sceneLabels, band: sceneBand, ban: fillerBan, openLines, ending, dossierMoments, durationS: o.durationS }) : null;
+    for (const x of scenes?.issues ?? []) issues.push({ kind: x.kind, detail: `${x.detail}${x.lines.length ? ` Lines: ${[...new Set(x.lines)].slice(0, 6).map((k) => `"${lines[k]}"`).join(" | ")}` : ""}` });
     const words = segments.reduce((n, sg) => n + countWords(sg.text), 0);
     if (Math.abs(words - targetWords) / targetWords > 0.05) issues.push({ kind: "length", detail: `${words} words; this film needs ${targetWords} (±5%) — at ${o.narrationWpm} words a minute that is ${Math.round((words / o.narrationWpm) * 60)} s against ${o.durationS} s.` });
-    for (const i of critiqueNarrative(segments, o.narrationWpm, { short, maxGapS: 50 })) issues.push({ kind: i.kind, detail: `${i.where}: ${i.detail}` });
+    for (const i of critiqueNarrative(segments, o.narrationWpm, { short, maxGapS: lp.maxGapS })) issues.push({ kind: i.kind, detail: `${i.where}: ${i.detail}` });
     const withDigit = lines.filter((t) => /\d/.test(t));
     if (withDigit.length / Math.max(1, lines.length) > 0.2) issues.push({ kind: "too_many_figures", detail: `${withDigit.length} of ${lines.length} sentences carry a figure (the channel: about one in six). Keep the figures the story turns on; tell the rest without numbers or leave those facts out — never replace a number with a vague phrase.` });
     const text = segments.map((sg) => sg.text).join(" ");
@@ -137,7 +157,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     rounds.push({ issues: issues.map((x) => x.kind), profile: story.profile });
     last = { segments, ok: issues.length === 0, issues, profile: story.profile };
     const p = story.profile;
-    const header = `MEASURED (${words} words, ${lines.length} sentences) against ${band.films} real films of the channel:\n- explains what things mean: ${pc(p.share.explain)} of lines (channel ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)})\n- talks to the viewer or as the narrator: ${pc(p.viewerShare)} (channel ${pc(band.viewer.p10)}–${pc(band.viewer.p90)})\n- quotations: ${pc(p.share.quote)} (channel up to ${pc(band.kinds.quote.p90)})\n- bare facts: ${pc(p.share.fact)} (channel up to ${pc(band.kinds.fact.p90)})\n- scenes: ${pc(p.share.scene)}, motives: ${pc(p.share.motive)}, questions: ${pc(p.share.question)}, teases: ${pc(p.share.tease)}, general sayings: ${pc(p.share.maxim)}\n- sentences with a figure: ${pc(withDigit.length / Math.max(1, lines.length))}`;
+    const header = `MEASURED (${words} words, ${lines.length} sentences) against ${band.films} real films of the channel:\n- explains what things mean: ${pc(p.share.explain)} of lines (channel ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)})\n- talks to the viewer or as the narrator: ${pc(p.viewerShare)} (channel ${pc(band.viewer.p10)}–${pc(band.viewer.p90)})\n- quotations: ${pc(p.share.quote)} (channel up to ${pc(band.kinds.quote.p90)})\n- bare facts: ${pc(p.share.fact)} (channel up to ${pc(band.kinds.fact.p90)})\n- scenes: ${pc(p.share.scene)}, motives: ${pc(p.share.motive)}, questions: ${pc(p.share.question)}, teases: ${pc(p.share.tease)}, general sayings: ${pc(p.share.maxim)}\n- sentences with a figure: ${pc(withDigit.length / Math.max(1, lines.length))}${scenes && sceneBand ? `\n- lines that put the viewer in a moment: ${pc(scenes.profile.moment)} (channel ${pc(sceneBand.moment.p25)}–${pc(sceneBand.moment.p90)} at ${sceneBand.lengthS} s); a named person wanting, fearing or deciding: ${pc(scenes.profile.agency)} (channel ${pc(sceneBand.agency.p25)}–${pc(sceneBand.agency.p90)})\n- time skipped without a bridge: ${scenes.profile.jumps.length} (${scenes.profile.jumps.map((j) => `${j.from}→${j.to}`).join(", ") || "none"}); opens on a moment: ${scenes.profile.opensOnMoment ? "yes" : "no"}; ending: ${ending?.kind ?? "?"}` : ""}`;
     return { ok: issues.length === 0, report: issues.length ? `${header}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header}\n\nPASSES every check.` };
   };
 
@@ -171,6 +191,25 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
           } satisfies AgentTool,
         ]
       : []),
+    {
+      name: "read_openings_endings",
+      description: "Read how real films of the channel OPEN and CLOSE: the first and last ~20 seconds of narration of several real films (any length of film works from these). Study them before you write your opening and your ending: the channel opens on a moment (a person, a place, a time, doing something) and closes on a consequence, not a restatement.",
+      schema: z.object({ n: z.number().min(2).max(10).optional() }),
+      run: (async (i: { n?: number }) => {
+        const w = Math.round(lp.openingS * 3.3);
+        const take = (ls: string[], fromEnd: boolean) => {
+          const out: string[] = [];
+          let k = 0;
+          for (const l of fromEnd ? [...ls].reverse() : ls) {
+            if (k >= w) break;
+            fromEnd ? out.unshift(l) : out.push(l);
+            k += l.split(/\s+/).length;
+          }
+          return out.join(" ");
+        };
+        return o.films.slice(0, i.n ?? 6).map((f) => `"${f.title}"\n  OPENS: ${take(f.lines, false)}\n  CLOSES: ${take(f.lines, true)}`).join("\n\n");
+      }) as AgentTool["run"],
+    } satisfies AgentTool,
     {
       name: "list_reference_films",
       description: "List the channel's real films you can read: id, title, length, what kind of story each is, and its own section sequence. Call this first to choose what to study.",
@@ -284,4 +323,19 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     ...(plan ? { blueprint: { hook: plan.hook, spine: plan.spine, ending: plan.ending, why: "built by the writer from this story's own facts", opening: plan.opening, closing: plan.closing, beats: plan.beats } } : {}),
     generatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * Build list 5, item 23: the writer rewords ONE sentence so a narrator can say it naturally (the voice director's
+ * retakes could not fix its delivery): same facts, about the same length, no new figures or names. Returns null when
+ * it cannot do better than the sentence as it is.
+ */
+export async function rewordForSpeech(o: { text: string; why: string; context: string; facts: string[] }): Promise<string | null> {
+  const Out = z.object({ sentence: z.string(), changed: z.boolean() });
+  const r = await structured({ stage: "script.reword", model: ROLE_MODEL.writer, system: [plain("You are the writer of a documentary narration. Reword ONE sentence so a narrator says it naturally, as a person telling a story: keep every fact, figure and name exactly, keep about the same length, use commas and full stops only (no dashes, brackets or semicolons). Never add a fact. If you cannot improve it, return it unchanged with changed=false.")], user: `WHY IT FAILS WHEN SPOKEN: ${o.why}\n\nAROUND IT: ${o.context}\n\nSENTENCE: ${o.text}\n\nFACTS (the only ones you may use):\n${o.facts.slice(0, 40).join("\n")}`, schema: Out, effort: "low", maxTokens: 800 });
+  const s = r.data.sentence.trim();
+  if (!r.data.changed || !s || s === o.text.trim()) return null;
+  // figures must survive unchanged
+  const nums = (t: string) => (t.match(/\d[\d,.]*/g) ?? []).map((n) => n.replace(/[,.]$/, "")).sort().join("|");
+  return nums(s) === nums(o.text) ? earPunctuation(s) : null;
 }

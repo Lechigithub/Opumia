@@ -216,3 +216,100 @@ export function withoutClaims(text: string, quotes: string[]): { text: string; r
   const kept = parts.filter((p) => !qs.some((q) => norm(p).includes(q) || (q.length > 30 && q.includes(norm(p)))));
   return { text: kept.join(" "), removed: parts.length - kept.length };
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Build list 5, item 30: titles that promise a person or a turn — learned from the channel's real titles.
+
+export const TITLE_PROMISES = ["person", "turn", "person_and_turn", "topic"] as const;
+export type TitlePromise = (typeof TITLE_PROMISES)[number];
+const PROMISE_RULES = `Label each YouTube documentary title by the promise it makes:
+- person: a specific person (named, or "The Man Who…", "This CEO…", "The Billionaire…") is the subject the viewer is promised;
+- turn: it promises a reversal, contradiction, hidden cause, a lie, a dark side or a surprise the viewer does not know yet ("…and Still Went Bankrupt", "The Lie That Built…", "Why X Is Secretly…", "The Disturbing History of…", "The X Story: Fraud, Betrayal & Death", "The INSANE Reason…");
+- person_and_turn: both;
+- topic: neither — a neutral topic sentence that names the subject or states an outcome everyone already knows, with nothing hidden promised ("How Nokia Lost the Smartphone War", "The Rise and Fall of Enron", "The History of Coca-Cola", "How Amazon Makes Money").
+A turn must be in the wording (a surprise, a contradiction, a scandal or dark secret promised), not just a plain verb about a known outcome.`;
+
+/** The same labeller for the channel's real titles and ours (Haiku, batched). */
+export async function labelTitlePromises(titles: string[]): Promise<{ labels: TitlePromise[]; usd: number }> {
+  const labels: TitlePromise[] = [];
+  let usd = 0;
+  for (let i = 0; i < titles.length; i += 40) {
+    const part = titles.slice(i, i + 40);
+    const r = await structured({
+      stage: "publish.title_promise",
+      model: MODELS.haiku,
+      system: [plain(PROMISE_RULES)],
+      user: part.map((t, k) => `${k}. ${t}`).join("\n"),
+      schema: z.object({ items: z.array(z.object({ i: z.number(), promise: z.enum(TITLE_PROMISES) })) }),
+      effort: "low",
+      maxTokens: 3000,
+    }).catch(() => null);
+    if (r) usd += r.usage.usd;
+    for (let k = 0; k < part.length; k++) labels.push(r?.data.items.find((x) => x.i === k)?.promise ?? "topic");
+  }
+  return { labels, usd };
+}
+
+export interface TitlePromiseBand { channel: string; n: number; share: Record<TitlePromise, number>; /** share of titles promising a person or a turn */ promising: number; /** a topic title is allowed only when the channel itself uses them at least this often */ topicAllowed: boolean; items: Array<{ title: string; views: number | null; promise: TitlePromise }>; generatedAt: string }
+
+/** The channel's real titles labelled once (data/thumbnail-profile/<channel>-titles.json). */
+export async function ensureTitlePromiseBand(o: { data: string; channel: string; references: Array<{ title: string; views: number | null }>; fresh?: boolean }): Promise<TitlePromiseBand | null> {
+  const { mkdir, rename, writeFile } = await import("node:fs/promises");
+  const path = await import("node:path");
+  const file = path.join(o.data, "thumbnail-profile", `${o.channel}-titles.json`);
+  if (!o.fresh) {
+    const have = await readFile(file, "utf8").then((t) => JSON.parse(t) as TitlePromiseBand, () => null);
+    if (have) return have;
+  }
+  const refs = o.references.filter((r) => r.title?.trim());
+  if (refs.length < 8) return null;
+  const { labels } = await labelTitlePromises(refs.map((r) => r.title));
+  const share = Object.fromEntries(TITLE_PROMISES.map((p) => [p, Math.round((labels.filter((l) => l === p).length / labels.length) * 1000) / 1000])) as Record<TitlePromise, number>;
+  const band: TitlePromiseBand = { channel: o.channel, n: refs.length, share, promising: Math.round((1 - share.topic) * 1000) / 1000, topicAllowed: share.topic >= 0.3, items: refs.map((r, k) => ({ title: r.title, views: r.views, promise: labels[k]! })), generatedAt: new Date().toISOString() };
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(`${file}.tmp`, JSON.stringify(band, null, 1) + "\n");
+  await rename(`${file}.tmp`, file);
+  return band;
+}
+
+/**
+ * testTitles plus the promise rule: every candidate is labelled by the same function as the channel's real titles; a
+ * topic title (no person, no turn) fails unless the channel itself titles that way at least 30 % of the time.
+ */
+export async function testTitlesWithPromise(o: Parameters<typeof testTitles>[0] & { promises: TitlePromiseBand | null }): Promise<{ results: Array<{ title: string; risk: number; ok: boolean; why: string; promise?: TitlePromise }>; usd: number }> {
+  const base = await testTitles(o);
+  if (!o.promises) return base;
+  const { labels, usd } = await labelTitlePromises(base.results.map((r) => r.title));
+  const pc = (x: number) => `${Math.round(x * 100)}%`;
+  const results = base.results.map((r, k) => {
+    const promise = labels[k]!;
+    if (promise !== "topic" || o.promises!.topicAllowed) return { ...r, promise, why: `${r.why}; promises: ${promise.replace(/_/g, " ")}` };
+    return { ...r, promise, ok: false, risk: Math.max(r.risk, 1), why: `a topic sentence — it promises neither a person nor a turn; ${pc(o.promises!.promising)} of the channel's ${o.promises!.n} real titles promise one (person ${pc(o.promises!.share.person + o.promises!.share.person_and_turn)}, turn ${pc(o.promises!.share.turn + o.promises!.share.person_and_turn)}). Name the person or the surprise.` };
+  });
+  return { results, usd: base.usd + usd };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Build list 5, item 4: packaging's craft measures (the same numbers for ours and the channel's).
+
+/** Our package's measures, read from the packaging report. */
+export function packagingCraftMeasures(o: { thumbWords: number; titlePromise?: TitlePromise | null; titleRisk?: number | null; critiqueScore?: number | null; ideaReads?: boolean | null; conceptStory?: number | null; imposterPickedShare?: number | null }): Record<string, number> {
+  const m: Record<string, number> = { thumbWords: o.thumbWords, thumbHasWords: o.thumbWords > 0 ? 1 : 0 };
+  if (o.titlePromise) m.titlePromises = o.titlePromise === "topic" ? 0 : 1;
+  if (o.titleRisk !== null && o.titleRisk !== undefined) m.titleRealness = Math.round((1 - o.titleRisk) * 1000) / 1000;
+  if (o.critiqueScore !== null && o.critiqueScore !== undefined) m.critiqueScore = o.critiqueScore;
+  if (o.ideaReads !== null && o.ideaReads !== undefined) m.phoneRead = o.ideaReads ? 1 : 0;
+  if (o.conceptStory !== null && o.conceptStory !== undefined) m.tellsTheTurn = o.conceptStory;
+  if (o.imposterPickedShare !== null && o.imposterPickedShare !== undefined) m.imposterPicked = o.imposterPickedShare;
+  return m;
+}
+
+/** The channel's packaging as the same measures: shares and medians over its real thumbnails and titles. */
+export function packagingReferenceMeasures(thumbWords: number[], promises: TitlePromiseBand | null): Record<string, { p10: number; median: number; p90: number }> {
+  const s = [...thumbWords].sort((a, b) => a - b);
+  const q = (p: number) => s[Math.min(s.length - 1, Math.round((s.length - 1) * p))] ?? 0;
+  const has = thumbWords.filter((w) => w > 0).length / Math.max(1, thumbWords.length);
+  const out: Record<string, { p10: number; median: number; p90: number }> = { thumbWords: { p10: q(0.1), median: q(0.5), p90: q(0.9) }, thumbHasWordsShare: { p10: has, median: has, p90: has } };
+  if (promises) out.titlePromisesShare = { p10: promises.promising, median: promises.promising, p90: promises.promising };
+  return out;
+}

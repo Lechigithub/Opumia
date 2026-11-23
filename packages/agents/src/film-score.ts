@@ -47,7 +47,7 @@ async function saveLook(data: string, channel: string, job: string, v: Float32Ar
   await rename(`${f}.tmp`, f);
 }
 
-interface PlanShot { id: string; startS: number; endS: number; source: { kind: string } }
+interface PlanShot { id: string; startS: number; endS: number; source: { kind: string }; camera?: { type?: string }; transitionIn?: string }
 interface PlanScene { shotId: string; backdrop: string; elements: Array<{ type: string }> }
 interface Media { shotId: string; role: string; origin: string; kind: string }
 interface Word { word?: string; text?: string; startS?: number; endS?: number; start?: number; end?: number }
@@ -97,6 +97,8 @@ const outside = (x: number, b: Band) => {
 };
 
 export interface PlanState {
+  /** Build list 5, item 3: the requested channel (never assumed). */
+  channel?: ChannelId;
   /** Build list 4, item 9: each effect's measured sound family (data/audio-profile.json), so "hits" means strong hits —
    *  the same count the sound designer and the channel profile use. Unknown effects count as hits. */
   sfxFamily?: Map<string, string>;
@@ -154,9 +156,12 @@ export function ourShotsFrom(st: PlanState, film = "ours"): { shots: ReferenceSh
     const said = words.filter((w) => (w.s + w.e) / 2 >= sh.startS && (w.s + w.e) / 2 < sh.endS).map((w) => w.w);
     const near = bounds.reduce((best, b) => Math.min(best, Math.abs(b - sh.startS)), 9);
     return {
-      id: `${sh.id}`, channel: "magnates-media", film, i, t0: sh.startS, t1: sh.endS, pos: sh.startS / dur,
+      id: `${sh.id}`, channel: (st.channel ?? "ours") as ChannelId, film, i, t0: sh.startS, t1: sh.endS, pos: sh.startS / dur,
       chapter: 0, chapterPos: sh.startS / dur, sinceChapter: sh.startS, line: said.join(" "), words: said.length, picture, overlay: textOn ? "text_slam" : "none",
-      transitionIn: i === 0 ? "start" : "cut", faces: 0, faceH: 0, sat: 0, grey: 0, luma: 0, contrast: 0, motion: 0, text: "", textArea: 0,
+      // build list 5, item 20: movement as the reference measures it — moving footage moves, a camera move moves, a still
+      // with a static camera holds; transitions other than a hard cut count as soft
+      transitionIn: i === 0 ? "start" : !sh.transitionIn || sh.transitionIn === "cut" ? "cut" : "other", faces: 0, faceH: 0, sat: 0, grey: 0, luma: 0, contrast: 0,
+      motion: prim?.kind === "video" && footage ? 10 : sh.camera?.type && sh.camera.type !== "static" ? 4 : els.length ? 3 : 0, text: "", textArea: 0,
       cutToWord: Math.round(near * 1000) / 1000, cutInPause: pauses.some(([a, b]) => sh.startS >= a - 0.03 && sh.startS <= b + 0.03),
       hitOnCut: hits.some((h) => Math.abs(h.t - sh.startS) <= 0.2) ? "hit" : "", hitInShot: "", bedDb: 0, voiceDb: 0,
       musicDrop: dips.some(([a, b]) => a < sh.endS && b > sh.startS), cueChange: cues.some((c) => c >= sh.startS && c < sh.endS),
@@ -276,4 +281,10 @@ export function filmScoreText(s: FilmScore): string {
     `Film score ${s.score}/100 (structure ${s.structure}${s.taste ? `, taste of previews ${s.taste.median}/10 vs the real channel's ${s.taste.realMedian}` : ""}${s.look ? `, look ${s.look.nearestOurs ? `${s.look.nearestOurs.distance} from our nearest film "${s.look.nearestOurs.job}"` : "first of ours"}, halves ${s.look.withinFilm} apart` : ""}) — channel profile v${s.profileVersion}`,
     ...s.gaps.map((g) => `- ${g.segment === "film" ? "whole film" : g.segment}: ${g.what} ${g.ours} — channel ${g.band.p10}–${g.band.p90} (median ${g.band.median}) → ${g.owner}`),
   ].join("\n");
+}
+
+/** Build list 5, item 4: our plan as one stretch (the craft score's unit), the same shape as a real stretch. */
+export function stretchOfPlan(st: PlanState): { film: string; fromS: number; toS: number; position: "opening"; shots: ReferenceShot[]; hits: Array<{ t: number }>; words: string } {
+  const p = ourShotsFrom(st);
+  return { film: "ours", fromS: 0, toS: p.durS, position: "opening", shots: p.shots, hits: p.hits, words: p.shots.map((s) => s.line).join(" ") };
 }

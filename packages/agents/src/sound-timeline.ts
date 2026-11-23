@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AssetRecord, ScenePlan, Storyboard, StoryboardShot, StyleProfile, TimedScript } from "@opumia/contracts";
-import { chapterMoods, moodOfTitle, sfxCap, type Mood } from "./sound-design.js";
+import { buildCutTimeline, type CutTimeline } from "./cut-timeline.js";
+import { moodOfTitle, sfxCap, storyMusicPlan, type Mood, type MusicRates } from "./sound-design.js";
 
 /**
  * Timeline sound designer (no model call): sound is placed on what the viewer SEES, after the scenes are final.
@@ -53,6 +54,10 @@ export interface SoundTimelineOptions {
   kitRoles?: Record<string, string>;
   /** Music drop-outs already designed for the cues (kept). */
   drops?: Array<{ startS: number; endS: number }>;
+  /** Build list 5, item 22: the shared timeline of cuts, stressed words and story turns (built here when absent). */
+  timeline?: CutTimeline;
+  /** Build list 5, item 26: the channel's music-to-story rates at this film's length (craft band medians). */
+  musicRates?: MusicRates;
   log?: (s: string) => void;
 }
 
@@ -89,7 +94,7 @@ export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "scrip
     }
   }
   // Story turns: the line after a twist or re-hook lands on a boom.
-  for (const sg of o.script.segments) if ((sg.role === "twist" || sg.role === "rehook") && sg.startS > 2) events.push({ atS: sg.startS + 0.05, family: "sub_boom", prio: 4.5, strong: true, why: `${sg.role} line` });
+  for (const sg of o.script.segments) if ((sg.role === "twist" || sg.role === "rehook" || sg.role === "climax" || sg.role === "fall") && sg.startS > 2) events.push({ atS: sg.startS + 0.05, family: "sub_boom", prio: sg.role === "climax" ? 4.8 : 4.5, strong: true, why: `${sg.role} line` });
   return events.sort((a, b) => a.atS - b.atS);
 }
 
@@ -119,11 +124,23 @@ export function soundKit(o: SoundTimelineOptions) {
       });
     return list.sort((a, b) => (fam === "impact" ? Number(cls(b) === "stamp_thud") - Number(cls(a) === "stamp_thud") : 0) || rnd(a.id) - rnd(b.id));
   };
+  // Build list 5, item 27: fresh effects only. A file used in this film or by a recent film is never picked; when a
+  // family runs dry, a neighbouring strong family is tried (thud ↔ impact ↔ sub_boom), and failing that the hit is not
+  // placed — never a repeat (the Nokia film shared 67 % of its effects with a recent film through this fallback).
+  const NEIGHBOURS: Partial<Record<Family, Family[]>> = { thud: ["impact", "sub_boom"], impact: ["thud", "sub_boom"], sub_boom: ["thud", "impact"], click: [], riser: [] };
   const pick = (fam: Family, used: Set<string>, skip = 0): AssetRecord | undefined => {
-    const list = pool(fam);
-    const fresh = list.filter((a) => !used.has(a.id) && !o.cooldown.sfx.has(a.id));
-    return fresh[skip] ?? list.find((a) => !used.has(a.id)) ?? list[0];
+    const fresh = (f: Family) => pool(f).filter((a) => !used.has(a.id) && !o.cooldown.sfx.has(a.id));
+    const own = fresh(fam);
+    if (own[skip]) return own[skip];
+    if (own.length) return own[own.length - 1];
+    for (const f of NEIGHBOURS[fam] ?? []) {
+      const n = fresh(f);
+      if (n.length) return n[0];
+    }
+    return undefined;
   };
+  /** How many fresh files a family still has (for the agent's read-out). */
+  const freshLeft = (fam: Family, used: Set<string>) => pool(fam).filter((a) => !used.has(a.id) && !o.cooldown.sfx.has(a.id)).length;
   const profileOf = (id: string) => o.sfxProfile[id];
   /** Start time so the peak lands on the moment, and the gain that brings it to the family's level. */
   const placement = (fam: Family, id: string, momentS: number) => {
@@ -153,17 +170,31 @@ export function soundKit(o: SoundTimelineOptions) {
     if (inS + (sp.endS - sp.startS) > p.seconds - 2) inS = Math.max(0, p.seconds - (sp.endS - sp.startS) - 2);
     return Math.round(inS * 100) / 100;
   };
-  return { pool, pick, profileOf, placement, bedOptions, entry, musicProfile: (id: string) => o.musicProfile[id], title: (id: string) => o.musicAssets.find((a) => a.id === id)?.title ?? o.sfxAssets.find((a) => a.id === id)?.title ?? id, classOf: (id: string) => { const a = o.sfxAssets.find((x) => x.id === id); return a ? cls(a) : ""; } };
+  return { pool, pick, freshLeft, profileOf, placement, bedOptions, entry, musicProfile: (id: string) => o.musicProfile[id], title: (id: string) => o.musicAssets.find((a) => a.id === id)?.title ?? o.sfxAssets.find((a) => a.id === id)?.title ?? id, classOf: (id: string) => { const a = o.sfxAssets.find((x) => x.id === id); return a ? cls(a) : ""; } };
 }
 
-export function designSoundTimeline(o: SoundTimelineOptions): { shots: StoryboardShot[]; music: Storyboard["music"]; report: { events: number; strong: number; light: number; families: Record<string, number>; beds: string[] } } {
+export interface SoundTimelineReport { events: number; strong: number; light: number; families: Record<string, number>; beds: string[]; onCut: number; onStress: number; skippedNoFreshFile: number; cueChanges: number; drops: number; riserIntoClimax: boolean }
+
+export function designSoundTimeline(o: SoundTimelineOptions): { shots: StoryboardShot[]; music: Storyboard["music"]; report: SoundTimelineReport } {
   const log = o.log ?? (() => {});
   const shots = o.storyboard.shots.map((s) => ({ ...s, sfx: [] as StoryboardShot["sfx"] }));
   const dur = o.script.durationS;
   const kit = soundKit(o);
+  const tl = o.timeline ?? buildCutTimeline({ storyboard: o.storyboard, script: o.script });
 
-  // ---- 1. Events from the finished timeline.
+  // ---- 1. Events from the finished timeline, plus stressed words that fall on a cut (item 22: a hit where the cut
+  //         and the word the narrator leans on meet is the channel's strongest accent).
   const events = visualEvents(o);
+  for (const w of tl.stressed) {
+    const c = tl.cuts.find((x) => Math.abs(x.atS - w.atS) <= 0.35);
+    if (c) events.push({ atS: c.atS, family: "thud", prio: 3.6, strong: true, why: `stress "${w.word}" on a cut` });
+    // inside a shot the word the narrator leans on can carry the hit (the channel's hits sit inside shots more often
+    // than on cuts)
+    else events.push({ atS: w.atS, family: "thud", prio: 2.9, strong: true, why: `stress "${w.word}"` });
+  }
+  // a visual moment that meets a stressed word is worth more (picture, word and hit together)
+  for (const e of events) if (e.strong && !e.why.startsWith("stress") && tl.stressed.some((w) => Math.abs(w.atS - e.atS) <= 0.35)) e.prio += 0.5;
+  events.sort((a, b) => a.atS - b.atS);
 
   // ---- 2. Budget and spacing (reference: ~3 strong hits a minute, median gap ~6 s, never crowded).
   const strongBudget = Math.max(2, sfxCap(o.profile, dur));
@@ -172,17 +203,45 @@ export function designSoundTimeline(o: SoundTimelineOptions): { shots: Storyboar
   const far = (e: Event, gap: number) => chosen.every((c) => Math.abs(c.atS - e.atS) >= gap);
   let strong = 0;
   let light = 0;
-  for (const e of [...events].sort((a, b) => b.prio - a.prio || a.atS - b.atS)) {
-    if (e.strong ? strong >= strongBudget || !far(e, 2.4) : light >= lightBudget || !far(e, 1.0)) continue;
-    chosen.push({ ...e });
-    if (e.strong) strong++;
-    else light++;
-  }
+  // Item 27: strong hits on cuts in the channel's proportion at this length. Most designed elements arrive at a shot's
+  // start, so without a quota nearly every hit would sit on a cut (the channel: about a quarter). The first pass keeps
+  // on-cut hits to the quota; the second fills the budget only if the off-cut moments ran out.
+  const onCutTarget = o.musicRates?.hitOnCutShare ?? 0.25;
+  const isOnCut = (t: number) => tl.cuts.some((c) => Math.abs(c.atS - t) <= 0.2);
+  const quota = Math.max(1, Math.round(Math.min(0.5, onCutTarget * 1.4) * strongBudget));
+  let onCutN = 0;
+  const ranked = [...events].sort((a, b) => b.prio - a.prio || a.atS - b.atS);
+  for (const pass of [1, 2])
+    for (const e of ranked) {
+      if (chosen.some((c) => c.atS === e.atS && c.why === e.why)) continue;
+      if (e.strong ? strong >= strongBudget || !far(e, 2.4) : light >= lightBudget || !far(e, 1.0)) continue;
+      if (pass === 1 && e.strong && isOnCut(e.atS) && onCutN >= quota && e.prio < 4.5) continue;
+      // stressed words carry at most about two in five strong hits; the rest land on what the viewer sees
+      if (pass === 1 && e.why.startsWith("stress") && chosen.filter((c) => c.why.startsWith("stress")).length >= Math.max(1, Math.round(strongBudget * 0.4))) continue;
+      chosen.push({ ...e });
+      if (e.strong) (strong++, isOnCut(e.atS) && onCutN++);
+      else light++;
+    }
   chosen.sort((a, b) => a.atS - b.atS);
   // Mix toward the reference (≈ 2 thuds for every boom): demote the lowest-priority extra booms to thuds.
   const booms = chosen.filter((e) => e.family === "sub_boom");
   const maxBooms = Math.max(1, Math.round(strong * 0.3));
   for (const e of [...booms].sort((a, b) => a.prio - b.prio).slice(0, Math.max(0, booms.length - maxBooms))) e.family = "thud";
+  // Hits on cuts in the channel's proportion (item 27): strong hits within 0.45 s of a cut are moved onto it until the
+  // share reaches the channel's median at this length; a hit near a stressed word lands on the word.
+  const strongChosen = () => chosen.filter((e) => e.strong);
+  for (const e of [...strongChosen()].sort((a, b) => a.prio - b.prio)) {
+    if (strongChosen().filter((x) => isOnCut(x.atS)).length / Math.max(1, strongChosen().length) >= onCutTarget) break;
+    if (isOnCut(e.atS)) continue;
+    const c = tl.cuts.find((x) => Math.abs(x.atS - e.atS) <= 0.45 && chosen.every((y) => y === e || Math.abs(y.atS - x.atS) >= 1.2));
+    if (c) e.atS = c.atS + 0.02;
+  }
+  for (const e of chosen) {
+    if (!e.strong || isOnCut(e.atS)) continue;
+    const w = tl.stressed.find((x) => Math.abs(x.atS - e.atS) <= 0.3);
+    if (w) e.atS = w.atS;
+  }
+  chosen.sort((a, b) => a.atS - b.atS);
 
   // ---- 3. Files by measured character, the film's own shuffle, no repeats, off cooldown.
   const used = new Set<string>();
@@ -193,15 +252,23 @@ export function designSoundTimeline(o: SoundTimelineOptions): { shots: Storyboar
     sh.sfx.push({ assetId, atS: Math.round(t * 1000) / 1000, gainDb });
   };
   let risers = 0;
+  let skipped = 0;
+  let riserIntoClimax = false;
+  // item 26: a riser into the climax — the strongest turn the writer marked
+  const climax = [...tl.turns].sort((a, b) => b.strength - a.strength || a.atS - b.atS)[0];
   for (const e of chosen) {
-    const a = kit.pick(e.family, used) ?? (e.family === "sub_boom" || e.family === "impact" ? kit.pick("thud", used) : undefined);
-    if (!a) continue;
+    const a = kit.pick(e.family, used);
+    if (!a) {
+      skipped++;
+      continue;
+    }
     used.add(a.id);
     const pl = kit.placement(e.family, a.id, e.atS);
     place(a.id, pl.atS, pl.gainDb);
     families[e.family] = (families[e.family] ?? 0) + 1;
     // A riser into the biggest moments (at most one per 40 s).
-    if (e.prio >= 4.5 && risers < Math.max(1, Math.floor(dur / 40)) && e.atS > 4) {
+    const intoClimax = !!climax && Math.abs(e.atS - climax.atS) < 0.6;
+    if ((intoClimax || e.prio >= 4.5) && risers < Math.max(1, Math.floor(dur / 40)) && e.atS > 4) {
       const r = kit.pick("riser", used);
       if (r) {
         used.add(r.id);
@@ -209,28 +276,33 @@ export function designSoundTimeline(o: SoundTimelineOptions): { shots: Storyboar
         place(r.id, rp.atS, rp.gainDb);
         families.riser = (families.riser ?? 0) + 1;
         risers++;
+        if (intoClimax) riserIntoClimax = true;
       }
     }
   }
 
-  // ---- 4. Music: mood + measured tempo/pulse, off cooldown, in after the quiet intro, beat on the first hit.
+  // ---- 4. Music follows the story (item 26): a cue change at the strongest turns the writer marked, as many as the
+  //         channel changes cue at this length; a drop-out (silence as punctuation) just before the biggest turns; the
+  //         riser above leads into the climax. Each bed by mood + measured tempo/pulse, off cooldown, entering after its
+  //         quiet intro with the beat on the first strong hit.
   const usedBeds = new Set<string>();
   const music: Storyboard["music"] = [];
-  const spans = chapterMoods(o.script);
-  const merged: typeof spans = [];
-  for (const s of spans) {
-    const last = merged.at(-1);
-    if (last && last.mood === s.mood) last.endS = s.endS;
-    else merged.push({ ...s });
-  }
+  const story = storyMusicPlan(o.script, tl, o.musicRates);
   const firstHit = chosen.find((e) => e.strong)?.atS ?? 0;
-  for (const sp of merged) {
+  const keptDrops = o.drops ?? [];
+  for (const sp of story.spans) {
     const bed = kit.bedOptions(sp.mood, sp.endS - sp.startS, usedBeds)[0]?.a;
     if (!bed) continue;
     usedBeds.add(bed.id);
-    music.push({ assetId: bed.id, startS: sp.startS, endS: sp.endS, gainDb: -18, mood: sp.mood, drops: (o.drops ?? []).filter((d) => d.startS >= sp.startS && d.endS <= sp.endS), inS: kit.entry(bed.id, sp, firstHit) });
+    const inSpan = (d: { startS: number; endS: number }) => d.startS >= sp.startS && d.endS <= sp.endS;
+    const drops = [...story.drops.filter(inSpan), ...keptDrops.filter(inSpan).filter((d) => !story.drops.some((x) => x.startS < d.endS && d.startS < x.endS))].sort((a, b) => a.startS - b.startS);
+    music.push({ assetId: bed.id, startS: sp.startS, endS: sp.endS, gainDb: -18, mood: sp.mood, drops, inS: kit.entry(bed.id, sp, firstHit) });
   }
   for (const sh of shots) sh.sfx.sort((a, b) => a.atS - b.atS);
   log(`  sound: ${events.length} visual event(s) → ${strong} strong hit(s) + ${light} accent(s) (${Object.entries(families).map(([k, n]) => `${n} ${k}`).join(", ")}); music ${music.map((m) => `${m.mood} "${kit.title(m.assetId)}" from ${m.inS ?? 0}s`).join(" → ")}`);
-  return { shots, music, report: { events: events.length, strong, light, families, beds: music.map((m) => m.assetId) } };
+  const strongMoments = chosen.filter((e) => e.strong).map((e) => e.atS);
+  const onCut = strongMoments.filter((t) => isOnCut(t)).length / Math.max(1, strongMoments.length);
+  const onStress = strongMoments.filter((t) => tl.stressed.some((w) => Math.abs(w.atS - t) <= 0.25)).length / Math.max(1, strongMoments.length);
+  if (skipped) log(`  sound: ${skipped} hit(s) left out — no fresh file in their family (never a repeat or a recent film's effect)`);
+  return { shots, music, report: { events: events.length, strong, light, families, beds: music.map((m) => m.assetId), onCut: Math.round(onCut * 100) / 100, onStress: Math.round(onStress * 100) / 100, skippedNoFreshFile: skipped, cueChanges: Math.max(0, music.length - 1), drops: music.reduce((n, m) => n + (m.drops?.length ?? 0), 0), riserIntoClimax } };
 }

@@ -2,8 +2,8 @@
 
 You design the look of ONE documentary for the reference channel, from nothing. There is no template and no menu:
 you own every look decision of the film. You write its motion-design kit as code — its typefaces, one component for
-each role (headline, the phrase synced to the voice, label or name tag, number, quote, chapter card, the stage behind
-shots without footage, and the chart, map and document the engine feeds verified data), and the transition that
+each role (headline, the phrase synced to the voice, label or name tag, number, quote, chapter card, the quiet stage
+behind data graphics, and the chart, map and document the engine feeds verified data), and the transition that
 bridges its cuts — and you set its design tokens (palette, texture, a grade per act). The scene designer builds every
 shot from your kit and the engine draws nothing designed of its own, so the film looks like itself and like no
 earlier film of ours.
@@ -83,3 +83,21 @@ export const FILM = {
 - **No placeholders (build list 4).** Never draw stand-ins for pictures: grey person silhouettes, mountain-and-sun
   "image" icons, empty picture frames or blank cards. They read as an unfinished template. A stage without a picture
   is texture, light and type; real pictures arrive only through slots.
+
+## Worlds, treatment and type scale (build list 5, items 10–13)
+
+- **Designed scenes are not built on your stage.** The scene designer builds each one in a world made of real
+  pictures, drawn by the engine with YOUR palette tokens: a duotone or a black-and-white picture with your accent, a
+  collage of prints, paper and print, a burst behind a cut-out, a bold flat field, a terminal. Your palette must
+  therefore work as two-colour duotones (primary dark enough for shadows, accent light enough for highlights) and as
+  flat fields (primarySoft, surfaceAlt and paper distinct from each other).
+- **Your stage sits only behind charts, maps and documents.** Keep it quiet: texture, paper, light. Never the
+  generic dark grid with glows and particles — the Nokia film carried half its shots on one, and the channel's
+  designed grounds change with every idea.
+- **Type at the channel's scale.** Measured with OCR on its real frames: words cover a median 9 % of the frame (a
+  tenth 2 %, the busiest tenth 30 %); about half its shots with words set them into the picture; boxed labels are at
+  most half. Your headline and phrase draw large display type that fills its box; the label is your only small,
+  boxed type.
+- **Data the channel's way.** Its data shots are one big number (27 %), an annotated picture (25 %), a drawn line
+  (17 %), a map, icons; a bar chart is rare (8 %). Your number role must carry a figure alone, huge; your chart role
+  should prefer a drawn line with glow over bars.

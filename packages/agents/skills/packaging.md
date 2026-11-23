@@ -24,8 +24,11 @@ find a real frame where they show it; to show damage, lay a real texture over it
   quarter. Arrows and circles are rare.
 - **Text is drawn the channel's way** — you are given how its letters look (style, colour, typeface, box colour). A
   word in the wrong lettering is the quickest giveaway in the blind test. `box` puts the letters on a solid colour.
-- **Words: usually one, often none, never more than six.** The biggest text is big (median 17 % of the frame height).
-  The words are never the title repeated: they add the twist the title does not say.
+- **Words: usually one, never more than six — and words are the rule, not the exception.** About three in five of the
+  channel's thumbnails carry words (median one, up to four). Yours carries words unless our recent films are still
+  within the channel's share of wordless thumbnails AND you state why the idea needs none (`noWordsBecause`) — a
+  wordless render is otherwise refused. The biggest text is big (median 17 % of the frame height). The words are never
+  the title repeated: they add the twist the title does not say.
 - **Colour is loud.** The channel's thumbnails are far more colourful than its films. Every film has its own palette,
   taken from the subject's own colours (the brand colour, the product, the place).
 - **About two faces in five show a strong expression** — shock, anger, laughter. A calm conference portrait is weak.
@@ -35,7 +38,12 @@ find a real frame where they show it; to show damage, lay a real texture over it
 The channel's thumbnails are each ONE visual idea in which the subject and the twist are fused into a single image:
 the logo IS on fire; the shoe is held by a bloody hand on a heap of cash; the rich man stands waist-deep in money
 between pyramid diagrams; the hacker sits against a wall of the brand's own monogram. A logo, a photo and a label
-placed side by side is a collage — that is what gives an imitation away. Every frame is filled edge to edge:
+placed side by side is a collage — that is what gives an imitation away.
+
+**The idea tells the story's TURN, not its topic** (you are given the lines where the story turns). A burning phone
+in front of the company's building says "Nokia" and "disaster" — the topic. The turn is the surprise: the man hired
+to save it handed it to a rival; the memo that predicted the fire lit it. The concept critic scores every concept on
+how well its one image tells that turn; one that tells only the topic is not built. Every frame is filled edge to edge:
 piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a dim, blurred, empty backdrop.
 
 ## How to work
@@ -57,7 +65,10 @@ piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a di
 3. **Gather sharp pictures** for the chosen concept (`find_product_shot` for crisp studio objects, `find_expression`
    for real faces, piles and patterns from cut-outs).
 4. **Write titles and test them** (`test_titles`): five or six candidates in different patterns of the channel's
-   most-viewed titles. A title that is picked out as the imitation is weaker than one that is not.
+   most-viewed titles. Every title promises a **person** ("The Poor Boy Who Created Honda") or a **turn** (a surprise,
+   a contradiction, a dark secret: "Why Red Bull Isn't A Drink Company") — measured: about nine in ten of the
+   channel's titles do. A plain topic sentence ("How Nokia Lost the Smartphone War") fails the test. A title that is
+   picked out as the imitation is weaker than one that is not.
 5. **Design, render, look.** `render_thumbnail` shows you the thumbnail full size and at phone size, and measures it
    against the channel: hero size, words, text size, background, colour, brightness, expression. Fix what it says.
    Try at least two different ideas — not one idea polished.

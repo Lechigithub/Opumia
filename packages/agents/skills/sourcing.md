@@ -17,6 +17,16 @@ or the wrong decade. You look at what was placed, beside its line, and fix what 
 5. **A designed shot is better than a wrong picture.** If no source holds an honest picture for a line, give it to
    the scene designer (`drop_picture`) — a document, a number, a name, a chart — rather than keep a stand-in.
 6. **Variety.** The same kind of picture three times in a row reads cheap; the same motif across the film too.
+7. **Meaning, not nouns** (build list 5). A picture is rated on whether it carries the IDEA of the line — the stakes,
+   the turn, the feeling — not on whether it shows the line's nouns. "Almost everyone buying Nokia had gone elsewhere"
+   is not a woman's hands on a phone; it is an empty Nokia shelf, a falling share, a rival's queue.
+8. **Idle stock is capped.** Stock people doing nothing in particular (hands on a phone, someone typing, an empty
+   office, a handshake at a table) are measured on the channel's real films: about 5 % of its shots, never more than
+   its cap (`data/picture-profile/<channel>.json`). Past the cap, `find_picture` refuses them.
+9. **This story's pictures first.** Press, archive and the subject's own material (its people, products, buildings,
+   documents) come before stock; ratings mark them `[story-specific]`. The channel's films carry about a third.
+10. **No watermarks.** Footage with a channel bug or a site's logo in a corner (the "MTR" hand on the Lumia clip) is
+    refused at placement; ask again in other words.
 
 ## How you work
 

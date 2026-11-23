@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { MODELS, plain, structured } from "@opumia/agents";
+import { IDLE_RULE, MEANING_RULE, MODELS, plain, SPECIFIC_RULE, structured } from "@opumia/agents";
 import * as z from "zod/v4";
 import { downloadCandidate, type StockCandidate } from "./stock.js";
 
@@ -528,7 +528,9 @@ const Review = z.object({
   verdicts: z.array(
     z.object({
       index: z.number(),
-      fit: z.number().describe("0–10: how well this picture shows what the line and intent are about (10 = exactly the thing; 5 = same general world; 2 = unrelated)"),
+      fit: z.number().describe("0–10: how well this picture carries the MEANING of the line and intent — its idea, not its nouns (10 = says exactly what the line means; 5 = same general world, or only a noun matches; 2 = unrelated)"),
+      idle: z.boolean().describe("stock people doing nothing in particular (see the rule)"),
+      specific: z.boolean().describe("a picture of THIS story (see the rule)"),
       face: z.boolean().describe("true if one identifiable person's face is prominent (a close-up or medium shot a viewer would take to be a specific person)"),
       banner: z.boolean().describe("true if burned-in text, captions, watermarks, title cards or broadcaster graphics are visible"),
       wrongEra: z.boolean().describe("true if clothing, cars, devices or film stock clearly belong to a different period than stated"),
@@ -537,7 +539,9 @@ const Review = z.object({
     }),
   ),
 });
-export interface PictureReview { fit: number; face: boolean; banner: boolean; wrongEra: boolean; synthetic: boolean; shows: string }
+/** Build list 5, item 16–17: `fit` is rated by meaning; `idle` (stock people doing nothing in particular) and `specific`
+ * (a picture of this story) use the same rules the reference was labelled with (agents/picture-measure.ts). */
+export interface PictureReview { fit: number; face: boolean; banner: boolean; wrongEra: boolean; synthetic: boolean; shows: string; idle: boolean; specific: boolean }
 
 export async function reviewPictures(items: Array<{ frameFile: string; intent: string; line: string; era: string }>): Promise<PictureReview[]> {
   const out: PictureReview[] = [];
@@ -554,7 +558,7 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
     const res = await structured({
       stage: "resolve.review",
       model: MODELS.haiku,
-      system: [plain("You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible. A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. Legible text that names a different company, person, product or subject than the line (a document, sign or screen about something else) is misleading: fit at most 3. Be alert to AI-generated imagery (too-perfect, hyper-detailed, impossible objects, melted details): synthetic=true. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
+      system: [plain(`You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible.\n${MEANING_RULE}\n${IDLE_RULE} An idle picture's fit is at most 5 unless the line itself is about such a moment.\n${SPECIFIC_RULE}\n` + "A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. Legible text that names a different company, person, product or subject than the line (a document, sign or screen about something else) is misleading: fit at most 3. Be alert to AI-generated imagery (too-perfect, hyper-detailed, impossible objects, melted details): synthetic=true. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
       user: blocks,
       schema: Review,
       effort: "low",
@@ -562,7 +566,7 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
     }).catch(() => null);
     for (let k = 0; k < part.length; k++) {
       const v = res?.data.verdicts.find((x) => x.index === k);
-      out.push(v ? { fit: v.fit, face: v.face, banner: v.banner, wrongEra: v.wrongEra, synthetic: v.synthetic, shows: v.shows } : { fit: 5, face: false, banner: false, wrongEra: false, synthetic: false, shows: "not reviewed" });
+      out.push(v ? { fit: v.fit, face: v.face, banner: v.banner, wrongEra: v.wrongEra, synthetic: v.synthetic, shows: v.shows, idle: v.idle, specific: v.specific } : { fit: 5, face: false, banner: false, wrongEra: false, synthetic: false, shows: "not reviewed", idle: false, specific: false });
     }
   }
   return out;
@@ -712,3 +716,10 @@ export async function screenshotPage(url: string, outJpg: string): Promise<boole
   }
   return exists(outJpg);
 }
+
+/**
+ * Build list 5, item 16: the floor a picture's MEANING rating must reach (0–10). Calibrated on the channel's own real
+ * footage rated by the same rule (data/picture-profile/magnates-media.json: median 5, top tenth 6): a bar of 6 — set
+ * when the rating was literal fit — would refuse most of the channel's own pictures. The best-rated picture still wins.
+ */
+export const MEANING_BAR = 5;

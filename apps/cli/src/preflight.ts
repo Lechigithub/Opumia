@@ -16,9 +16,9 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RenderManifest, ResolutionReport, ScenePlan, Storyboard, TimedScript } from "@opumia/contracts";
 import { contactSheet, measureLook, measurePace, measureProsody, measureSound, pct, r3, rgbFrames } from "@opumia/senses";
-import { periodCheck, reviewFrame, yearOf } from "@opumia/resolver";
+import { MEANING_BAR, periodCheck, reviewFrame, yearOf } from "@opumia/resolver";
 import { measureCraft, measureLegibility, textBoxesOf } from "@opumia/senses";
-import type { QualityBand } from "@opumia/agents";
+import { CRAFT_MEASURES, RHYTHM_KEYS, scoreAgainst, stretchOfPlan, stutterCuts, type CraftBandFile, type QualityBand } from "@opumia/agents";
 import type { ExemplarIndex } from "./exemplars.js";
 
 export type Repair = "replace_picture" | "redesign_scene" | "regrade" | "reseed_sound";
@@ -124,6 +124,11 @@ export interface PreflightInput {
   hueRef?: { p75: number; max: number } | null;
   /** Pictures and sounds the recent films used (cross-film cooldown). */
   recent: { pictures: Set<string>; sfx: Set<string>; music: Set<string> };
+  /** Build list 5, item 20: the edit craft's band on real stretches as long as this film. */
+  editBand?: CraftBandFile | null;
+  /** Build list 5: checks computed by their owners' own measures (judge tells on previews, picture meaning, voice
+   *  delivery, design) — the gate checks the same measure the agent works to. */
+  extra?: PreflightCheck[];
 }
 
 export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck[]> {
@@ -225,11 +230,13 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const order = [...o.scenes.scenes].sort((a, b) => a.shotId.localeCompare(b.shotId));
     let run = 0;
     let worst = 0;
+    // build list 5, item 10: a world scene's backdrop is its world (two different worlds in a row are not a run)
+    const ground = (sc: (typeof order)[number] | undefined) => (sc ? (sc.backdrop === "world" ? `world:${(sc as { world?: { kind?: string } }).world?.kind ?? ""}` : sc.backdrop) : undefined);
     for (const [k, sc] of order.entries()) {
-      run = sc.backdrop !== "footage" && order[k - 1]?.backdrop === sc.backdrop ? run + 1 : 1;
+      run = sc.backdrop !== "footage" && ground(order[k - 1]) === ground(sc) ? run + 1 : 1;
       if (sc.backdrop !== "footage") worst = Math.max(worst, run);
     }
-    const stageRun = order.filter((sc, k) => sc.backdrop !== "footage" && order[k - 1]?.backdrop === sc.backdrop && order[k - 2]?.backdrop === sc.backdrop).map((sc) => sc.shotId);
+    const stageRun = order.filter((sc, k) => sc.backdrop !== "footage" && ground(order[k - 1]) === ground(sc) && ground(order[k - 2]) === ground(sc)).map((sc) => sc.shotId);
     add({ id: "bare_backdrop_run", label: "Longest run of scenes on the kit's stage", value: worst, target: "≤ 2", pass: worst <= 2, level: "blocker", repair: "replace_picture", shots: stageRun });
     const bareIds = order.filter((sc) => sc.backdrop !== "footage" && !sc.elements.some((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d")).map((sc) => sc.shotId);
     const bare = bareIds.length / Math.max(1, order.length);
@@ -257,8 +264,8 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
 
   // --- Fit: footage rated below 6/10 against its own line (the picture review's score) is replaced.
   {
-    const weak = o.resolution.media.filter((m) => m.role === "primary" && m.origin !== "press" && typeof m.seen?.fit === "number" && m.seen.fit < 6).map((m) => m.shotId);
-    add({ id: "weak_fit", label: "Footage rated below 6/10 against its own line", value: weak.length, target: "0", pass: weak.length === 0, level: "blocker", repair: "replace_picture", shots: weak });
+    const weak = o.resolution.media.filter((m) => m.role === "primary" && m.origin !== "press" && typeof m.seen?.fit === "number" && m.seen.fit < MEANING_BAR).map((m) => m.shotId);
+    add({ id: "weak_fit", label: `Footage rated below ${MEANING_BAR}/10 for the meaning of its line`, value: weak.length, target: "0", pass: weak.length === 0, level: "blocker", repair: "replace_picture", shots: weak });
   }
 
   // --- Edit: the cut rate inside the channel's band.
@@ -273,6 +280,24 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const prim = (id: string) => o.resolution.media.find((m) => m.shotId === id && m.role === "primary");
     const jumps = sh.filter((x, k) => k > 0 && x.transitionIn === "cut" && (/_\d+$/.test(x.id) && x.id.replace(/_\d+$/, "") === sh[k - 1]!.id.replace(/_\d+$/, "") || (prim(x.id) && prim(sh[k - 1]!.id) && baseRef(prim(x.id)!.ref) === baseRef(prim(sh[k - 1]!.id)!.ref)))).map((x) => x.id);
     add({ id: "unbridged_split", label: "Cuts inside one picture with nothing bridging them (a jump)", value: jumps.length, target: "0", pass: jumps.length === 0, level: "blocker", repair: "redesign_scene", shots: jumps });
+  }
+
+  // --- Build list 5, item 21: a cut back to the same picture needs a different framing AND a transition.
+  {
+    const st = stutterCuts(o.board.shots as never, o.resolution.media as never);
+    add({ id: "stutter_cut", label: "Cuts back to the same picture without a new framing and a transition", value: st.length, target: "0", pass: st.length === 0, level: "blocker", shots: st.map((x) => x.shotId), note: st.slice(0, 3).map((x) => x.why).join("; ") });
+  }
+  // --- Build list 5, item 20: the rhythm of real stretches as long as this film (shot length, its spread, the long
+  // shots, holds with nothing moving, where cuts sit against the words).
+  if (o.editBand) {
+    const st = stretchOfPlan({ storyboard: { shots: o.board.shots as never, durationS: o.board.durationS }, scenes: o.scenes.scenes as never, media: o.resolution.media as never, words: o.timed.segments.flatMap((sg) => sg.words) as never });
+    const m = await CRAFT_MEASURES.edit!(st as never);
+    const pick = (keys: string[]) => ({ ...o.editBand!, bands: Object.fromEntries(Object.entries(o.editBand!.bands).filter(([k]) => keys.includes(k))) });
+    const rh = scoreAgainst("edit", m, pick(RHYTHM_KEYS.filter((k) => k !== "cutToWordMedianS" && k !== "cutInPause")));
+    const longHolds = o.board.shots.filter((x) => x.endS - x.startS > (o.editBand!.bands.shotP90S?.p90 ?? 9)).map((x) => x.id);
+    add({ id: "shot_rhythm", label: `Shot rhythm against real ${o.editBand.lengthS}-second stretches`, value: rh.outside.length, target: "0 measures outside", pass: rh.outside.length === 0, level: "blocker", shots: longHolds, note: rh.outside.map((x) => `${x.key} ${x.ours} (channel ${x.band.p10}–${x.band.p90})`).join("; ") });
+    const cw = scoreAgainst("edit", m, pick(["cutToWordMedianS", "cutInPause"]));
+    add({ id: "cut_on_word", label: "Where cuts sit against the words", value: cw.outside.length, target: "0 measures outside", pass: cw.outside.length === 0, level: "blocker", note: cw.outside.map((x) => `${x.key} ${x.ours} (channel ${x.band.p10}–${x.band.p90})`).join("; ") });
   }
 
   // --- Sharpness: footage far softer than the channel's own frames (an upscaled or smeared source) is replaced.
@@ -397,6 +422,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       }
     }
   }
+  for (const c of o.extra ?? []) add(c);
   return out;
 }
 

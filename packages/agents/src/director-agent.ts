@@ -1,3 +1,4 @@
+import { lengthPlan } from "./film-length.js";
 /**
  * The director agent: it cuts the recorded narration into shots and decides what each shows — after reading how
  * the channel shows lines like these, and after checking that the footage it asks for actually exists.
@@ -53,10 +54,10 @@ const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math
 export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ storyboard: Storyboard; probes: Map<string, unknown[]> }> {
   const log = o.log ?? (() => {});
   const words = o.script.segments.flatMap((s) => s.words.map((w) => ({ ...w, seg: s.id })));
-  const short = o.script.durationS <= 90;
+  const lp = lengthPlan(o.script.durationS);
   const pacing = o.pack.profile.pacing;
   const cuts = { lo: (pacing.cutsPerMin?.p25 ?? 12) * 0.85, mid: pacing.cutsPerMin?.p50 ?? 17, hi: (pacing.cutsPerMin?.p75 ?? 21) * 1.15 };
-  const maxShot = short ? 5.5 : 7;
+  const maxShot = lp.maxShotS;
   const nf = numericFacts(o.facts);
   const menu = buildMenu(o.index);
   const skill = await readFile(new URL("../skills/director.md", import.meta.url), "utf8");
@@ -204,7 +205,19 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
       `${skill}\n\n## This channel's pace (measured)\n${cuts.lo.toFixed(0)}–${cuts.hi.toFixed(0)} cuts a minute, typically ${cuts.mid.toFixed(0)}; median shot about ${(pacing.shotMedianS?.p50 ?? 2).toFixed(1)} s. No shot under 0.8 s or over ${maxShot} s.\n\n## The plan you write\nAspect ${o.script.aspect}. Each shot: startWord (global word index it starts on), intent (what the viewer should understand), lineLink, visual (reenactment = staged footage with anonymous people; broll; photo; designed), query (the footage to find — also the footage behind a graphic), era, entities (real named people, companies, products, places the shot must literally show; year 0 if unknown), designedKind + designedProps for a data graphic (else "none" and "{}"), camera, transitionIn, focusX (0.5 unless the subject sits to one side). Leave overlay empty and sfx as an empty list: sound is designed later on what the viewer sees.\nmusicId: one bed from the music menu.\n\n${PROPS_SPEC}${o.avoidQueries?.length ? `\n\nQueries that failed in earlier films (do not reuse these phrasings): ${o.avoidQueries.slice(0, 30).join("; ")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
-  const user = `Direct this film.\n\nMUSIC MENU: ${menu.music.slice(0, 40).map((m) => `${m.id} "${m.title}" ${m.durationS}s`).join("; ")}\n\nNUMERIC FACT TABLE (verified):\n${formatFactTable(nf) || "(none — no charts)"}\n\nNARRATION:\n${o.script.segments.map((s) => `[${s.id} ${s.role}${s.chapter ? ` | chapter "${s.chapter}"` : ""}] ${s.text}`).join("\n")}\n\nWORDS (index:word@seconds):\n${words.map((w, k) => `${k}:${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nStart by reading how the channel shows lines like these.`;
+  const user = `Direct this film.\n\nMUSIC MENU: ${menu.music.slice(0, 40).map((m) => `${m.id} "${m.title}" ${m.durationS}s`).join("; ")}\n\nNUMERIC FACT TABLE (verified):\n${formatFactTable(nf) || "(none — no charts)"}${(() => {
+    // build list 5, items 8 and 19: the director plans for pictures that exist AND mean something, from the research's
+    // scene and character material — the moments, people, turns and the pictures inside quotes
+    const st = o.facts.story;
+    if (!st) return "";
+    const parts = [
+      st.scenes.length ? `MOMENTS (from the research — real places, dates, people; the picture of the line should be THIS moment, or its real place, people or objects):\n${st.scenes.slice(0, 12).map((c) => `- ${c.when}, ${c.where}: ${c.what} (${c.who.join(", ")})`).join("\n")}` : "",
+      st.characters.length ? `PEOPLE (show the real person — press, archive, their portrait — when a line names them; never a stand-in face):\n${st.characters.slice(0, 8).map((c) => `- ${c.name}, ${c.role}: wanted ${c.want}`).join("\n")}` : "",
+      st.turns?.length ? `TURNS (the moments the story changes — give them the film's strongest real pictures):\n${st.turns.map((t) => `- ${t.when}: ${t.what}`).join("\n")}` : "",
+      st.quotes.some((q) => q.image) ? `PICTURES INSIDE QUOTES (findable as real footage of the thing named, or as a designed scene built on a real picture):\n${st.quotes.filter((q) => q.image).map((q) => `- ${q.speaker}: "${q.text.slice(0, 120)}" → ${q.image}`).join("\n")}` : "",
+    ].filter(Boolean);
+    return parts.length ? `\n\n${parts.join("\n\n")}\n\nAsk for a picture of the line's MEANING (the moment, the person, the thing at stake), never a generic stand-in (hands on a phone, someone typing, an empty office): probe_footage first, and if the specific picture does not exist, design the shot around a real picture of the subject.` : "";
+  })()}\n\nNARRATION:\n${o.script.segments.map((s) => `[${s.id} ${s.role}${s.chapter ? ` | chapter "${s.chapter}"` : ""}] ${s.text}`).join("\n")}\n\nWORDS (index:word@seconds):\n${words.map((w, k) => `${k}:${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nStart by reading how the channel shows lines like these.`;
 
   log(`  director: one director with tools — ${words.length} words, ${Math.round(o.script.durationS)} s, about ${Math.round((o.script.durationS / 60) * cuts.mid)} shots at the channel's pace (${ROLE_MODEL.director})…`);
   const run = await agentLoop({ stage: "director.agent", finish: { message: "Your budget for this stage is used up. Call submit_plan NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_plan again." }, model: ROLE_MODEL.director, system, user, tools, effort: "medium", maxTurns: 18, maxSeconds: 300, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The shot list is not accepted yet. Measure it, fix what it shows, and submit.", log });

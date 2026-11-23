@@ -14,12 +14,12 @@
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { isUsable } from "@opumia/agents";
+import { isUsable, watermarkCheck } from "@opumia/agents";
 import type { LibraryIndex, ResolutionReport, ResolvedMedia, Storyboard } from "@opumia/contracts";
 import { ensureLocal } from "@opumia/ingest";
 import { measureCraft, removeBackground } from "@opumia/senses";
-import { periodCheck, reviewPictures, yearOf } from "./press.js";
-import { materialize } from "./resolve.js";
+import { MEANING_BAR, periodCheck, reviewPictures, yearOf } from "./press.js";
+import { channelIdleCap, materialize } from "./resolve.js";
 import { allProviders, downloadCandidate, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
 import { thumbOf } from "./widen.js";
 
@@ -58,6 +58,16 @@ export function makeSceneTools(o: SceneToolsOptions) {
     return sh ? o.words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ") : "";
   };
   const used = () => new Set(o.resolution.media.filter((m) => m.role === "primary" || m.role === "layer").map((m) => m.ref));
+  // build list 5, item 16: idle stock placed by these tools, against the channel's cap (share of the film's shots)
+  const idlePlaced = new Set<string>();
+  let idleCapN: number | undefined;
+  const idleLimit = async (): Promise<number> => {
+    if (idleCapN === undefined) {
+      const c = await channelIdleCap(o.jobDir);
+      idleCapN = c === null ? Infinity : Math.max(1, Math.floor(c * Math.max(1, o.storyboard.shots.length)));
+    }
+    return idleCapN;
+  };
   const nextSlot = (id: string) => Math.max(7, ...o.resolution.media.filter((m) => m.shotId === id && m.role === "layer").map((m) => m.slot ?? 0)) + 1;
 
   /** Ask every source, rate previews against the line, fetch the best. */
@@ -82,7 +92,10 @@ export function makeSceneTools(o: SceneToolsOptions) {
     ).filter((x): x is { c: StockCandidate; thumb: string } => x !== null);
     if (!withThumb.length) return { ok: false, why: "candidates were found but none could be previewed" };
     const rated = await reviewPictures(withThumb.map((x) => ({ frameFile: x.thumb, intent: i.want, line: lineOf(i.shotId), era: o.whenOf?.(i.shotId) || o.era })));
-    let fits = withThumb.map((x, k) => ({ ...x, r: rated[k]! })).filter((x) => x.r.shows !== "not reviewed" && x.r.fit >= 6 && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r.fit - a.r.fit);
+    // build list 5, items 16–17: rated by meaning; story-specific first, idle stock last and capped at the channel's share
+    const cap = await idleLimit();
+    let fits = withThumb.map((x, k) => ({ ...x, r: rated[k]! })).filter((x) => x.r.shows !== "not reviewed" && x.r.fit >= MEANING_BAR && !x.r.wrongEra && !x.r.banner && !x.r.synthetic && !(x.r.idle && idlePlaced.size >= cap)).sort((a, b) => b.r.fit + (b.r.specific ? 1 : 0) - (b.r.idle ? 0.5 : 0) - (a.r.fit + (a.r.specific ? 1 : 0) - (a.r.idle ? 0.5 : 0)));
+    if (!fits.length && rated.some((r) => r.idle && r.fit >= MEANING_BAR)) return { ok: false, why: `what fits is idle stock (people doing nothing in particular) and the film already carries the channel's share of it (${cap} shot(s)). Ask for a picture of the story itself: the named subject, its product, its place, a document, an archive moment, or an object that carries the line's idea.` };
     const year = yearOf(o.whenOf?.(i.shotId));
     if (year !== null && year <= 2008 && fits.length) {
       fits = fits.slice(0, 4);
@@ -97,6 +110,7 @@ export function makeSceneTools(o: SceneToolsOptions) {
     let best = fits[0];
     let dl: string | null = null;
     let soft = 0;
+    let marks = 0;
     for (const f of fits.slice(0, 3)) {
       const d = await downloadCandidate(f.c, dlDir).catch(() => null);
       if (!d) continue;
@@ -104,10 +118,13 @@ export function makeSceneTools(o: SceneToolsOptions) {
         const cr = await measureCraft(d, f.c.kind === "video" ? 1 : undefined).catch(() => null);
         if (cr && cr.sharpTop < o.softBelow) { soft++; continue; }
       }
+      // build list 5, item 18: a watermark or channel bug is never placed
+      if ((await watermarkCheck(d).catch(() => null))?.marked) { marks++; continue; }
       (best = f), (dl = d);
       break;
     }
-    if (!dl) return { ok: false, why: soft ? `the pictures that fit are softer than the channel's footage (${soft} passed over): ask for something filmed sharply, or a still to compose with` : "the best candidates could not be downloaded" };
+    if (!dl) return { ok: false, why: soft ? `the pictures that fit are softer than the channel's footage (${soft} passed over): ask for something filmed sharply, or a still to compose with` : marks ? `the pictures that fit carry a watermark or channel bug (${marks} passed over): ask again in other words` : "the best candidates could not be downloaded" };
+    if (best.r.idle) idlePlaced.add(`${best.c.provider}:${best.c.externalId}`);
     const c = best.c;
     const ref = `${c.provider}:${c.externalId}`;
     const base: Omit<ResolvedMedia, "role" | "localPath" | "publicPath"> = { shotId: i.shotId, origin: c.archival ? "archival" : "stock", ref, provider: c.provider, kind: c.kind, ...(c.width ? { width: c.width, height: c.height } : {}), license: c.license, attributionRequired: c.attributionRequired, ...(c.attributionText ? { attributionText: c.attributionText } : {}), sourceUrl: c.pageUrl, aiGenerated: false, score: best.r.fit / 10, query: q, depicts: best.r.shows, seen: { fit: best.r.fit, face: best.r.face, banner: best.r.banner, note: best.r.shows } };
@@ -209,18 +226,18 @@ export function makeFootageProbe(o: { jobDir: string; aspect: string; era: strin
         ).filter((x): x is { c: StockCandidate; thumb: string } => x !== null);
         if (!withThumb.length) return { key: it.key, found: 0, fit: 0, shows: "no source returned anything", candidates: [] };
         const rated = await reviewPictures(withThumb.map((x) => ({ frameFile: x.thumb, intent: it.want, line: it.line, era: it.when || o.era }))).catch(() => []);
-        let good = withThumb.map((x, k) => ({ ...x, r: rated[k] })).filter((x) => x.r && x.r.shows !== "not reviewed" && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r!.fit - a.r!.fit);
+        let good = withThumb.map((x, k) => ({ ...x, r: rated[k] })).filter((x) => x.r && x.r.shows !== "not reviewed" && !x.r.wrongEra && !x.r.banner && !x.r.synthetic).sort((a, b) => b.r!.fit + (b.r!.specific ? 1 : 0) - (b.r!.idle ? 0.5 : 0) - (a.r!.fit + (a.r!.specific ? 1 : 0) - (a.r!.idle ? 0.5 : 0)));
         const year = yearOf(it.when);
         let lateNote = "";
-        if (year !== null && year <= 2008 && good.some((x) => x.r!.fit >= 6)) {
-          const top = good.filter((x) => x.r!.fit >= 6).slice(0, 3);
+        if (year !== null && year <= 2008 && good.some((x) => x.r!.fit >= MEANING_BAR)) {
+          const top = good.filter((x) => x.r!.fit >= MEANING_BAR).slice(0, 3);
           const dated = await periodCheck(top.map((x) => ({ frameFile: x.thumb, year })));
           const late = new Set(top.filter((_, k) => !dated[k]!.ok));
           if (late.size === top.length) lateNote = `what fits looks later than ${year} (${dated.map((d) => d.evidence).filter(Boolean).slice(0, 2).join("; ")})`;
-          good = good.filter((x) => !late.has(x) && (x.r!.fit < 6 || top.includes(x)));
+          good = good.filter((x) => !late.has(x) && (x.r!.fit < MEANING_BAR || top.includes(x)));
         }
         const best = lateNote ? undefined : good[0];
-        return { key: it.key, found: withThumb.length, fit: lateNote ? 3 : (best?.r?.fit ?? Math.max(0, ...rated.map((r) => (r.wrongEra ? Math.min(r.fit, 4) : r.fit)))), shows: lateNote || (best?.r?.shows ?? (rated.some((r) => r.wrongEra) ? "only pictures from the wrong period" : "nothing usable")), candidates: lateNote ? [] : good.filter((x) => x.r!.fit >= 6).slice(0, 3).map((x) => x.c), ...(best ? { thumb: best.thumb } : {}) };
+        return { key: it.key, found: withThumb.length, fit: lateNote ? 3 : (best?.r?.fit ?? Math.max(0, ...rated.map((r) => (r.wrongEra ? Math.min(r.fit, 4) : r.fit)))), shows: lateNote || (best?.r ? `${best.r.shows}${best.r.idle ? " [idle stock: people doing nothing in particular — the channel caps these]" : best.r.specific ? " [story-specific]" : ""}` : undefined) || (best?.r?.shows ?? (rated.some((r) => r.wrongEra) ? "only pictures from the wrong period" : "nothing usable")), candidates: lateNote ? [] : good.filter((x) => x.r!.fit >= MEANING_BAR).slice(0, 3).map((x) => x.c), ...(best ? { thumb: best.thumb } : {}) };
       }),
     );
   };

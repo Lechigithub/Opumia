@@ -120,7 +120,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
           return { ...el, props: { ...pr, words } };
         });
         // never a black frame: a footage scene whose footage is gone falls back to the kit's stage (build list 4)
-        const noFootage = (spec as { backdrop?: string }).backdrop !== "stage" && !media.some((m) => m.role === "primary");
+        const noFootage = ((spec as { backdrop?: string }).backdrop ?? "footage") === "footage" && !media.some((m) => m.role === "primary");
         props = { spec: { ...spec, ...(noFootage ? { backdrop: "stage" } : {}), elements }, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
       }
       if (s.factIds?.length) props.factIds = s.factIds;

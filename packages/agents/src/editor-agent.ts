@@ -19,16 +19,46 @@ import type { ChannelId, ResolutionReport, ScenePlan, Storyboard, TimedScript } 
 import { probeDuration, rgbFrames } from "@opumia/senses";
 import * as z from "zod/v4";
 import { loadChannelProfile, type Segment } from "./channel-profile.js";
-import { ourShotsFrom, structureOf, type FilmGap } from "./film-score.js";
+import { ourShotsFrom, stretchOfPlan, structureOf, type FilmGap } from "./film-score.js";
+import { CRAFT_MEASURES, craftBand, scoreAgainst } from "./craft-score.js";
+import { buildCutTimeline } from "./cut-timeline.js";
 import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { edl, findPassages } from "./reference-library.js";
 
 /** Measures the editor owns (sound and picture kinds belong to other agents). */
 export const EDITOR_KEYS = ["cutsPerMin", "shotMedianS", "shotCv", "cutInPause", "cutToWordMedianS", "wordsPerShot"];
+/** Build list 5, item 20: the at-length rhythm measures the editor is held to (CRAFT_MEASURES.edit on real stretches of the film's length). */
+export const RHYTHM_KEYS = ["shotMedianS", "shotCv", "shotP90S", "cutToWordMedianS", "cutInPause", "stillHolds"];
+const BRIDGE_TRANSITIONS = new Set(["film", "whip", "light_leak", "fade", "dip_black", "match"]);
+
+/**
+ * Build list 5, item 21: a cut to the same picture (the same source on both sides) needs a different framing AND a
+ * transition (punch-in on action, whip, flash). Returns the shots entering such a cut without both.
+ */
+export function stutterCuts(shots: Array<{ id: string; transitionIn?: string; camera?: { type?: string; [k: string]: unknown }; trimInS?: number }>, media: Array<{ shotId: string; role: string; ref?: string; localPath?: string }>): Array<{ shotId: string; why: string }> {
+  const src = (id: string) => {
+    const m = media.find((x) => x.shotId === id && x.role === "primary");
+    return m ? (m.ref ?? m.localPath ?? "").replace(/#.*$/, "").replace(/\?.*$/, "") : "";
+  };
+  const out: Array<{ shotId: string; why: string }> = [];
+  shots.forEach((x, k) => {
+    if (k === 0) return;
+    const prev = shots[k - 1]!;
+    const a = src(prev.id), b = src(x.id);
+    const sameSplit = /_\d+$/.test(x.id) && x.id.replace(/_\d+$/, "") === prev.id.replace(/_\d+$/, "");
+    if (!sameSplit && (!a || a !== b)) return;
+    const bridged = BRIDGE_TRANSITIONS.has(x.transitionIn ?? "cut");
+    const reframed = JSON.stringify(x.camera ?? {}) !== JSON.stringify(prev.camera ?? {}) || Math.abs((x.trimInS ?? 0) - (prev.trimInS ?? 0)) >= 1;
+    if (!bridged || !reframed) out.push({ shotId: x.id, why: `${prev.id} → ${x.id} is the same picture ${!bridged ? "with a hard cut" : ""}${!bridged && !reframed ? " and " : ""}${!reframed ? "with the same framing" : ""}` });
+  });
+  return out;
+}
 
 export interface EditorReport { pass: boolean; before: { structure: number; gaps: FilmGap[] }; after: { structure: number; gaps: FilmGap[] }; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
 export interface EditorAgentOptions {
+  /** Build list 5, item 22: the voice director's stressed words (voice-direction.json), shared with the sound designer. */
+  emphasis?: Array<{ emphasis: string }>;
   channel: ChannelId;
   data: string;
   storyboard: Storyboard;
@@ -76,6 +106,15 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
     return structureOf(prof, shots, hits, durS, EDITOR_KEYS);
   };
   const before = measureNow();
+  // build list 5, item 20: the rhythm of real stretches as long as THIS film (by position: openings, middles, endings)
+  const rhythmBand = await craftBand({ data: o.data, channel: o.channel, craft: "edit", lengthS: board.durationS }).catch(() => null);
+  const rhythmNow = async () => {
+    if (!rhythmBand) return null;
+    const m = await CRAFT_MEASURES.edit!(stretchOfPlan(state() as never) as never);
+    const band = { ...rhythmBand, bands: Object.fromEntries(Object.entries(rhythmBand.bands).filter(([k]) => RHYTHM_KEYS.includes(k))) };
+    return scoreAgainst("edit", m, band);
+  };
+  let rhythmRefusals = 0;
   const lineOf = (s: { startS: number; endS: number }) => words.filter((w) => (w.startS + w.endS) / 2 >= s.startS && (w.startS + w.endS) / 2 < s.endS).map((w) => w.word).join(" ");
   const renumber = () => { board = { ...board, shots: board.shots.map((s, i) => ({ ...s, index: i })) }; };
   const find = (id: string) => board.shots.findIndex((s) => s.id === id);
@@ -90,6 +129,20 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
       ...(m.gaps.length ? m.gaps.map((g) => `- ${g.segment === "film" ? "whole film" : g.segment}: ${g.what} ours ${g.ours} — channel ${g.band.p10}–${g.band.p90} (median ${g.band.median})`) : ["- inside the channel's band on every editor measure"]),
     ].join("\n");
   };
+  // build list 5, item 22: the same timeline the sound designer reads — cuts, stressed words, story turns, pauses
+  const timelineText = () => {
+    const tl = buildCutTimeline({ storyboard: board, script: o.script, ...(o.emphasis ? { emphasis: o.emphasis } : {}) });
+    const near = (t: number) => tl.cuts.some((c) => Math.abs(c.atS - t) <= 0.25);
+    return `\nSHARED TIMELINE (the sound designer puts hits on cuts and stressed words from this same list): stressed words ${tl.stressed.map((w) => `"${w.word}"@${w.atS.toFixed(2)}${near(w.atS) ? " [cut]" : ""}`).join(", ") || "none"}; turns ${tl.turns.map((t) => `${t.role}@${t.atS.toFixed(1)}`).join(", ")}. A cut that lands on a stressed word lets the hit land on both.`;
+  };
+  const rhythmText = async () => {
+    const r = await rhythmNow();
+    const st = stutterCuts(board.shots as never, resolution.media as never);
+    return [
+      r ? `\nRhythm against ${rhythmBand!.stretches} real stretches of ${rhythmBand!.lengthS} s (score ${r.score}/100):${r.outside.length ? r.outside.map((x) => `\n- ${x.key}: ours ${x.ours}, channel ${x.band.p10}–${x.band.p90} (median ${x.band.median})`).join("") : " inside the band on every rhythm measure"}\n  (shotP90S = the long shots; stillHolds = share of shots over 2.5 s with nothing moving; cutToWordMedianS = how far cuts sit from a word boundary — the channel cuts slightly off the word, never mechanically on it)` : "",
+      st.length ? `\nSTUTTER CUTS (the same picture on both sides of a cut needs a different framing AND a transition): ${st.map((x) => x.why).join("; ")}` : "",
+    ].join("");
+  };
 
   let studied = 0;
   let watched = 0;
@@ -100,7 +153,7 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
       name: "read_cut",
       description: "Our current cut as an edit decision list (every shot: start, length, picture kind, text, cut against the voice, words said) and every gap to the channel's band on the editor's measures, whole film and by position.",
       schema: z.object({}),
-      run: (async () => cutText()) as AgentTool["run"],
+      run: (async () => `${cutText()}${await rhythmText()}${timelineText()}`) as AgentTool["run"],
     },
     {
       name: "study_real_cut",
@@ -140,6 +193,25 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         const bestMatch = match.reduce((best, v, j) => (v > match[best]! ? j : best), 0);
         const now = Math.round((cur.startS - from) * FPS);
         return `cut now at ${cur.startS.toFixed(2)} s (motion there ${(motion[Math.min(motion.length - 1, Math.max(0, now))] ?? 0).toFixed(1)}).\n- cut on action: the outgoing clip moves most at ${at(peak)} s (motion ${motion[peak]!.toFixed(1)}; the clip's median ${[...motion].sort((x, y) => x - y)[Math.floor(motion.length / 2)]!.toFixed(1)})${b ? `\n- match cut: the outgoing frame most like the incoming first frame is at ${at(bestMatch)} s (likeness ${match[bestMatch]!.toFixed(2)}; above 0.85 reads as a match)` : ""}\nMove the cut only where the voice allows (between words).`;
+      }) as AgentTool["run"],
+    },
+    {
+      name: "reframe",
+      description: "Build list 5, item 21: give a shot a different framing from the shot before it — a punch-in on a part of the frame (scale 1.15–1.6 centred on a point, x/y 0–1), or start its clip at another moment (trimInS). Use it on the second half of a split or any cut back to the same picture, together with set_transition.",
+      schema: z.object({ shotId: z.string(), punchIn: z.object({ scale: z.number().min(1.05).max(2), x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(), trimInS: z.number().min(0).optional() }),
+      run: (async (i: { shotId: string; punchIn?: { scale: number; x: number; y: number }; trimInS?: number }) => {
+        const k = find(i.shotId);
+        if (k < 0) return `no shot ${i.shotId}`;
+        const sh = board.shots[k]!;
+        const next = { ...sh } as typeof sh;
+        if (i.punchIn) next.camera = { type: "ken_burns", fromScale: i.punchIn.scale, toScale: i.punchIn.scale * 1.04, from: [i.punchIn.x, i.punchIn.y], to: [i.punchIn.x, i.punchIn.y] } as typeof sh.camera;
+        if (i.trimInS !== undefined) {
+          if (capacity(sh.id, i.trimInS) < sh.endS - sh.startS) return `the clip does not hold ${(sh.endS - sh.startS).toFixed(2)} s after ${i.trimInS} s`;
+          next.trimInS = i.trimInS;
+        }
+        board = { ...board, shots: board.shots.map((x, j) => (j === k ? next : x)) };
+        ops.push(`reframe ${sh.id}`);
+        return `${sh.id} reframed${i.punchIn ? ` (punch-in ×${i.punchIn.scale} at ${i.punchIn.x},${i.punchIn.y})` : ""}${i.trimInS !== undefined ? ` (clip from ${i.trimInS} s)` : ""}`;
       }) as AgentTool["run"],
     },
     {
@@ -277,6 +349,15 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         if (o.watch && !watched) return "refused: watch at least one stretch you changed (with its sound) before submitting — numbers alone do not show a jump cut or a cut that lands on the wrong picture";
         const now = measureNow();
         if (now.structure < before.structure) return `refused: the cut measures further from the channel than it started (${now.structure} < ${before.structure}). Read the cut and fix it.`;
+        // build list 5, items 20–21: stutter cuts are never accepted; the rhythm at this film's length must be in band —
+        // after two refusals what is left goes to the preflight gate as the editor's problem (never a stop)
+        const st = stutterCuts(board.shots as never, resolution.media as never);
+        if (st.length) return `refused: stutter cuts — ${st.map((x) => x.why).join("; ")}. Give each a different framing (set a camera move or trim to another moment) AND a transition (whip, light_leak, film), or merge it.`;
+        const rh = await rhythmNow();
+        if (rh && rh.outside.length && rhythmRefusals < 2) {
+          rhythmRefusals++;
+          return `refused (${rhythmRefusals}/2): the rhythm is outside real ${rhythmBand!.lengthS}-second stretches: ${rh.outside.map((x) => `${x.key} ${x.ours} (channel ${x.band.p10}–${x.band.p90})`).join("; ")}. Split long holds on action, merge slivers, move cuts off the word boundary into the motion.`;
+        }
         accepted = { note: i.note };
         return `ACCEPTED (structure on your measures ${before.structure} → ${now.structure}). If this film taught you something, call note_lesson once; then stop.`;
       }) as AgentTool["run"],

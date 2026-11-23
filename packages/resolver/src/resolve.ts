@@ -5,13 +5,13 @@ import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promis
 import path from "node:path";
 import { promisify } from "node:util";
 import { ResolutionReport, type AssetRecord, type LibraryIndex, type ResolvedMedia, type Storyboard, type StoryboardShot } from "@opumia/contracts";
-import { isUsable, MODELS, plain, structured } from "@opumia/agents";
+import { isUsable, MODELS, plain, structured, watermarkCheck } from "@opumia/agents";
 import { ensureLocal } from "@opumia/ingest";
 import * as z from "zod/v4";
 import { Bm25, buildDocs, type LocalDoc } from "./local-search.js";
 import { allProviders, archiveAt, downloadCandidate, providerHealth, providersFor, refused, searchStock, sharpEnough, type StockCandidate } from "./stock.js";
 import { measureCraft } from "@opumia/senses";
-import { archiveMoment, periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
+import { MEANING_BAR, archiveMoment, periodCheck, yearOf, closeBrowser, reviewFrame, reviewPictures, screenshotPage, visionCheck, wikipediaImages, youtubeFootage, youtubePress, type PressCandidate } from "./press.js";
 import { planSourcing, pooled, replanShots, thumbOf, webPictures, type ShotBrief } from "./widen.js";
 
 const run = promisify(execFile);
@@ -165,11 +165,24 @@ export interface ResolveOptions {
   /** Build list 3, item 21: footage whose sharpest tenth is below this (the channel's softest tenth of frames,
    * `senses:measureCraft().sharpTop`) is not placed — the same measure the preflight gate uses. */
   softBelow?: number;
+  /** Build list 5, item 16: the most idle stock (people doing nothing in particular) the channel's films carry, as a
+   * share of shots (data/picture-profile/<channel>.json `idleCap`). Absent: read from the job's channel profile if it
+   * has been built; null: no cap. */
+  idleCap?: number | null;
   /** Folder for the stock-search memo (results kept 20 h, so re-runs and films on one subject do not spend API quota twice). */
   cacheDir?: string;
   /** Fair-use press sourcing (YouTube news/interview excerpts, Wikipedia photos and logos). Default on. */
   press?: boolean;
   log?: (s: string) => void;
+}
+
+/** The channel's idle-stock cap, from the job's channel (job.json) and its picture band, if that band has been built. */
+export async function channelIdleCap(jobDir: string): Promise<number | null> {
+  const job = await readFile(path.join(jobDir, "job.json"), "utf8").then((t) => JSON.parse(t) as { channel?: string }, () => null);
+  if (!job?.channel) return null;
+  const data = process.env.OPUMIA_DATA_DIR ? path.resolve(process.env.OPUMIA_DATA_DIR) : path.join(jobDir, "..", "..", "data");
+  const band = await readFile(path.join(data, "picture-profile", `${job.channel}.json`), "utf8").then((t) => JSON.parse(t) as { idleCap?: number }, () => null);
+  return typeof band?.idleCap === "number" ? band.idleCap : null;
 }
 
 const isBlocked = (blocked: Set<string> | undefined, ref: string) => !!blocked && (blocked.has(ref) || blocked.has(ref.split("#")[0]!));
@@ -200,6 +213,12 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const usedLocal = new Set<string>();
   const usedStock = new Set<string>();
   const chosen = new Map<string, Cand>();
+  // Build list 5, item 16: idle stock is capped at the channel's share; item 17: story-specific pictures come first.
+  const idleCap = o.idleCap !== undefined ? o.idleCap : await channelIdleCap(o.jobDir);
+  const idleMax = idleCap === null ? Infinity : Math.max(1, Math.floor(idleCap * Math.max(1, o.storyboard.shots.length)));
+  let idleChosen = 0;
+  const idleKeys = new Set<string>();
+  if (idleCap !== null) log(`  resolver: idle stock capped at ${Math.round(idleCap * 100)} % of shots (${idleMax} of ${o.storyboard.shots.length}), the channel's share`);
 
   // The film's named subjects, most-mentioned first (the first is the film's main subject).
   const subjects = (() => {
@@ -448,13 +467,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       .map((x) => {
         const cur = offered.get(x.n.shot.id) ?? { n: 0, best: 0 };
         offered.set(x.n.shot.id, { n: cur.n + 1, best: Math.max(cur.best, x.r.fit) });
-        looked.set(x.n.shot.id, [...(looked.get(x.n.shot.id) ?? []), { source: x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider, ref: x.key, fit: x.r.fit, wrongEra: x.r.wrongEra, banner: x.r.banner, face: x.r.face, synthetic: x.r.synthetic, shows: x.r.shows }]);
+        looked.set(x.n.shot.id, [...(looked.get(x.n.shot.id) ?? []), { source: x.c.src === "local" ? "library" : x.c.src === "press" ? "youtube" : x.c.c.provider, ref: x.key, fit: x.r.fit, wrongEra: x.r.wrongEra, banner: x.r.banner, face: x.r.face, synthetic: x.r.synthetic, shows: x.r.idle ? `${x.r.shows} [idle stock]` : x.r.specific ? `${x.r.shows} [story-specific]` : x.r.shows }]);
         return x;
       })
       // Burned-in captions or graphics mark someone else's edit: never taken. A face under a line naming a person is
       // accepted only from footage whose own title names that person.
-      .filter((x) => x.r.fit >= 6 && !x.r.wrongEra && !x.r.synthetic && !x.r.banner && !(namedPerson(x.n) && x.r.face && !titledAs(x.c, x.n)))
-      .map((x) => ({ ...x, score: x.r.fit + (x.c.src === "press" ? 0.6 : x.c.src === "local" ? 0.3 : x.c.c.archival && briefOf(x.n).need !== "staged" ? 0.3 : 0) }))
+      .filter((x) => x.r.fit >= MEANING_BAR && !x.r.wrongEra && !x.r.synthetic && !x.r.banner && !(namedPerson(x.n) && x.r.face && !titledAs(x.c, x.n)))
+      // story-specific pictures (this story's people, company, products, places, archive) first; idle stock last
+      .map((x) => ({ ...x, score: x.r.fit + (x.r.specific ? 1 : 0) - (x.r.idle ? 0.5 : 0) + (x.c.src === "press" ? 0.6 : x.c.src === "local" ? 0.3 : x.c.c.archival && briefOf(x.n).need !== "staged" ? 0.3 : 0) }))
       .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
     // Period: for lines set before 2009, the three best candidates of each shot are dated by a dedicated check
     // and anything later than the line is taken out before a pick is made.
@@ -481,6 +501,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const takenKeys = new Set<string>();
     for (const x of good) {
       if (chosen.has(x.n.shot.id) || takenKeys.has(x.key)) continue;
+      if (x.r.idle && idleChosen >= idleMax) continue;
       if (x.c.src === "press") {
         // One clip per source video per film.
         const vid = x.c.p.externalId.split("@")[0]!;
@@ -493,6 +514,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       else usedStock.add(x.key);
       chosen.set(x.n.shot.id, { ...x.c, score: x.r.fit / 10 });
       takenKeys.add(x.key);
+      if (x.r.idle) idleChosen++, idleKeys.add(x.key);
     }
     // Rated runners-up (licensed sources only) stand by in case the chosen clip fails on the full frame.
     for (const n of pending) stock.set(n.shot.id, good.filter((x) => x.n === n && x.c.src !== "press" && !takenKeys.has(x.key)).map((x) => x.c));
@@ -566,6 +588,12 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
           fallbacks++;
           continue;
         }
+        if (await marked(m)) {
+          lastErr = `${keyOf(c)} carries a watermark or channel bug`;
+          await unlink(m.localPath).catch(() => {});
+          fallbacks++;
+          continue;
+        }
         if (await tooSoft(m)) {
           lastErr = `${keyOf(c)} is softer than the channel's softest frames`;
           await unlink(m.localPath).catch(() => {});
@@ -596,6 +624,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const person = (n: Need) => n.shot.entities?.find((e) => e.type === "person")?.name ?? (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(n.line) && n.shot.lineLink === "literal" ? "a named person" : null);
     let rejected = 0;
     let replaced = 0;
+    let idleSeen = 0;
     for (let round = 0; round < 3; round++) {
       const todo = media.filter((m) => m.role === "primary" && m.origin !== "press" && !m.seen);
       if (!todo.length) break;
@@ -611,7 +640,8 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         const r = reviews[k]!;
         x.m.seen = { fit: r.fit, face: r.face, banner: r.banner, note: r.shows };
         if (!x.m.depicts) x.m.depicts = r.shows;
-        const why = r.fit < 6 ? `poor fit (${r.fit}/10, the gate needs 6): shows ${r.shows}` : r.banner ? "burned-in graphics" : r.synthetic ? "looks generated, not photographed" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
+        const idleOver = r.idle && ++idleSeen > idleMax;
+        const why = r.fit < MEANING_BAR ? `poor fit (${r.fit}/10 for meaning, the gate needs ${MEANING_BAR}): shows ${r.shows}` : idleOver ? `idle stock over the channel's share (${idleMax} of ${o.storyboard.shots.length} shots): ${r.shows}` : r.banner ? "burned-in graphics" : r.synthetic ? "looks generated, not photographed" : r.wrongEra ? "wrong period" : person(x.n) && r.face ? `a stand-in face under a line naming ${person(x.n)}` : null;
         if (!why) continue;
         rejected++;
         media.splice(media.indexOf(x.m), 1);
@@ -629,7 +659,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
             try {
               const m2 = await materializeCand(alt, x.n);
               if (m2.kind === "video" && (await hasBlack(m2.localPath))) continue;
-              if (await tooSoft(m2)) continue;
+              if ((await tooSoft(m2)) || (await marked(m2))) continue;
               const rs = ratedSeen.get(`${x.n.shot.id}|${keyOf(alt)}`);
               if (rs) (m2.seen = rs), (m2.depicts ??= rs.note);
               media.push(m2);
@@ -670,7 +700,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         try {
           const m2 = await materializeCand(alt, x.n);
           const f2 = `${m2.localPath}.period.jpg`;
-          if (!(await reviewFrame(m2.localPath, f2, m2.kind === "video" ? 1 : 0)) || !(await periodCheck([{ frameFile: f2, year: x.year }]))[0]!.ok || (await tooSoft(m2))) continue;
+          if (!(await reviewFrame(m2.localPath, f2, m2.kind === "video" ? 1 : 0)) || !(await periodCheck([{ frameFile: f2, year: x.year }]))[0]!.ok || (await tooSoft(m2)) || (await marked(m2))) continue;
           const rs = ratedSeen.get(`${x.n.shot.id}|${keyOf(alt)}`);
           if (rs) (m2.seen = rs), (m2.depicts ??= rs.note);
           media.push(m2);
@@ -685,6 +715,14 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       if (!ok) unresolved.push({ shotId: x.n.shot.id, query: x.n.query, reason: `period: ${dated[k]!.evidence.slice(0, 120)}` });
     }
     if (items.length) log(`  resolver: ${items.length} period pick(s) dated on their footage — ${late} looked too late (${fixed} replaced)`);
+  }
+
+  /** Build list 5, item 18: a watermark or channel bug in a corner (pixels + one look by eye) — never placed. */
+  async function marked(m: ResolvedMedia): Promise<boolean> {
+    if (m.role !== "primary") return false;
+    const v = await watermarkCheck(m.localPath).catch(() => null);
+    if (v?.marked) log(`  resolver: ${m.ref} refused — ${v.note}`);
+    return Boolean(v?.marked);
   }
 
   /** The preflight gate's softness measure, run at placement (press footage is exempt, as in the gate). */
@@ -834,7 +872,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     const usedPic = new Set<string>();
     const usedShot = new Set<string>();
     let n = 0;
-    for (const y of rated.filter((z) => z.r && z.r.shows !== "not reviewed" && z.r.fit >= 6 && !z.r.banner && !z.r.wrongEra && !z.r.synthetic).sort((a, b) => b.r!.fit + (hasPrimary.has(b.x.sh.id) ? 0 : 1) - (a.r!.fit + (hasPrimary.has(a.x.sh.id) ? 0 : 1)))) {
+    for (const y of rated.filter((z) => z.r && z.r.shows !== "not reviewed" && z.r.fit >= MEANING_BAR && !z.r.banner && !z.r.wrongEra && !z.r.synthetic).sort((a, b) => b.r!.fit + (hasPrimary.has(b.x.sh.id) ? 0 : 1) - (a.r!.fit + (hasPrimary.has(a.x.sh.id) ? 0 : 1)))) {
       if (n >= 10 || usedPic.has(y.pic.url) || usedShot.has(y.x.sh.id) || isBlocked(o.blocked, `web:${y.pic.url}`)) continue;
       const file = `layer_${y.x.sh.id}_7_${path.basename(y.pic.file)}`;
       try {

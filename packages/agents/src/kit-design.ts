@@ -12,13 +12,13 @@ export type KitRole = (typeof KIT_ROLES)[number];
 
 /** The props the engine passes to each role (besides `slots`, `boxW`, `boxH`, which every component receives). */
 export const ROLE_CONTRACT: Record<KitRole, string> = {
-  headline: "text — the one line that lands a turn (words the narrator says)",
-  phrase: "text, words: [{ text, from }] — narration words synced to the voice: `from` is the frame (relative to the element's start) on which each word is spoken; draw each word as it is said",
-  label: "text, sub? — who or what is on screen (a name tag, a place, a date)",
+  headline: "text — the one line that lands a turn (words the narrator says); BIG, set into the picture: the channel's words cover a median 9 % of the frame and up to 30 % (measured with OCR on its real frames, build list 5 item 12) — size the type to fill its box, not to sit small in a tag",
+  phrase: "text, words: [{ text, from }] — narration words synced to the voice: `from` is the frame (relative to the element's start) on which each word is spoken; draw each word as it is said; large display type integrated with the picture (about half the channel's shots with words), never a small boxed label",
+  label: "text, sub? — who or what is on screen (a name tag, a place, a date); the only small boxed type of the kit (the channel boxes at most half of its words)",
   number: "value (the figure exactly as spoken, e.g. \"$7.2 billion\"), label?",
   quote: "text (a verbatim quotation), by",
   chapter: "title, index? — a chapter or title card",
-  stage: "variant? — a FULL-FRAME backdrop for shots with no footage (drawn behind every element; boxW/boxH are the frame); never a flat colour alone",
+  stage: "variant? — a FULL-FRAME ground behind data graphics only (chart, map, document; boxW/boxH are the frame); designed scenes are built in the engine's worlds of real pictures (duotone, black and white with an accent, collage, paper, burst, flat field, terminal), never on this stage — so keep it quiet, never a dark grid with glows or particles",
   chart: "type (\"line\" | \"bar\"), title, labels: string[], values: number[] (verified), display: string[] (each value as the narrator says it — show these strings), unit, highlight (index) — draw it in the film's own way; every value is given, never invent one",
   map: "title, route (bool), canvas { w, h }, paths: [{ d (SVG path in canvas units), focus (bool: a country the story is in) }], points: [{ name, x, y }] (canvas units), from / to: [x, y, w, h] view boxes (fly from the wide view to the close one) — draw the land, the points and the route in the film's own way",
   document: "style (\"web\" | \"newspaper\" | \"filing\" | \"letter\"), masthead, date, headline, body, highlight (an exact substring of headline or body), tone (\"yellow\" | \"red\"), highlightFrom / highlightTo (frames: sweep the highlight while those words are spoken), paperSrc? (a real paper texture)",

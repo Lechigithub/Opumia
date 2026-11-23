@@ -21,7 +21,7 @@ import type { ChannelId } from "@opumia/contracts";
 import type { QualityBand } from "./quality-band.js";
 import * as z from "zod/v4";
 import { agentLoop, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
-import { testTitles, thumbnailImposter } from "./publishing.js";
+import { ensureTitlePromiseBand, packagingCraftMeasures, testTitlesWithPromise, thumbnailImposter, type TitlePromise } from "./publishing.js";
 import { fitLayout } from "./scene-designer.js";
 import { critiqueConcepts, critiqueThumbnail, deconText, emptyShare, nearestRefsByMeaning, type ConceptScore, type ThumbConcept, type ThumbCraft, type ThumbCritique } from "./thumbnail-craft.js";
 import { labelThumbnails, THUMB_BACKGROUNDS, THUMB_HEROES, THUMB_MARKS, thumbIssues, type ThumbBand, type ThumbIssue } from "./thumbnail-measure.js";
@@ -65,13 +65,18 @@ export interface ThumbRender {
   empty?: number;
   imposter?: { spotted: boolean; confidence: number; tells: string[]; runs?: number; spottedRuns?: number };
   critique?: ThumbCritique;
+  /** Build list 5, item 29: words measured on the render (the labeller's count), and why it carries none if so. */
+  words?: number;
+  noWordsBecause?: string;
 }
 export interface PackagingReport {
   pass: boolean;
   title: string;
-  titles: Array<{ title: string; risk: number; ok: boolean; why: string }>;
+  titles: Array<{ title: string; risk: number; ok: boolean; why: string; promise?: TitlePromise }>;
   thumbnail: ThumbRender | null;
   renders: number;
+  /** Build list 5, item 4: packaging's craft measures (packagingCraftMeasures), the same numbers as the channel's. */
+  craft?: Record<string, number>;
   agent: { turns: number; calls: Record<string, number>; usd: number };
 }
 export interface PackagingAgentOptions {
@@ -90,11 +95,28 @@ export interface PackagingAgentOptions {
   /** Renders a thumbnail spec + finish with the film's scene engine into `out` (1280×720 jpg). */
   render: (i: { spec: unknown; finish: unknown; design: FilmDesignSystem; slots: Record<string, string>; fresh: boolean; out: string; grain: number; sharpen: number }) => Promise<void>;
   avoidConcepts?: string[];
+  /** Build list 5, item 29: how many of our recent films' thumbnails carried no words (a wordless one is allowed only
+   *  while our share stays within the channel's measured share of wordless thumbnails). */
+  recentWordless?: { films: number; wordless: number };
   /** The packaging ladder (build list 3, item 18): why the last package was not good enough, and what to change. */
   brief?: string;
   memoryDir?: string;
   onReport?: (r: PackagingReport) => void;
   log?: (s: string) => void;
+}
+
+/** Build list 5, item 29: one more wordless thumbnail keeps our share within the channel's measured share. */
+export function wordlessThumbAllowed(recent: { films: number; wordless: number } | undefined, channelNoTextShare: number): boolean {
+  const rw = recent ?? { films: 0, wordless: 0 };
+  return (rw.wordless + 1) / (rw.films + 1) <= channelNoTextShare;
+}
+
+/** The lines where the story turns (twist, climax, fall, re-hooks); else the thesis and the resolution. */
+export function storyTurn(script: TimedScript): string {
+  const segs = script.segments as Array<{ role?: string; text: string }>;
+  const turn = segs.filter((sg) => sg.role && ["twist", "climax", "fall", "rehook"].includes(sg.role)).map((sg) => sg.text);
+  const pick = turn.length ? turn : segs.filter((sg) => sg.role === "thesis" || sg.role === "resolution").map((sg) => sg.text);
+  return (pick.length ? pick : segs.slice(-2).map((sg) => sg.text)).join(" ").slice(0, 700);
 }
 
 const COLORS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"] as const;
@@ -172,6 +194,7 @@ const Finish = z.object({
 });
 const Draft = z.object({
   conceptId: z.string().describe("the id of the critiqued concept this builds (propose_concepts)"),
+  noWordsBecause: z.string().optional().describe("only if the thumbnail carries NO words: why the idea needs none (the channel puts words on most thumbnails)"),
   concept: z.string().describe("one sentence: the idea"),
   palette: z.object({ primary: HEX, accent: HEX, surface: HEX }).describe("this thumbnail's own loud palette, from the subject's real colours"),
   world: z.enum(["nebula", "blueprint", "paper", "halftone", "smoke", "stripes", "spotlight"]).describe("procedural colour background, used only when there is no background photo or split"),
@@ -318,6 +341,13 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   const verified = o.facts.claims.map((c) => c.text).join(" ");
   const b = o.band;
   const outDir = path.join(o.jobDir, "thumbs");
+  // Build list 5, item 30: the channel's real titles labelled by the promise they make; ours are held to it.
+  const dataDir = o.memoryDir ? path.dirname(path.dirname(o.memoryDir)) : null;
+  const promises = dataDir ? await ensureTitlePromiseBand({ data: dataDir, channel: o.channel, references: o.references }).catch(() => null) : null;
+  // Build list 5, item 29: the thumbnail tells the story's TURN, not its topic — the lines where the story turns.
+  const turn = storyTurn(o.script);
+  // A thumbnail without words is allowed only while our share of wordless thumbnails stays within the channel's.
+  const wordlessAllowed = () => wordlessThumbAllowed(o.recentWordless, b.words.noTextShare);
   await mkdir(outDir, { recursive: true });
 
   const titles: PackagingReport["titles"] = [];
@@ -344,9 +374,10 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     ...(craft ? [`- emptiness (flat, dim or blurred share of the frame): median ${pc(craft.emptyShare.median)}, nine in ten ≤ ${pc(craft.emptyShare.p90)} — the channel fills its frames`, `\n## How the channel's best thumbnails work (taken apart)\n${craft.items.slice(0, 12).map((d) => `- ${deconText(d)}`).join("\n")}`] : []),
     `- made of: real pictures only ${pc(b.makeable.real_pictures)}, retouched ${pc(b.makeable.needs_retouch)}, composited scenes ${pc(b.makeable.needs_invention)}, illustration ${pc(b.makeable.illustration)}; reachable with your tools ${pc(b.reach.reachable)} (the rest alter a real face ${pc(b.reach.face_alteration)} or need new painting ${pc(b.reach.new_painting)} — never do those)`,
   ].join("\n");
+  const promiseText = promises ? `\n\n## What the channel's titles promise (measured on ${promises.n})\n- a person ${pc(promises.share.person + promises.share.person_and_turn)}, a turn (surprise, contradiction, dark secret) ${pc(promises.share.turn + promises.share.person_and_turn)}, a plain topic sentence only ${pc(promises.share.topic)} — ${promises.topicAllowed ? "topic titles are allowed" : "a topic sentence fails the title test"}\n- e.g. ${promises.items.filter((x) => x.promise !== "topic").sort((x, y) => (y.views ?? 0) - (x.views ?? 0)).slice(0, 6).map((x) => `"${x.title}" (${x.promise.replace(/_/g, " ")})`).join("; ")}` : "";
   const refTitles = [...o.references].sort((x, y) => (y.views ?? 0) - (x.views ?? 0)).slice(0, 30).map((r) => `- ${r.title} [${r.views ?? "?"}]`).join("\n");
   const system = [
-    plain(`${skill}\n\n${bandText}\n\n## The channel's titles, most viewed first\n${refTitles}${o.avoidConcepts?.length ? `\n\n## Recent thumbnails of ours — do something different\n${o.avoidConcepts.map((c) => `- ${c}`).join("\n")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier packages\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`),
+    plain(`${skill}\n\n${bandText}${promiseText}\n\n## The channel's titles, most viewed first\n${refTitles}${o.avoidConcepts?.length ? `\n\n## Recent thumbnails of ours — do something different\n${o.avoidConcepts.map((c) => `- ${c}`).join("\n")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier packages\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`),
   ];
 
   const bestTitle = () => titles.filter((t) => t.ok).sort((x, y) => x.risk - y.risk)[0]?.title;
@@ -369,7 +400,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     if (stand.length) out.push({ kind: "stand_in_face", detail: `picture(s) ${stand.map((p) => p.slot).join(", ")} show a face that is not a verified subject of the film; a stranger's face would read as the person this film is about. Use it only blurred as part of a background, or not at all.` });
     return out;
   };
-  const BLOCKERS = new Set(["stand_in_face", "unspoken_figure", "unknown_name", "repeats_title"]);
+  const BLOCKERS = new Set(["stand_in_face", "unspoken_figure", "unknown_name", "repeats_title", "no_words"]);
 
   const tools: AgentTool[] = [
     {
@@ -410,11 +441,11 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         if (!craft) return "no deconstructions available — render directly";
         const ids = new Set<string>();
         const list = i.concepts.map((c) => ({ ...c, id: ids.has(c.id) || concepts.has(c.id) ? `${c.id}_${conceptRounds + 1}` : c.id })).map((c) => (ids.add(c.id), c));
-        const r = await critiqueConcepts({ channel: o.channel, craft, film: `${o.script.title}: ${o.facts.summary}`, pictures: o.pictures.pics.map((p) => o.pictures.brief(p)).join("; ").slice(0, 2500), concepts: list });
+        const r = await critiqueConcepts({ channel: o.channel, craft, film: `${o.script.title}: ${o.facts.summary}`, turn, pictures: o.pictures.pics.map((p) => o.pictures.brief(p)).join("; ").slice(0, 2500), concepts: list });
         conceptRounds++;
         for (const c of list) concepts.set(c.id, { ...c, score: r.scores.find((s) => s.id === c.id) });
         log(`    concepts round ${conceptRounds}: best ${r.best.join(", ")} (${r.scores.slice(0, 3).map((s) => `${s.id} ${s.total}`).join(", ")})`);
-        return `SCORES (fused ×1.5, instant, surprise, channel ×1.5, makeable → total of 10):\n${r.scores.map((s) => `[${s.id}] ${s.total} — fused ${s.fused}, instant ${s.instant}, surprise ${s.surprise}, channel ${s.channel}, makeable ${s.makeable}; nearest: ${s.nearest}; to make it stronger: ${s.note}`).join("\n")}\nBUILD: ${r.best.join(", ")}. Gather the pictures these need, then render with conceptId.`;
+        return `SCORES (fused ×1.5, instant, surprise, tells the turn ×1.5, channel ×1.5, makeable → total of 10; a concept that tells only the topic (turn < 6) is not built):\n${r.scores.map((s) => `[${s.id}] ${s.total} — fused ${s.fused}, instant ${s.instant}, surprise ${s.surprise}, tells the turn ${s.story}, channel ${s.channel}, makeable ${s.makeable}; nearest: ${s.nearest}; to make it stronger: ${s.note}`).join("\n")}\nBUILD: ${r.best.join(", ")}. Gather the pictures these need, then render with conceptId.`;
       },
     },
     {
@@ -573,10 +604,10 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     },
     {
       name: "test_titles",
-      description: "Test title candidates: figures must be in the film, ≤ 70 characters, and each is hidden among real titles of the channel for a judge to pick out. Lower risk = reads as the channel's own.",
+      description: "Test title candidates: figures must be in the film, ≤ 70 characters, each must promise a person or a turn (a plain topic sentence fails — measured on the channel's real titles), and each is hidden among real titles of the channel for a judge to pick out. Lower risk = reads as the channel's own.",
       schema: z.object({ titles: z.array(z.string()).min(1).max(8) }),
       run: async (i: { titles: string[] }) => {
-        const r = await testTitles({ channel: o.channel, references: o.references, titles: i.titles, narration, verified });
+        const r = await testTitlesWithPromise({ channel: o.channel, references: o.references, titles: i.titles, narration, verified, promises });
         for (const x of r.results) {
           const k = titles.findIndex((t) => t.title === x.title);
           if (k >= 0) titles[k] = x;
@@ -596,6 +627,8 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         const best = Math.max(0, ...[...concepts.values()].map((c) => c.score?.total ?? 0));
         if (craft && best < 8 && conceptRounds < 3) return `NOT RENDERED: the best concept so far scores ${best}/10 (8 needed). Study more real ideas and propose better concepts first (round ${conceptRounds + 1} of 3) — fused, instant, surprising.`;
         if (craft && !concepts.has(d.conceptId)) return `NOT RENDERED: conceptId "${d.conceptId}" is not a critiqued concept. Propose concepts first (propose_concepts) and build one of the best.`;
+        const cs = concepts.get(d.conceptId)?.score;
+        if (craft && cs && cs.story < 6 && conceptRounds < 3) return `NOT RENDERED: concept ${d.conceptId} tells the film's topic, not its turn (${cs.story}/10). The turn: "${turn.slice(0, 300)}". Propose concepts whose one image is that surprise.`;
         const built = build(d, o.design, o.pictures.pics);
         const id = `r${renders.length + 1}`;
         const file = path.join(outDir, `${id}.jpg`);
@@ -615,7 +648,10 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         if (ts && tm) pxIssues.push(...(ts.score < tm.calibration.real.p10 ? [{ kind: "taste_far", detail: `trained taste ${ts.score}/10 — below the channel's lowest tenth (${tm.calibration.real.p10}; its median ${tm.calibration.real.median}); ${ts.verdict}. Nearest real: ${ts.nearest.slice(0, 2).map((n) => n.what).join("; ")}.` }] : []));
         const emptyLimit = craft ? Math.max(0.08, craft.emptyShare.p90) : 0.3;
         const issues = [...pxIssues, ...(empty > emptyLimit ? [{ kind: "empty_frame", detail: `${pc(empty)} of the frame is flat, dim or blurred; the channel's thumbnails stay at or under ${pc(emptyLimit)} (median ${pc(craft?.emptyShare.median ?? 0)}). Fill it: a pile, a pattern of the subject's own marks, a sharp background, fire, the hero bigger.` }] : []),...textChecks(built.texts, built.used), ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft. Use a larger source (another photo or a sharper frame), show it smaller, or stylise it so softness reads as a look.` }] : []), ...(label ? thumbIssues(label, look, b) : [{ kind: "unmeasured", detail: "the measurement failed; look at it yourself" }])];
-        const r: ThumbRender = { id, file, phone, concept: d.concept, conceptId: d.conceptId, empty, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness };
+        // Build list 5, item 29: words where the channel uses words.
+        const words = label ? label.words : built.texts.join(" ").split(/\s+/).filter(Boolean).length;
+        if (words === 0 && !(wordlessAllowed() && d.noWordsBecause?.trim())) issues.push({ kind: "no_words", detail: `the thumbnail carries no words; ${pc(1 - b.words.noTextShare)} of the channel's thumbnails do (median ${b.words.median}, up to ${b.words.p90})${wordlessAllowed() ? " — a wordless one is allowed only with noWordsBecause: why the idea needs none" : ` and our recent films are already at the channel's share of wordless ones (${o.recentWordless?.wordless ?? 0} of ${o.recentWordless?.films ?? 0})`}. Add 1–${Math.max(2, b.words.p90)} words that say what the picture does not (the turn), large.` });
+        const r: ThumbRender = { id, file, phone, concept: d.concept, conceptId: d.conceptId, empty, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness, words, ...(d.noWordsBecause ? { noWordsBecause: d.noWordsBecause } : {}) };
         renders.push(r);
         log(`    ${id}: "${d.concept.slice(0, 70)}" — ${issues.length ? issues.map((x) => x.kind).join(", ") : "inside the band"}`);
         const head = `${id}: ${label ? `measured — hero ${label.hero} ${pc(label.heroShare)}, background ${label.background}, ${label.words} word(s)${label.words ? ` drawn ${label.textStyle.replace("_", " ")} (${label.textLook})` : ""}, text ${pc(label.textHeight)} high, ${label.elements} focal elements, marks ${label.marks.join(", ") || "none"}, face ${label.expression}; ` : ""}${ts && tm ? `trained taste ${ts.score}/10 (real median ${tm.calibration.real.median}, ours so far ${tm.calibration.ours.median}); ` : ""}colourfulness ${Math.round(look.colourfulness)}, brightness ${look.luma.toFixed(2)}, empty ${pc(empty)}${px ? `; detail: sharpest ${Math.round(px.sharpTop)}, typical ${Math.round(px.sharpMedian)}, grain ${px.grain}${o.quality ? ` (channel medians ${Math.round(o.quality.thumbs.sharpTop.median)} / ${Math.round(o.quality.thumbs.sharpMedian.median)} / ${o.quality.thumbs.grain.median})` : ""}` : ""}.${built.dropped.length ? `\nDropped: ${built.dropped.join("; ")}.` : ""}\n${issues.length ? `OUTSIDE THE CHANNEL'S BAND:\n${issues.map((x) => `- [${x.kind}] ${x.detail}`).join("\n")}` : "Inside the channel's band. Now compare it with the real ones (critique_thumbnail) and test it blind (imposter_test)."}`;
@@ -725,9 +761,9 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   ];
 
   const people = (o.facts.story?.characters ?? []).map((c) => `${c.name} (${c.role})`).join("; ");
-  const user = `Package this film.${o.brief ? `\n\nTHE LAST PACKAGE WAS NOT GOOD ENOUGH — ${o.brief}` : ""}\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
+  const user = `Package this film.${o.brief ? `\n\nTHE LAST PACKAGE WAS NOT GOOD ENOUGH — ${o.brief}` : ""}\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nTHE TURN (what the thumbnail and title must tell — not the topic): ${turn}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
   let grace = 1;
-  const runRes = await agentLoop({ stage: "publish.agent", finish: { message: "Your budget for this stage is used up. Call submit_package NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_package again." }, model: ROLE_MODEL.packaging, system, user, tools, effort: "medium", maxTurns: 30, maxSeconds: 480, maxUsd: 0.7, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
+  const runRes = await agentLoop({ stage: "publish.agent", fixed: 0.9, finish: { message: "Your budget for this stage is used up. Call submit_package NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_package again." }, model: ROLE_MODEL.packaging, system, user, tools, effort: "medium", maxTurns: 30, maxSeconds: 480, maxUsd: 0.7, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
 
   // Not submitted: the best render that carries no blocking issue (least confidently picked out), with the best title.
   const fallback = (): ThumbRender | null => {
@@ -736,6 +772,12 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   };
   const final = accepted as { title: string; render: ThumbRender } | null;
   const report: PackagingReport = { pass: final !== null, title: final?.title ?? bestTitle() ?? o.script.title, titles, thumbnail: final?.render ?? fallback(), renders: renders.length, agent: { turns: runRes.turns, calls: runRes.calls, usd: runRes.usd } };
+  {
+    const th = report.thumbnail;
+    const t = titles.find((x) => x.title === report.title);
+    const cs = th?.conceptId ? concepts.get(th.conceptId)?.score : undefined;
+    report.craft = packagingCraftMeasures({ thumbWords: th?.words ?? 0, titlePromise: t?.promise ?? null, titleRisk: t?.risk ?? null, critiqueScore: th?.critique?.score ?? null, ideaReads: th?.critique?.ideaReads ?? null, conceptStory: cs?.story ?? null, imposterPickedShare: th?.imposter ? (th.imposter.spottedRuns ?? (th.imposter.spotted ? 2 : 0)) / (th.imposter.runs ?? 3) : null });
+  }
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });
     const th = report.thumbnail;

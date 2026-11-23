@@ -39,8 +39,24 @@ Use these before settling for a picture-less shot. Do not collect pictures you w
   figures. There are no other text, shape or decoration elements: the kit draws them in the film's own way.
 - `photo`, `cutout`, `card3d` (a picture as a turning 3D card; at most 4 in a film): real pictures; only picture slots
   listed for that shot exist.
-- `backdrop`: `footage` (dim 0.15–0.45), or `stage` when the shot has no footage — the kit's own stage, drawn behind
-  your elements.
+- `backdrop`: `footage` (dim 0.15–0.45), or `world` — a ground built from real pictures (below). There is no plain
+  stage any more: the Nokia film put half its shots on one navy grid with embers, and the channel never does that.
+- `world` (when the backdrop is `world`): one of
+  - `mono_accent` — a real picture in black and white with one accent bar cutting through it;
+  - `duotone` — a real picture in two of the film's colours;
+  - `burst` — rays behind a cut-out (put the subject on top with `cutout`);
+  - `collage` — 2–5 real pictures as prints on paper (`slot` + `slots`);
+  - `flat_field` — one bold colour field; change `color` with the idea, never one colour for every field;
+  - `paper` — paper and print, a real picture printed into it optional;
+  - `terminal` — a terminal / UI window, for anything digital.
+  Measured on the channel's real designed frames: collage 18 %, flat field 10 %, paper 9 %, duotone 5 %, terminal 4 %,
+  black and white with accent 3 %, burst 2 %, other designed grounds 22 %, and a plain dark designed ground 26 %. In
+  one film no ground carries more than about half its designed shots, and **never the same world twice in a row**.
+- `finish`: the treatment over the whole shot — `grain`, `vignette`, `leak` (0..1). The channel's frames almost all
+  carry one: a grade on 76 %, vignette 30 %, grain 19 %, texture 16 %, a leak 5 %. A floor of grain and vignette is
+  applied to every shot.
+- `photo.grade`: `natural` (press photos that must stay as they are), `mono`, `duotone`, `punch`, `sepia`. Stock
+  shown exactly as filmed reads as stock — the channel shows about one shot in ten raw.
 - Coordinates are fractions of the frame; `x,y` is the top-left corner, `w` the width, `h` the height of a component
   box; keep inside 0.04–0.96. Leave space between elements.
 - `at` is seconds after the shot starts; time each element to the word it belongs to.
@@ -50,6 +66,19 @@ Use these before settling for a picture-less shot. Do not collect pictures you w
 - **Readability.** Text that is too small, low in contrast against what is behind it, lying across a busy area, cut off or overlapping is reported shot by shot.
 - **Colour.** A footage shot tinted so heavily that the whole frame reads as one colour is reported. The channel's footage keeps its natural colour: leave `wash` off unless one moment truly needs the mood.
 - **Period.** A picture you fetch for a line set in the past is dated before you get it; if everything that fits looks too modern you are told, and the answer is a timeless close-up.
+
+- **Worlds and variety** (build list 5): one ground carrying the film, the same ground twice in a row, designed
+  frames that look alike (SigLIP distance between them, against the channel's own films), a generic template ground.
+- **Treatment:** pictures without any treatment, stock shown raw.
+- **Type scale:** the channel's words cover a median 9 % of the frame (a tenth 2 %, the busiest tenth 30 %), set
+  INTO the picture in about half its shots; small boxed labels are at most half of its shots with words. Ours on the
+  Nokia film: 3 % and every one boxed — reported as `small_text` and `boxed_labels`. The same card in the next shot
+  (a split repeated) is refused.
+- **Data:** the channel shows about three data shots a minute, and mostly not as charts: one big number 27 %, an
+  annotated picture 25 %, a drawn line 17 %, a map 8 %, a bar chart 8 %, icons 6 %. A designed shot is held at most
+  about 6 s. More data shots than that, chart slides, a long hold are reported.
+- **Repetition:** each picture once — a portrait included. A second use needs a different crop AND treatment (and a
+  reason); never a third.
 
 ## Learn from the nearest real shot
 
@@ -82,8 +111,9 @@ what it did for a moment like this, not from a general idea of the style.
 
 ## A shot with no footage
 
-Build it around a real picture (`find_picture`, a library object, a cut-out), the kit's number for a spoken figure,
-or a real page screenshot — not a lone word on the stage. Charts, maps and documents are data graphics the director
+Build it in a world made of a real picture (`find_picture`, a library object, a cut-out over a burst, a collage of the
+shot's pictures, a duotone of a press photo), the kit's number for a spoken figure, or a real page screenshot on paper
+or in a terminal — never a lone word on a plain ground. Charts, maps and documents are data graphics the director
 plans; the kit draws them from verified data.
 
 ## The measured report under every watched stretch

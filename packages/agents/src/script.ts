@@ -1,3 +1,4 @@
+import { chaptersFor } from "./film-length.js";
 import { type Aspect, type FactClaim, type FactSheet, type ScriptDraft } from "@opumia/contracts";
 import type { StylePack } from "./style-pack.js";
 import type { ReferenceFilm, StoryBand } from "./story-measure.js";
@@ -27,7 +28,7 @@ export interface ScriptOptions {
 }
 
 /** Chapters for a runtime: 90–150 s each in long-form (3–15), none for shorts. */
-export const chapterCount = (durationS: number) => (durationS <= 90 ? 0 : Math.max(3, Math.min(15, Math.round(durationS / 120))));
+export const chapterCount = (durationS: number) => chaptersFor(durationS);
 
 /**
  * The script: written by the writer agent (one author with tools — writer-agent.ts). Build list 3, L13: the five-pass

@@ -85,3 +85,23 @@ export function compactOf(value: number, unit: string): string {
   const n = d === 1 ? (Number.isInteger(value) ? value.toLocaleString("en-US").replace(/,/g, unit === "year" ? "" : ",") : String(+value.toFixed(2))) : String(+(value / d).toFixed(a / d >= 100 ? 0 : 1));
   return `${unit === "$" || unit === "€" || unit === "£" ? unit : ""}${n}${l}${unit === "%" ? "%" : ""}`;
 }
+
+/** The precision a spoken number carries ("7.2 billion" → 0.1 billion). */
+export function stepOf(s: SpokenNumber): number {
+  const decimals = (s.mantissa.split(".")[1] ?? "").length;
+  return (s.scale ? SCALE[{ K: "k", M: "m", B: "bn", T: "trillion" }[s.scale] ?? ""]?.[0] ?? 1 : 1) * Math.pow(10, -decimals);
+}
+
+/**
+ * Build list 5, item 13: the inputs of `figureParity` (@opumia/agents) for a film — per shot, the figures it shows
+ * (parsed from its on-screen strings) and the figures spoken within ±1.5 s of it.
+ */
+export function figureInputs(shots: Array<{ id: string; startS: number; endS: number; shown: string[] }>, words: Array<{ word: string; startS: number }>): Array<{ id: string; shown: Array<{ value: number; unit: string; text: string }>; spoken: Array<{ value: number; unit: string; text: string; step: number }> }> {
+  const spoken = spokenNumbers(words);
+  return shots.map((sh) => ({
+    id: sh.id,
+    shown: sh.shown.flatMap((t) => spokenNumbers(t.split(/\s+/).map((word) => ({ word, startS: 0 }))).filter((x) => !(x.unit === "" && x.scale === "" && x.value >= 1800 && x.value <= 2100 && Number.isInteger(x.value))).map((x) => ({ value: x.value, unit: x.unit, text: displayOf(x) }))),
+    // a year said aloud is a date, never a figure a chart must show or add up to
+    spoken: spoken.filter((s) => !(s.unit === "" && s.scale === "" && s.value >= 1800 && s.value <= 2100 && Number.isInteger(s.value))).filter((s) => s.startS >= sh.startS - 1.5 && s.startS <= sh.endS + 1.5).map((s) => ({ value: s.value, unit: s.unit, text: s.text, step: stepOf(s) })),
+  }));
+}

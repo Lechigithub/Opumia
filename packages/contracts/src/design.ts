@@ -33,7 +33,7 @@ export const FilmDesignSystem = z.object({
   fonts: z.object({ display: z.string(), body: z.string() }),
   texture: z.object({ grain: z.number().min(0).max(0.5), vignette: z.number().min(0).max(1) }),
   /** Colour grade per act (the colourist sets and moves it). */
-  acts: z.array(z.object({ name: z.string(), tint: Hex, tintStrength: z.number().min(0).max(0.6), saturation: z.number().min(0.4).max(1.3), contrast: z.number().min(0.9).max(1.3) })).min(1),
+  acts: z.array(z.object({ name: z.string(), tint: Hex, tintStrength: z.number().min(0).max(0.6), saturation: z.number().min(0.4).max(1.3), contrast: z.number().min(0.9).max(1.3), /** build list 5, item 28: exposure of the act (1 = as shot) */ brightness: z.number().min(0.7).max(1.4).optional() })).min(1),
   generatedAt: IsoDateTime,
 });
 export type FilmDesignSystem = z.infer<typeof FilmDesignSystem>;

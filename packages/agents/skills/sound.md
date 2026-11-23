@@ -27,6 +27,20 @@ notes, measured on every shot of its films.
 9. **Listen.** A measure that is inside the band can still sound wrong: a hit masking a word, a bed fighting the
    voice, a riser that ends nowhere. Listen to the cold open, the biggest turn and the ending.
 
+## Music follows the story; effects are fresh (build list 5)
+
+10. **The music changes where the story turns.** The cue changes sit on the turns the writer marked (the climax, a
+    twist, a fall, a re-hook, a chapter), as many as the channel changes cue in real stretches of this film's length
+    (`music.cueChangesPerMin`, `music.cueOnTurn` — both refuse submission when outside). A change in the middle of a
+    thought is not following the story.
+11. **Silence before the biggest turn, a riser into the climax.** The first pass puts a drop-out in the breath before
+    the strongest turn and a riser that lands on the climax line; keep them unless listening says otherwise.
+12. **One timeline with the editor.** `read_sound` shows the shared timeline: story turns, the words the narrator
+    leans on, and where they meet a cut. A hit where a cut and a stressed word meet is the strongest accent; inside a
+    shot, the stressed word can carry the hit. About a quarter of the channel's strong hits sit on a cut — not all.
+13. **Fresh effects only.** No file a recent film used, none twice in this film (`sfx.recentShare`, `sfx.repeats`).
+    When a family has no fresh file left, use a neighbouring family or let the moment breathe — never a repeat.
+
 ## How you work
 
 1. `read_sound` — the current hits, music and measures, and the visual moments with no hit.

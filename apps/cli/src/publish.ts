@@ -105,7 +105,10 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
   await tools.gather();
   log(`  packaging agent: ${tools.pics.length} real picture(s) to start — ${tools.pics.map((p) => p.depicts.slice(0, 26)).join("; ")}`);
   const made = await producedJobs(o.data);
-  const concepts = ((await readJson<Array<{ job: string; concept: string }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? []).filter((c) => made.has(c.job));
+  const concepts = ((await readJson<Array<{ job: string; concept: string; words?: number }>>(path.join(o.data, "thumbnail-concepts.json"))) ?? []).filter((c) => made.has(c.job));
+  // build list 5, item 29: how many of our recent thumbnails carried no words (older entries without a count: read from the concept)
+  const recent = concepts.filter((c) => c.job !== o.job).slice(-10);
+  const recentWordless = { films: recent.length, wordless: recent.filter((c) => (c.words !== undefined ? c.words === 0 : /\bno (text|words)\b|\bwordless\b/i.test(c.concept))).length };
   const before = await import("@opumia/agents").then((m) => m.usageLedger().reduce((t, r) => t + r.usd, 0));
   const qualityBand = await ensureQualityBand({ data: o.data, channel: o.channel, log }).catch(() => null);
   const runAgent = (brief?: string): Promise<PackagingReport> => packagingAgent({
@@ -132,6 +135,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
       await rm(big, { force: true });
     },
     avoidConcepts: concepts.filter((c) => c.job !== o.job).slice(-8).map((c) => c.concept),
+    recentWordless,
     memoryDir: path.join(o.data, "agents", "packaging"),
     log,
   });
@@ -160,7 +164,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
   const thumbnailPath = path.join(o.jobDir, "thumbnail.jpg");
   if (th) {
     await writeFile(thumbnailPath, await readFile(th.file));
-    await atomic(path.join(o.data, "thumbnail-concepts.json"), JSON.stringify([...concepts.filter((c) => c.job !== o.job), { job: o.job, concept: th.concept }].slice(-40), null, 1) + "\n");
+    await atomic(path.join(o.data, "thumbnail-concepts.json"), JSON.stringify([...concepts.filter((c) => c.job !== o.job), { job: o.job, concept: th.concept, words: th.words ?? 0 }].slice(-40), null, 1) + "\n");
   }
   log(`  packaging: ${report.pass ? "accepted" : "NOT accepted (best render kept)"} — "${report.title}"; ${report.renders} render(s); thumbnail ${th ? (th.imposter ? (th.imposter.spotted ? `picked out blind (${th.imposter.confidence.toFixed(2)})` : "passed blind") : "not tested blind") : "none"}${th?.issues.length ? `; outside the band: ${th.issues.map((x) => x.kind).join(", ")}` : ""}`);
 
@@ -206,7 +210,9 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
         tags: text.tags,
         hashtags: text.hashtags,
         pinnedComment: text.pinnedComment,
-        thumbnail: th ? { concept: th.concept, render: th.id, renders: report.renders, passedImposterTest: th.imposter ? !th.imposter.spotted : null, spottedConfidence: th.imposter?.confidence ?? null, tells: th.imposter?.tells ?? [], outsideBand: th.issues, colourfulness: Math.round(th.colourfulness), pictures: th.slots.map((k) => ({ slot: k, depicts: tools.pics[k]?.depicts, ...tools.pics[k]?.credit })), generatedImagery: false } : null,
+        // build list 5, item 4: packaging's craft measures (words on the thumbnail, what the title promises, realness)
+        craft: report.craft ?? null,
+        thumbnail: th ? { concept: th.concept, render: th.id, words: th.words ?? null, ...(th.noWordsBecause ? { noWordsBecause: th.noWordsBecause } : {}), renders: report.renders, passedImposterTest: th.imposter ? !th.imposter.spotted : null, spottedConfidence: th.imposter?.confidence ?? null, tells: th.imposter?.tells ?? [], outsideBand: th.issues, colourfulness: Math.round(th.colourfulness), pictures: th.slots.map((k) => ({ slot: k, depicts: tools.pics[k]?.depicts, ...tools.pics[k]?.credit })), generatedImagery: false } : null,
         agent: { accepted: report.pass, ...report.agent, seconds: Math.round((Date.now() - t0) / 1000), usd: Math.round(usd * 1000) / 1000 },
         checks: [...text.checks, ...(chk.ok ? ["package matches the film"] : chk.issues.map((i) => `ISSUE: ${i}`))],
       },

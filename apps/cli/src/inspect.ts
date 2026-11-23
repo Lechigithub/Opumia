@@ -17,8 +17,8 @@ import { measureJumps, measureLegibility, measureSeams, run, textBoxesOf } from 
 
 export interface StretchFindings { jumps: Array<{ atS: number; kind: string; detail: string }>; bridgedPerMin: number; unreadable: Array<{ shotId: string; label: string; issue: string }>; seams: Array<{ atS: number; kind: string; detail: string }>; taste: number | null; realTaste: number | null }
 
-const band = (data: string) => {
-  const f = path.join(data, "detector-band", "magnatesmedia.json");
+const band = (data: string, channel: string) => {
+  const f = path.join(data, "detector-band", `${channel.replace(/-/g, "")}.json`);
   return existsSync(f) ? (JSON.parse(readFileSync(f, "utf8")) as { band: Record<string, { p10: number; median: number; p90: number }> }).band : null;
 };
 
@@ -56,7 +56,7 @@ export async function inspectStretch(o: {
   const tv = (ts as Array<{ score: number } | null>).flatMap((x) => (x ? [x.score] : []));
   const taste = tv.length ? Math.round((tv.reduce((a, x) => a + x, 0) / tv.length) * 10) / 10 : null;
   const realTaste = (await loadTaste(o.data, o.channel, "shot").catch(() => null))?.calibration.real.median ?? null;
-  const b = band(o.data);
+  const b = band(o.data, o.channel);
   const bridgedPerMin = j?.bridgedPerMin ?? 0;
   const findings: StretchFindings = { jumps, bridgedPerMin, unreadable, seams, taste, realTaste };
   const lines = [

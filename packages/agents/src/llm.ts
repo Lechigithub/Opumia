@@ -1,4 +1,5 @@
 import { withOutside } from "@opumia/senses";
+import { AsyncLocalStorage } from "node:async_hooks";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import * as z4 from "zod/v4";
@@ -74,6 +75,26 @@ export interface UsageRecord {
   cacheWrite: number;
   usd: number;
   servedBy?: string;
+  /** Build list 5, item 32: the film stage the call ran in (safe when stages run in parallel). */
+  filmStage?: string;
+}
+/**
+ * Build list 5, item 32: which film stage a call belongs to. Work that runs BESIDE another stage (the publishing package
+ * beside the render, chapters in parallel) runs inside `inFilmStage(code, fn)`; everything else takes the stage the log
+ * header last opened (`setCurrentStage`).
+ */
+const stageScope = new AsyncLocalStorage<string>();
+let currentStage: string | null = null;
+export function setCurrentStage(code: string | null) {
+  currentStage = code;
+}
+export function inFilmStage<T>(code: string, fn: () => Promise<T>): Promise<T> {
+  return stageScope.run(code, fn);
+}
+const stageNow = () => stageScope.getStore() ?? currentStage ?? undefined;
+/** What the calls tagged with this stage have cost so far. */
+export function stageSpent(code: string): number {
+  return ledger.filter((r) => r.filmStage === code).reduce((t, r) => t + r.usd, 0);
 }
 const ledger: UsageRecord[] = [];
 export const usageLedger = () => [...ledger];
@@ -126,6 +147,26 @@ export function agentLeft(): number | null {
   const stage = stageCap ? stageCap.usd - sumFrom(stageCap.from) : Infinity;
   return Math.min(hard, stage);
 }
+/**
+ * Build list 5, item 2: the film's length scales every agent's own caps (money per agent and seconds), by how much of
+ * the agent's work grows with the film (`fixed` = the share that is the same for any length).
+ */
+let filmScale: ((fixed: number) => number) | null = null;
+export function setFilmLength(scale: ((fixed: number) => number) | null) {
+  filmScale = scale;
+}
+
+/**
+ * Build list 5, item 1: every agent logs what it was given and what it used. An agent whose first pass was given less
+ * than it needs (`firstPassUsd`, by default half of its own cap) is STARVED — a test failure, never silent.
+ */
+export interface Allotment { stage: string; model: string; askedUsd: number | null; givenUsd: number | null; needUsd: number; usedUsd: number; turns: number; seconds: number; stopped: string; starved: boolean }
+const allot: Allotment[] = [];
+export const allotments = () => [...allot];
+export function resetAllotments() {
+  allot.length = 0;
+}
+
 const guardBudget = () => {
   if (!budget) return;
   const spent = filmSpent();
@@ -139,6 +180,8 @@ const guardBudget = () => {
  */
 export function recordExternal(stage: string, provider: string, units: number, usd: number): UsageRecord {
   const r: UsageRecord = { stage, model: provider, input: units, output: 0, cacheRead: 0, cacheWrite: 0, usd: Math.round(usd * 1e5) / 1e5 };
+  const fs = stageNow();
+  if (fs) r.filmStage = fs;
   ledger.push(r);
   return r;
 }
@@ -152,6 +195,8 @@ function record(stage: string, model: ModelId, msg: { model: string; usage: Anth
   const usd = (u.input_tokens * p.in + cacheWrite * p.in * 1.25 + cacheRead * p.cacheRead + u.output_tokens * p.out) / 1e6;
   const r: UsageRecord = { stage, model, input: u.input_tokens, output: u.output_tokens, cacheRead, cacheWrite, usd: Math.round(usd * 1e5) / 1e5 };
   if (msg.model !== model) r.servedBy = msg.model;
+  const fs = stageNow();
+  if (fs) r.filmStage = fs;
   ledger.push(r);
   return r;
 }
@@ -227,7 +272,33 @@ export interface AgentTool {
  * turn to turn (the stable system blocks plus everything already said), thinking blocks are passed back
  * unchanged, and all results of one turn go back in a single message.
  */
-export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; /** Build list 3, item 31: the agent stops (as at max_turns) once it has spent this much. */ maxUsd?: number; /** Build list 4, item 18: and once it has worked this long (checked before each turn). */ maxSeconds?: number; /** Build list 4: work the film needs — at a cap, the agent gets these few turns to hand in what it has, told this message. */ finish?: { message: string; turns?: number }; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns" | "max_usd" | "max_time"; usd: number }> {
+export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; /** Build list 3, item 31: the agent stops (as at max_turns) once it has spent this much. */ maxUsd?: number; /** Build list 4, item 18: and once it has worked this long (checked before each turn). */ maxSeconds?: number; /** Build list 4: work the film needs — at a cap, the agent gets these few turns to hand in what it has, told this message. */ finish?: { message: string; turns?: number }; /** Build list 5, item 2: share of this agent's work that does not grow with the film's length (default 0.3). */ fixed?: number; /** Build list 5, item 1: what its first pass needs; given less, the run is logged as starved. */ firstPassUsd?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns" | "max_usd" | "max_time"; usd: number }> {
+  // Build list 4, items 4 and 6: the agent's cap is the smallest of its own maxUsd, the stage's cap and what the film
+  // has left. It is checked BEFORE each turn against what a turn has been costing, so one expensive turn never
+  // overshoots it.
+  const left0 = agentLeft();
+  const grow = filmScale ? filmScale(o.fixed ?? 0.3) : 1;
+  const asked = o.maxUsd === undefined ? null : o.maxUsd * grow;
+  const maxSeconds = o.maxSeconds === undefined ? undefined : o.maxSeconds * grow;
+  const cap0 = Math.min(asked ?? Infinity, left0 === null ? Infinity : left0);
+  const need = Math.min(asked ?? Infinity, o.firstPassUsd ?? (asked ?? 0.2) * 0.5);
+  const given = Number.isFinite(cap0) ? cap0 : null;
+  const t00 = Date.now();
+  let r: Awaited<ReturnType<typeof agentLoopInner>>;
+  try {
+    r = await agentLoopInner(o, { cap: cap0, maxSeconds });
+  } catch (err) {
+    // the run is logged even when it ends in an error (a budget refusal, a refusal by the model)
+    allot.push({ stage: o.stage, model: o.model, askedUsd: asked, givenUsd: given, needUsd: Math.round(need * 1000) / 1000, usedUsd: 0, turns: 0, seconds: Math.round((Date.now() - t00) / 100) / 10, stopped: `error: ${(err as Error).message.slice(0, 80)}`, starved: given !== null && given < need });
+    throw err;
+  }
+  const a: Allotment = { stage: o.stage, model: o.model, askedUsd: asked === null ? null : Math.round(asked * 1000) / 1000, givenUsd: given === null ? null : Math.round(given * 1000) / 1000, needUsd: Math.round(need * 1000) / 1000, usedUsd: Math.round(r.usd * 1000) / 1000, turns: r.turns, seconds: Math.round((Date.now() - t00) / 100) / 10, stopped: r.stopped, starved: given !== null && given < need };
+  allot.push(a);
+  if (a.starved) o.log?.(`    ! ${o.stage} STARVED: given $${a.givenUsd!.toFixed(2)}, its first pass needs $${a.needUsd.toFixed(2)}`);
+  return r;
+}
+
+async function agentLoopInner(o: Parameters<typeof agentLoop>[0], lim: { cap: number; maxSeconds: number | undefined }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns" | "max_usd" | "max_time"; usd: number }> {
   const fb = fallbackFor(o.model);
   const from = ledger.length;
   const tools = o.tools.map((t) => ({ name: t.name, description: t.description, input_schema: z4.toJSONSchema(t.schema) as Anthropic.Beta.BetaTool["input_schema"] }));
@@ -235,11 +306,8 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   const calls: Record<string, number> = {};
   let nudges = 0;
   const spent = () => ledger.slice(from).reduce((t, r) => t + r.usd, 0);
-  // Build list 4, items 4 and 6: the agent's cap is the smallest of its own maxUsd, the stage's cap and what the film
-  // has left for optional work. It is checked BEFORE each turn against what a turn has been costing, so one expensive
-  // turn never overshoots it.
-  const left0 = agentLeft();
-  const cap = Math.min(o.maxUsd ?? Infinity, left0 === null ? Infinity : left0);
+  const cap = lim.cap;
+  const maxSecondsLim = lim.maxSeconds;
   let lastTurn = 0;
   let turnFrom = 0;
   const t0 = Date.now();
@@ -248,13 +316,13 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   for (let turn = 1; turn <= maxT + (o.finish ? (o.finish.turns ?? 2) : 0); turn++) {
     // what the previous turn cost: its model call plus the tools it ran (some tools call models themselves)
     if (turn > 1) lastTurn = Math.max(lastTurn * 0.6, spent() - turnFrom);
-    const overUsd = Number.isFinite(cap) && (turn > 1 || cap <= 0) && spent() + lastTurn > cap;
-    const overTime = (o.maxSeconds !== undefined && turn > 1 && (Date.now() - t0) / 1000 > o.maxSeconds) || turn > maxT;
+    const overUsd = Number.isFinite(cap) && (cap <= 0 || (turn > 1 && spent() + lastTurn > cap));
+    const overTime = (maxSecondsLim !== undefined && turn > 1 && (Date.now() - t0) / 1000 > maxSecondsLim) || turn > maxT;
     if ((overUsd || overTime) && finishLeft === null && o.finish && !o.done?.() && turn > 1) {
       // Build list 4: an agent whose work the film needs is never cut off unfinished — at its cap it gets a short
       // finishing go (at most `finish.turns` turns) told to hand in what it has now.
       finishLeft = o.finish.turns ?? 2;
-      o.log?.(`    ${o.stage}: at its ${overUsd ? `$${Math.max(0, cap).toFixed(2)} cap` : `${turn > maxT ? `${maxT}-turn` : `${o.maxSeconds} s`} limit`} — ${finishLeft} turn(s) to hand in what it has`);
+      o.log?.(`    ${o.stage}: at its ${overUsd ? `$${Math.max(0, cap).toFixed(2)} cap` : `${turn > maxT ? `${maxT}-turn` : `${Math.round(maxSecondsLim ?? 0)} s`} limit`} — ${finishLeft} turn(s) to hand in what it has`);
       const last = messages.at(-1)!;
       const note: Anthropic.Beta.BetaTextBlockParam = { type: "text", text: o.finish.message };
       if (last.role === "user") last.content = typeof last.content === "string" ? [{ type: "text", text: last.content }, note] : [...last.content, note];
@@ -268,7 +336,7 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
       o.log?.(`    ${o.stage}: $${spent().toFixed(2)} spent, a turn costs about $${lastTurn.toFixed(2)}, cap $${Math.max(0, cap).toFixed(2)} — stopping here`);
       return { turns: turn - 1, calls, stopped: "max_usd", usd: spent() };
     } else if (overTime) {
-      o.log?.(`    ${o.stage}: ${Math.round((Date.now() - t0) / 1000)} s of its ${o.maxSeconds} s — stopping here`);
+      o.log?.(`    ${o.stage}: ${Math.round((Date.now() - t0) / 1000)} s of its ${Math.round(maxSecondsLim ?? 0)} s — stopping here`);
       return { turns: turn - 1, calls, stopped: "max_time", usd: spent() };
     }
     turnFrom = spent();
