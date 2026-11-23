@@ -97,3 +97,12 @@ one finished-film round, final-cut fixes on the worst three shots; the finishing
 only past 150 s; every run closes its browser and exits; unreadable bar charts (one value under 2 % of another) are
 refused; a lone icon over footage is flagged as a placeholder. Not covered by a regression yet: the black-frame
 fallback (checked on the next film).
+
+**Nokia proof film `bl4c-nokia` (tag platform-frozen-bl4.2):** finished, exit 0, verdict REVIEW, 36 min, $4.88; no black
+or frozen frames, a thumbnail made from real pictures (the 3310 in fire over Nokia HQ). Found and fixed (bl4.3): the
+narration spent $1.89 (one name, "Elop", climbed to a full rewrite and second narration) and left the shared pool at
+$0 from the scene designer on — scene designer $0.11, editor, colourist, sound designer and showrunner $0, six
+preflight checks unresolved, and in the frames the same dark particle stage with phrase cards and the same Elop
+portrait four times. Now a stage agent's first pass spends from its stage cap and the hard limit (`agentLeft`), the
+pool gates only rungs and revisions; one word left unresolved is logged, not rewritten. QA's fair-use check counted a
+split shot that plays on the same excerpt as a reused source; it now counts excerpts.

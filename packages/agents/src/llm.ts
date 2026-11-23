@@ -114,6 +114,18 @@ export function budgetLeft(): number | null {
   const stage = stageCap ? stageCap.usd - sumFrom(stageCap.from) : Infinity;
   return Math.min(film, stage);
 }
+/**
+ * What an agent doing its stage's own work may spend: its stage's cap and the film's HARD limit (not the reserve-backed
+ * pool). The pool and the reserve gate only optional work — ladder rungs and revisions — so an overspend early in the
+ * film can never starve a later stage's first pass (the Nokia proof film: a costly narration left the scene designer,
+ * editor, colourist, sound designer and showrunner $0, and they did nothing).
+ */
+export function agentLeft(): number | null {
+  if (!budget && !stageCap) return null;
+  const hard = budget ? budget.limitUsd - filmSpent() : Infinity;
+  const stage = stageCap ? stageCap.usd - sumFrom(stageCap.from) : Infinity;
+  return Math.min(hard, stage);
+}
 const guardBudget = () => {
   if (!budget) return;
   const spent = filmSpent();
@@ -226,7 +238,7 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   // Build list 4, items 4 and 6: the agent's cap is the smallest of its own maxUsd, the stage's cap and what the film
   // has left for optional work. It is checked BEFORE each turn against what a turn has been costing, so one expensive
   // turn never overshoots it.
-  const left0 = budgetLeft();
+  const left0 = agentLeft();
   const cap = Math.min(o.maxUsd ?? Infinity, left0 === null ? Infinity : left0);
   let lastTurn = 0;
   let turnFrom = 0;

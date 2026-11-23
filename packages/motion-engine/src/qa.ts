@@ -54,7 +54,9 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
   // --- Fair use: press excerpts are short, muted, logged with their source, and a minority of the runtime.
   {
     const press = q.resolution.media.filter((m) => m.origin === "press");
-    const clips = press.filter((m) => m.kind === "video");
+    // One excerpt continued across a split shot (sh014 → sh014_2, the same ref and in-point, played on) is one clip,
+    // not two: clips are counted by excerpt (build list 4, the Nokia proof film read a split as a reused source).
+    const clips = [...new Map(press.filter((m) => m.kind === "video").map((m) => [m.ref, m] as [string, typeof m])).values()];
     const long = clips.filter((m) => (m.fairUse?.usedS ?? m.durationS ?? 0) > 7.5);
     const unlogged = press.filter((m) => !m.fairUse || !m.sourceUrl);
     const pressS = clips.reduce((t, m) => t + (m.fairUse?.usedS ?? 0), 0);

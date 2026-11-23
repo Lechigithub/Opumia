@@ -312,7 +312,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const un = await readUnresolved();
       problems = [
         ...(timed.durationS > maxS || timed.durationS < minS ? [{ check: "narration_length", shots: [], what: "narration outside the length window", measured: `${timed.durationS.toFixed(1)} s`, band: `${minS}–${maxS} s` }] : []),
-        ...(un.length ? [{ check: "voice_unresolved", shots: [], what: `${un.length} line(s) not said cleanly after retakes`, measured: String(un.length), band: "0" }] : []),
+        // build list 4: one word the recogniser still hears wrong after its retakes is logged, not rewritten — on the
+        // Nokia proof film one name ("Elop") cost a full rewrite and a second narration ($0.90)
+        ...(un.length >= 2 ? [{ check: "voice_unresolved", shots: [], what: `${un.length} line(s) not said cleanly after retakes`, measured: String(un.length), band: "0" }] : []),
       ];
       if (!problems.length) break;
       if (!(await voiceLadders.step(problems, { note: [] })).length) break;
