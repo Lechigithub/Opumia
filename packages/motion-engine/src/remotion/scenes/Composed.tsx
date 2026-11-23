@@ -11,11 +11,11 @@ import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec } from "./W
  * on screen, every card and the stage behind shots without footage belong to the kit. There are no shared text styles,
  * colour worlds, particles or decorations.
  */
-type Enter = "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down" | "pop" | "stamp" | "type" | "draw" | "wipe" | "zoom";
+type Enter = "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down" | "pop" | "stamp" | "type" | "draw" | "wipe" | "zoom" | "settle" | "glitch" | "swoop";
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted";
 interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter; exit?: "none" | "slide" | "erode" }
 type El =
-  | (Box & { type: "photo"; slot: number; grade?: string; h?: number; blend?: "normal" | "screen" })
+  | (Box & { type: "photo"; slot: number; grade?: string; h?: number; blend?: "normal" | "screen"; frame?: "none" | "polaroid" | "neon" | "torn" | "perspective" })
   | (Box & {
       type: "cutout";
       silhouette?: boolean;
@@ -36,7 +36,7 @@ type El =
       flip?: boolean;
     })
   | (Box & { type: "card3d"; slot: number; tilt?: number; spin?: number })
-  | (Box & { type: "text3d"; text: string; spin?: number; serif?: boolean; color?: "primary" | "accent" | "white" | "paper"; h?: number })
+  | (Box & { type: "text3d"; text: string; spin?: number; serif?: boolean; color?: "primary" | "accent" | "white" | "paper"; h?: number; material?: "paint" | "chrome" | "gold" })
   | (Box & { type: "component"; name: string; props?: Record<string, unknown>; h?: number });
 
 export interface ComposedProps {
@@ -87,6 +87,15 @@ function useEnter(at: number, enter: Enter) {
     case "wipe":
     case "draw":
       return { opacity: vis, transform: "", clip: `inset(0 ${(1 - lin) * 100}% 0 0)` };
+    // craft inventory: blurred and tilted, settling into place
+    case "settle":
+      return { opacity: Math.min(1, soft * 1.6) * vis, transform: `rotate(${(1 - soft) * -8}deg) scale(${1.12 - 0.12 * soft})`, clip: undefined, filter: soft < 0.98 ? `blur(${((1 - soft) * 14).toFixed(1)}px)` : undefined };
+    // a glitch reveal: sliced bands jump, then lock
+    case "glitch":
+      return { opacity: vis * (t < 6 && t % 2 ? 0.55 : 1), transform: t < 8 ? `translateX(${Math.round(Math.sin(t * 3.1) * 18)}px)` : "", clip: t < 8 ? `inset(${(t * 13) % 60}% 0 ${(t * 7) % 30}% 0)` : undefined, filter: t < 8 ? "saturate(2) hue-rotate(25deg)" : undefined };
+    // a print swooping in from the side at depth (floating polaroids)
+    case "swoop":
+      return { opacity: Math.min(1, soft * 1.5) * vis, transform: `translate(${(1 - soft) * 420}px, ${(1 - soft) * -140}px) rotate(${(1 - soft) * 24}deg) scale(${0.7 + 0.3 * soft})`, clip: undefined };
     default:
       return { opacity: lin * vis, transform: "", clip: undefined };
   }
@@ -122,7 +131,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const col = el.color === "accent" ? PALETTE.accent : el.color === "primary" ? PALETTE.primary : el.color === "paper" ? "#f3ead8" : "#ffffff";
     return (
       <div style={{ position: "absolute", left, top, width: w, height: h3, opacity: e.opacity }}>
-        <Text3D text={el.text} color={col} spin={el.spin ?? 18} at={at} w={w} h={h3} {...(el.serif ? { serif: true } : {})} />
+        <Text3D text={el.text} color={el.material === "gold" ? "#d4a73a" : el.material === "chrome" ? "#d9dde3" : col} spin={el.spin ?? 18} at={at} w={w} h={h3} {...(el.serif ? { serif: true } : {})} {...(el.material && el.material !== "paint" ? { metal: true } : {})} />
       </div>
     );
   }
@@ -132,7 +141,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
   const floatY = Math.cos(f / (27 + i * 4) + i * 0.9) * fl * 0.8;
   const rot = (el.rot ?? 0) + Math.sin(f / (48 + i * 6) + i) * 0.6;
   const wrap = (child: React.ReactNode, h?: number) => (
-    <div style={{ position: "absolute", left: left + floatX, top: top + floatY, width: w, ...(h ? { height: h } : {}), transform: `rotate(${rot}deg) ${e.transform}`, transformOrigin: "50% 50%", opacity: e.opacity, ...(e.clip ? { clipPath: e.clip } : {}) }}>{child}</div>
+    <div style={{ position: "absolute", left: left + floatX, top: top + floatY, width: w, ...(h ? { height: h } : {}), transform: `rotate(${rot}deg) ${e.transform}`, transformOrigin: "50% 50%", opacity: e.opacity, ...(e.clip ? { clipPath: e.clip } : {}), ...((e as { filter?: string }).filter ? { filter: (e as { filter?: string }).filter } : {}) }}>{child}</div>
   );
   const src = slots[String(el.slot)];
   if (!src) return null;
@@ -141,8 +150,15 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const filter = gradeFilter(el.grade);
     const inner = 1.04 + 0.06 * interpolate(f, [0, fps * 6], [0, 1], { extrapolateRight: "clamp" });
     return wrap(
-      <div style={{ position: "relative", height: h, overflow: "hidden", ...(el.blend === "screen" ? { mixBlendMode: "screen", opacity: 0.7 } : { boxShadow: "0 20px 50px rgba(0,0,0,0.55)" }) }}>
-        <Img src={staticFile(src)} style={{ width: "100%", height: h ? "100%" : "auto", objectFit: "cover", display: "block", filter, transform: `scale(${inner})` }} />
+      // craft inventory: picture frames — a polaroid print, a neon frame, ripped paper edges, a screen tilted in perspective
+      <div style={{ position: "relative", ...(el.frame === "perspective" ? { transform: `perspective(${Math.round(w * 2.4)}px) rotateY(${-18 + 6 * interpolate(f, [0, fps * 6], [0, 1], { extrapolateRight: "clamp" })}deg) rotateX(6deg)` } : {}) }}>
+        <div style={{ position: "relative", height: h, overflow: "hidden",
+          ...(el.blend === "screen" ? { mixBlendMode: "screen", opacity: 0.7 } : { boxShadow: "0 20px 50px rgba(0,0,0,0.55)" }),
+          ...(el.frame === "polaroid" ? { background: "#f6f3ec", padding: `${w * 0.04}px ${w * 0.04}px ${w * 0.16}px`, boxShadow: "0 18px 40px rgba(0,0,0,0.5)" } : {}),
+          ...(el.frame === "neon" ? { outline: `${Math.max(3, w * 0.008)}px solid ${PALETTE.accent}`, outlineOffset: w * 0.012, boxShadow: `0 0 ${w * 0.04}px ${PALETTE.accent}, 0 0 ${w * 0.09}px ${PALETTE.accent}` } : {}),
+          ...(el.frame === "torn" ? { clipPath: tornPath(i) } : {}) }}>
+          <Img src={staticFile(src)} style={{ width: "100%", height: h ? "100%" : "auto", objectFit: "cover", display: "block", filter, transform: `scale(${inner})` }} />
+        </div>
       </div>,
       h,
     );
@@ -171,6 +187,69 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     <div style={{ position: "absolute", left, top, width: w, height: h3, opacity: e.opacity }}>
       <Card3D src={src} tilt={el.tilt ?? -14} spin={el.spin ?? 22} at={at} w={w} h={h3} />
     </div>
+  );
+};
+
+/** Ripped paper edges: a jagged polygon, stable per element. */
+const tornPath = (seed: number) => {
+  const r = (k: number) => { const x = Math.sin(k * 91.7 + seed * 13.3) * 43758.5; return x - Math.floor(x); };
+  const pts: string[] = [];
+  for (let k = 0; k <= 20; k++) pts.push(`${(k * 5).toFixed(1)}% ${(r(k) * 4).toFixed(1)}%`);
+  for (let k = 0; k <= 14; k++) pts.push(`${(100 - r(k + 40) * 3).toFixed(1)}% ${(k * 7.14).toFixed(1)}%`);
+  for (let k = 20; k >= 0; k--) pts.push(`${(k * 5).toFixed(1)}% ${(100 - r(k + 80) * 4).toFixed(1)}%`);
+  for (let k = 14; k >= 0; k--) pts.push(`${(r(k + 120) * 3).toFixed(1)}% ${(k * 7.14).toFixed(1)}%`);
+  return `polygon(${pts.join(", ")})`;
+};
+
+/** Craft inventory: procedural weather and light over a shot — snow, confetti, bokeh (deterministic, drawn). */
+const AirLayer: React.FC<{ kind: "snow" | "confetti" | "bokeh" }> = ({ kind }) => {
+  const f = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const r = (k: number, s: number) => { const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const n = kind === "bokeh" ? 14 : 70;
+  const cols = [PALETTE.accent, PALETTE.primary, "#ffffff", "#f2c14e"];
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", mixBlendMode: kind === "bokeh" ? "screen" : "normal" }}>
+      {Array.from({ length: n }, (_, k) => {
+        if (kind === "bokeh") {
+          const d = width * (0.05 + r(k, 1) * 0.12);
+          return <div key={k} style={{ position: "absolute", left: r(k, 2) * width + Math.sin(f / 60 + k) * 20, top: r(k, 3) * height + Math.cos(f / 70 + k) * 20, width: d, height: d, borderRadius: "50%", background: `radial-gradient(circle, ${k % 3 ? "#ffd59a" : PALETTE.accent}aa 0%, transparent 70%)`, filter: "blur(4px)", opacity: 0.55 }} />;
+        }
+        const sp = kind === "snow" ? 0.6 + r(k, 4) * 0.8 : 1.2 + r(k, 4);
+        const y = ((f * sp * 2.2 + r(k, 5) * height * 1.2) % (height * 1.2)) - height * 0.1;
+        const x = r(k, 6) * width + Math.sin(f / 22 + k) * (kind === "snow" ? 18 : 30);
+        const s = kind === "snow" ? 3 + r(k, 7) * 7 : 8 + r(k, 7) * 10;
+        return <div key={k} style={{ position: "absolute", left: x, top: y, width: s, height: kind === "snow" ? s : s * 0.45, borderRadius: kind === "snow" ? "50%" : 2, background: kind === "snow" ? "#ffffff" : cols[k % cols.length], opacity: kind === "snow" ? 0.85 : 0.95, transform: kind === "confetti" ? `rotate(${f * 6 * (r(k, 8) - 0.5) + k * 40}deg)` : undefined, filter: kind === "snow" && s < 5 ? "blur(1px)" : undefined }} />;
+      })}
+    </AbsoluteFill>
+  );
+};
+
+/** Craft inventory: scanlines with a flicker (CRT / neon type), a ruler grid over the picture, an interface cursor that
+ *  travels and clicks, a two-tone grade (cool ground, warm pictures). */
+const FxLayer: React.FC<{ fx: { scanlines?: boolean; grid?: boolean; cursor?: { x: number; y: number } } }> = ({ fx }) => {
+  const f = useCurrentFrame();
+  const { width, height, fps } = useVideoConfig();
+  const p = interpolate(f, [fps * 0.4, fps * 1.4], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) });
+  const click = fx.cursor ? interpolate(f, [fps * 1.4, fps * 1.9], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 0;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      {fx.scanlines ? <AbsoluteFill style={{ background: `repeating-linear-gradient(180deg, rgba(0,0,0,0.28) 0, rgba(0,0,0,0.28) 2px, transparent 2px, transparent 5px)`, opacity: 0.55 + 0.25 * Math.abs(Math.sin(f * 1.7)), mixBlendMode: "multiply" }} /> : null}
+      {fx.grid ? (
+        <AbsoluteFill>
+          <AbsoluteFill style={{ background: `repeating-linear-gradient(90deg, rgba(255,255,255,0.35) 0, rgba(255,255,255,0.35) 1px, transparent 1px, transparent ${width / 20}px), repeating-linear-gradient(180deg, rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1px, transparent 1px, transparent ${width / 20}px)`, opacity: 0.6 }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: height * 0.06, height: height * 0.04, display: "flex", justifyContent: "space-between", padding: `0 ${width * 0.02}px`, color: "#fff", fontFamily: "monospace", fontSize: height * 0.022, opacity: 0.8 }}>
+            {Array.from({ length: 11 }, (_, k) => <span key={k}>{k * 10}</span>)}
+          </div>
+        </AbsoluteFill>
+      ) : null}
+      {fx.cursor ? (
+        <div style={{ position: "absolute", left: width * (0.5 + (fx.cursor.x - 0.5) * p), top: height * (0.6 + (fx.cursor.y - 0.6) * p) }}>
+          {click > 0 && click < 1 ? <div style={{ position: "absolute", left: -30 * click, top: -30 * click, width: 60 * click, height: 60 * click, borderRadius: "50%", border: `3px solid ${PALETTE.accent}`, opacity: 1 - click }} /> : null}
+          <svg width={height * 0.045} height={height * 0.06} viewBox="0 0 24 32"><path d="M2 2 L2 26 L8 20 L12 30 L16 28 L12 18 L20 18 Z" fill="#fff" stroke="#000" strokeWidth="1.6" /></svg>
+        </div>
+      ) : null}
+    </AbsoluteFill>
   );
 };
 
@@ -228,7 +307,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
   const bd = spec.backdrop ?? "footage";
   const wash = spec.wash;
   // craft inventory: a glitch burst with RGB split over the shot's first frames (and a flicker at a third of it)
-  const fxs = (spec as { fx?: { glitch?: boolean; dof?: number; rack?: boolean } }).fx;
+  const fxs = (spec as { fx?: { glitch?: boolean; dof?: number; rack?: boolean; scanlines?: boolean; grid?: boolean; cursor?: { x: number; y: number }; twotone?: boolean } }).fx;
   const rackPx = fxs?.rack ? interpolate(f, [0, 14], [width * 0.012, 0], { extrapolateRight: "clamp" }) : 0;
   const gid = `glitch${React.useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const glitchOn = Boolean(fxs?.glitch) && (f < 9 || (f > durationInFrames / 3 && f < durationInFrames / 3 + 4));
@@ -259,7 +338,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
       {bd === "stage" ? <KitStage /> : null}
       {bd === "world" && spec.world ? <AbsoluteFill style={dofPx > 0 ? { filter: `blur(${dofPx}px)` } : undefined}><World world={spec.world} slots={slots} /></AbsoluteFill> : bd === "world" ? <KitStage /> : null}
       <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.3})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
-        <div style={{ position: "absolute", inset: 0, width, height }}>
+        <div style={{ position: "absolute", inset: 0, width, height, ...(fxs?.twotone ? { filter: "sepia(0.35) saturate(1.3) hue-rotate(-10deg)" } : {}) }}>
           {spec.elements.map((el, i) => (
             <ExitWrap key={i} exit={el.exit}>
               <Element el={el} i={i} slots={slots} drift={drift} />
@@ -267,6 +346,9 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
           ))}
         </div>
       </AbsoluteFill>
+      {fxs?.twotone ? <AbsoluteFill style={{ background: "#1b6f8a", mixBlendMode: "color", opacity: 0.35, pointerEvents: "none" }} /> : null}
+      {fxs && (fxs.scanlines || fxs.grid || fxs.cursor) ? <FxLayer fx={fxs} /> : null}
+      {(spec as { atmos?: { kind: string } }).atmos && ["snow", "confetti", "bokeh"].includes((spec as unknown as { atmos: { kind: string } }).atmos.kind) ? <AirLayer kind={(spec as unknown as { atmos: { kind: "snow" | "confetti" | "bokeh" } }).atmos.kind} /> : null}
       {(spec as { drift?: DriftSpec }).drift ? <DriftLayer drift={(spec as unknown as { drift: DriftSpec }).drift} slots={slots} /> : null}
       {spec.finish ? <Finish finish={spec.finish} /> : null}
     </AbsoluteFill>

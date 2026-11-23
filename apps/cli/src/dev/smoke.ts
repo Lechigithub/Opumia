@@ -29,7 +29,7 @@ const sfx = usable.find((a) => a.category === "sfx" && a.facets.class)!;
 
 const ASPECT = (process.env.SMOKE_ASPECT ?? "9:16") as "9:16" | "16:9";
 const words = "In 1928 a small company made a bet that would change the world forever and then paid $19 billion for a rival nobody saw coming until far too late".split(" ");
-const WORLDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "paper", "terminal", "filmstrip"] as const;
+const WORLDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "paper", "terminal", "filmstrip", "contact_grid", "split", "gradient", "room3d"] as const;
 const dur = 24 + WORLDS.length * 2.5;
 const tw = words.map((w, i) => ({ word: w, startS: +(i * (dur - 1) / words.length).toFixed(3), endS: +((i + 0.8) * (dur - 1) / words.length).toFixed(3) }));
 ff(["-f", "lavfi", "-i", `sine=frequency=220:duration=${dur}`, "-af", "volume=0.3", path.join(job, "narration.mp3")]);
@@ -98,7 +98,7 @@ const scenes = new Map<string, unknown>([
     { type: "component", name: "Label", props: { text: "a rival", sub: "nobody saw coming" }, x: 0.55, y: 0.62, w: 0.35, rot: 0, z: 0.6, at: 0.5, enter: "fade" },
   ] }],
   ["sh008", { shotId: "sh008", idea: "clean", backdrop: "footage", finish: { grain: 0.3, vignette: 0.4, leak: 0.5 }, dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [] }],
-  ...WORLDS.map((w, k): [string, unknown] => [worldIds[k]!, { shotId: worldIds[k]!, idea: `world ${w}`, backdrop: "world", world: { kind: w, ...(w === "burst" || w === "flat_field" ? {} : { slot: 0 }), ...(w === "collage" ? { slots: [1] } : {}), color: k % 2 ? "accentDeep" : "primary", accent: "accent" }, finish: { grain: 0.25, vignette: 0.3, leak: 0 }, dim: 0.3, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
+  ...WORLDS.map((w, k): [string, unknown] => [worldIds[k]!, { shotId: worldIds[k]!, idea: `world ${w}`, backdrop: "world", world: { kind: w, ...(w === "burst" || w === "flat_field" ? {} : { slot: 0 }), ...(w === "collage" || w === "split" || w === "contact_grid" || w === "filmstrip" ? { slots: [1] } : {}), color: k % 2 ? "accentDeep" : "primary", accent: "accent" }, finish: { grain: 0.25, vignette: 0.3, leak: 0 }, dim: 0.3, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
     ...(w === "burst" ? [{ type: "cutout", slot: 0, x: 0.3, y: 0.15, w: 0.4, rot: 0, z: 0.8, at: 0, enter: "pop", shadow: true }] : []),
     ...(w === "flat_field" ? [{ type: "photo", slot: 0, x: 0.1, y: 0.2, w: 0.4, rot: -3, z: 0.6, at: 0, enter: "zoom", grade: "duotone" }] : []),
     { type: "component", name: "Headline", props: { text: "a bet" }, x: 0.52, y: 0.62, w: 0.4, rot: 0, z: 0.6, at: 0.2, enter: "fade" },

@@ -1,3 +1,4 @@
+import { PALETTE } from "../types";
 import React from "react";
 import { AbsoluteFill, Img, interpolate, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig, Easing } from "remotion";
 import type { Layer } from "../types";
@@ -12,6 +13,27 @@ export function useKeyframes(layer: Layer) {
     k.length === 1 ? k[0]![key] : interpolate(f, frames, k.map((x) => x[key]), { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.quad) });
   return { scale: at("scale"), x: at("x"), y: at("y"), opacity: at("opacity") };
 }
+
+/** An ink blot spreading from the centre (a jagged, growing polygon). */
+const inkPath = (k: number) => {
+  const pts: string[] = [];
+  for (let a = 0; a < 36; a++) {
+    const ang = (a / 36) * Math.PI * 2;
+    const rr = k * 95 * (0.75 + 0.25 * Math.sin(a * 2.3) * Math.cos(a * 1.1));
+    pts.push(`${(50 + Math.cos(ang) * rr).toFixed(1)}% ${(50 + Math.sin(ang) * rr).toFixed(1)}%`);
+  }
+  return `polygon(${pts.join(", ")})`;
+};
+/** Six vertical bars growing across the frame, staggered. */
+const barsPath = (k: number) => {
+  const pts: string[] = ["0% 0%"];
+  for (let b = 0; b < 6; b++) {
+    const g = Math.max(0, Math.min(1, k * 1.6 - b * 0.12));
+    const x0 = (b * 100) / 6, x1 = x0 + (100 / 6) * g;
+    pts.push(`${x0}% 0%`, `${x0}% 100%`, `${x1}% 100%`, `${x1}% 0%`, `${x0}% 0%`);
+  }
+  return `polygon(${pts.join(", ")})`;
+};
 
 /** Entry transition for a shot (fade, dip to black, whip, light-leak flash). */
 export function useTransitionIn(kind: string | undefined) {
@@ -28,6 +50,15 @@ export function useTransitionIn(kind: string | undefined) {
     // craft inventory: the channel's white flash cut and the zoom punch on a hit
     case "flash":
       return { opacity: 1, blur: 0, dx: 0, flash: 0, white: interpolate(f, [0, 1, 5], [1, 0.85, 0], { extrapolateRight: "clamp" }), punch: 1 };
+    // craft inventory: a colour flash (the film's accent), a prismatic flare, a bar wipe, an ink-blot cover
+    case "flash_color":
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: interpolate(f, [0, 1, 6], [1, 0.8, 0], { extrapolateRight: "clamp" }), punch: 1, tint: "accent" };
+    case "prism":
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: 1, prism: interpolate(f, [0, 3, 14], [0.95, 0.7, 0], { extrapolateRight: "clamp" }) };
+    case "bar_wipe":
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: 1, bars: interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) }) };
+    case "ink":
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: 1, iris: interpolate(f, [0, 12], [0, 1], { extrapolateRight: "clamp", easing: Easing.in(Easing.quad) }), ink: true };
     // craft inventory: zoom-through — the next shot is revealed through a shape that scales through the frame
     case "zoom_through":
       return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: interpolate(f, [0, 10], [1.25, 1], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }), iris: interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp", easing: Easing.in(Easing.quad) }) };
@@ -52,7 +83,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const f = useCurrentFrame();
   const p = (layer.props ?? {}) as { kind?: string; mode?: string; focus?: [number, number]; transitionIn?: string; dim?: number; dimUntil?: number; period?: boolean; citation?: string };
   const cam = useKeyframes(layer);
-  const tr = { white: 0, punch: 1, iris: 1, ...useTransitionIn(p.transitionIn) };
+  const tr = { white: 0, punch: 1, iris: 1, tint: "", prism: 0, bars: 1, ink: false, ...useTransitionIn(p.transitionIn) } as { opacity: number; blur: number; dx: number; flash: number; white: number; punch: number; iris: number; tint: string; prism: number; bars: number; ink: boolean };
   const focus = p.focus ?? [0.5, 0.5];
   const src = layer.src ?? "";
   const kind = p.kind ?? "video";
@@ -67,7 +98,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
     const cardW = portrait ? width * 0.86 : width * 0.62;
     const cardH = portrait ? height * 0.42 : height * 0.74;
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0b0b0b", opacity: tr.opacity, ...(tr.iris < 1 ? { clipPath: `circle(${(tr.iris * 75).toFixed(1)}% at 50% 50%)` } : {}) }}>
+      <AbsoluteFill style={{ backgroundColor: "#0b0b0b", opacity: tr.opacity, ...(tr.iris < 1 ? { clipPath: tr.ink ? inkPath(tr.iris) : `circle(${(tr.iris * 75).toFixed(1)}% at 50% 50%)` } : tr.bars < 1 ? { clipPath: barsPath(tr.bars) } : {}) }}>
         <AbsoluteFill style={{ transform: `scale(${1.25 + 0.06 * t}) translateX(${(t - 0.5) * -2}%)`, filter: "blur(28px) brightness(0.45) saturate(0.8)" }}>
           <Source src={src} kind={kind} focus={focus} />
         </AbsoluteFill>
@@ -93,14 +124,15 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
           </div>
         </AbsoluteFill>
         {tr.flash > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle at 30% 40%, #ffd28a, #ff7a1a 45%, transparent 75%)", mixBlendMode: "screen", opacity: tr.flash }} /> : null}
-      {tr.white > 0 ? <AbsoluteFill style={{ background: "#ffffff", opacity: tr.white }} /> : null}
+      {tr.white > 0 ? <AbsoluteFill style={{ background: tr.tint === "accent" ? PALETTE.accent : "#ffffff", opacity: tr.white }} /> : null}
+      {tr.prism > 0 ? <AbsoluteFill style={{ background: "linear-gradient(115deg, transparent 20%, rgba(255,0,80,0.6) 35%, rgba(255,200,0,0.6) 45%, rgba(0,255,160,0.55) 55%, rgba(0,140,255,0.6) 65%, transparent 80%)", mixBlendMode: "screen", opacity: tr.prism }} /> : null}
       </AbsoluteFill>
     );
   }
 
   const dimK = p.dim ? (p.dimUntil !== undefined ? interpolate(f, [p.dimUntil, p.dimUntil + 8], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1) : 0;
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000", opacity: tr.opacity * cam.opacity, overflow: "hidden", ...(tr.iris < 1 ? { clipPath: `circle(${(tr.iris * 75).toFixed(1)}% at 50% 50%)` } : {}) }}>
+    <AbsoluteFill style={{ backgroundColor: "#000", opacity: tr.opacity * cam.opacity, overflow: "hidden", ...(tr.iris < 1 ? { clipPath: tr.ink ? inkPath(tr.iris) : `circle(${(tr.iris * 75).toFixed(1)}% at 50% 50%)` } : tr.bars < 1 ? { clipPath: barsPath(tr.bars) } : {}) }}>
       <AbsoluteFill
         style={{
           transform: `translate(${(cam.x + tr.dx) * width}px, ${cam.y * height}px) scale(${cam.scale * tr.punch})`,
@@ -112,7 +144,8 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
         <Source src={src} kind={kind} focus={focus} />
       </AbsoluteFill>
       {tr.flash > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle at 30% 40%, #ffd28a, #ff7a1a 45%, transparent 75%)", mixBlendMode: "screen", opacity: tr.flash }} /> : null}
-      {tr.white > 0 ? <AbsoluteFill style={{ background: "#ffffff", opacity: tr.white }} /> : null}
+      {tr.white > 0 ? <AbsoluteFill style={{ background: tr.tint === "accent" ? PALETTE.accent : "#ffffff", opacity: tr.white }} /> : null}
+      {tr.prism > 0 ? <AbsoluteFill style={{ background: "linear-gradient(115deg, transparent 20%, rgba(255,0,80,0.6) 35%, rgba(255,200,0,0.6) 45%, rgba(0,255,160,0.55) 55%, rgba(0,140,255,0.6) 65%, transparent 80%)", mixBlendMode: "screen", opacity: tr.prism }} /> : null}
     </AbsoluteFill>
   );
 };

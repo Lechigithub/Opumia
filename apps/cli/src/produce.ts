@@ -14,7 +14,7 @@ import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
 import { makeLikeness, runFilmDesigner } from "./film-kit.js";
-import { run, PausedError, setPauseHooks } from "@opumia/senses";
+import { ensurePlucks, run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
 import { dropPictures, preflightChecks, referenceHueDominance, type PreflightCheck } from "./preflight.js";
 import { designChecks, pictureChecks, previewTells } from "./bl5-checks.js";
@@ -639,6 +639,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const ap = await buildAudioProfile({ data: o.data, library: o.library, index, log });
     const cool = await cooldownRefs(o.data, jobId);
     const usable = index.assets.filter(isUsable);
+    // craft inventory: tonal plucks for small reveals — synthesised (the library has none), offered with the library's
+    const plucks = await ensurePlucks(o.data).catch(() => []);
+    for (const pk of plucks) {
+      if (!index.assets.some((a) => a.id === pk.id)) index.assets.push({ schemaVersion: 1, id: pk.id, category: "sfx", relPath: pk.file, kind: "audio", ext: "mp3", sizeBytes: 0, mtimeMs: 0, tags: ["pluck", "tonal"], provenance: { license: "own (deterministic synthesis)", attributionRequired: false, basis: "synthesised with FFmpeg" } } as never);
+      ap.sfx[pk.id] = { seconds: pk.seconds, peakDb: -6, centroidHz: 900, lowShare: 0.15, attackS: 0.004, energyCentre: 0.12, family: "pluck" } as never;
+    }
+    for (const pk of plucks) if (!usable.some((a) => a.id === pk.id)) usable.push(index.assets.find((a) => a.id === pk.id)!);
     const sopts = { storyboard: board, script: timed, scenes: scenePlan, sfxAssets: usable.filter((a) => a.category === "sfx" && a.kind === "audio"), musicAssets: usable.filter((a) => a.category === "music" && a.kind === "audio"), sfxProfile: ap.sfx, musicProfile: ap.music, profile: pack.profile, cooldown: { sfx: cool.sfx, music: cool.music }, seed, drops: board.music.flatMap((m) => m.drops ?? []), log };
     // The sound designer starts from the timeline's pass, measures against the channel, listens, revises.
     const listenSound = async (st: { shots: Storyboard["shots"]; music: Storyboard["music"] }, a: number, b: number) => {

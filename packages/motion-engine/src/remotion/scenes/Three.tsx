@@ -27,7 +27,7 @@ const Lights: React.FC<{ accent: string }> = ({ accent }) => (
 );
 
 /** Extruded word: bevelled, lit by the film's accent, turning through `spin` degrees over the shot. */
-export const Text3D: React.FC<{ text: string; color: string; spin: number; at: number; w: number; h: number; serif?: boolean }> = ({ text, color, spin, at, w, h, serif }) => {
+export const Text3D: React.FC<{ text: string; color: string; spin: number; at: number; w: number; h: number; serif?: boolean; metal?: boolean }> = ({ text, color, spin, at, w, h, serif, metal }) => {
   const f = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const t = f - Math.round(at * fps);
@@ -53,7 +53,7 @@ export const Text3D: React.FC<{ text: string; color: string; spin: number; at: n
       <Lights accent={PALETTE.accent} />
       <group rotation={[-0.12, ry, 0]} scale={0.55 + 0.45 * inP} position={[0, (1 - inP) * -0.6, 0]}>
         <mesh geometry={geo}>
-          <meshStandardMaterial attach="material-0" color={color} metalness={0.55} roughness={0.28} />
+          <meshStandardMaterial attach="material-0" color={color} metalness={metal ? 0.95 : 0.55} roughness={metal ? 0.12 : 0.28} />
           <meshStandardMaterial attach="material-1" color={PALETTE.accentDeep} metalness={0.4} roughness={0.5} />
         </mesh>
       </group>

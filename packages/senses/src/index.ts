@@ -11,3 +11,4 @@ export * from "./jumps.js";
 export * from "./legibility.js";
 export * from "./outside.js";
 export * from "./watermark.js";
+export * from "./synth.js";

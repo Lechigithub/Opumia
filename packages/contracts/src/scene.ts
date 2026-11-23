@@ -5,11 +5,13 @@ import { z } from "zod";
  * ComposedScene renderer draws. No fixed template: layout, motion and camera are data; every word and card is the film's kit.
  * Coordinates are fractions of the frame (0..1); times are seconds from the shot start.
  */
-export const SceneEnter = z.enum(["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"]);
+export const SceneEnter = z.enum(["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom", "settle", "glitch", "swoop"]);
 const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade"), /** craft inventory: how it leaves before the cut — slides off, or erodes away (blur, crumble, fade) */ exit: z.enum(["none", "slide", "erode"]).optional() };
 export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"]);
 /** Treatment of a placed picture (build list 5, item 11): its own grade. */
-export const PhotoGrade = z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey"]);
+export const PhotoGrade = z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey", "warm_glow", "thermal", "solarise"]);
+/** Craft inventory: how a placed picture is framed — a white-bordered polaroid print, a glowing neon frame, ripped paper edges, tilted in 3D perspective. */
+export const PhotoFrame = z.enum(["none", "polaroid", "neon", "torn", "perspective"]);
 
 
 
@@ -22,7 +24,7 @@ export const PhotoGrade = z.enum(["natural", "mono", "duotone", "punch", "sepia"
  */
 export const SceneElement = z.discriminatedUnion("type", [
   /** A real picture placed as it is (framing, if any, comes from a kit component holding the slot). */
-  z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, grade: PhotoGrade.default("natural"), h: z.number().optional(), /** craft inventory: a double exposure — the picture laid over the frame by light (screen), translucent */ blend: z.enum(["normal", "screen"]).optional() }),
+  z.object({ type: z.literal("photo"), slot: z.number().int().min(0), ...Box, grade: PhotoGrade.default("natural"), frame: PhotoFrame.optional(), h: z.number().optional(), /** craft inventory: a double exposure — the picture laid over the frame by light (screen), translucent */ blend: z.enum(["normal", "screen"]).optional() }),
   z.object({
     type: z.literal("cutout"), slot: z.number().int().min(0), ...Box, shadow: z.boolean().default(true),
     /** Craft inventory: the channel's black silhouette figures, and cut-outs with a white outline or a coloured glow. */
@@ -43,7 +45,7 @@ export const SceneElement = z.discriminatedUnion("type", [
   /** Real 3D (Three.js): a picture slot as a lit card in perspective, turning through `spin` degrees. */
   z.object({ type: z.literal("card3d"), slot: z.number().int().min(0), ...Box, tilt: z.number().min(-40).max(40).default(-14), spin: z.number().min(-60).max(60).default(22) }),
   /** Real 3D type (Three.js): words the narrator says, extruded and lit, turning through `spin` degrees (craft inventory). */
-  z.object({ type: z.literal("text3d"), ...Box, h: z.number().optional(), text: z.string().min(1).max(40), spin: z.number().min(-60).max(60).default(18), serif: z.boolean().optional(), color: z.enum(["primary", "accent", "white", "paper"]).optional() }),
+  z.object({ type: z.literal("text3d"), ...Box, h: z.number().optional(), text: z.string().min(1).max(40), spin: z.number().min(-60).max(60).default(18), serif: z.boolean().optional(), color: z.enum(["primary", "accent", "white", "paper"]).optional(), /** craft inventory: a metallic chrome or gold title */ material: z.enum(["paint", "chrome", "gold"]).optional() }),
   /** One of THIS film's kit components, with its props (words spoken in the shot; slots; verified data). */
   z.object({ type: z.literal("component"), ...Box, h: z.number().optional(), name: z.string(), props: z.record(z.string(), z.unknown()).default({}) }),
 ]);
@@ -57,7 +59,7 @@ export type SceneElement = z.infer<typeof SceneElement>;
  * collage of real pictures, a bold flat field that changes with the idea, paper and print, a terminal or UI.
  * Drawn deterministically by the engine (remotion/scenes/Worlds.tsx) from real pictures and designed shapes only.
  */
-export const WORLD_KINDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "paper", "terminal", "filmstrip"] as const;
+export const WORLD_KINDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "paper", "terminal", "filmstrip", "contact_grid", "split", "gradient", "room3d"] as const;
 export const SceneWorld = z.object({
   kind: z.enum(WORLD_KINDS),
   /** The real picture the world is made of (mono_accent, duotone; the first of a collage). */
@@ -69,10 +71,10 @@ export const SceneWorld = z.object({
 });
 export type SceneWorld = z.infer<typeof SceneWorld>;
 /** Build list 5, item 11: the treatment laid over the whole shot (the channel's frames almost all carry one). */
-export const SceneFinish = z.object({ grain: z.number().min(0).max(1).default(0), vignette: z.number().min(0).max(1).default(0), leak: z.number().min(0).max(1).default(0) });
+export const SceneFinish = z.object({ grain: z.number().min(0).max(1).default(0), vignette: z.number().min(0).max(1).default(0), leak: z.number().min(0).max(1).default(0), /** craft inventory: a halftone / grunge dot print texture */ halftone: z.number().min(0).max(1).optional() });
 /** Craft inventory: a real filmed atmosphere over the shot (Library/overlays, screen-blended): the channel's smoke and
  *  fog layers, embers and dust, film scratches, film burns and the sprocket gate. */
-export const ATMOS_KINDS = ["smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak"] as const;
+export const ATMOS_KINDS = ["smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak", "snow", "confetti", "bokeh"] as const;
 export const SceneAtmos = z.object({ kind: z.enum(ATMOS_KINDS), opacity: z.number().min(0.1).max(1).default(0.6) });
 
 export const SceneSpec = z.object({
@@ -88,7 +90,13 @@ export const SceneSpec = z.object({
   /** Craft inventory: a picture slot (a cut-out object: banknotes, coins, documents, leaves) repeated as a falling or
    *  drifting layer over the shot. */
   drift: z.object({ slot: z.number().int().min(0), mode: z.enum(["fall", "float"]), count: z.number().int().min(3).max(24).default(10) }).optional(),
-  fx: z.object({ glitch: z.boolean().optional(), dof: z.number().min(0).max(1).optional(), /** a rack focus: the shot opens out of focus and pulls sharp */ rack: z.boolean().optional() }).optional(),
+  fx: z.object({
+    glitch: z.boolean().optional(), dof: z.number().min(0).max(1).optional(), /** a rack focus: the shot opens out of focus and pulls sharp */ rack: z.boolean().optional(),
+    /** scanlines and a flicker over glowing type (the channel's neon / CRT text) */ scanlines: z.boolean().optional(),
+    /** a ruler / numeral grid laid over the picture (measuring something) */ grid: z.boolean().optional(),
+    /** an interface cursor that moves to (x, y) and clicks — a UI close-up */ cursor: z.object({ x: z.number(), y: z.number() }).optional(),
+    /** two-tone complementary grade: a cool backdrop against warm pictures in front */ twotone: z.boolean().optional(),
+  }).optional(),
   /** Colour the footage backdrop into the film's world. */
   wash: z.object({ color: ColorToken, strength: z.number().min(0).max(0.85), mode: z.enum(["tint", "duotone"]) }).optional(),
   dim: z.number().min(0).max(0.85).default(0.45),

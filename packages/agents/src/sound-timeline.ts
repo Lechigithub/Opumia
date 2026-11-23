@@ -19,7 +19,7 @@ import { moodOfTitle, sfxCap, storyMusicPlan, type Mood, type MusicRates } from 
 export interface SoundCharacterLike { seconds: number; peakDb: number; centroidHz: number; lowShare: number; attackS: number; energyCentre: number; family: string }
 export interface MusicProfileLike { seconds: number; bpm: number; pulse: number; energyDb: number[]; beat: { offsetS: number; periodS: number }; brightnessHz: number }
 
-export type SoundFamily = "sub_boom" | "thud" | "impact" | "click" | "riser" | "paper" | "typing" | "cash";
+export type SoundFamily = "sub_boom" | "thud" | "impact" | "click" | "riser" | "paper" | "typing" | "cash" | "pluck";
 export interface VisualEvent { atS: number; family: SoundFamily; prio: number; strong: boolean; why: string }
 
 const seeded = (seed: string) => (id: string) => parseInt(createHash("sha1").update(`${seed}|${id}`).digest("hex").slice(0, 8), 16);
@@ -63,7 +63,7 @@ export interface SoundTimelineOptions {
 
 type Family = SoundFamily;
 type Event = VisualEvent;
-export const SOUND_FAMILIES: SoundFamily[] = ["sub_boom", "thud", "impact", "click", "riser", "paper", "typing", "cash"];
+export const SOUND_FAMILIES: SoundFamily[] = ["sub_boom", "thud", "impact", "click", "riser", "paper", "typing", "cash", "pluck"];
 export const STRONG_FAMILIES = new Set<SoundFamily>(["sub_boom", "thud", "impact"]);
 
 /** Step 1: the moments the viewer sees that may carry a sound (element entrances, data graphics, story turns). */
@@ -89,7 +89,9 @@ export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "scrip
       else if (el.type === "component") {
         const role = o.kitRoles?.[el.name] ?? "";
         const big = role === "headline" || role === "number" || role === "chapter";
-        events.push({ atS: at + 0.12, family: role === "chapter" ? "sub_boom" : "thud", prio: big ? 4 : 2.8, strong: true, why: `${role || el.name} lands` });
+        // a label (a name, a place, a date) is a small reveal: a light tonal pluck, not a hit
+        if (role === "label") events.push({ atS: at + 0.1, family: "pluck", prio: 1.8, strong: false, why: "label appears" });
+        else events.push({ atS: at + 0.12, family: role === "chapter" ? "sub_boom" : "thud", prio: big ? 4 : 2.8, strong: true, why: `${role || el.name} lands` });
       }
     }
   }
@@ -98,7 +100,7 @@ export function visualEvents(o: Pick<SoundTimelineOptions, "storyboard" | "scrip
   return events.sort((a, b) => a.atS - b.atS);
 }
 
-const TARGET_PEAK: Record<Family, number> = { sub_boom: -7, thud: -8, impact: -8, click: -15, riser: -12, paper: -14, typing: -16, cash: -12 };
+const TARGET_PEAK: Record<Family, number> = { sub_boom: -7, thud: -8, impact: -8, click: -15, riser: -12, paper: -14, typing: -16, cash: -12, pluck: -15 };
 const WANT: Record<Mood, { bpm: [number, number]; pulse: number }> = { intrigue: { bpm: [70, 115], pulse: 0.15 }, rise: { bpm: [100, 140], pulse: 0.3 }, tension: { bpm: [85, 135], pulse: 0.25 }, collapse: { bpm: [60, 105], pulse: 0.1 }, resolve: { bpm: [70, 115], pulse: 0.15 } };
 
 /** Steps 3–4 as tools: pick a file for a family, set its level and placement, rank beds for a span, enter a bed on the beat. */
@@ -107,6 +109,8 @@ export function soundKit(o: SoundTimelineOptions) {
   const cls = (a: AssetRecord) => String(a.facets.class ?? "");
   const all = o.sfxAssets.filter((a) => o.sfxProfile[a.id]);
   const pool = (fam: Family): AssetRecord[] => {
+    // craft inventory: tonal plucks are synthesised (the library has none) — their profile is known
+    if (fam === "pluck") return all.filter((a) => a.id.startsWith("synth_pluck_")).sort((a, b) => rnd(a.id) - rnd(b.id));
     let list: AssetRecord[];
     const specific = CLASS_FAMILY.filter(([, f]) => f === fam);
     if (specific.length) list = all.filter((a) => specific.some(([re]) => re.test(cls(a))));

@@ -16,7 +16,7 @@ import { MODELS, plain, ROLE_MODEL, structured } from "./llm.js";
  * The kit's phrase component is marked `sync` so its words land on the frames they are spoken.
  */
 
-const ENTER = ["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"] as const;
+const ENTER = ["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom", "settle", "glitch", "swoop"] as const;
 const El = z.object({
   type: z.enum(["photo", "cutout", "card3d", "text3d", "component"]),
   text: z.string().describe("text3d: two to five words the narrator says in this shot, set as real extruded 3D type; else empty"),
@@ -34,8 +34,10 @@ const El = z.object({
   enter: z.enum(ENTER),
   exit: z.enum(["none", "slide", "erode"]).describe("how it leaves before the cut: slide off, or erode away (blur, crumble, fade) — the channel's text exits; none for most"),
   spin: z.number().describe("degrees the 3D card turns over the shot (card3d), else 0"),
+  frame: z.enum(["none", "polaroid", "neon", "torn", "perspective"]).describe("photo: a white-bordered polaroid print (several swooping in at different depths read as the channel's floating photo cards), a glowing neon frame, ripped paper edges, or a screen/document tilted in 3D perspective; else none"),
+  material: z.enum(["paint", "chrome", "gold"]).describe("text3d: paint, or a metallic chrome / gold title"),
   blend: z.enum(["normal", "screen"]).describe("photo: screen = a double exposure (the picture laid over the frame by its light, translucent); else normal"),
-  grade: z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey"]).describe("contrast_bw = the channel's high-contrast black and white; split = cool shadows and warm light; invert = a negative; lowkey = dark and moody. Photo: its own grade (treatment) — mono, duotone, punch or sepia tie a stock picture into the film; natural for press photos that must stay as they are"),
+  grade: z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey", "warm_glow", "thermal", "solarise"]).describe("warm_glow = golden lifted highlights; thermal = false colour; solarise = blown, inverted highlights; contrast_bw = the channel's high-contrast black and white; split = cool shadows and warm light; invert = a negative; lowkey = dark and moody. Photo: its own grade (treatment) — mono, duotone, punch or sepia tie a stock picture into the film; natural for press photos that must stay as they are"),
 });
 const TOKENS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "black", "white"] as const;
 const WorldDraft = z.object({
@@ -45,7 +47,7 @@ const WorldDraft = z.object({
   color: z.enum(TOKENS).describe("the world's main colour — change it with the idea, do not reuse one colour for every shot"),
   accent: z.enum(TOKENS),
 });
-const FinishDraft = z.object({ grain: z.number().describe("0..1 film grain"), vignette: z.number().describe("0..1"), leak: z.number().describe("0..1 light leak sweeping across (sparingly)") });
+const FinishDraft = z.object({ grain: z.number().describe("0..1 film grain"), vignette: z.number().describe("0..1"), leak: z.number().describe("0..1 light leak sweeping across (sparingly)"), halftone: z.number().describe("0..1 a halftone / grunge print-dot texture; 0 for most") });
 const Plan = z.object({
   scenes: z.array(
     z.object({
@@ -55,8 +57,8 @@ const Plan = z.object({
       world: WorldDraft,
       finish: FinishDraft.describe("the treatment over the whole shot; the channel's frames almost all carry one (grain, vignette, a leak)"),
       drift: z.object({ slot: z.number().describe("a picture slot holding a cut-out object (banknotes, coins, papers, leaves) — add one with add_library_object; -1 for none"), mode: z.enum(["fall", "float"]) }).describe("a falling or floating layer of that object over the shot (the channel's falling banknotes, drifting objects)"),
-      fx: z.object({ glitch: z.boolean().describe("a glitch burst with RGB split at the shot's start (the channel's glitching text and logo reveals)"), dof: z.number().describe("0–1: shallow depth of field — the backdrop defocused behind the pictures and words on it; 0 for none"), rack: z.boolean().describe("a rack focus: the shot opens out of focus and pulls sharp") }),
-      atmos: z.enum(["none", "smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak"]).describe("a real filmed atmosphere over the shot (the channel's smoke and fog, embers, dust, film scratches, film burns, the sprocket gate of old film, a light leak) — at about the channel's rate; none for most shots"),
+      fx: z.object({ glitch: z.boolean().describe("a glitch burst with RGB split at the shot's start (the channel's glitching text and logo reveals)"), dof: z.number().describe("0–1: shallow depth of field — the backdrop defocused behind the pictures and words on it; 0 for none"), rack: z.boolean().describe("a rack focus: the shot opens out of focus and pulls sharp"), scanlines: z.boolean().describe("scanlines and a flicker over the shot (neon / CRT type)"), grid: z.boolean().describe("a ruler / numeral grid over the picture"), cursorX: z.number().describe("an interface cursor that moves to this x (0–1) and clicks; -1 for none"), cursorY: z.number().describe("its y (0–1)"), twotone: z.boolean().describe("a two-tone complementary grade: cool ground, warm pictures in front") }),
+      atmos: z.enum(["none", "smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak", "snow", "confetti", "bokeh"]).describe("a real filmed atmosphere over the shot (the channel's smoke and fog, embers, dust, film scratches, film burns, the sprocket gate of old film, a light leak) — at about the channel's rate; none for most shots"),
       clean: z.boolean().describe("true = let the footage play clean, with NO elements on it — only for a shot whose footage is moving video that shows what the line is about; the real channel leaves about four shots in ten this way"),
       wash: z.boolean().describe("colour this shot's footage into the film's palette (mood, reenactment and generic footage; leave real press footage and photos natural)"),
       dim: z.number().describe("how much the footage is darkened under the design, 0.1..0.6"),
@@ -147,7 +149,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter , ...(e.exit && e.exit !== "none" ? { exit: e.exit } : {}) };
       if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
         if (!slots.has(e.slot)) { dropped++; continue; }
-        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), ...(e.blend === "screen" ? { blend: "screen" as const } : {}) });
+        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), ...(e.blend === "screen" ? { blend: "screen" as const } : {}), ...(e.frame && e.frame !== "none" ? { frame: e.frame } : {}) });
         else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true, ...(e.style === "silhouette" ? { silhouette: true } : e.style === "outline" ? { outline: true } : e.style === "glow" ? { glow: "accent" as const } : {}) });
         else if (three < 4) (three++, els.push({ type: "card3d", slot: e.slot, ...box, tilt: e.spin >= 0 ? -14 : 14, spin: clamp(e.spin || 22, -40, 40) }));
         else els.push({ type: "photo", slot: e.slot, ...box, grade: "natural" });
@@ -160,7 +162,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
         const why = loneText(t, lineOf(sh.startS - 1, sh.endS + 1));
         if (why) { dropped++; refusals.push(`${sh.id}: 3D "${t.slice(0, 30)}" — ${why}`); continue; }
         threeText++;
-        els.push({ type: "text3d", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.08, 0.5) } : {}), text: t.slice(0, 40), spin: clamp(e.spin || 18, -40, 40) });
+        els.push({ type: "text3d", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.08, 0.5) } : {}), text: t.slice(0, 40), spin: clamp(e.spin || 18, -40, 40), ...(e.material && e.material !== "paint" ? { material: e.material } : {}) });
         continue;
       }
       // a component of this film's kit: it must exist; every word and figure in its props is spoken in the shot
@@ -190,7 +192,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     if (unsafeFace) nameGuarded++;
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
     if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
-      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
+      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack || d.fx.scanlines || d.fx.grid || d.fx.cursorX >= 0 || d.fx.twotone) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}), ...(d.fx.scanlines ? { scanlines: true } : {}), ...(d.fx.grid ? { grid: true } : {}), ...(d.fx.cursorX >= 0 ? { cursor: { x: clamp(d.fx.cursorX, 0.05, 0.95), y: clamp(d.fx.cursorY, 0.05, 0.95) } } : {}), ...(d.fx.twotone ? { twotone: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
       continue;
     }
     const stage = !hasFootage || unsafeFace || d.backdrop === "world";
@@ -205,7 +207,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       backdrop: stage ? "world" : "footage",
       ...(world ? { world } : {}),
       finish: finishOf(d.finish),
-      ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}),
+      ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack || d.fx.scanlines || d.fx.grid || d.fx.cursorX >= 0 || d.fx.twotone) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}), ...(d.fx.scanlines ? { scanlines: true } : {}), ...(d.fx.grid ? { grid: true } : {}), ...(d.fx.cursorX >= 0 ? { cursor: { x: clamp(d.fx.cursorX, 0.05, 0.95), y: clamp(d.fx.cursorY, 0.05, 0.95) } } : {}), ...(d.fx.twotone ? { twotone: true } : {}) } } : {}),
       dim: clamp(d.dim, 0.1, 0.6),
       ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.16, mode: "tint" as const } } : {}),
       camera: (() => {
@@ -236,7 +238,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
 // Worlds, finish and repetition (build list 5, items 10, 11, 12, 14)
 
 type WorldOut = NonNullable<SceneSpec["world"]>;
-const NEEDS_PICTURE = new Set(["mono_accent", "duotone", "collage", "filmstrip"]);
+const NEEDS_PICTURE = new Set(["mono_accent", "duotone", "collage", "filmstrip", "contact_grid", "split"]);
 /** The world a draft asks for, made valid: its pictures must exist; with none it falls to a field that needs none. */
 export function worldOf(d: z.infer<typeof WorldDraft> | undefined, slots: number[], k: number): WorldOut {
   const has = (x: number) => slots.includes(x);
@@ -252,8 +254,8 @@ export function worldOf(d: z.infer<typeof WorldDraft> | undefined, slots: number
   return { kind, ...(slot !== undefined ? { slot } : {}), ...(kind === "collage" ? { slots: more } : {}), color, accent };
 }
 /** The finish over a shot, with a floor: every frame of the channel carries some treatment. */
-export function finishOf(f: { grain: number; vignette: number; leak: number } | undefined): { grain: number; vignette: number; leak: number } {
-  return { grain: clamp(Math.max(f?.grain ?? 0, 0.18), 0, 1), vignette: clamp(Math.max(f?.vignette ?? 0, 0.22), 0, 1), leak: clamp(f?.leak ?? 0, 0, 0.8) };
+export function finishOf(f: { grain: number; vignette: number; leak: number; halftone?: number } | undefined): { grain: number; vignette: number; leak: number; halftone?: number } {
+  return { grain: clamp(Math.max(f?.grain ?? 0, 0.18), 0, 1), vignette: clamp(Math.max(f?.vignette ?? 0, 0.22), 0, 1), leak: clamp(f?.leak ?? 0, 0, 0.8), ...(f?.halftone && f.halftone > 0 ? { halftone: clamp(f.halftone, 0, 1) } : {}) };
 }
 const cardText = (e: SceneElement) => (e.type === "component" ? norm(Object.entries(e.props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit|prefix|suffix)$/i.test(k)).map(([, v]) => v as string).join(" ")) : "");
 const treatmentOf = (sc: SceneSpec, e: SceneElement | null) => (e ? (e.type === "photo" ? e.grade ?? "natural" : e.type) : `world:${sc.world?.kind ?? "?"}`);

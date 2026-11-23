@@ -1,5 +1,7 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, continueRender, delayRender, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { ThreeCanvas } from "@remotion/three";
+import * as THREE from "three";
 import { PALETTE } from "../types";
 
 /**
@@ -11,10 +13,10 @@ import { PALETTE } from "../types";
  * through CSS/SVG filters, and designed shapes (gradients, rays, rules, scanlines). No generated imagery; a face is never
  * altered beyond a whole-picture grade.
  */
-export type WorldKind = "mono_accent" | "duotone" | "burst" | "collage" | "flat_field" | "paper" | "terminal" | "filmstrip";
+export type WorldKind = "mono_accent" | "duotone" | "burst" | "collage" | "flat_field" | "paper" | "terminal" | "filmstrip" | "contact_grid" | "split" | "gradient" | "room3d";
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted" | "black" | "white";
 export interface WorldSpec { kind: WorldKind; slot?: number; slots?: number[]; color?: Token; accent?: Token }
-export interface FinishSpec { grain?: number; vignette?: number; leak?: number }
+export interface FinishSpec { grain?: number; vignette?: number; leak?: number; halftone?: number }
 
 export const tokenColor = (t: Token | undefined, d: string): string =>
   t === "black" ? "#0a0a0a" : t === "white" ? "#f5f3ee" : t ? ((PALETTE as unknown as Record<string, string>)[t] ?? d) : d;
@@ -43,6 +45,28 @@ const DuotoneFilter: React.FC<{ id: string; dark: string; light: string }> = ({ 
         </feComponentTransfer>
       </filter>
     </svg>
+  );
+};
+
+/** A lit 3D room: floor, back wall carrying the real picture, a side wall; the camera dollies in. */
+const Room3D: React.FC<{ src?: string; accent: string; base: string; t: number; w: number; h: number }> = ({ src, accent, base, t, w, h }) => {
+  const [tex, setTex] = React.useState<THREE.Texture | null>(null);
+  const [handle] = React.useState(() => (src ? delayRender(`room3d ${src}`) : null));
+  React.useEffect(() => {
+    if (!src || handle === null) return;
+    new THREE.TextureLoader().load(staticFile(src), (x) => { x.colorSpace = THREE.SRGBColorSpace; setTex(x); continueRender(handle); }, undefined, () => continueRender(handle));
+  }, [src, handle]);
+  return (
+    <ThreeCanvas width={w} height={h} camera={{ fov: 42, position: [0, 2.05, 6.2 - 2.2 * t], near: 0.1, far: 60 }} style={{ position: "absolute", inset: 0 }}>
+      <ambientLight intensity={0.35} />
+      <spotLight position={[0, 5, 4]} angle={0.7} penumbra={0.6} intensity={60} />
+      <pointLight position={[-3, 2, 1]} intensity={14} color={accent} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}><planeGeometry args={[14, 14]} /><meshStandardMaterial color="#1a1714" roughness={0.85} /></mesh>
+      <mesh position={[0, 2.2, -3]}><planeGeometry args={[14, 6]} /><meshStandardMaterial color={base} roughness={0.9} /></mesh>
+      <mesh position={[-4.5, 2.2, 0]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[8, 6]} /><meshStandardMaterial color="#26221d" roughness={0.9} /></mesh>
+      {tex ? <mesh position={[0, 2.1, -2.95]}><planeGeometry args={[3.6, 2.25]} /><meshStandardMaterial map={tex} roughness={0.6} /></mesh> : null}
+      <mesh position={[0, 2.1, -2.97]}><planeGeometry args={[3.8, 2.45]} /><meshStandardMaterial color="#0d0c0b" /></mesh>
+    </ThreeCanvas>
   );
 };
 
@@ -134,6 +158,52 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
         </AbsoluteFill>
       );
     }
+    case "contact_grid": {
+      // craft inventory: the channel's contact-sheet grid — rounded cells with thick grout, neighbours cut off at the
+      // frame edges, the grid sliding so the next cell comes to the centre
+      const list = [world.slot, ...(world.slots ?? [])].filter((s): s is number => s !== undefined).map((s) => slots[String(s)]).filter((s): s is string => Boolean(s));
+      if (!list.length) return <AbsoluteFill style={{ background: base }} />;
+      const cw = width * 0.38, ch = cw * 0.62, g = width * 0.03;
+      const cols = 5, rows = 4;
+      const ox = width / 2 - cw / 2 - t * (cw + g) * Math.min(1.5, list.length - 1), oy = height / 2 - ch / 2 - (ch + g);
+      return (
+        <AbsoluteFill style={{ background: "#d9d3c7" }}>
+          {Array.from({ length: cols * rows }, (_, k) => {
+            const c = (k % cols) - 1, r = Math.floor(k / cols);
+            const s = list[(k + Math.floor(k / cols)) % list.length]!;
+            const centre = r === 1 && c >= 0;
+            return (
+              <div key={k} style={{ position: "absolute", left: ox + c * (cw + g), top: oy + r * (ch + g), width: cw, height: ch, borderRadius: width * 0.012, overflow: "hidden", boxShadow: "0 6px 18px rgba(0,0,0,0.25)" }}>
+                <Picture src={s} filter={centre ? "contrast(1.08)" : "grayscale(0.6) brightness(0.8)"} scale={1.04} />
+              </div>
+            );
+          })}
+        </AbsoluteFill>
+      );
+    }
+    case "split": {
+      // craft inventory: split screen — two real pictures side by side, a bar between them (a paired contrast)
+      const a = world.slot !== undefined ? slots[String(world.slot)] : undefined;
+      const b = (world.slots ?? []).map((s) => slots[String(s)]).find(Boolean);
+      const open = interpolate(f, [0, 12], [0, 1], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
+      return (
+        <AbsoluteFill style={{ background: "#0b0b0b" }}>
+          <div style={{ position: "absolute", left: 0, top: 0, width: width / 2 - 4, height, overflow: "hidden", transform: `translateX(${(open - 1) * width * 0.2}px)` }}>{a ? <Picture src={a} filter="contrast(1.08)" scale={drift} /> : null}</div>
+          <div style={{ position: "absolute", left: width / 2 + 4, top: 0, width: width / 2 - 4, height, overflow: "hidden", transform: `translateX(${(1 - open) * width * 0.2}px)` }}>{b ? <Picture src={b} filter="contrast(1.08)" scale={drift} /> : null}</div>
+          <div style={{ position: "absolute", left: width / 2 - 4, top: 0, width: 8, height: height * open, background: acc }} />
+        </AbsoluteFill>
+      );
+    }
+    case "gradient":
+      // craft inventory: a stylised gradient / nebula ground, a real picture as a dark silhouette skyline along its foot
+      return (
+        <AbsoluteFill style={{ background: `radial-gradient(ellipse at ${30 + 30 * t}% 30%, ${acc} 0%, transparent 45%), radial-gradient(ellipse at 75% 70%, ${base} 0%, transparent 60%), linear-gradient(180deg, #07060d 0%, ${base} 120%)` }}>
+          {src ? <Picture src={src} filter="grayscale(1) contrast(4) brightness(0.18)" style={{ top: "auto", height: "38%", bottom: 0 }} scale={1.02} /> : null}
+        </AbsoluteFill>
+      );
+    case "room3d":
+      // craft inventory: a built 3D set (Three.js): the real picture on the back wall of a lit room, the camera dollying in
+      return <Room3D src={src} accent={acc} base={base} t={t} w={width} h={height} />;
     case "flat_field":
       // one bold colour field with a soft light falling across it — it changes with the idea (the colour is per shot)
       return (
@@ -194,8 +264,10 @@ export const Finish: React.FC<{ finish: FinishSpec }> = ({ finish }) => {
   const g = Math.max(0, Math.min(1, finish.grain ?? 0));
   const v = Math.max(0, Math.min(1, finish.vignette ?? 0));
   const l = Math.max(0, Math.min(1, finish.leak ?? 0));
+  const ht = Math.max(0, Math.min(1, finish.halftone ?? 0));
   return (
     <>
+      {ht > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle, rgba(0,0,0,0.55) 30%, transparent 32%)", backgroundSize: "7px 7px", mixBlendMode: "multiply", opacity: 0.25 + 0.5 * ht, pointerEvents: "none" }} /> : null}
       {g > 0 ? (
         <AbsoluteFill style={{ opacity: 0.12 + 0.35 * g, mixBlendMode: "overlay", pointerEvents: "none" }}>
           <svg width="100%" height="100%">
@@ -217,5 +289,6 @@ export const Finish: React.FC<{ finish: FinishSpec }> = ({ finish }) => {
 export const gradeFilter = (g: string | undefined): string | undefined =>
   // craft inventory: the channel's high-contrast black and white, a split tone (cool shadows, warm light), a negative,
   // and a low-key moody grade
+  g === "warm_glow" ? "sepia(0.25) saturate(1.35) brightness(1.12) contrast(0.95)" : g === "thermal" ? "grayscale(1) invert(1) sepia(1) saturate(6) hue-rotate(-50deg) contrast(1.4)" : g === "solarise" ? "contrast(2.1) saturate(1.5) invert(0.2) brightness(1.1)" :
   g === "contrast_bw" ? "grayscale(1) contrast(1.55) brightness(0.95)" : g === "split" ? "sepia(0.35) hue-rotate(-12deg) saturate(1.3) contrast(1.15)" : g === "invert" ? "invert(1) hue-rotate(180deg) contrast(1.1)" : g === "lowkey" ? "saturate(0.6) contrast(1.35) brightness(0.72)" :
   g === "mono" ? "grayscale(1) contrast(1.12)" : g === "duotone" ? "grayscale(1) sepia(0.6) hue-rotate(160deg) saturate(1.6) contrast(1.1)" : g === "punch" ? "contrast(1.22) saturate(1.25)" : g === "sepia" ? "sepia(0.75) contrast(1.08)" : undefined;

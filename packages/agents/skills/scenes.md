@@ -152,3 +152,12 @@ only the few you reach for first:
 - `exit` on any element: slide off or erode away before the cut;
 - `text3d` and `card3d` (Three.js); the kit's headline variants: banner, caps, marker, glow, ghost (with a lead
   caption), and labels as a person-introduction card or a hand-drawn arrow.
+
+More of the channel's vocabulary, all available:
+- worlds `contact_grid` (a contact sheet sliding cell to cell), `split` (two pictures side by side), `gradient` (a
+  nebula ground with a picture as a silhouette skyline), `room3d` (a lit 3D room with the picture on its back wall);
+- photo `frame`: polaroid (several swooping in = floating photo cards), neon, torn, perspective (a tilted screen);
+- grades: warm_glow, thermal, solarise (with contrast_bw, split, invert, lowkey, duotone, sepia, mono, punch);
+- entrances `settle`, `glitch`, `swoop`; text3d `material` chrome or gold;
+- `fx`: scanlines (neon / CRT type), grid (a ruler over a picture), cursor (a UI click), twotone; finish `halftone`;
+- `atmos`: also snow, confetti, bokeh.
