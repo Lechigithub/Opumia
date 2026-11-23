@@ -146,7 +146,7 @@ export function ourShotsFrom(st: PlanState, film = "ours"): { shots: ReferenceSh
     const prim = media.find((m) => m.shotId === sh.id && m.role === "primary");
     const els = sc?.elements ?? [];
     // words on screen come only from the film's kit components (their string props)
-    const textOn = els.some((e) => e.type === "component" && Object.values((e as { props?: Record<string, unknown> }).props ?? {}).some((v) => typeof v === "string" && v.trim().length > 0));
+    const textOn = els.some((e) => e.type === "text3d") || els.some((e) => e.type === "component" && Object.values((e as { props?: Record<string, unknown> }).props ?? {}).some((v) => typeof v === "string" && v.trim().length > 0));
     const pictureEls = els.filter((e) => e.type === "photo" || e.type === "cutout" || e.type === "card3d").length;
     const footage = sc ? sc.backdrop === "footage" && !!prim : !!prim;
     const picture = sh.source.kind === "designed" && !sc ? "designed"

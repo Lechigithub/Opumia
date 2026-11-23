@@ -190,6 +190,10 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   // build list 5: the new checks, each with its owner's ladder
   stutter_cut: STUTTER,
   dangling_slot: NO_PICTURE,
+  // craft inventory: the channel's staple techniques, to their owners
+  staple_picture: SCENE,
+  staple_edit: EDIT,
+  staple_sound: SOUND,
   shot_rhythm: EDIT,
   cut_on_word: EDIT,
   tells_edit: EDIT,

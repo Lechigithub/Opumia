@@ -30,6 +30,8 @@ export interface DirectorReport {
   agent: { turns: number; calls: Record<string, number>; usd: number };
 }
 export interface DirectorAgentOptions {
+  /** Craft inventory: the channel's techniques in this agent's craft, with rates and tools (techniqueBrief). */
+  techniques?: string;
   pack: StylePack;
   script: TimedScript;
   facts: FactSheet;
@@ -199,12 +201,13 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
     },
   ];
 
-  const system = [
+  const systemBase = [
     cached(o.pack.text),
     plain(
       `${skill}\n\n## This channel's pace (measured)\n${cuts.lo.toFixed(0)}–${cuts.hi.toFixed(0)} cuts a minute, typically ${cuts.mid.toFixed(0)}; median shot about ${(pacing.shotMedianS?.p50 ?? 2).toFixed(1)} s. No shot under 0.8 s or over ${maxShot} s.\n\n## The plan you write\nAspect ${o.script.aspect}. Each shot: startWord (global word index it starts on), intent (what the viewer should understand), lineLink, visual (reenactment = staged footage with anonymous people; broll; photo; designed), query (the footage to find — also the footage behind a graphic), era, entities (real named people, companies, products, places the shot must literally show; year 0 if unknown), designedKind + designedProps for a data graphic (else "none" and "{}"), camera, transitionIn, focusX (0.5 unless the subject sits to one side). Leave overlay empty and sfx as an empty list: sound is designed later on what the viewer sees.\nmusicId: one bed from the music menu.\n\n${PROPS_SPEC}${o.avoidQueries?.length ? `\n\nQueries that failed in earlier films (do not reuse these phrasings): ${o.avoidQueries.slice(0, 30).join("; ")}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
+  const system = o.techniques ? [...systemBase, plain(o.techniques)] : systemBase;
   const user = `Direct this film.\n\nMUSIC MENU: ${menu.music.slice(0, 40).map((m) => `${m.id} "${m.title}" ${m.durationS}s`).join("; ")}\n\nNUMERIC FACT TABLE (verified):\n${formatFactTable(nf) || "(none — no charts)"}${(() => {
     // build list 5, items 8 and 19: the director plans for pictures that exist AND mean something, from the research's
     // scene and character material — the moments, people, turns and the pictures inside quotes

@@ -5,9 +5,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setLaterGuarantee, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setLaterGuarantee, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, techniqueBrief, stapleGaps, stretchSheet, manifestEvents, loadInventory, techniqueCoverage, recordCoverage, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
-import { closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
+import { resolveAtmosphere, closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { loadKeys } from "./keys.js";
 import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
@@ -371,7 +371,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     let dirReport: DirectorReport | null = null;
     const refDir = path.join(o.data, "exemplars", channel);
     const refShots = await readFile(path.join(refDir, "index.json"), "utf8").then((t) => (JSON.parse(t) as { shots: Array<{ kind: string; layout: string; motion: string; line: string; frames: string[] }> }).shots.filter((x) => x.frames.length).map((x) => ({ kind: x.kind, layout: x.layout, motion: x.motion, line: x.line, frame: path.join(refDir, x.frames.at(-1)!) })), () => []);
-    const res = await directStoryboardAgent({ pack, script: timed, facts, index, referenceShots: refShots, probe: makeFootageProbe({ jobDir, aspect: o.aspect, era: eraD ? `${eraD.min}–${eraD.max}` : "unspecified" }), memoryDir: path.join(o.data, "agents", "director"), avoidQueries: badQueries(memory), onReport: (r) => (dirReport = r), log });
+    const res = await directStoryboardAgent({ techniques: await techniqueBrief({ data: o.data, channel, owner: "director", durationS: o.durationS }).catch(() => ""),  pack, script: timed, facts, index, referenceShots: refShots, probe: makeFootageProbe({ jobDir, aspect: o.aspect, era: eraD ? `${eraD.min}–${eraD.max}` : "unspecified" }), memoryDir: path.join(o.data, "agents", "director"), avoidQueries: badQueries(memory), onReport: (r) => (dirReport = r), log });
     await writeFile(probesFile, JSON.stringify({ report: dirReport, probes: Object.fromEntries(res.probes) }, null, 1) + "\n");
     return res.storyboard;
   }, log);
@@ -493,7 +493,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const pictures = makeSceneTools({ ...(softBelow ? { softBelow } : {}), jobDir, dataDir: o.data, libraryRoot: o.library, index, storyboard: board, resolution, words: timed.segments.flatMap((sg) => sg.words), era: eraS ? `${eraS.min}–${eraS.max}` : "unspecified", blocked: new Set([...blockedRefs(memory), ...coolS.pictures]), iconColor: design.palette.text, whenOf: (id) => whenByShot.get(id) });
     // build list 5, items 10–14: the scene designer measures worlds, treatment, type scale, data and repeats as the gate does
     const designBandB = await ensureDesignBand({ root: o.root, data: o.data, channelId: channel, log }).catch(() => null);
-    return designScenesAgent({ ...(designBandB ? { designBand: { band: designBandB, root: o.root, data: o.data } } : {}), storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(likeness.films ? { likeness: { near: likeness.near, limit: 0.9 } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
+    return designScenesAgent({ techniques: await techniqueBrief({ data: o.data, channel, owner: "scene designer", durationS: o.durationS }).catch(() => ""),  ...(designBandB ? { designBand: { band: designBandB, root: o.root, data: o.data } } : {}), storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, ...(likeness.films ? { likeness: { near: likeness.near, limit: 0.9 } } : {}), ...(tasteModel ? { taste: { score: async (files: string[]) => (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: files.map((file) => ({ file })) })).map((x) => x?.score ?? null), realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median } } : {}), watch: async (plan: ScenePlan, a: number, b: number) => {
       // built from the scene stage's own parts (watchPlan reads the final scene plan, which does not exist yet here)
       const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
@@ -528,6 +528,19 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     await recordUsage(o.data, jobId, resolution, board);
     return plan;
   }, log);
+  // craft inventory: the scene designer's atmospheres become real filmed overlays from the Library (smoke, embers,
+  // dust, scratches, film burn, sprocket gate, light leak) on their shots
+  const placeAtmosphere = async () => {
+    if (!scenePlan.scenes.some((x) => (x as { atmos?: unknown }).atmos)) return;
+    const at = await resolveAtmosphere({ storyboard: board, scenes: scenePlan.scenes as never, index, libraryRoot: o.library, jobDir, resolution, seed: jobId }).catch((e: Error) => (log(`  ! atmosphere: ${e.message.slice(0, 120)}`), null));
+    if (!at) return;
+    board = Storyboard.parse(at.storyboard);
+    resolution = at.resolution;
+    await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
+    await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
+    if (at.placed) log(`  atmosphere: ${at.placed} shot(s) carry a real filmed atmosphere`);
+  };
+  await placeAtmosphere();
   const burnCaptions = o.aspect === "9:16" || pack.captions.burnLongForm;
   log(`  captions: ${burnCaptions ? "burned in" : `not burned in (the channel shows captions on ${Math.round(pack.captions.bottomTextShare * 100)} % of long-form shots); SRT keeps every word`}`);
 
@@ -559,7 +572,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const apE = await buildAudioProfile({ data: o.data, library: o.library, index }).catch(() => null);
     const beats = apE ? board.music.flatMap((c) => { const p = apE.music[c.assetId]; if (!p || p.beat.periodS < 0.2) return []; const out: number[] = []; const in0 = c.inS ?? 0; for (let b = p.beat.offsetS + Math.ceil((in0 - p.beat.offsetS) / p.beat.periodS) * p.beat.periodS; b < in0 + (c.endS - c.startS); b += p.beat.periodS) out.push(Math.round((c.startS + b - in0) * 1000) / 1000); return out; }) : [];
     const emphasisE = await emphasisOf(jobDir).catch(() => undefined);
-    const ed = await editFilmAgent({ ...(emphasisE ? { emphasis: emphasisE } : {}), channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, beats, filmTransition: Boolean(filmKit), memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
+    const ed = await editFilmAgent({ techniques: await techniqueBrief({ data: o.data, channel, owner: "editor", durationS: o.durationS }).catch(() => ""),  ...(emphasisE ? { emphasis: emphasisE } : {}), channel, data: o.data, storyboard: board, scenes: scenePlan, resolution, script: timed, watch: watchPlan, beats, filmTransition: Boolean(filmKit), memoryDir: path.join(o.data, "agents", "editor"), ...(brief ? { brief } : {}), log });
     board = Storyboard.parse(ed.storyboard);
     scenePlan = ScenePlan.parse(ed.scenes);
     resolution = ed.resolution;
@@ -635,7 +648,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     };
     // build list 5, items 22 and 26–27: one timeline of cuts, stressed words and turns, shared with the editor
     const emphasis = await emphasisOf(jobDir).catch(() => undefined);
-    const sd = await soundAgent({ ...sopts, ...(emphasis ? { emphasis } : {}), kitRoles: Object.fromEntries(Object.entries(filmKit.roles ?? {}).map(([r, c]) => [c, r])), channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
+    const sd = await soundAgent({ techniques: await techniqueBrief({ data: o.data, channel, owner: "sound designer", durationS: o.durationS }).catch(() => ""),  ...sopts, ...(emphasis ? { emphasis } : {}), kitRoles: Object.fromEntries(Object.entries(filmKit.roles ?? {}).map(([r, c]) => [c, r])), channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
     board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
     await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
     resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
@@ -919,6 +932,17 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       if (tellRuns === 0 || (tells.length && tellRuns < 2 && [...touchedSinceTells].some((id) => tellShots.has(id)))) {
         const pt = await previewTells({ data: o.data, reference: o.reference, root: o.root, channel, board, timed, workDir: path.join(jobDir, "judge-previews"), render: judgeRender, log }).catch((e: Error) => (log(`  ! judge on previews failed: ${e.message.slice(0, 120)}`), null));
         tells = pt?.checks ?? [];
+        // craft inventory: the channel's staples (in ≥ 40 % of its stretches) that a tool can make and none of the
+        // preview stretches shows — each to its owner, before any frame is rendered
+        if (pt?.clips.length) {
+          const sheets = (await Promise.all(pt.clips.map(async (c) => ({ sheet: await stretchSheet(c.file, 0, c.len, path.join(jobDir, "judge-previews", `tech_${c.fromS.toFixed(0)}.jpg`)), text: `Words spoken: "${c.said}"\n${manifestEvents(manifest as never)(c.fromS, c.fromS + c.len).replace(/Cuts at: ([^\n]*)/, (_m, x) => `Cuts at: ${x}`)}`, seconds: c.len })))).filter((x): x is { sheet: string; text: string; seconds: number } => !!x.sheet);
+          const gaps = await stapleGaps({ data: o.data, channel, sheets }).catch(() => []);
+          const shotsAll = scenePlan.scenes.map((x) => x.shotId);
+          const byOwner = new Map<string, typeof gaps>();
+          for (const g of gaps) byOwner.set(g.owner, [...(byOwner.get(g.owner) ?? []), g]);
+          for (const [owner, gs] of byOwner) tells.push({ id: owner === "editor" ? "staple_edit" : owner === "sound designer" ? "staple_sound" : "staple_picture", label: `The channel's staple techniques missing from our film (${owner})`, value: gs.length, target: "the channel's staples used", pass: false, level: "blocker", shots: owner === "scene designer" ? shotsAll.slice(0, 6) : [], note: gs.map((g) => (g.over ? `${g.name} — ours ${g.over.ours}/min, the channel ${g.over.channel}/min` : `${g.name} (the channel: ${Math.round(g.channelShare * 100)} % of stretches; tool: ${g.tool})`)).join("; ") });
+          if (gaps.length) log(`  craft inventory: ${gaps.length} staple technique(s) missing from the previews — ${gaps.map((g) => g.name).slice(0, 6).join("; ")}`);
+        }
         tellRuns++;
         touchedSinceTells = new Set();
         if (pt) await writeFile(path.join(jobDir, "judge-previews.json"), JSON.stringify({ at: new Date().toISOString(), run: tellRuns, realness: pt.realness, usd: pt.usd, stretches: pt.stretches }, null, 2) + "\n");
@@ -963,6 +987,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   // Build list 4, item 3: a film always renders. Problems the ladders could not fix are logged in preflight.json and
   // carried into QA (check `preflight_unresolved`, which keeps the verdict from "pass"); they never stop the film.
   const preUnresolved = await readFile(preFile, "utf8").then((t) => JSON.parse(t) as { pass: boolean; blockers: string[] }, () => null);
+  // atmospheres the gate's redesigns added or changed
+  await placeAtmosphere();
+  manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
+  await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   // the reserve is for the finish: render, QA, packaging
   setFinishing(true);
 
@@ -1150,6 +1178,19 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   log("\n[C6] craft scores against the reference");
   {
     const jp = await readFile(path.join(jobDir, "judge-previews.json"), "utf8").then((t) => JSON.parse(t) as { realness?: number | null }, () => null);
+    // craft inventory: the film's coverage of the channel's techniques joins the platform's open list
+    if (finalPath) {
+      const inv = await loadInventory(o.data, channel).catch(() => null);
+      if (inv) {
+        const allW = timed.segments.flatMap((sg) => sg.words);
+        const cov = await techniqueCoverage({ data: o.data, reference: o.reference, channel, video: finalPath, workDir: path.join(jobDir, "techniques"), taxonomy: inv.taxonomy, band: inv.band, tools: inv.tools, said: (a, b) => allW.filter((w) => w.startS >= a && w.startS < b).map((w) => w.word).join(" "), events: manifestEvents(manifest as never) }).catch(() => null);
+        if (cov) {
+          await writeFile(path.join(jobDir, "techniques.json"), JSON.stringify({ at: new Date().toISOString(), rows: cov }, null, 1) + "\n");
+          const open = await recordCoverage({ data: o.data, channel, job: jobId, rows: cov });
+          log(`  craft inventory: ${cov.filter((r) => r.verdict === "ok").length} of ${cov.filter((r) => r.verdict !== "rare").length} channel techniques used at the channel's rate; open: ${open.slice(0, 8).map((x) => `${x.name} (${x.verdict === "missing_tool" ? "no tool" : "unused"})`).join("; ")}`);
+        }
+      }
+    }
     await craftReport({ root: o.root, data: o.data, reference: o.reference, jobDir, channel, draft, timed, board, scenes: scenePlan, resolution, judge: true, pictureRealness: jp?.realness ?? null, log }).catch((e: Error) => log(`  ! craft scores failed: ${e.message.slice(0, 160)}`));
   }
 

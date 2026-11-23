@@ -71,6 +71,8 @@ export interface SoundMeasure { key: string; what: string; ours: number; band: {
 export interface SoundAgentReport { pass: boolean; before: { score: number; rows: SoundMeasure[] }; after: { score: number; rows: SoundMeasure[] }; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
 export interface SoundAgentOptions extends SoundTimelineOptions {
+  /** Craft inventory: the channel's sound techniques, with rates and tools (techniqueBrief). */
+  techniques?: string;
   /** Build list 5, item 22: the voice director's emphasis per line (voice-direction.json), for the shared timeline. */
   emphasis?: Array<{ emphasis: string }>;
   channel: ChannelId;
@@ -409,7 +411,8 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const directives = prof ? directivesSound(prof) : "";
-  const system = [cached(skill), plain(`${directives}\n\n${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film is ${dur.toFixed(1)} s long; chapters: ${chapterMoods(o.script).map((c) => `${c.chapter} ${c.startS.toFixed(0)}–${c.endS.toFixed(0)} s (${c.mood})`).join("; ")}.`)];
+  const systemBase = [cached(skill), plain(`${directives}\n\n${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film is ${dur.toFixed(1)} s long; chapters: ${chapterMoods(o.script).map((c) => `${c.chapter} ${c.startS.toFixed(0)}–${c.endS.toFixed(0)} s (${c.mood})`).join("; ")}.`)];
+  const system = o.techniques ? [...systemBase, plain(o.techniques)] : systemBase;
   const user = `Design the sound of this film. The timeline designer made a first pass from the visual moments; it is yours to improve.${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS BACK:\n${o.brief}` : ""}\n\nStart with read_sound.`;
   log(`  sound designer: ${before.score}/100 at the start (${ROLE_MODEL.soundDesigner})…`);
   let grace = 1;

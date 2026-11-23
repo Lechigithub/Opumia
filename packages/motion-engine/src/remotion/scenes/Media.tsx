@@ -18,15 +18,20 @@ export function useTransitionIn(kind: string | undefined) {
   const f = useCurrentFrame();
   switch (kind) {
     case "fade":
-      return { opacity: interpolate(f, [0, 8], [0, 1], { extrapolateRight: "clamp" }), blur: 0, dx: 0, flash: 0 };
+      return { opacity: interpolate(f, [0, 8], [0, 1], { extrapolateRight: "clamp" }), blur: 0, dx: 0, flash: 0, white: 0, punch: 1 };
     case "dip_black":
-      return { opacity: interpolate(f, [0, 6], [0, 1], { extrapolateRight: "clamp" }), blur: 0, dx: 0, flash: 0 };
+      return { opacity: interpolate(f, [0, 6], [0, 1], { extrapolateRight: "clamp" }), blur: 0, dx: 0, flash: 0, white: 0, punch: 1 };
     case "whip":
       return { opacity: 1, blur: interpolate(f, [0, 6], [24, 0], { extrapolateRight: "clamp" }), dx: interpolate(f, [0, 6], [0.25, 0], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }), flash: 0 };
     case "light_leak":
-      return { opacity: 1, blur: 0, dx: 0, flash: interpolate(f, [0, 3, 12], [0.9, 0.6, 0], { extrapolateRight: "clamp" }) };
+      return { opacity: 1, blur: 0, dx: 0, flash: interpolate(f, [0, 3, 12], [0.9, 0.6, 0], { extrapolateRight: "clamp" }), white: 0, punch: 1 };
+    // craft inventory: the channel's white flash cut and the zoom punch on a hit
+    case "flash":
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: interpolate(f, [0, 1, 5], [1, 0.85, 0], { extrapolateRight: "clamp" }), punch: 1 };
+    case "zoom_punch":
+      return { opacity: 1, blur: interpolate(f, [0, 4], [6, 0], { extrapolateRight: "clamp" }), dx: 0, flash: 0, white: 0, punch: interpolate(f, [0, 5], [1.18, 1], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }) };
     default:
-      return { opacity: 1, blur: 0, dx: 0, flash: 0 };
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: 1 };
   }
 }
 
@@ -44,7 +49,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const f = useCurrentFrame();
   const p = (layer.props ?? {}) as { kind?: string; mode?: string; focus?: [number, number]; transitionIn?: string; dim?: number; dimUntil?: number; period?: boolean; citation?: string };
   const cam = useKeyframes(layer);
-  const tr = useTransitionIn(p.transitionIn);
+  const tr = { white: 0, punch: 1, ...useTransitionIn(p.transitionIn) };
   const focus = p.focus ?? [0.5, 0.5];
   const src = layer.src ?? "";
   const kind = p.kind ?? "video";
@@ -68,7 +73,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
             style={{
               width: cardW,
               height: cardH,
-              transform: `translateX(${(cam.x + tr.dx) * width}px) translateY(${cam.y * height - (portrait ? height * 0.07 : 0)}px) rotateY(${rot}deg) rotateX(${2 - 3 * t}deg) scale(${cardScale * cam.scale})`,
+              transform: `translateX(${(cam.x + tr.dx) * width}px) translateY(${cam.y * height - (portrait ? height * 0.07 : 0)}px) rotateY(${rot}deg) rotateX(${2 - 3 * t}deg) scale(${cardScale * cam.scale * tr.punch})`,
               boxShadow: "0 50px 110px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,0,0,0.3), 0 0 60px rgba(220,38,38,0.18)",
               border: "14px solid #f2ede2",
               borderBottomWidth: 46,
@@ -85,6 +90,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
           </div>
         </AbsoluteFill>
         {tr.flash > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle at 30% 40%, #ffd28a, #ff7a1a 45%, transparent 75%)", mixBlendMode: "screen", opacity: tr.flash }} /> : null}
+      {tr.white > 0 ? <AbsoluteFill style={{ background: "#ffffff", opacity: tr.white }} /> : null}
       </AbsoluteFill>
     );
   }
@@ -94,7 +100,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
     <AbsoluteFill style={{ backgroundColor: "#000", opacity: tr.opacity * cam.opacity, overflow: "hidden" }}>
       <AbsoluteFill
         style={{
-          transform: `translate(${(cam.x + tr.dx) * width}px, ${cam.y * height}px) scale(${cam.scale})`,
+          transform: `translate(${(cam.x + tr.dx) * width}px, ${cam.y * height}px) scale(${cam.scale * tr.punch})`,
           // dimUntil: the plate clears (blur + darkening ease out over 8 frames) once a capped kinetic card ends.
           // Behind a designed element the plate stays SHARP and is only graded darker (reference luma ≈ 0.28).
           filter: [tr.blur ? `blur(${tr.blur}px)` : "", dimK > 0.01 ? `brightness(${(1 - (p.dim ?? 0) * 0.5 * dimK).toFixed(3)}) contrast(1.06)` : ""].filter(Boolean).join(" ") || undefined,
@@ -103,6 +109,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
         <Source src={src} kind={kind} focus={focus} />
       </AbsoluteFill>
       {tr.flash > 0 ? <AbsoluteFill style={{ background: "radial-gradient(circle at 30% 40%, #ffd28a, #ff7a1a 45%, transparent 75%)", mixBlendMode: "screen", opacity: tr.flash }} /> : null}
+      {tr.white > 0 ? <AbsoluteFill style={{ background: "#ffffff", opacity: tr.white }} /> : null}
     </AbsoluteFill>
   );
 };

@@ -104,7 +104,7 @@ export function ownerOfTell(t: string): "tells_edit" | "tells_colour" | "tells_f
  * scale, `render(fromS, toS)` → an mp4) and judged blind beside real stretches that say something close; every tell
  * of a stretch the judge picked out becomes a check for its owner, on that stretch's shots.
  */
-export async function previewTells(o: { data: string; reference: string; root: string; channel: ChannelId; board: Storyboard; timed: TimedScript; workDir: string; render: (fromS: number, toS: number) => Promise<string | null>; log?: (s: string) => void }): Promise<{ checks: PreflightCheck[]; realness: number | null; usd: number; stretches: Array<{ fromS: number; toS: number; picked: boolean; tells: string[] }> }> {
+export async function previewTells(o: { data: string; reference: string; root: string; channel: ChannelId; board: Storyboard; timed: TimedScript; workDir: string; render: (fromS: number, toS: number) => Promise<string | null>; log?: (s: string) => void }): Promise<{ checks: PreflightCheck[]; realness: number | null; usd: number; stretches: Array<{ fromS: number; toS: number; picked: boolean; tells: string[] }>; clips: Array<{ fromS: number; len: number; file: string; said: string }> }> {
   const d = o.board.durationS;
   const len = Math.min(8, Math.max(4, d / 6));
   const words = o.timed.segments.flatMap((sg) => sg.words);
@@ -140,5 +140,6 @@ export async function previewTells(o: { data: string; reference: string; root: s
   const label: Record<string, string> = { tells_edit: "The judge picked the stretch out by its cutting", tells_colour: "The judge picked the stretch out by its colour", tells_footage: "The judge picked the stretch out by its footage", tells_picture: "The judge picked the stretch out by its picture design" };
   const checks: PreflightCheck[] = [...byOwner].map(([k, v]) => ({ id: k, label: label[k]!, value: v.tells.length, target: "no tell", pass: false, level: "blocker" as const, shots: [...v.shots], note: v.tells.slice(0, 4).join(" | ") }));
   o.log?.(`  judge on previews: ${stretches.filter((s) => s.picked).length} of ${stretches.length} stretches picked out${checks.length ? ` — tells to ${checks.map((c) => c.id.replace("tells_", "")).join(", ")}` : ""} ($${usd.toFixed(2)})`);
-  return { checks, realness: real.length ? Math.round((real.reduce((a, x) => a + x, 0) / real.length) * 100) / 100 : null, usd, stretches };
+  const clips = at.flatMap((f, k) => (files[k] ? [{ fromS: f, len, file: files[k]!, said: words.filter((w) => w.startS >= f && w.startS < f + len).map((w) => w.word).join(" ") }] : []));
+  return { checks, realness: real.length ? Math.round((real.reduce((a, x) => a + x, 0) / real.length) * 100) / 100 : null, usd, stretches, clips };
 }

@@ -18,7 +18,9 @@ import { MODELS, plain, ROLE_MODEL, structured } from "./llm.js";
 
 const ENTER = ["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"] as const;
 const El = z.object({
-  type: z.enum(["photo", "cutout", "card3d", "component"]),
+  type: z.enum(["photo", "cutout", "card3d", "text3d", "component"]),
+  text: z.string().describe("text3d: two to five words the narrator says in this shot, set as real extruded 3D type; else empty"),
+  style: z.enum(["none", "silhouette", "outline", "glow"]).describe("cutout: the channel's black silhouette figure, a white outline, or a coloured glow around the cut-out; else none"),
   slot: z.number().describe("picture slot index for photo/cutout/card3d, else -1"),
   component: z.string().describe("component: the name of one of THIS film's kit components, else empty"),
   propsJson: z.string().describe("component: its props as a JSON object — words must be words the narrator says in this shot, figures spoken figures, slots existing picture slots; else empty"),
@@ -31,7 +33,8 @@ const El = z.object({
   at: z.number().describe("seconds after the shot starts"),
   enter: z.enum(ENTER),
   spin: z.number().describe("degrees the 3D card turns over the shot (card3d), else 0"),
-  grade: z.enum(["natural", "mono", "duotone", "punch", "sepia"]).describe("photo: its own grade (treatment) — mono, duotone, punch or sepia tie a stock picture into the film; natural for press photos that must stay as they are"),
+  blend: z.enum(["normal", "screen"]).describe("photo: screen = a double exposure (the picture laid over the frame by its light, translucent); else normal"),
+  grade: z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey"]).describe("contrast_bw = the channel's high-contrast black and white; split = cool shadows and warm light; invert = a negative; lowkey = dark and moody. Photo: its own grade (treatment) — mono, duotone, punch or sepia tie a stock picture into the film; natural for press photos that must stay as they are"),
 });
 const TOKENS = ["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "black", "white"] as const;
 const WorldDraft = z.object({
@@ -50,6 +53,8 @@ const Plan = z.object({
       backdrop: z.enum(["footage", "world"]).describe("the shot's own footage, or a WORLD built from real pictures (shots without footage, or where a treated picture carries the line better)"),
       world: WorldDraft,
       finish: FinishDraft.describe("the treatment over the whole shot; the channel's frames almost all carry one (grain, vignette, a leak)"),
+      fx: z.object({ glitch: z.boolean().describe("a glitch burst with RGB split at the shot's start (the channel's glitching text and logo reveals)"), dof: z.number().describe("0–1: shallow depth of field — the backdrop defocused behind the pictures and words on it; 0 for none"), rack: z.boolean().describe("a rack focus: the shot opens out of focus and pulls sharp") }),
+      atmos: z.enum(["none", "smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak"]).describe("a real filmed atmosphere over the shot (the channel's smoke and fog, embers, dust, film scratches, film burns, the sprocket gate of old film, a light leak) — at about the channel's rate; none for most shots"),
       clean: z.boolean().describe("true = let the footage play clean, with NO elements on it — only for a shot whose footage is moving video that shows what the line is about; the real channel leaves about four shots in ten this way"),
       wash: z.boolean().describe("colour this shot's footage into the film's palette (mood, reenactment and generic footage; leave real press footage and photos natural)"),
       dim: z.number().describe("how much the footage is darkened under the design, 0.1..0.6"),
@@ -122,6 +127,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   let dropped = 0;
   const refusals: string[] = [];
   let three = 0;
+  let threeText = 0;
   for (const sh of todo) {
     const d = o.raw.find((x) => x.shotId === sh.id);
     if (!d) continue;
@@ -139,10 +145,20 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter };
       if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
         if (!slots.has(e.slot)) { dropped++; continue; }
-        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}) });
-        else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true });
+        if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), ...(e.blend === "screen" ? { blend: "screen" as const } : {}) });
+        else if (e.type === "cutout") els.push({ type: "cutout", slot: e.slot, ...box, shadow: true, ...(e.style === "silhouette" ? { silhouette: true } : e.style === "outline" ? { outline: true } : e.style === "glow" ? { glow: "accent" as const } : {}) });
         else if (three < 4) (three++, els.push({ type: "card3d", slot: e.slot, ...box, tilt: e.spin >= 0 ? -14 : 14, spin: clamp(e.spin || 22, -40, 40) }));
         else els.push({ type: "photo", slot: e.slot, ...box, grade: "natural" });
+        continue;
+      }
+      // craft inventory: 3D type — spoken words only, a phrase not a lone common word, at most 4 in a film
+      if (e.type === "text3d") {
+        const t = (e.text ?? "").trim();
+        if (!t || !wordsOk(t) || !numsOk(t) || threeText >= 4) { dropped++; continue; }
+        const why = loneText(t, lineOf(sh.startS - 1, sh.endS + 1));
+        if (why) { dropped++; refusals.push(`${sh.id}: 3D "${t.slice(0, 30)}" — ${why}`); continue; }
+        threeText++;
+        els.push({ type: "text3d", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.08, 0.5) } : {}), text: t.slice(0, 40), spin: clamp(e.spin || 18, -40, 40) });
         continue;
       }
       // a component of this film's kit: it must exist; every word and figure in its props is spoken in the shot
@@ -172,7 +188,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     if (unsafeFace) nameGuarded++;
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
     if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
-      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
+      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
       continue;
     }
     const stage = !hasFootage || unsafeFace || d.backdrop === "world";
@@ -187,6 +203,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       backdrop: stage ? "world" : "footage",
       ...(world ? { world } : {}),
       finish: finishOf(d.finish),
+      ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}),
       dim: clamp(d.dim, 0.1, 0.6),
       ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.16, mode: "tint" as const } } : {}),
       camera: (() => {
@@ -217,7 +234,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
 // Worlds, finish and repetition (build list 5, items 10, 11, 12, 14)
 
 type WorldOut = NonNullable<SceneSpec["world"]>;
-const NEEDS_PICTURE = new Set(["mono_accent", "duotone", "collage"]);
+const NEEDS_PICTURE = new Set(["mono_accent", "duotone", "collage", "filmstrip"]);
 /** The world a draft asks for, made valid: its pictures must exist; with none it falls to a field that needs none. */
 export function worldOf(d: z.infer<typeof WorldDraft> | undefined, slots: number[], k: number): WorldOut {
   const has = (x: number) => slots.includes(x);

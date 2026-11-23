@@ -29,7 +29,7 @@ import { edl, findPassages } from "./reference-library.js";
 export const EDITOR_KEYS = ["cutsPerMin", "shotMedianS", "shotCv", "cutInPause", "cutToWordMedianS", "wordsPerShot"];
 /** Build list 5, item 20: the at-length rhythm measures the editor is held to (CRAFT_MEASURES.edit on real stretches of the film's length). */
 export const RHYTHM_KEYS = ["shotMedianS", "shotCv", "shotP90S", "cutToWordMedianS", "cutInPause", "stillHolds"];
-const BRIDGE_TRANSITIONS = new Set(["film", "whip", "light_leak", "fade", "dip_black", "match"]);
+const BRIDGE_TRANSITIONS = new Set(["film", "whip", "light_leak", "fade", "dip_black", "match", "flash", "zoom_punch"]);
 
 /**
  * Build list 5, item 21: a cut to the same picture (the same source on both sides) needs a different framing AND a
@@ -57,6 +57,8 @@ export function stutterCuts(shots: Array<{ id: string; transitionIn?: string; ca
 export interface EditorReport { pass: boolean; before: { structure: number; gaps: FilmGap[] }; after: { structure: number; gaps: FilmGap[] }; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
 
 export interface EditorAgentOptions {
+  /** Craft inventory: the channel's techniques in this agent's craft, with rates and tools (techniqueBrief). */
+  techniques?: string;
   /** Build list 5, item 22: the voice director's stressed words (voice-direction.json), shared with the sound designer. */
   emphasis?: Array<{ emphasis: string }>;
   channel: ChannelId;
@@ -293,8 +295,8 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
     },
     {
       name: "set_transition",
-      description: "How a shot is entered: cut (default), film (the film's OWN transition from its kit — use it to bridge every change of the same picture and on turns; the channel bridges 4–11 same-picture changes a minute, mostly with light flashes), whip, fade, dip_black, light_leak, match. A same-picture change with no bridge reads as a jump.",
-      schema: z.object({ shotId: z.string(), kind: z.enum(["cut", "film", "fade", "whip", "dip_black", "light_leak", "match"]) }),
+      description: "How a shot is entered: cut (default), film (the film's OWN transition from its kit — use it to bridge every change of the same picture and on turns; the channel bridges 4–11 same-picture changes a minute, mostly with light flashes), whip, fade, dip_black, light_leak, match, flash (a white flash cut, the channel uses it on hits and turns), zoom_punch (a punch-in on a hit). A same-picture change with no bridge reads as a jump.",
+      schema: z.object({ shotId: z.string(), kind: z.enum(["cut", "film", "fade", "whip", "dip_black", "light_leak", "match", "flash", "zoom_punch"]) }),
       run: (async (i: { shotId: string; kind: Storyboard["shots"][number]["transitionIn"] }) => {
         const k = find(i.shotId);
         if (k < 0) return `no shot ${i.shotId}`;
@@ -343,7 +345,7 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
         if (studied < 2) return `refused: study at least two real passages first (studied ${studied})`;
         // Step 6: a change of the same picture with nothing bridging it reads as a jump (film 1: 3 unbridged punch-ins;
         // the channel bridges 4–11 such changes a minute, mostly with light flashes).
-        const BRIDGES = new Set(["film", "whip", "light_leak", "fade", "dip_black"]);
+        const BRIDGES = new Set(["film", "whip", "light_leak", "fade", "dip_black", "flash", "zoom_punch"]);
         const unbridged = board.shots.filter((x) => /_\d+$/.test(x.id) && !BRIDGES.has(x.transitionIn ?? "cut")).map((x) => x.id);
         if (unbridged.length) return `refused: these halves change the same picture with nothing bridging them — a jump: ${unbridged.join(", ")}. set_transition each to ${o.filmTransition ? "film (the film's own transition)" : "whip or light_leak"}, or merge_with_next to undo the split.`;
         if (o.watch && !watched) return "refused: watch at least one stretch you changed (with its sound) before submitting — numbers alone do not show a jump cut or a cut that lands on the wrong picture";
@@ -379,10 +381,11 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
   const skill = await readFile(new URL("../skills/editor.md", import.meta.url), "utf8");
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
-  const system = [
+  const systemBase = [
     cached(`${skill}\n\n## The channel's measured cutting (profile v${prof.version})\n${prof.directives.slice(0, 5).map((d) => `- ${d}`).join("\n")}`),
     plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes on your work (take these seriously)\n${tail(owner, 20)}\n\n` : ""}Times are in seconds on the narration's clock. Words with times are given so you can place cuts inside phrases.`),
   ];
+  const system = o.techniques ? [...systemBase, plain(o.techniques)] : systemBase;
   const user = `Edit this film (${o.script.title}, ${o.script.aspect}, ${o.script.durationS.toFixed(1)} s).\n\nNARRATION WORDS (word@start):\n${words.map((w) => `${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nSHOT INTENTS:\n${board.shots.map((s) => `${s.id} ${s.startS.toFixed(2)}–${s.endS.toFixed(2)} [${s.lineLink}] ${s.intent.slice(0, 90)} · said: "${lineOf(s).slice(0, 80)}"`).join("\n")}${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS CUT BACK:\n${o.brief}` : ""}\n\nStart with read_cut.`;
   log(`  editor: ${board.shots.length} shots, structure on the editor's measures ${before.structure}/100 (${ROLE_MODEL.editor})…`);
   let grace = 2;

@@ -32,6 +32,8 @@ export interface SceneReport {
   agent: { turns: number; calls: Record<string, number>; usd: number; rendered: number };
 }
 export interface SceneAgentOptions {
+  /** Craft inventory: the channel's techniques in this agent's craft, with rates and tools (techniqueBrief). */
+  techniques?: string;
   /** Build list 5, item 32: design only these shots (one chapter of a long film, designed in parallel with the others). */
   onlyShots?: string[];
   storyboard: Storyboard;
@@ -505,11 +507,12 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     })
     .join("\n");
   const portrait = o.storyboard.aspect === "9:16";
-  const system = [
+  const systemBase = [
     plain(
       `${skill}\n\n## This channel, measured on ${band.shots} of its real shots\n- its mix: ${SHOT_KINDS.filter((k) => band.mix[k] > 0).sort((a, b) => band.mix[b] - band.mix[a]).map((k) => `${k} ${pc(band.mix[k])}`).join(", ")}\n- per film: ${band.distinctKinds.p10}–${band.distinctKinds.p90} kinds of shot; clean footage on ${pc(band.plainFootage.p10)}–${pc(band.plainFootage.p90)} of shots; any text on ${pc(band.textShare.p10)}–${pc(band.textShare.p90)}; ${band.wordsMedian.p10}–${band.wordsMedian.p90} words when there is text\n\n## THIS FILM'S OWN KIT (its art director wrote it for this film only — its visual idea: ${o.kit.concept})\nEvery word on screen and every stage come from these components (element type \"component\", component = the name, propsJson = its props as JSON); real pictures go in photo, cutout or card3d elements. There are no other text or decoration elements.\nRoles: ${Object.entries(o.kit.roles ?? {}).map(([r, c]) => `${r} = ${c}`).join(", ")}. The phrase component's words land on the frames they are spoken (the engine syncs them). A shot without footage sits on the kit's stage (${o.kit.roles?.stage ?? "its stage component"}), drawn behind your elements.\n${Object.entries(o.kit.components).map(([n, c]) => `- ${n}${c.role ? ` [${c.role}]` : ""}: ${c.use} — props: ${c.props}`).join("\n")}\n- colours (for washes and choices): primary ${ds?.palette.primary}, accent ${ds?.palette.accent}, surface ${ds?.palette.surface}, paper ${ds?.palette.paper}\nCuts that change the same picture are bridged by the film's own transition (the editor marks them).\n- frame: ${portrait ? "1080×1920 vertical; keep important content in the top two-thirds" : "1920×1080"}${o.avoidLayouts ? `\n- recent films leaned on these placements; this film must not: ${o.avoidLayouts}` : ""}${notes.trim() ? `\n\n## Your own notes from earlier films\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
+  const system = o.techniques ? [...systemBase, plain(o.techniques)] : systemBase;
   log(`  scene designer: one designer with eyes — ${shots.length} shots, ${o.referenceShots.length} real shots to look at (${ROLE_MODEL.sceneDesigner})…`);
   const run = await agentLoop({ stage: "scenes.agent", fixed: o.onlyShots ? 1 : 0.1, finish: { message: "Your budget for this stage is used up. Call submit_scenes NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_scenes again." }, model: ROLE_MODEL.sceneDesigner, system, user: revising
       ? `Revise this film's scenes. The plan below is the current one; redesign ONLY these shots, for these reasons, and keep every other shot as it is:\n${o.revise!.map((r) => `- ${r.shotId}: ${r.note}`).join("\n")}\n\nCURRENT SCENES OF THOSE SHOTS:\n${o.revise!.map((r) => JSON.stringify(plan.scenes.find((x) => x.shotId === r.shotId) ?? null)).join("\n")}\n\n${briefs}\n\nLook at the nearest real shots for these lines (similar_real_shots), redesign, render and look, then submit.`

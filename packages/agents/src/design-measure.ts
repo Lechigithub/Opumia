@@ -274,7 +274,7 @@ export interface DesignCheckInput {
   refOf?: (shotId: string, slot: number) => string | undefined;
 }
 const pc = (x: number) => `${Math.round(x * 100)}%`;
-const textOf = (sc: SceneSpec) => sc.elements.map((e) => (e.type === "component" ? Object.entries(e.props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit|prefix|suffix)$/i.test(k)).map(([, v]) => String(v)).join(" ") : "")).join(" ").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+const textOf = (sc: SceneSpec) => sc.elements.map((e) => (e.type === "text3d" ? e.text : e.type === "component" ? Object.entries(e.props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit|prefix|suffix)$/i.test(k)).map(([, v]) => String(v)).join(" ") : "")).join(" ").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
 
 export function designProblems(i: DesignCheckInput): DesignProblem[] {
   const out: DesignProblem[] = [];

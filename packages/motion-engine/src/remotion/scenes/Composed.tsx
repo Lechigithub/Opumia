@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FILM } from "@film";
 import { PALETTE } from "../types";
-import { Card3D } from "./Three";
+import { Card3D, Text3D } from "./Three";
 import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec } from "./Worlds";
 
 /**
@@ -15,9 +15,12 @@ type Enter = "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down" |
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted";
 interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter }
 type El =
-  | (Box & { type: "photo"; slot: number; grade?: "natural" | "mono" | "duotone" | "punch" | "sepia"; h?: number })
+  | (Box & { type: "photo"; slot: number; grade?: string; h?: number; blend?: "normal" | "screen" })
   | (Box & {
       type: "cutout";
+      silhouette?: boolean;
+      outline?: boolean;
+      glow?: "primary" | "accent" | "white";
       slot: number;
       shadow?: boolean;
       matchColor?: string;
@@ -33,6 +36,7 @@ type El =
       flip?: boolean;
     })
   | (Box & { type: "card3d"; slot: number; tilt?: number; spin?: number })
+  | (Box & { type: "text3d"; text: string; spin?: number; serif?: boolean; color?: "primary" | "accent" | "white" | "paper"; h?: number })
   | (Box & { type: "component"; name: string; props?: Record<string, unknown>; h?: number });
 
 export interface ComposedProps {
@@ -112,6 +116,16 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
       </div>
     );
   }
+  if (el.type === "text3d") {
+    // craft inventory: 3D type in films (it was reachable only in thumbnails)
+    const h3 = el.h ? el.h * height : w * 0.32;
+    const col = el.color === "accent" ? PALETTE.accent : el.color === "primary" ? PALETTE.primary : el.color === "paper" ? "#f3ead8" : "#ffffff";
+    return (
+      <div style={{ position: "absolute", left, top, width: w, height: h3, opacity: e.opacity }}>
+        <Text3D text={el.text} color={col} spin={el.spin ?? 18} at={at} w={w} h={h3} {...(el.serif ? { serif: true } : {})} />
+      </div>
+    );
+  }
   // Pictures float a little (nearer ones more), so a still is never frozen.
   const fl = 4 + z * 10;
   const floatX = Math.sin(f / (34 + i * 5) + i * 1.7) * fl;
@@ -127,7 +141,7 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const filter = gradeFilter(el.grade);
     const inner = 1.04 + 0.06 * interpolate(f, [0, fps * 6], [0, 1], { extrapolateRight: "clamp" });
     return wrap(
-      <div style={{ position: "relative", height: h, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,0.55)" }}>
+      <div style={{ position: "relative", height: h, overflow: "hidden", ...(el.blend === "screen" ? { mixBlendMode: "screen", opacity: 0.7 } : { boxShadow: "0 20px 50px rgba(0,0,0,0.55)" }) }}>
         <Img src={staticFile(src)} style={{ width: "100%", height: h ? "100%" : "auto", objectFit: "cover", display: "block", filter, transform: `scale(${inner})` }} />
       </div>,
       h,
@@ -141,10 +155,11 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
     const mask = (extra: React.CSSProperties = {}): React.CSSProperties => ({ position: "absolute", inset: 0, WebkitMaskImage: `url(${staticFile(src)})`, maskImage: `url(${staticFile(src)})`, WebkitMaskSize: "100% 100%", maskSize: "100% 100%", ...(flip ? { transform: flip } : {}), ...extra });
     const turn = el.turnX || el.turnY ? `perspective(${Math.round(w * 2.2)}px) rotateY(${Math.max(-35, Math.min(35, el.turnY ?? 0))}deg) rotateX(${Math.max(-25, Math.min(25, el.turnX ?? 0))}deg)` : undefined;
     return wrap(
-      <div style={{ position: "relative", ...(turn ? { transform: turn } : {}), filter: el.shadow === false ? undefined : "drop-shadow(0 18px 28px rgba(0,0,0,0.6))" }}>
+      // craft inventory: white outline (four tight drop-shadows) and a coloured glow around the cut-out
+      <div style={{ position: "relative", ...(turn ? { transform: turn } : {}), filter: [el.outline ? "drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff)" : "", el.glow ? `drop-shadow(0 0 ${Math.round(w * 0.03)}px ${el.glow === "accent" ? PALETTE.accent : el.glow === "primary" ? PALETTE.primary : "#ffffff"})` : "", el.shadow === false ? "" : "drop-shadow(0 18px 28px rgba(0,0,0,0.6))"].filter(Boolean).join(" ") || undefined }}>
         {el.contactShadow ? <div style={mask({ background: "#000", opacity: Math.max(0, Math.min(1, el.contactShadow)), top: "auto", height: "100%", transform: `translateY(48%) scaleY(0.12) ${flip ?? ""}`, filter: `blur(${Math.round(w * 0.02)}px)` })} /> : null}
         <div style={{ position: "relative" }}>
-          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: `${bright}${soft}`.trim() || undefined, ...(flip ? { transform: flip } : {}) }} />
+          <Img src={staticFile(src)} style={{ width: "100%", height: "auto", display: "block", filter: `${el.silhouette ? "brightness(0) " : ""}${bright}${soft}`.trim() || undefined, ...(flip ? { transform: flip } : {}) }} />
           {hex(el.matchColor) ? <div style={mask({ background: `radial-gradient(ellipse at 50% 30%, transparent 20%, ${hex(el.matchColor)} 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.matchStrength ?? 0.55)) })} /> : null}
           {el.lightAngle !== undefined ? <div style={mask({ background: `linear-gradient(${Math.round(el.lightAngle)}deg, ${hex(el.lightColor) ?? "#fff4e0"} 0%, transparent 55%, rgba(0,0,0,0.55) 100%)`, mixBlendMode: "soft-light", opacity: Math.max(0, Math.min(1, el.lightStrength ?? 0.45)) })} /> : null}
         </div>
@@ -170,8 +185,28 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
   const drift = (t - 0.5) * 170;
   const bd = spec.backdrop ?? "footage";
   const wash = spec.wash;
+  // craft inventory: a glitch burst with RGB split over the shot's first frames (and a flicker at a third of it)
+  const fxs = (spec as { fx?: { glitch?: boolean; dof?: number; rack?: boolean } }).fx;
+  const rackPx = fxs?.rack ? interpolate(f, [0, 14], [width * 0.012, 0], { extrapolateRight: "clamp" }) : 0;
+  const gid = `glitch${React.useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const glitchOn = Boolean(fxs?.glitch) && (f < 9 || (f > durationInFrames / 3 && f < durationInFrames / 3 + 4));
+  const gdx = glitchOn ? Math.round((Math.sin(f * 2.7) + 1.2) * width * 0.004) : 0;
+  const dofPx = Math.round((fxs?.dof ?? 0) * width * 0.008);
   return (
-    <AbsoluteFill style={{ overflow: "hidden" }}>
+    <AbsoluteFill style={{ overflow: "hidden", ...(glitchOn ? { filter: `url(#${gid})` } : rackPx > 0.3 ? { filter: `blur(${rackPx.toFixed(1)}px)` } : {}) }}>
+      {glitchOn ? (
+        <svg width={0} height={0} style={{ position: "absolute" }}>
+          <filter id={gid} colorInterpolationFilters="sRGB">
+            <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r" />
+            <feOffset in="r" dx={gdx} dy="0" result="ro" />
+            <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="gb" />
+            <feOffset in="gb" dx={-gdx} dy="0" result="gbo" />
+            <feBlend in="ro" in2="gbo" mode="screen" />
+          </filter>
+        </svg>
+      ) : null}
+      {/* shallow depth of field: footage under the scene defocused behind the pictures on it */}
+      {dofPx > 0 && bd === "footage" ? <AbsoluteFill style={{ backdropFilter: `blur(${dofPx}px)` }} /> : null}
       {/* Footage coloured toward the film's palette (the colourist's choice), under everything. */}
       {wash && bd === "footage" ? (
         <>
@@ -180,7 +215,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
         </>
       ) : null}
       {bd === "stage" ? <KitStage /> : null}
-      {bd === "world" && spec.world ? <World world={spec.world} slots={slots} /> : bd === "world" ? <KitStage /> : null}
+      {bd === "world" && spec.world ? <AbsoluteFill style={dofPx > 0 ? { filter: `blur(${dofPx}px)` } : undefined}><World world={spec.world} slots={slots} /></AbsoluteFill> : bd === "world" ? <KitStage /> : null}
       <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.3})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
         <div style={{ position: "absolute", inset: 0, width, height }}>
           {spec.elements.map((el, i) => (

@@ -36,7 +36,7 @@ async function strip(video: string, fromS: number, toS: number, out: string): Pr
 const img = async (f: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: (await readFile(f)).toString("base64") } });
 const seeded = (s: string) => parseInt(createHash("sha1").update(s).digest("hex").slice(0, 8), 16);
 
-async function filmVideo(reference: string, data: string, filmId: string): Promise<string | null> {
+export async function filmVideo(reference: string, data: string, filmId: string): Promise<string | null> {
   const ix = await loadReferenceIndex(data);
   const th = ix?.thumbs.find((t) => t.film === filmId);
   if (!th) return null;

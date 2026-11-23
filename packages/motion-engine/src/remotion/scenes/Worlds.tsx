@@ -11,7 +11,7 @@ import { PALETTE } from "../types";
  * through CSS/SVG filters, and designed shapes (gradients, rays, rules, scanlines). No generated imagery; a face is never
  * altered beyond a whole-picture grade.
  */
-export type WorldKind = "mono_accent" | "duotone" | "burst" | "collage" | "flat_field" | "paper" | "terminal";
+export type WorldKind = "mono_accent" | "duotone" | "burst" | "collage" | "flat_field" | "paper" | "terminal" | "filmstrip";
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted" | "black" | "white";
 export interface WorldSpec { kind: WorldKind; slot?: number; slots?: number[]; color?: Token; accent?: Token }
 export interface FinishSpec { grain?: number; vignette?: number; leak?: number }
@@ -108,6 +108,32 @@ export const World: React.FC<{ world: WorldSpec; slots: Record<string, string> }
         </AbsoluteFill>
       );
     }
+    case "filmstrip": {
+      // craft inventory: the channel's filmstrip / contact sheet — real pictures as frames on a strip with sprocket
+      // holes, sliding frame to frame
+      const list = [world.slot, ...(world.slots ?? [])].filter((s): s is number => s !== undefined).map((s) => slots[String(s)]).filter((s): s is string => Boolean(s)).slice(0, 5);
+      const fw = width * 0.46;
+      const fh = fw * 0.62;
+      const gap = width * 0.05;
+      const slide = -t * Math.max(0, list.length - 1.6) * (fw + gap);
+      const holes = Array.from({ length: Math.ceil(width / 40) + 4 }, (_, k) => k);
+      return (
+        <AbsoluteFill style={{ background: "#0c0b09" }}>
+          <div style={{ position: "absolute", left: 0, right: 0, top: height / 2 - fh / 2 - height * 0.07, height: fh + height * 0.14, background: "#16130f" }}>
+            {[0, 1].map((row) => (
+              <div key={row} style={{ position: "absolute", left: (slide % 40) - 40, top: row ? undefined : height * 0.02, bottom: row ? height * 0.02 : undefined, display: "flex", gap: 22 }}>
+                {holes.map((k) => <div key={k} style={{ width: 18, height: height * 0.028, borderRadius: 3, background: "#e9e1cf", opacity: 0.85 }} />)}
+              </div>
+            ))}
+            {list.map((s, k) => (
+              <div key={k} style={{ position: "absolute", top: height * 0.07, left: width * 0.27 + k * (fw + gap) + slide, width: fw, height: fh, overflow: "hidden", border: "3px solid #2a241c" }}>
+                <Picture src={s} filter={k % 2 ? "grayscale(1) contrast(1.2)" : "sepia(0.35) contrast(1.1)"} scale={1.03} />
+              </div>
+            ))}
+          </div>
+        </AbsoluteFill>
+      );
+    }
     case "flat_field":
       // one bold colour field with a soft light falling across it — it changes with the idea (the colour is per shot)
       return (
@@ -189,4 +215,7 @@ export const Finish: React.FC<{ finish: FinishSpec }> = ({ finish }) => {
 
 /** A placed picture's own grade (photo elements). */
 export const gradeFilter = (g: string | undefined): string | undefined =>
+  // craft inventory: the channel's high-contrast black and white, a split tone (cool shadows, warm light), a negative,
+  // and a low-key moody grade
+  g === "contrast_bw" ? "grayscale(1) contrast(1.55) brightness(0.95)" : g === "split" ? "sepia(0.35) hue-rotate(-12deg) saturate(1.3) contrast(1.15)" : g === "invert" ? "invert(1) hue-rotate(180deg) contrast(1.1)" : g === "lowkey" ? "saturate(0.6) contrast(1.35) brightness(0.72)" :
   g === "mono" ? "grayscale(1) contrast(1.12)" : g === "duotone" ? "grayscale(1) sepia(0.6) hue-rotate(160deg) saturate(1.6) contrast(1.1)" : g === "punch" ? "contrast(1.22) saturate(1.25)" : g === "sepia" ? "sepia(0.75) contrast(1.08)" : undefined;

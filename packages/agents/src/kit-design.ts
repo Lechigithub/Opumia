@@ -12,9 +12,9 @@ export type KitRole = (typeof KIT_ROLES)[number];
 
 /** The props the engine passes to each role (besides `slots`, `boxW`, `boxH`, which every component receives). */
 export const ROLE_CONTRACT: Record<KitRole, string> = {
-  headline: "text — the one line that lands a turn (words the narrator says); BIG, set into the picture: the channel's words cover a median 9 % of the frame and up to 30 % (measured with OCR on its real frames, build list 5 item 12) — size the type to fill its box, not to sit small in a tag",
+  headline: "text, variant?, mark?, lead? — craft inventory: the kit MUST draw every variant in the film's own style: \"banner\" (words on a banner, strip or tape — the channel's 5.6/min), \"caps\" (a bold centred all-caps title, 4.8/min), \"marker\" (the `mark` substring in a colour marker highlight, 4/min), \"glow\" (glowing / neon type), \"ghost\" (giant ghosted type behind the subject), with an optional small `lead` caption above the title. The one line that lands a turn (words the narrator says); BIG, set into the picture: the channel's words cover a median 9 % of the frame and up to 30 % (measured with OCR on its real frames, build list 5 item 12) — size the type to fill its box, not to sit small in a tag",
   phrase: "text, words: [{ text, from }] — narration words synced to the voice: `from` is the frame (relative to the element's start) on which each word is spoken; draw each word as it is said; large display type integrated with the picture (about half the channel's shots with words), never a small boxed label",
-  label: "text, sub? — who or what is on screen (a name tag, a place, a date); the only small boxed type of the kit (the channel boxes at most half of its words)",
+  label: "text, sub?, variant? (\"intro\": a person introduction card — name and role beside their picture; \"arrow\": a hand-drawn arrow or circle that draws on toward the subject, with the text; \"script\": a handwritten callout) — who or what is on screen (a name tag, a place, a date); the only small boxed type of the kit (the channel boxes at most half of its words)",
   number: "value (the figure exactly as spoken, e.g. \"$7.2 billion\"), label?",
   quote: "text (a verbatim quotation), by",
   chapter: "title, index? — a chapter or title card",

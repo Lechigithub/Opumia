@@ -1071,3 +1071,39 @@ export async function resolveAudio(o: { storyboard: Storyboard; index: LibraryIn
   for (const m of o.storyboard.music) await add("music", "music", m.assetId);
   return ResolutionReport.parse({ ...o.resolution, media });
 }
+
+
+/**
+ * Craft inventory: the scene designer's atmospheres (smoke, embers, dust, scratches, film burn, sprocket gate, light
+ * leak) become real filmed overlays from Library/overlays on their shots — licensed, logged as media, screen-blended by
+ * the manifest. Picked deterministically per film, never the same file twice in a row.
+ */
+export async function resolveAtmosphere(o: { storyboard: Storyboard; scenes: Array<{ shotId: string; atmos?: { kind: string; opacity: number } }>; index: LibraryIndex; libraryRoot: string; jobDir: string; resolution: ResolutionReport; seed: string }): Promise<{ storyboard: Storyboard; resolution: ResolutionReport; placed: number }> {
+  const RE: Record<string, RegExp> = { smoke: /smoke_(drift|white|faint)/, embers: /embers|sparks/, dust: /dust_particles|dust_pool|grain_loop/, scratches: /scratches|8mm/, burn: /burn_/, sprocket: /sprocket|film_frame/, leak: /leak_/ };
+  const all = o.index.assets.filter((a) => isUsable(a) && a.category === "overlays" && a.kind === "video");
+  const media = o.resolution.media.filter((m) => !(m.role === "overlay" && m.origin === "library" && /^atmos_/.test(path.basename(m.localPath))));
+  const mediaDir = path.join(o.jobDir, "public", "media");
+  await mkdir(mediaDir, { recursive: true });
+  const h = (s: string) => parseInt(createHash("sha1").update(s).digest("hex").slice(0, 8), 16);
+  let last = "";
+  let placed = 0;
+  const shots = o.storyboard.shots.map((s) => ({ ...s, overlays: s.overlays.filter((ov) => !all.some((a) => a.id === ov.assetId && Object.values(RE).some((re) => re.test(a.relPath)))) }));
+  for (const sc of o.scenes) {
+    if (!sc.atmos) continue;
+    const re = RE[sc.atmos.kind];
+    const pool = re ? all.filter((a) => re.test(a.relPath)) : [];
+    if (!pool.length) continue;
+    const sorted = [...pool].sort((a, b) => h(o.seed + a.id) - h(o.seed + b.id));
+    const a = sorted.find((x) => x.id !== last) ?? sorted[0]!;
+    last = a.id;
+    const sh = shots.find((x) => x.id === sc.shotId);
+    if (!sh) continue;
+    const file = `atmos_${sh.id}_${a.id}.mp4`;
+    const out = path.join(mediaDir, file);
+    if (!(await exists(out))) await materialize(await ensureLocal(o.libraryRoot, a.relPath, "library"), "video", out, 0, Math.max(1, sh.endS - sh.startS), false);
+    media.push({ shotId: sh.id, role: "overlay", origin: "library", ref: a.id, provider: "library", kind: "video", localPath: out, publicPath: `media/${file}`, license: a.provenance.license!, attributionRequired: a.provenance.attributionRequired ?? false, ...(a.provenance.attributionText ? { attributionText: a.provenance.attributionText } : {}), ...(a.provenance.sourcePageUrl ? { sourceUrl: a.provenance.sourcePageUrl } : {}), aiGenerated: false, score: 1, query: `atmosphere ${sc.atmos.kind}` });
+    sh.overlays = [...sh.overlays, { assetId: a.id, blend: "screen", opacity: sc.atmos.opacity }];
+    placed++;
+  }
+  return { storyboard: { ...o.storyboard, shots }, resolution: ResolutionReport.parse({ ...o.resolution, media }), placed };
+}

@@ -6,7 +6,7 @@
 //  - the judge's tells go to their owners; the Nokia proof film is not accepted as the proof.
 //   npx tsx apps/cli/src/dev/bl5-test.ts
 import path from "node:path";
-import { agentLeft, recordExternal, setLaterGuarantee, agentLoop, allotments, craftBand, lengthPlan, MODELS, realScoreFloor, resetAllotments, setBudget, stutterCuts } from "@opumia/agents";
+import { CAPABILITIES, manifestEvents, agentLeft, recordExternal, setLaterGuarantee, agentLoop, allotments, craftBand, lengthPlan, MODELS, realScoreFloor, resetAllotments, setBudget, stutterCuts } from "@opumia/agents";
 import { ownerOfTell } from "../bl5-checks.js";
 import { proofFilm } from "./proof-film.js";
 import { storyScenesOffline } from "./story-scenes-test.js";
@@ -41,6 +41,11 @@ export async function bl5Test(): Promise<string[]> {
   if (Math.abs((agentLeft() ?? 0) - 0.45) > 1e-9) fails.push(`an overspent film borrows the repair pool and half the later shares ($0.45), got ${agentLeft()}`);
   setLaterGuarantee(0);
   setBudget(null);
+  // craft inventory: the catalogue names every tool once, and our film is labelled with the same facts as a real stretch
+  if (new Set(CAPABILITIES.map((c) => c.id)).size !== CAPABILITIES.length) fails.push("capability ids must be unique");
+  for (const need of ["atmosphere", "scene_fx", "kit_type", "transitions", "card3d", "text3d"]) if (!CAPABILITIES.some((c) => c.id === need)) fails.push(`the capability catalogue must list ${need}`);
+  const ev = manifestEvents({ fps: 24, video: [{ zIndex: 0, startFrame: 0 }, { zIndex: 0, startFrame: 48 }], audio: [{ role: "sfx", startFrame: 50, ref: "x" }, { role: "music", startFrame: 0, dips: [{ fromFrame: 100, toFrame: 130 }] }] })(0, 10);
+  if (!/Cuts at: 2\.0/.test(ev) || !/hit at 2\.1/.test(ev) || !/drops out/.test(ev)) fails.push(`our stretch must be described like a real one: ${ev}`);
   // item 4: the craft bands at every length, and the channel's own stretches reach their own floor
   const data = path.join(process.cwd(), "data");
   for (const L of [45, 90, 180, 600]) {

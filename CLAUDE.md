@@ -410,6 +410,26 @@ From the Nokia proof film (`docs/NOKIA-GAP-ANALYSIS.md`). Length is never the ex
   share, no starved agent, every craft in band, judge no better than on real stretches, taste ≥ channel p10).
   Offline tests: `dev/bl5-test.ts`, `dev/bl5-gate-test.ts out/<job>`, `dev/craft-score.ts out/<job>`.
 
+## Craft inventory: the platform discovers what the channel does (2026-11-23)
+
+Owner: gaps must not wait for the owner to notice them. `agents/technique-inventory.ts`, `npx tsx apps/cli/src/dev/techniques.ts [out/<job> …]`:
+- **Discover:** Sonnet watches real stretches (16 frames over 10 s + words, cuts, measured hits, music events) and names
+  every technique; merged into one taxonomy (MagnatesMedia: 90 techniques) → `data/technique-inventory/<channel>/`.
+- **Rate:** the same labeller (Haiku) on 80 real stretches → per-minute rate and share of stretches (`band.json`).
+- **Map:** each technique against `CAPABILITIES` (what the platform can make, by owner) → available / partial /
+  missing (`tools.json`). A new tool adds its line to `CAPABILITIES`.
+- **Cover:** every film is labelled the same way after render (`techniques.json`) and joins `open.json` (missing tools
+  and unused techniques, ranked by the channel's rate). Before render, the channel's staples (≥ 25 % of stretches) that
+  none of the judge's preview stretches shows, and techniques used ≥ 2.5× the channel's rate, are gate checks to their
+  owners (`staple_picture`, `staple_edit`, `staple_sound`). Each agent's brief lists its craft's techniques with rates
+  and tools (`techniqueBrief`).
+- **Built from it:** 3D type in films (`text3d`), real filmed atmospheres from Library/overlays (`atmos`: smoke, embers,
+  dust, scratches, burn, sprocket, leak), glitch with RGB split, shallow depth of field, rack focus (`fx`), filmstrip
+  world, silhouette / outline / glow cut-outs, high-contrast B&W, split-tone, negative and low-key grades, double
+  exposure, flash and zoom-punch transitions, kit headline variants (banner, caps, marker, glow, ghost, lead) and label
+  variants (intro card, hand-drawn arrow, handwritten). Missing tools went from 8 to 4 (one is the channel's own logo
+  bug, never copied).
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

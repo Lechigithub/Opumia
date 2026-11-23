@@ -38,6 +38,9 @@ Use these before settling for a picture-less shot. Do not collect pictures you w
   name tag, the number, the quote. Words in its props are words the narrator says in this shot; figures are spoken
   figures. There are no other text, shape or decoration elements: the kit draws them in the film's own way.
 - `photo`, `cutout`, `card3d` (a picture as a turning 3D card; at most 4 in a film): real pictures; only picture slots
+- `text3d`: real extruded 3D type (Three.js), lit and turning — two to five words the narrator says in the shot, the
+  line that lands. The channel uses 3D type and 3D picture cards; use them where the craft inventory says the channel
+  does (`measure_film` reports the channel's rate and yours). At most 4 of each in a film.
   listed for that shot exist.
 - `backdrop`: `footage` (dim 0.15–0.45), or `world` — a ground built from real pictures (below). There is no plain
   stage any more: the Nokia film put half its shots on one navy grid with embers, and the channel never does that.
@@ -133,3 +136,17 @@ Fix what it names in your own part of the film. Pass on what belongs to another 
 - No strong one-colour wash on real footage: a picture keeps its own colours (the colourist sets the film grade).
 - Line icons belong in an icon grid or an infographic on the stage; a lone icon dropped over footage reads as a
   placeholder and is flagged.
+
+
+## The channel's whole vocabulary (craft inventory)
+
+The craft inventory measured 90 techniques on the channel's real films (`techniqueBrief` in your brief gives the ones
+in your craft with their rates). Every one you can make is a tool here — use them at about the channel's rate, not
+only the few you reach for first:
+- grades on pictures: high-contrast black and white (the channel's most used technique), duotone, sepia, punch;
+- worlds: also `filmstrip` (real pictures as frames on a sliding strip with sprocket holes);
+- cut-outs: `style` silhouette (black figure), outline (white stroke), glow (coloured);
+- `atmos`: a real filmed smoke/fog layer, embers, dust, film scratches, film burn, the sprocket gate, a light leak;
+- `fx`: a glitch burst with RGB split; `dof` shallow depth of field behind the pictures;
+- `text3d` and `card3d` (Three.js); the kit's headline variants: banner, caps, marker, glow, ghost (with a lead
+  caption), and labels as a person-introduction card or a hand-drawn arrow.
