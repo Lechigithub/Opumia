@@ -13,7 +13,7 @@ import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec } from "./W
  */
 type Enter = "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down" | "pop" | "stamp" | "type" | "draw" | "wipe" | "zoom";
 type Token = "primary" | "primarySoft" | "accent" | "accentDeep" | "surface" | "surfaceAlt" | "paper" | "marker" | "text" | "textMuted";
-interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter }
+interface Box { x: number; y: number; w: number; rot?: number; z?: number; at?: number; enter?: Enter; exit?: "none" | "slide" | "erode" }
 type El =
   | (Box & { type: "photo"; slot: number; grade?: string; h?: number; blend?: "normal" | "screen" })
   | (Box & {
@@ -174,6 +174,48 @@ const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drif
   );
 };
 
+/** Craft inventory: an element leaves before the cut — it slides off, or erodes away (blurs, crumbles from the edges, fades). */
+const ExitWrap: React.FC<{ exit?: "none" | "slide" | "erode"; children: React.ReactNode }> = ({ exit, children }) => {
+  const f = useCurrentFrame();
+  const { durationInFrames, width } = useVideoConfig();
+  if (!exit || exit === "none") return <>{children}</>;
+  const k = interpolate(f, [durationInFrames - 10, durationInFrames - 1], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.in(Easing.cubic) });
+  if (k <= 0) return <>{children}</>;
+  const style: React.CSSProperties = exit === "slide"
+    ? { transform: `translateX(${-k * width * 1.1}px)` }
+    : { filter: `blur(${(k * 10).toFixed(1)}px)`, opacity: 1 - k, clipPath: `inset(${(k * 30).toFixed(1)}% ${(k * 8).toFixed(1)}% ${(k * 30).toFixed(1)}% ${(k * 8).toFixed(1)}%)` };
+  return <AbsoluteFill style={style}>{children}</AbsoluteFill>;
+};
+
+type DriftSpec = { slot: number; mode: "fall" | "float"; count?: number };
+/** Craft inventory: a real picture (a cut-out object — banknotes, coins, papers) repeated as a falling or floating layer. */
+const DriftLayer: React.FC<{ drift: DriftSpec; slots: Record<string, string> }> = ({ drift, slots }) => {
+  const f = useCurrentFrame();
+  const { width, height, durationInFrames } = useVideoConfig();
+  const src = slots[String(drift.slot)];
+  if (!src) return null;
+  const n = Math.max(3, Math.min(24, drift.count ?? 10));
+  const rnd = (k: number, s: number) => {
+    const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      {Array.from({ length: n }, (_, k) => {
+        const size = width * (0.07 + rnd(k, 1) * 0.08);
+        const x0 = rnd(k, 2) * width;
+        const speed = (drift.mode === "fall" ? 0.9 : 0.25) * (0.7 + rnd(k, 3) * 0.6);
+        const prog = (f / durationInFrames) * speed + rnd(k, 4);
+        const y = drift.mode === "fall" ? ((prog % 1.25) - 0.15) * height : height * (0.15 + rnd(k, 5) * 0.7) + Math.sin(f / 30 + k) * height * 0.03 - prog * height * 0.1;
+        const x = x0 + Math.sin(f / (20 + rnd(k, 6) * 20) + k) * width * 0.04;
+        const r = (f * (drift.mode === "fall" ? 2.5 : 0.6) * (rnd(k, 7) - 0.5)) + rnd(k, 8) * 360;
+        const z = 0.6 + rnd(k, 9) * 0.6;
+        return <Img key={k} src={staticFile(src)} style={{ position: "absolute", left: x, top: y, width: size * z, transform: `rotate(${r}deg) rotateX(${Math.sin(f / 9 + k) * 50}deg)`, filter: `drop-shadow(0 8px 12px rgba(0,0,0,0.45)) ${z < 0.8 ? "blur(1.2px)" : ""}`, opacity: 0.95 }} />;
+      })}
+    </AbsoluteFill>
+  );
+};
+
 export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
   const f = useCurrentFrame();
   const { width, height, durationInFrames } = useVideoConfig();
@@ -219,10 +261,13 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
       <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.3})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
         <div style={{ position: "absolute", inset: 0, width, height }}>
           {spec.elements.map((el, i) => (
-            <Element key={i} el={el} i={i} slots={slots} drift={drift} />
+            <ExitWrap key={i} exit={el.exit}>
+              <Element el={el} i={i} slots={slots} drift={drift} />
+            </ExitWrap>
           ))}
         </div>
       </AbsoluteFill>
+      {(spec as { drift?: DriftSpec }).drift ? <DriftLayer drift={(spec as unknown as { drift: DriftSpec }).drift} slots={slots} /> : null}
       {spec.finish ? <Finish finish={spec.finish} /> : null}
     </AbsoluteFill>
   );

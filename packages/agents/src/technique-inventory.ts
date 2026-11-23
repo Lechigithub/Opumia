@@ -29,6 +29,10 @@ export interface Technique { id: string; name: string; category: (typeof TECH_CA
 export interface TechniqueBand { channel: string; stretches: number; seconds: number; techniques: Array<{ id: string; perMin: number; share: number; perMinBand: { p10: number; median: number; p90: number } }>; builtAt: string }
 
 const dirOf = (data: string, channel: string) => path.join(data, "technique-inventory", channel);
+/** Owner decision (2026-11-23): techniques we never make — the channel's own corner logo / watermark bug. They are left
+ *  out of the inventory entirely: not rated, not briefed, not checked, never listed as missing. */
+const EXCLUDED = /watermark|logo bug|corner logo|channel (bug|logo|brand)/i;
+export const excludedTechnique = (t: { id: string; name: string }) => EXCLUDED.test(t.name) || EXCLUDED.test(t.id.replace(/_/g, " "));
 const save = async (f: string, v: unknown) => {
   await mkdir(path.dirname(f), { recursive: true });
   await writeFile(f + ".tmp", JSON.stringify(v, null, 1) + "\n");
@@ -82,7 +86,7 @@ export async function discoverTechniques(o: { data: string; reference: string; c
   const f = path.join(dirOf(o.data, o.channel), "taxonomy.json");
   if (!o.fresh) {
     const hit = await load<Technique[]>(f);
-    if (hit) return hit;
+    if (hit) return hit.filter((t) => !excludedTechnique(t));
   }
   const st = await realStretches({ data: o.data, reference: o.reference, channel: o.channel, n: o.n ?? 30, len: 10, salt: "discover" });
   o.log?.(`  techniques: watching ${st.length} real stretches of ${o.channel}…`);
@@ -98,7 +102,7 @@ export async function discoverTechniques(o: { data: string; reference: string; c
   }
   const Tax = z.object({ techniques: z.array(z.object({ id: z.string().describe("snake_case"), name: z.string(), category: z.enum(TECH_CATEGORIES), definition: z.string().describe("one sentence a labeller can apply"), seeIn: z.string().describe("how to recognise it in a 16-frame sheet plus the listed sound events") })) });
   const r = await structured({ stage: "techniques.taxonomy", model: MODELS.sonnet, system: [plain("You merge technique sightings from many stretches of one documentary channel into ONE taxonomy: merge synonyms and near-duplicates, keep distinct techniques apart (a 3D extruded title is not a flat title; a whip pan is not a flash cut), drop vague entries. Aim for 40–80 techniques, each something a designer or editor could deliberately make. Keep ones seen only once if they are specific.")], user: raw.map((t) => `- [${t.category}] ${t.name}: ${t.evidence.slice(0, 160)}`).join("\n"), schema: Tax, effort: "medium", maxTokens: 16000 });
-  const tax = r.data.techniques.map((t) => ({ ...t, id: t.id.replace(/[^a-z0-9_]/gi, "_").toLowerCase() }));
+  const tax = r.data.techniques.map((t) => ({ ...t, id: t.id.replace(/[^a-z0-9_]/gi, "_").toLowerCase() })).filter((t) => !excludedTechnique(t));
   await save(f, tax);
   await save(path.join(dirOf(o.data, o.channel), "sightings.json"), raw);
   return tax;
@@ -128,7 +132,7 @@ export async function ensureTechniqueBand(o: { data: string; reference: string; 
   const f = path.join(dirOf(o.data, o.channel), "band.json");
   if (!o.fresh) {
     const hit = await load<TechniqueBand>(f);
-    if (hit) return hit;
+    if (hit) return { ...hit, techniques: hit.techniques.filter((b) => o.taxonomy.some((t) => t.id === b.id)) };
   }
   const st = await realStretches({ data: o.data, reference: o.reference, channel: o.channel, n: o.n ?? 80, len: 10, salt: "band" });
   o.log?.(`  techniques: rating ${o.taxonomy.length} techniques on ${st.length} real stretches…`);
@@ -164,6 +168,7 @@ export const CAPABILITIES: Array<{ id: string; owner: string; can: string }> = [
   { id: "worlds", owner: "scene designer", can: "treated backdrops built from real pictures: black-and-white with a colour accent, duotone, collage, paper and print, a terminal/UI screen, a bold flat colour field, a radial burst, a filmstrip / contact sheet of real pictures with sprocket holes that slides frame to frame" },
   { id: "photo_grades", owner: "scene designer", can: "photo slot grades: natural, mono, high-contrast black and white, duotone, punch, sepia, split tone (cool shadows / warm light), negative (inverted), low-key moody; a photo laid over the frame as a double exposure (screen blend); grain, vignette and light leak finish on every shot" },
   { id: "atmosphere", owner: "scene designer", can: "real filmed atmosphere layers over a shot from the licensed library: smoke and fog drift, embers and sparks, dust particles, film scratches, film burns, the sprocket gate of old film, light leaks (screen-blended)" },
+  { id: "exits_drift", owner: "scene designer", can: "any element leaves before the cut by sliding off or eroding away (blur, crumble, fade); a cut-out object (banknotes, coins, papers, leaves) repeated as a falling or floating layer over a shot" },
   { id: "scene_fx", owner: "scene designer", can: "a glitch burst with RGB split / chromatic aberration on the shot's pictures and words; shallow depth of field (the backdrop defocused behind the pictures); a rack focus (blur to sharp) as the shot opens" },
   { id: "cutout", owner: "scene designer", can: "background removal of a photo (cut-out), colour-matched, contact shadow, rim light; as a black silhouette figure, with a white outline, or with a coloured glow" },
   { id: "kit_type", owner: "art director", can: "the film's kit draws headline variants: words on a banner / strip / tape, a bold centred all-caps title, a keyword in a marker highlight, glowing / neon type, giant ghosted type behind the subject, a small lead-in caption above a title; word-by-word phrase build synced to the narration; labels as a person-introduction card, a hand-drawn arrow or circle that draws on, a handwritten callout; chapter and title cards" },
@@ -174,7 +179,7 @@ export const CAPABILITIES: Array<{ id: string; owner: string; can: string }> = [
   { id: "maps", owner: "director / kit", can: "a map (geojson + relief raster) with a flyover" },
   { id: "documents", owner: "director / kit", can: "a document or article page with a highlighted passage; real article screenshots" },
   { id: "library_objects", owner: "scene designer", can: "licensed cut-out objects and line icons from the library placed in a scene" },
-  { id: "transitions", owner: "editor", can: "hard cut, fade, dip to black, whip pan (motion blur), light leak, white flash cut, zoom punch on a hit, match cut, the film's own transition; split a shot into punch-ins; move cuts" },
+  { id: "transitions", owner: "editor", can: "hard cut, fade, dip to black, whip pan (motion blur), light leak, white flash cut, zoom punch on a hit, zoom-through (the next shot revealed through a shape scaling through the frame), match cut, the film's own transition; split a shot into punch-ins; move cuts" },
   { id: "captions", owner: "render", can: "word-synced burned captions (shorts)" },
   { id: "sound_hits", owner: "sound designer", can: "designed hits (thud, boom, impact, click), risers, accents placed on visual moments and cuts" },
   { id: "music", owner: "sound designer", can: "music beds by mood, cue changes at story turns, drop-outs, riser into the climax, ducking under the voice, room tone" },
@@ -230,10 +235,9 @@ export const CATEGORY_OWNER: Record<(typeof TECH_CATEGORIES)[number], string> = 
  */
 export async function techniqueBrief(o: { data: string; channel: string; owner: string; durationS: number }): Promise<string> {
   const dir = dirOf(o.data, o.channel);
-  const tax = await load<Technique[]>(path.join(dir, "taxonomy.json"));
-  const band = await load<TechniqueBand>(path.join(dir, "band.json"));
-  const tools = (await load<{ map: ToolMap[] }>(path.join(dir, "tools.json")))?.map ?? [];
-  if (!tax || !band) return "";
+  const inv = await loadInventory(o.data, o.channel);
+  if (!inv) return "";
+  const { taxonomy: tax, band, tools } = inv;
   const mine = band.techniques.filter((b) => b.share >= 0.05).map((b) => ({ b, t: tax.find((x) => x.id === b.id)!, m: tools.find((x) => x.id === b.id) })).filter((x) => x.t && CATEGORY_OWNER[x.t.category] === o.owner);
   if (!mine.length) return "";
   const n = (perMin: number) => Math.round(perMin * (o.durationS / 60) * 10) / 10;
@@ -246,7 +250,9 @@ export async function loadInventory(data: string, channel: string): Promise<{ ta
   const taxonomy = await load<Technique[]>(path.join(dir, "taxonomy.json"));
   const band = await load<TechniqueBand>(path.join(dir, "band.json"));
   const tools = (await load<{ map: ToolMap[] }>(path.join(dir, "tools.json")))?.map ?? [];
-  return taxonomy && band ? { taxonomy, band, tools } : null;
+  if (!taxonomy || !band) return null;
+  const tax = taxonomy.filter((t) => !excludedTechnique(t));
+  return { taxonomy: tax, band: { ...band, techniques: band.techniques.filter((b) => tax.some((t) => t.id === b.id)) }, tools: tools.filter((m) => tax.some((t) => t.id === m.id)) };
 }
 
 /**

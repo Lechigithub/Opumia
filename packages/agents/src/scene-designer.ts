@@ -32,6 +32,7 @@ const El = z.object({
   z: z.number().describe("depth 0 far .. 1 near"),
   at: z.number().describe("seconds after the shot starts"),
   enter: z.enum(ENTER),
+  exit: z.enum(["none", "slide", "erode"]).describe("how it leaves before the cut: slide off, or erode away (blur, crumble, fade) — the channel's text exits; none for most"),
   spin: z.number().describe("degrees the 3D card turns over the shot (card3d), else 0"),
   blend: z.enum(["normal", "screen"]).describe("photo: screen = a double exposure (the picture laid over the frame by its light, translucent); else normal"),
   grade: z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey"]).describe("contrast_bw = the channel's high-contrast black and white; split = cool shadows and warm light; invert = a negative; lowkey = dark and moody. Photo: its own grade (treatment) — mono, duotone, punch or sepia tie a stock picture into the film; natural for press photos that must stay as they are"),
@@ -53,6 +54,7 @@ const Plan = z.object({
       backdrop: z.enum(["footage", "world"]).describe("the shot's own footage, or a WORLD built from real pictures (shots without footage, or where a treated picture carries the line better)"),
       world: WorldDraft,
       finish: FinishDraft.describe("the treatment over the whole shot; the channel's frames almost all carry one (grain, vignette, a leak)"),
+      drift: z.object({ slot: z.number().describe("a picture slot holding a cut-out object (banknotes, coins, papers, leaves) — add one with add_library_object; -1 for none"), mode: z.enum(["fall", "float"]) }).describe("a falling or floating layer of that object over the shot (the channel's falling banknotes, drifting objects)"),
       fx: z.object({ glitch: z.boolean().describe("a glitch burst with RGB split at the shot's start (the channel's glitching text and logo reveals)"), dof: z.number().describe("0–1: shallow depth of field — the backdrop defocused behind the pictures and words on it; 0 for none"), rack: z.boolean().describe("a rack focus: the shot opens out of focus and pulls sharp") }),
       atmos: z.enum(["none", "smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak"]).describe("a real filmed atmosphere over the shot (the channel's smoke and fog, embers, dust, film scratches, film burns, the sprocket gate of old film, a light leak) — at about the channel's rate; none for most shots"),
       clean: z.boolean().describe("true = let the footage play clean, with NO elements on it — only for a shot whose footage is moving video that shows what the line is about; the real channel leaves about four shots in ten this way"),
@@ -142,7 +144,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     const dur = sh.endS - sh.startS;
     const els: SceneElement[] = [];
     for (const e of d.elements) {
-      const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter };
+      const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter , ...(e.exit && e.exit !== "none" ? { exit: e.exit } : {}) };
       if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
         if (!slots.has(e.slot)) { dropped++; continue; }
         if (e.type === "photo") els.push({ type: "photo", slot: e.slot, ...box, grade: e.grade ?? "natural", ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), ...(e.blend === "screen" ? { blend: "screen" as const } : {}) });
@@ -188,7 +190,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     if (unsafeFace) nameGuarded++;
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
     if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
-      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
+      specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
       continue;
     }
     const stage = !hasFootage || unsafeFace || d.backdrop === "world";
@@ -203,7 +205,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       backdrop: stage ? "world" : "footage",
       ...(world ? { world } : {}),
       finish: finishOf(d.finish),
-      ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}),
+      ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}) } } : {}),
       dim: clamp(d.dim, 0.1, 0.6),
       ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.16, mode: "tint" as const } } : {}),
       camera: (() => {

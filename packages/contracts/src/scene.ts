@@ -6,7 +6,7 @@ import { z } from "zod";
  * Coordinates are fractions of the frame (0..1); times are seconds from the shot start.
  */
 export const SceneEnter = z.enum(["fade", "slide_left", "slide_right", "slide_up", "slide_down", "pop", "stamp", "type", "draw", "wipe", "zoom"]);
-const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade") };
+const Box = { x: z.number(), y: z.number(), w: z.number(), rot: z.number().default(0), z: z.number().min(0).max(1).default(0.5), at: z.number().min(0).default(0), enter: SceneEnter.default("fade"), /** craft inventory: how it leaves before the cut — slides off, or erodes away (blur, crumble, fade) */ exit: z.enum(["none", "slide", "erode"]).optional() };
 export const ColorToken = z.enum(["primary", "primarySoft", "accent", "accentDeep", "surface", "surfaceAlt", "paper", "marker", "text", "textMuted", "black", "white"]);
 /** Treatment of a placed picture (build list 5, item 11): its own grade. */
 export const PhotoGrade = z.enum(["natural", "mono", "duotone", "punch", "sepia", "contrast_bw", "split", "invert", "lowkey"]);
@@ -85,6 +85,9 @@ export const SceneSpec = z.object({
   atmos: SceneAtmos.optional(),
   /** Craft inventory: a glitch burst with RGB split at the shot's start; shallow depth of field (the backdrop defocused
    *  behind the pictures on it, 0–1). */
+  /** Craft inventory: a picture slot (a cut-out object: banknotes, coins, documents, leaves) repeated as a falling or
+   *  drifting layer over the shot. */
+  drift: z.object({ slot: z.number().int().min(0), mode: z.enum(["fall", "float"]), count: z.number().int().min(3).max(24).default(10) }).optional(),
   fx: z.object({ glitch: z.boolean().optional(), dof: z.number().min(0).max(1).optional(), /** a rack focus: the shot opens out of focus and pulls sharp */ rack: z.boolean().optional() }).optional(),
   /** Colour the footage backdrop into the film's world. */
   wash: z.object({ color: ColorToken, strength: z.number().min(0).max(0.85), mode: z.enum(["tint", "duotone"]) }).optional(),

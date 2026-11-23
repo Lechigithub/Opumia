@@ -147,6 +147,8 @@ only the few you reach for first:
 - worlds: also `filmstrip` (real pictures as frames on a sliding strip with sprocket holes);
 - cut-outs: `style` silhouette (black figure), outline (white stroke), glow (coloured);
 - `atmos`: a real filmed smoke/fog layer, embers, dust, film scratches, film burn, the sprocket gate, a light leak;
-- `fx`: a glitch burst with RGB split; `dof` shallow depth of field behind the pictures;
+- `fx`: a glitch burst with RGB split; `dof` shallow depth of field behind the pictures; `rack` a focus pull;
+- `drift`: a cut-out object (banknotes, coins, papers — add it with `add_library_object`) falling or floating over the shot;
+- `exit` on any element: slide off or erode away before the cut;
 - `text3d` and `card3d` (Three.js); the kit's headline variants: banner, caps, marker, glow, ghost (with a lead
   caption), and labels as a person-introduction card or a hand-drawn arrow.

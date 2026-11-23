@@ -51,7 +51,7 @@ const shots: StoryboardShot[] = kinds.map(([k, props], i) => ({
   source: k === "broll" || k === "parallax" ? { kind: "query", query: k, mustBe: "any" } : { kind: "designed", designed: k as never, props: { ...props, background: { query: "x" } }, assetIds: [] },
   camera: k === "parallax" ? { type: "parallax", layers: 3, depth: 0.6 } : { type: "ken_burns", fromScale: 1.05, toScale: 1.18, from: [0.5, 0.5], to: [0.5, 0.45], easing: "ease_in_out" },
   overlays: i === 0 ? [{ assetId: leak.id, blend: "screen", opacity: 0.5 }] : [], sfx: i % 3 === 0 ? [{ assetId: sfx.id, atS: i * shotLen + 0.05, gainDb: -4 }] : [],
-  transitionIn: i % 2 ? "film" : "cut", focus: [0.5, 0.5],
+  transitionIn: i === 2 ? "zoom_through" : i === 4 ? "flash" : i % 2 ? "film" : "cut", focus: [0.5, 0.5],
 }));
 const board = Storyboard.parse({ schemaVersion: 1, id: "sb_smoke", scriptId: script.id, styleProfileId: "magnates-media", aspect: ASPECT, durationS: dur, shots, music: [{ assetId: music.id, startS: 0, endS: dur, gainDb: -16 }], generatedAt: new Date().toISOString() });
 
@@ -91,9 +91,9 @@ const scenes = new Map<string, unknown>([
     { type: "component", name: "Headline", props: { text: "a bet" }, x: 0.08, y: 0.3, w: 0.45, rot: 0, z: 0.6, at: 0.2, enter: "fade" },
     { type: "component", name: "Phrase", props: { text: "change the world", sync: true }, x: 0.08, y: 0.5, w: 0.48, rot: 0, z: 0.6, at: 0.3, enter: "fade" },
   ] }],
-  ["sh007", { shotId: "sh007", idea: "smoke B", backdrop: "stage", fx: { glitch: true, rack: true }, dim: 0.4, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
+  ["sh007", { shotId: "sh007", idea: "smoke B", backdrop: "stage", fx: { glitch: true, rack: true }, drift: { slot: 0, mode: "fall", count: 12 }, dim: 0.4, camera: { fromScale: 1.0, toScale: 1.1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [
     { type: "photo", slot: 0, x: 0.12, y: 0.14, w: 0.36, rot: 3, z: 0.6, at: 0, enter: "zoom", grade: "mono" },
-    { type: "text3d", text: "BILLIONS GONE", x: 0.08, y: 0.7, w: 0.84, rot: 0, z: 0.7, at: 0.2, enter: "fade", spin: 18 },
+    { type: "text3d", text: "BILLIONS GONE", x: 0.08, y: 0.7, w: 0.84, rot: 0, z: 0.7, at: 0.2, enter: "fade", spin: 18, exit: "erode" },
     { type: "component", name: "NumberC", props: { value: "$19 billion", label: "paid for a rival" }, x: 0.55, y: 0.3, w: 0.4, rot: 0, z: 0.6, at: 0.3, enter: "fade" },
     { type: "component", name: "Label", props: { text: "a rival", sub: "nobody saw coming" }, x: 0.55, y: 0.62, w: 0.35, rot: 0, z: 0.6, at: 0.5, enter: "fade" },
   ] }],

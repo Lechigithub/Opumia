@@ -28,6 +28,9 @@ export function useTransitionIn(kind: string | undefined) {
     // craft inventory: the channel's white flash cut and the zoom punch on a hit
     case "flash":
       return { opacity: 1, blur: 0, dx: 0, flash: 0, white: interpolate(f, [0, 1, 5], [1, 0.85, 0], { extrapolateRight: "clamp" }), punch: 1 };
+    // craft inventory: zoom-through — the next shot is revealed through a shape that scales through the frame
+    case "zoom_through":
+      return { opacity: 1, blur: 0, dx: 0, flash: 0, white: 0, punch: interpolate(f, [0, 10], [1.25, 1], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }), iris: interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp", easing: Easing.in(Easing.quad) }) };
     case "zoom_punch":
       return { opacity: 1, blur: interpolate(f, [0, 4], [6, 0], { extrapolateRight: "clamp" }), dx: 0, flash: 0, white: 0, punch: interpolate(f, [0, 5], [1.18, 1], { extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }) };
     default:
@@ -49,7 +52,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const f = useCurrentFrame();
   const p = (layer.props ?? {}) as { kind?: string; mode?: string; focus?: [number, number]; transitionIn?: string; dim?: number; dimUntil?: number; period?: boolean; citation?: string };
   const cam = useKeyframes(layer);
-  const tr = { white: 0, punch: 1, ...useTransitionIn(p.transitionIn) };
+  const tr = { white: 0, punch: 1, iris: 1, ...useTransitionIn(p.transitionIn) };
   const focus = p.focus ?? [0.5, 0.5];
   const src = layer.src ?? "";
   const kind = p.kind ?? "video";
@@ -64,7 +67,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
     const cardW = portrait ? width * 0.86 : width * 0.62;
     const cardH = portrait ? height * 0.42 : height * 0.74;
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0b0b0b", opacity: tr.opacity }}>
+      <AbsoluteFill style={{ backgroundColor: "#0b0b0b", opacity: tr.opacity, ...(tr.iris < 1 ? { clipPath: `circle(${(tr.iris * 75).toFixed(1)}% at 50% 50%)` } : {}) }}>
         <AbsoluteFill style={{ transform: `scale(${1.25 + 0.06 * t}) translateX(${(t - 0.5) * -2}%)`, filter: "blur(28px) brightness(0.45) saturate(0.8)" }}>
           <Source src={src} kind={kind} focus={focus} />
         </AbsoluteFill>
@@ -97,7 +100,7 @@ export const MediaLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
 
   const dimK = p.dim ? (p.dimUntil !== undefined ? interpolate(f, [p.dimUntil, p.dimUntil + 8], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1) : 0;
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000", opacity: tr.opacity * cam.opacity, overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: "#000", opacity: tr.opacity * cam.opacity, overflow: "hidden", ...(tr.iris < 1 ? { clipPath: `circle(${(tr.iris * 75).toFixed(1)}% at 50% 50%)` } : {}) }}>
       <AbsoluteFill
         style={{
           transform: `translate(${(cam.x + tr.dx) * width}px, ${cam.y * height}px) scale(${cam.scale * tr.punch})`,
