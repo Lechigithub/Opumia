@@ -288,7 +288,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const model = process.env.OPUMIA_DESIGN_MODEL === "sonnet" ? MODELS.sonnet : MODELS.opus;
   log(`  art director (blank slate): ${o.title.slice(0, 60)} (${model})…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "film-designer.agent", model, system, user, tools, effort: "high", maxTurns: 40, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
+  const run = await agentLoop({ stage: "film-designer.agent", model, system, user, tools, effort: "high", maxTurns: 40, maxUsd: o.change ? 1.5 : 2.5, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
   const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), roles, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });

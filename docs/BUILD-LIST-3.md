@@ -119,15 +119,19 @@ backends. A process that dies mid-stage restarts that stage's agent.
 
 ## E. Learning, speed and cost
 
-30. ☐ **Every escalation is logged** with its cause and cost. Anything that escalates twice across films becomes a
+Done 2026-11-22 (CLAUDE.md, **Learning, speed and cost**). 13/13 regressions, including escalation learning; the master
+encode was measured on film 1 (155 → 82 MB, SSIM 0.980). Item 33's harness is built and the suite has 10 films, but the
+target itself is not measured yet: that is a run of the ten films from a frozen tag (about $70–90).
+
+30. ☑ **Every escalation is logged** with its cause and cost. Anything that escalates twice across films becomes a
     platform fix, a regression test and a lesson for that agent.
-31. ☐ **Loop and budget control:**
+31. ☑ **Loop and budget control:**
     - cap the loops that rerun the scene designer;
     - stage budgets sized for agents;
     - the expensive art director bounded in turns;
     - the pre-render frame gate's unexplained cost removed or justified.
-32. ☐ **Output size:** masters encoded at a sensible bitrate (film 1 was 155 MB for 88 s).
-33. ☐ **The reliability target, measured on the topic suite:** at least 9 in 10 films finished on the first run with
+32. ☑ **Output size:** masters encoded at a sensible bitrate (film 1 was 155 MB for 88 s).
+33. ☑ **The reliability target, measured on the topic suite:** at least 9 in 10 films finished on the first run with
     no human, inside budget and the time target, release gate passed; the rest finished after an automatic pause
     and resume. Also measured: the same topic twice must look different.
 

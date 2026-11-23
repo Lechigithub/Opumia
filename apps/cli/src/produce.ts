@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -62,7 +62,10 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 }
 
 /** Claude spend each stage should stay within on a 90-second film (scaled up for longer films). Over it, the run says so. */
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.6, A2: 0.4, A3: 0.9, B1: 0.6, B2: 0.2, B2s: 0.15, B3: 0.45, B4: 0.3, B4e: 0.12, B4c: 0.1, B5: 0.15, B5s: 0.45, B6: 0.35, C1: 0.02, C2: 0.05, C3: 0.9, C4: 0.2, C4v: 0.15 };
+// Build list 3, item 31: sized from the stages measured on the films made with the agents (out/*/timing.json medians,
+// with headroom for the ladders): research 0.43, script 0.33, narration 0.84, director 0.42, art director 1.8, scenes
+// 0.27–0.69, showrunner 0.42, packaging 1.08.
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.6, A2: 0.5, A3: 1.2, B1: 0.6, B2: 0.2, B2d: 2.5, B2s: 0.15, B3: 0.9, B4e: 0.15, B4c: 0.1, B5: 0.15, B5s: 0.6, B6: 1.2, C1: 0.02, C2: 0.05, C3: 1.4, C4: 0.2, C4v: 0.15, C4j: 0.3, C5: 1.2 };
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -71,7 +74,9 @@ export async function produce(o: ProduceOptions) {
   // Stage clock: every "[XX] name" header in the log opens a stage; its seconds and Claude spend are recorded,
   // compared with the stage's budget and written to timing.json. A film-level limit stops further model calls.
   const k = Math.max(1, o.durationS / 90) ** 0.7;
-  const filmLimit = Number(process.env.OPUMIA_MAX_USD) || (o.durationS <= 90 ? 3 : o.durationS <= 240 ? 6 : 15);
+  // item 31: the limit fits what a film made by the agents costs (about $6 for 90 s, measured) with room for its ladders;
+  // a rung the remaining budget cannot cover is skipped and logged (ladder.ts), never a stop mid-stage.
+  const filmLimit = Number(process.env.OPUMIA_MAX_USD) || (o.durationS <= 90 ? 9 : o.durationS <= 240 ? 16 : 35);
   setBudget(filmLimit);
   const stages: Array<{ stage: string; seconds: number; usd: number; budgetUsd: number | null; over: boolean }> = [];
   let open: { stage: string; t: number; n: number } | null = null;
@@ -125,6 +130,8 @@ export async function produce(o: ProduceOptions) {
     throw err;
   } finally {
     setPauseHooks({});
+    // item 30: this film's escalations join the platform's log; a check escalating in two films becomes a fix to make
+    await recordEscalations({ data: o.data, jobDir, job: jobId, channel: o.channel }).then(() => analyseEscalations({ data: o.data, channel: o.channel, log: o.log })).catch(() => null);
     closeStage();
     setBudget(null);
     if (stages.length) {
@@ -395,7 +402,16 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   let sceneReport: SceneReport | null = null;
   const tasteModel = await loadTaste(o.data, channel, "shot").catch(() => null);
   const likeness = await makeLikeness({ root: o.root, data: o.data, job: jobId });
+  // item 31: the scene designer is run at most this many times per film (first design + revisions sent back by the
+  // showrunner, the gate's ladders and the finished film); past it, a revision keeps the scenes as they are.
+  const MAX_SCENE_RUNS = 6;
+  let sceneRuns = 0;
   const runSceneAgent = async (extra: { previous?: ScenePlan; revise?: Array<{ shotId: string; note: string }> } = {}) => {
+    if (extra.previous && sceneRuns >= MAX_SCENE_RUNS) {
+      log(`  scene designer: run cap reached (${MAX_SCENE_RUNS} runs this film) — ${extra.revise?.length ?? 0} revision(s) not made`);
+      return extra.previous;
+    }
+    sceneRuns++;
     const lookA = lookFromProfile(pack.profile.look, design.palette.primarySoft);
     const burn = o.aspect === "9:16" || pack.captions.burnLongForm;
     const render = async (plan: ScenePlan, shotIds: string[]) => {
@@ -928,7 +944,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     };
     let problems = problemsOf(rv);
     for (let round = 0; round < 3 && problems.length && existsSync(finalPath); round++) {
-      log(`\n[C5.${round + 1}] the finished film's ladders: ${problems.map((p) => `${p.check} (${p.shots.join(", ")})`).join("; ")}`);
+      log(`\n[C5] the finished film's ladders, round ${round + 1}: ${problems.map((p) => `${p.check} (${p.shots.join(", ")})`).join("; ")}`);
       const q = newQueue();
       const viewerNotes = new Map<string, string[]>();
       for (const i of rv.viewer?.issues ?? []) { const id = i.shotId ?? shotAt(i.atS); viewerNotes.set(id, [...(viewerNotes.get(id) ?? []), i.what]); }

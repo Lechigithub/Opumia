@@ -32,6 +32,8 @@ const HELP = `opumia <command>
   inspect-reference    Check done*.txt vs disk per channel → data/reference-status.json
   analyze-styles       Draft StyleProfiles → data/style-profiles/<channel>.json
   all                  index-library + inspect-reference + analyze-styles
+  escalations          Recurring escalations (a check that needed a stronger fix in 2+ films): platform fixes to make
+      --fixed 'stage|check'  mark one fixed (after its platform fix and regression case are in)
   resume <job>         Continue a paused or stopped job from its cached stages (same topic, channel, aspect, duration)
   keys                 Show which API keys are available and from where (names only, never values)
   produce             Topic → researched, narrated, rendered, QA'd film (stage outputs cached in out/<job>/)
@@ -131,6 +133,16 @@ async function main() {
       const { report } = await produce({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic: j.topic, channel: j.channel, aspect: j.aspect, durationS: j.durationS, job, redo: [], log });
       if (report && report.verdict === "fail") process.exitCode = 2;
       return;
+    }
+    case "escalations": {
+      // item 30: recurring escalations (a check that needed a stronger fix in two or more films) — the platform fixes to make
+      const { analyseEscalations, markEscalationFixed } = await import("@opumia/agents");
+      const fixed = opt("fixed");
+      if (fixed) return log((await markEscalationFixed(DATA, fixed)) ? `marked fixed: ${fixed}` : `no recurring escalation ${fixed}`);
+      const list = await analyseEscalations({ data: DATA, channel: opt("channel") ?? "magnates-media" });
+      if (!list.length) return log("no recurring escalations");
+      for (const r of list) log(`  ${r.status === "open" ? "✗" : "✓"} ${r.key.padEnd(34)} ${r.films.length} films, rungs: ${r.rungs.join(" → ")}, $${r.usd}${r.status === "fixed" ? ` (fixed ${r.fixedAt?.slice(0, 10)})` : ""}`);
+      return log("Mark one fixed once its platform fix and regression case are in: pnpm opumia escalations --fixed '<stage|check>'");
     }
     case "keys": {
       const entries = Object.entries(KEY_SOURCES);

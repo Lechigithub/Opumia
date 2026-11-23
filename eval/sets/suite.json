@@ -1,12 +1,48 @@
 {
-  "note": "Fixed topic suite for frozen production runs (build list 2, step 7). The first two are the SAME topic on purpose: the two films must share only the channel's style (uniqueness between them inside the channel's band). Run on a frozen platform tag only: npx tsx apps/cli/src/dev/topic-suite.ts",
+  "note": "Fixed topic suite for frozen production runs (build list 2 step 7; build list 3 item 33: the reliability target, at least 9 of these 10 films finished first time). The first two are the SAME topic on purpose: the two films must share only the channel's style (uniqueness between them inside the channel's band). Run on a frozen platform tag only: npx tsx apps/cli/src/dev/topic-suite.ts",
   "channel": "magnates-media",
   "aspect": "16:9",
   "durationS": 90,
   "films": [
-    { "job": "suite-kodak-a", "topic": "How Kodak invented the digital camera and still went bankrupt" },
-    { "job": "suite-kodak-b", "topic": "How Kodak invented the digital camera and still went bankrupt" },
-    { "job": "suite-theranos", "topic": "How Theranos fooled Silicon Valley" },
-    { "job": "suite-nokia", "topic": "How Nokia lost the smartphone war" }
+    {
+      "job": "suite-kodak-a",
+      "topic": "How Kodak invented the digital camera and still went bankrupt"
+    },
+    {
+      "job": "suite-kodak-b",
+      "topic": "How Kodak invented the digital camera and still went bankrupt"
+    },
+    {
+      "job": "suite-theranos",
+      "topic": "How Theranos fooled Silicon Valley"
+    },
+    {
+      "job": "suite-nokia",
+      "topic": "How Nokia lost the smartphone war"
+    },
+    {
+      "job": "suite-wework",
+      "topic": "How WeWork burned through billions"
+    },
+    {
+      "job": "suite-blockbuster",
+      "topic": "How Blockbuster turned down Netflix"
+    },
+    {
+      "job": "suite-ftx",
+      "topic": "How FTX collapsed in a week"
+    },
+    {
+      "job": "suite-quibi",
+      "topic": "How Quibi spent a fortune and shut down in six months"
+    },
+    {
+      "job": "suite-nikola",
+      "topic": "How Nikola faked a truck that could drive itself"
+    },
+    {
+      "job": "suite-enron",
+      "topic": "How Enron hid its losses until it fell"
+    }
   ]
 }

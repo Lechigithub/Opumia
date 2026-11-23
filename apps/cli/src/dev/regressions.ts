@@ -10,6 +10,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ladderTest } from "./ladder-test.js";
 import { outsideTest } from "./outside-test.js";
+import { escalationTest } from "./escalation-test.js";
 
 type Case = { id: string; defect: string; run: () => Promise<boolean> };
 const F1 = "out/film1-kodak-3";
@@ -39,6 +40,7 @@ const cases: Case[] = [
     const s1 = samePicture(a, b); return s1.score >= 0.6 && /overlay/.test(s1.how) && samePicture(a, c).score < 0.6;
   } },
   { id: "outside-pause-resume", defect: "film 2: the account's usage limit stopped the run; build list 3 part D — outside failures wait and resume, a rejected source is skipped", run: async () => (await outsideTest()).length === 0 },
+  { id: "escalations-learned", defect: "build list 3 item 30: a check escalating in two films must become an open fix and a lesson for its first owner", run: async () => (await escalationTest()).length === 0 },
   { id: "ladder-escalates", defect: "build list 3: a failing check must climb its ladder one rung a round, stop when fixed, and be logged", run: async () => (await ladderTest()).length === 0 },
   { id: "kit-safety", defect: "a film kit may not reach the network or the file system", run: async () => checkKitCode(`import fs from "fs";\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`import React from "react";\nexport const FILM = { components: {} };`, new Set()).length === 0 },
 ];
@@ -51,5 +53,7 @@ for (const c of cases) {
 const logged = existsSync("data/defects.jsonl") ? readFileSync("data/defects.jsonl", "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as { job: string; check: string; message: string }) : [];
 const tested = new Set(["voice_seams", "voice_wer", "voice_unresolved", "unique_look", "viewer", "final_cut", "film_taste", "stand_in_face", "dead_frames", "scene_defects"]);
 const untested = [...new Set(logged.map((d) => d.check))].filter((c) => !tested.has(c));
-console.log(`\n${cases.length - failed}/${cases.length} regression cases pass${untested.length ? `; defects logged with no case yet: ${untested.join(", ")}` : ""}`);
+// item 30: every recurring escalation needs a regression case (listed until one exists or it is marked fixed)
+const recurring = existsSync("data/escalations-recurring.json") ? (JSON.parse(readFileSync("data/escalations-recurring.json", "utf8")) as Array<{ key: string; check: string; status: string }>).filter((r) => r.status === "open" && !tested.has(r.check) && !cases.some((c) => c.id.includes(r.check.replace(/_/g, "-")))) : [];
+console.log(`\n${cases.length - failed}/${cases.length} regression cases pass${untested.length ? `; defects logged with no case yet: ${untested.join(", ")}` : ""}${recurring.length ? `; recurring escalations with no case yet: ${recurring.map((r) => r.key).join(", ")}` : ""}`);
 process.exit(failed ? 1 : 0);

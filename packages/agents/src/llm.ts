@@ -153,7 +153,7 @@ export interface AgentTool {
  * turn to turn (the stable system blocks plus everything already said), thinking blocks are passed back
  * unchanged, and all results of one turn go back in a single message.
  */
-export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns"; usd: number }> {
+export async function agentLoop(o: { stage: string; model: ModelId; system: Anthropic.Beta.BetaTextBlockParam[]; user: string; tools: AgentTool[]; /** Anthropic-hosted tools (e.g. web search), run by the API. */ serverTools?: Anthropic.Beta.BetaToolUnion[]; effort?: "low" | "medium" | "high" | "xhigh"; maxTurns?: number; maxTokens?: number; /** Build list 3, item 31: the agent stops (as at max_turns) once it has spent this much. */ maxUsd?: number; done?: () => boolean; nudge?: string; log?: (s: string) => void }): Promise<{ turns: number; calls: Record<string, number>; stopped: "done" | "end_turn" | "max_turns" | "max_usd"; usd: number }> {
   const fb = fallbackFor(o.model);
   const from = ledger.length;
   const tools = o.tools.map((t) => ({ name: t.name, description: t.description, input_schema: z4.toJSONSchema(t.schema) as Anthropic.Beta.BetaTool["input_schema"] }));
@@ -162,6 +162,10 @@ export async function agentLoop(o: { stage: string; model: ModelId; system: Anth
   let nudges = 0;
   const spent = () => ledger.slice(from).reduce((t, r) => t + r.usd, 0);
   for (let turn = 1; turn <= (o.maxTurns ?? 24); turn++) {
+    if (o.maxUsd !== undefined && turn > 1 && spent() >= o.maxUsd) {
+      o.log?.(`    ${o.stage}: spent $${spent().toFixed(2)} of its $${o.maxUsd.toFixed(2)} cap — stopping here`);
+      return { turns: turn - 1, calls, stopped: "max_usd", usd: spent() };
+    }
     // build list 3, part D: a usage limit, outage or rate limit waits here and the agent continues with its state intact
     const msg = await withOutside("anthropic", () => client()
       .beta.messages.stream({

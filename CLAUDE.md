@@ -238,7 +238,7 @@ Sourcing is planned per film, not searched blind (`resolver/widen.ts`, `resolver
 ## Speed and cost (rebuild stage 10, 2026-11-21)
 
 - **Stage clock** (`produce.ts`): every `[XX] name` log header opens a stage; seconds and Claude spend per stage go to `out/<job>/timing.json` and are printed at the end of every run ("Where the time and money went"). Each stage has a budget (`STAGE_BUDGET_USD`, for a 90 s film, scaled for longer ones); a stage over it is marked `OVER BUDGET`.
-- **Film spend limit** (`agents/llm.ts:setBudget`): no model call starts once the film has spent its limit — $3 up to 90 s, $6 up to 4 min, else $15, or `OPUMIA_MAX_USD`. Finished stages are cached, so a stopped job resumes. ElevenLabs characters are in this ledger too (`narration.tts`, estimated $0.30 per 1,000 characters — set `OPUMIA_TTS_USD_PER_1K`) and count toward the limit.
+- **Film spend limit** (`agents/llm.ts:setBudget`): no model call starts once the film has spent its limit — $9 up to 90 s, $16 up to 4 min, else $35, or `OPUMIA_MAX_USD` (build list 3 item 31: sized from what a film made by the agents costs, about $6 for 90 s measured, with room for its ladders; it was $3/$6/$15). Finished stages are cached, so a stopped job resumes. ElevenLabs characters are in this ledger too (`narration.tts`, estimated $0.30 per 1,000 characters — set `OPUMIA_TTS_USD_PER_1K`) and count toward the limit.
 - **Sourcing stage** has per-phase times in `sourcing.json.seconds`. One Wikipedia lookup and one YouTube press search per subject per film (they were repeated per shot); the plan and the web picture research run alongside the press and search phases. Measured on the Kodak plan: 352 s → 129 s, $0.08.
 - **Scene critic is calibrated on the real channel** (`apps/cli/src/dev/critic-test.ts <job>`): real reference shots are shown to it as if they were ours and it must pass nearly all (measured 0 of 24 flagged; at the earlier, looser bar it rejected 8 of 24 real shots and 27–29 of 29 of ours). Only visible defects send a scene back (`HARD_DEFECT` with severity ≥ 7, or severity ≥ 9), worst first, at most 40 % of the film. It judges defects, not taste — taste is the release gate's job. Measured: 6 of 27 scenes revised; preview → critique → revise 45 s, $0.04.
 - **Previews** render four stills at a time on one shared browser (27 scenes × 3 moments in 30 s).
@@ -353,6 +353,37 @@ appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds)
 - What every ladder leaves unresolved still blocks the render (preflight) or the verdict (QA); pause and resume and
   provider switching are build list 3 part D.
 - Tests: `npx tsx apps/cli/src/dev/ladder-test.ts` (engine), `npx tsx apps/cli/src/dev/stretch-test.ts` (after the smoke render), both in `dev/regressions.ts`.
+
+## Learning, speed and cost (build list 3, part E, 2026-11-22)
+
+- **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after
+  every run, `agents/escalations.ts`). A check that needed a stronger rung than the first in **two or more produced
+  films** becomes:
+  - an open platform fix in `data/escalations-recurring.json`, printed after every film and by `pnpm opumia escalations`
+    (`--fixed 'stage|check'` once the fix and its regression case are in; it reopens if it escalates again);
+  - a line in `dev/regressions.ts` until a case exists;
+  - a lesson for the agent whose first rung did not prevent it, in its own memory (it goes through the usual lesson
+    trials).
+- **Loop and budget control:**
+  - `agentLoop` takes `maxUsd`: the art director stops at $2.50 (a change to its kit at $1.50), as well as at 40 turns;
+    the scene designer stops at $1.20 for a first design and $0.60 for a revision.
+  - The scene designer runs at most 6 times per film (first design and every revision from the showrunner, the
+    gate's ladders and the finished film); past that a revision keeps the scenes.
+  - Stage budgets (`STAGE_BUDGET_USD`) are sized from the stages measured on the agents' films (art director $2.50,
+    packaging $1.40, narration $1.20, preflight $1.20, finished-film ladders $1.20, …).
+  - The pre-render frame gate's cost is gone (deleted, part A).
+- **The delivered master** is encoded once at CRF 20 capped at 10 Mbps (x264 slow, high profile;
+  `motion-engine/audio.ts:muxFinal`). On film 1 that is 82 MB instead of 155 MB, SSIM 0.980 against the render, in
+  35 s. The render itself stays at CRF 18.
+- **The reliability target** (`npx tsx apps/cli/src/dev/topic-suite.ts`, from a frozen tag): the 10 films of
+  `eval/sets/suite.json` (the first two on the same topic) are produced untouched. The report is written to
+  `out/reliability-<tag>.json`:
+  - per film: first run with no human, in budget, in time (90 min for a 90 s film, excluding pauses), preflight and QA
+    passed, pauses, resumes, ladder attempts, unresolved problems;
+  - the summary: at least 9 in 10 meeting all of that, the rest finished after an automatic resume (exit 3 →
+    `opumia resume`), and the same-topic pair looking different (inside the channel's band of real film pairs).
+  - `--report-only` measures existing folders without producing anything.
+  - **Not yet run:** about $70–90 for the ten films.
 
 ## Pause and resume (build list 3, part D, 2026-11-22)
 

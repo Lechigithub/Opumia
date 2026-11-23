@@ -148,6 +148,13 @@ export async function measureLoudness(file: string): Promise<LoudnessStats> {
 }
 
 /** Mux the silent Remotion render with the master; AAC 48 kHz, faststart for platforms. */
+/**
+ * The delivered master (build list 3, item 32). The render is kept at high quality (CRF 18, film grain included: film 1
+ * was 155 MB for 88 s, 14 Mbps); the master is encoded once for delivery at CRF 20 capped at 10 Mbps (x264 slow,
+ * high profile) — measured on film 1: 82 MB, SSIM 0.980 against the render, 35 s to encode. YouTube recommends about
+ * 8 Mbps for 1080p.
+ */
 export async function muxFinal(videoSilent: string, masterWav: string, out: string) {
-  await ff(["-i", videoSilent, "-i", masterWav, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-shortest", "-movflags", "+faststart", out]);
+  // a long-form master takes minutes at preset slow: its own hour-long timeout
+  await run("ffmpeg", ["-hide_banner", "-nostats", "-y", "-i", videoSilent, "-i", masterWav, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-profile:v", "high", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-shortest", "-movflags", "+faststart", out], { timeout: 3_600_000, maxBuffer: 32 * 1024 * 1024 });
 }
