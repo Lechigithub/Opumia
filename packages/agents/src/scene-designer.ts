@@ -178,7 +178,9 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     const stage = !hasFootage || unsafeFace || d.backdrop === "world";
     // build list 5, item 10: no plain stage — a shot without footage is built in a world made of real pictures
     const world = stage ? worldOf(d.world, [...slots].filter((x) => x >= 0).sort((a, b) => a - b), specs.length) : undefined;
-    if (!els.length && !(world && (world.slot !== undefined || world.kind === "terminal" || world.kind === "flat_field"))) { dropped++; continue; }
+    // proof film (Quibi): bursts, terminals and flat fields with nothing on them rendered as empty frames — a world
+    // carries a picture or the line's words, never nothing
+    if (!els.length && !(world && world.slot !== undefined)) { dropped++; continue; }
     specs.push({
       shotId: sh.id,
       idea: d.idea.slice(0, 200),
