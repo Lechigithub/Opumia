@@ -16,7 +16,7 @@ import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ChannelId } from "@opumia/contracts";
 import * as z from "zod/v4";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, ROLE_MODEL, type AgentTool } from "./llm.js";
 
 export interface ShowrunnerDecision {
   approved: boolean;
@@ -81,10 +81,12 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
     },
     {
       name: "redesign_shots",
-      description: "Send shots back to the scene designer with a reason each (what is wrong, what it should show instead). It redesigns only these, renders and looks at them, and reports.",
-      schema: z.object({ shots: z.array(z.object({ shotId: z.string(), note: z.string() })).min(1).max(10) }),
+      description: "Send up to FIVE shots back to the scene designer, ONCE per film, with a reason each (what is wrong, what it should show instead). It redesigns only these, renders and looks at them, and reports. Pick the shots that hurt the film most; the preflight gate catches the rest.",
+      schema: z.object({ shots: z.array(z.object({ shotId: z.string(), note: z.string() })).min(1).max(5) }),
       run: (async (i: { shots: Array<{ shotId: string; note: string }> }) => {
-        if (sendBacks() >= 6) return "refused: six send-backs already — decide and approve, or say what is still wrong";
+        // build list 4, item 9: one scene send-back per film, five shots at most (film 3: two full redesigns, $1.45)
+        if (rounds.some((r) => r.to === "scene designer")) return "refused: the scene designer has had its one send-back — approve, or name what is still wrong";
+        if (sendBacks() >= 3) return "refused: three send-backs already — decide and approve, or say what is still wrong";
         const r = await o.redesign(i.shots);
         unchecked = "scene designer";
         rounds.push({ to: "scene designer", what: i.shots.map((s) => `${s.shotId}: ${s.note}`).join(" | ").slice(0, 600), result: r.slice(0, 400) });
@@ -96,7 +98,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       description: "Send the cut back to the editor with what to change and why (holds, bursts, cuts, transitions).",
       schema: z.object({ note: z.string() }),
       run: (async (i: { note: string }) => {
-        if (sendBacks() >= 6) return "refused: six send-backs already";
+        if (sendBacks() >= 3) return "refused: three send-backs already";
         const r = await o.reEdit(i.note);
         unchecked = "editor";
         rounds.push({ to: "editor", what: i.note.slice(0, 400), result: r.slice(0, 400) });
@@ -108,7 +110,7 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
       description: "Send the sound back to the sound designer (a fresh selection and placement of hits and music) with what was wrong.",
       schema: z.object({ note: z.string() }),
       run: (async (i: { note: string }) => {
-        if (sendBacks() >= 6) return "refused: six send-backs already";
+        if (sendBacks() >= 3) return "refused: three send-backs already";
         const r = await o.redoSound(i.note);
         unchecked = "sound designer";
         rounds.push({ to: "sound designer", what: i.note.slice(0, 400), result: r.slice(0, 400) });
@@ -158,9 +160,9 @@ export async function showrunnerAgent(o: ShowrunnerOptions): Promise<ShowrunnerD
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film is ${o.durationS.toFixed(1)} s long.${o.canRewrite ? "" : " The script was already sent back once: the writer cannot be asked again."}`)];
   const user = `Run this film: "${o.title}".\n\nTREATMENT:\n${o.treatment.slice(0, 3000)}\n\nNARRATION:\n${o.segments.map((s) => `[${s.id} ${s.role}] ${s.text}`).join("\n")}\n\nStart with film_report, then watch the opening.`;
-  log(`  showrunner: reviewing "${o.title.slice(0, 60)}" (${MODELS.sonnet})…`);
+  log(`  showrunner: reviewing "${o.title.slice(0, 60)}" (${ROLE_MODEL.showrunner})…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "showrunner.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 30, maxTokens: 24000, done: () => decision !== null && (rewrite !== null || noteSaved || grace-- <= 0), nudge: "You have not decided. Watch what you have not seen, send back what is wrong, then approve (or send lines to the writer).", log });
+  const run = await agentLoop({ stage: "showrunner.agent", model: ROLE_MODEL.showrunner, system, user, tools, effort: "medium", maxTurns: 14, maxSeconds: 420, maxUsd: 0.35, maxTokens: 24000, done: () => decision !== null && (rewrite !== null || noteSaved || grace-- <= 0), nudge: "You have not decided. Watch what you have not seen, send back what is wrong, then approve (or send lines to the writer).", log });
   const d = (decision as { approved: boolean; summary: string } | null) ?? { approved: false, summary: "the showrunner did not decide within its turns" };
   const out: ShowrunnerDecision = { approved: d.approved, summary: d.summary, rounds, rewrite, agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {

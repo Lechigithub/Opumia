@@ -1,4 +1,4 @@
-// G27: does Opus judge thumbnails better than Sonnet? Each model's critic scores the same real channel thumbnails
+// G27 (Opus removed, build list 4): how the thumbnail critic (Sonnet, ROLE_MODEL.thumbnailCraft) scores the same real channel thumbnails
 // (held out: never their own reference) and the same renders of ours, beside the same three real references. A good
 // critic scores the real ones high and ours lower. Reported: mean score of each group, separation (AUC), cost.
 //   npx tsx apps/cli/src/dev/critic-models.ts [channel] [n]
@@ -17,8 +17,7 @@ const ours = readdirSync("out").flatMap((j) => (existsSync(path.join("out", j, "
 const refsFor = (file: string) => items.filter((x) => x.file !== file && !real.includes(x)).slice(0, 3);
 const auc = (pos: number[], neg: number[]) => { let w = 0; for (const p of pos) for (const q of neg) w += p > q ? 1 : p === q ? 0.5 : 0; return w / Math.max(1, pos.length * neg.length); };
 const out: Record<string, unknown> = {};
-for (const model of ["sonnet", "opus"]) {
-  process.env.OPUMIA_CRAFT_MODEL = model;
+for (const model of ["sonnet"]) {
   let usd = 0;
   const score = async (file: string) => { const r = await critiqueThumbnail({ channel, file, concept: "(not given)", refs: refsFor(file) }); usd += r.usd; return (r.critique as unknown as { score: number }).score; };
   const t0 = Date.now();

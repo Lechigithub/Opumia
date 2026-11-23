@@ -238,7 +238,7 @@ Sourcing is planned per film, not searched blind (`resolver/widen.ts`, `resolver
 ## Speed and cost (rebuild stage 10, 2026-11-21)
 
 - **Stage clock** (`produce.ts`): every `[XX] name` log header opens a stage; seconds and Claude spend per stage go to `out/<job>/timing.json` and are printed at the end of every run ("Where the time and money went"). Each stage has a budget (`STAGE_BUDGET_USD`, for a 90 s film, scaled for longer ones); a stage over it is marked `OVER BUDGET`.
-- **Film spend limit** (`agents/llm.ts:setBudget`): no model call starts once the film has spent its limit — $9 up to 90 s, $16 up to 4 min, else $35, or `OPUMIA_MAX_USD` (build list 3 item 31: sized from what a film made by the agents costs, about $6 for 90 s measured, with room for its ladders; it was $3/$6/$15). Finished stages are cached, so a stopped job resumes. ElevenLabs characters are in this ledger too (`narration.tts`, estimated $0.30 per 1,000 characters — set `OPUMIA_TTS_USD_PER_1K`) and count toward the limit.
+- **Film spend limit** (`agents/llm.ts:setBudget`, build list 4): the WHOLE film counts (earlier runs of the job included — a resume does not start again from $0): $5 up to 90 s, $9 up to 4 min, else $20, or `OPUMIA_MAX_USD`. Target: $3 for 90 s. A reserve ($1.20 for 90 s) is kept for render, QA and packaging; optional work (agent turns, ladder rungs, revisions) may only spend down to it, and each stage's budget is a cap on its optional work (`setStageCap`). Reaching the limit ends repairs, never the film.
 - **Sourcing stage** has per-phase times in `sourcing.json.seconds`. One Wikipedia lookup and one YouTube press search per subject per film (they were repeated per shot); the plan and the web picture research run alongside the press and search phases. Measured on the Kodak plan: 352 s → 129 s, $0.08.
 - **Scene critic is calibrated on the real channel** (`apps/cli/src/dev/critic-test.ts <job>`): real reference shots are shown to it as if they were ours and it must pass nearly all (measured 0 of 24 flagged; at the earlier, looser bar it rejected 8 of 24 real shots and 27–29 of 29 of ours). Only visible defects send a scene back (`HARD_DEFECT` with severity ≥ 7, or severity ≥ 9), worst first, at most 40 % of the film. It judges defects, not taste — taste is the release gate's job. Measured: 6 of 27 scenes revised; preview → critique → revise 45 s, $0.04.
 - **Previews** render four stills at a time on one shared browser (27 scenes × 3 moments in 30 s).
@@ -350,9 +350,35 @@ appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds)
 | C3 packaging | thumbnail not accepted | another concept → another hero picture; the best attempt is kept. Package text: rewording → sentences carrying unsupported claims removed |
 
 - The writer is reachable once per film (it re-plans the film from the script, `pass: 2`).
-- What every ladder leaves unresolved still blocks the render (preflight) or the verdict (QA); pause and resume and
-  provider switching are build list 3 part D.
+- What every ladder leaves unresolved is logged (`unresolved` in ladders.jsonl, `preflight.json`) and the film renders anyway (build list 4): QA adds `preflight_unresolved`, which keeps the verdict at "review". A rung that ran on this film and fixed nothing is not bought again, nor any whole-film rung of an agent that failed to get a whole-film change accepted; a resumed film continues its ladders at their levels, with each rung's measured cost as its estimate.
 - Tests: `npx tsx apps/cli/src/dev/ladder-test.ts` (engine), `npx tsx apps/cli/src/dev/stretch-test.ts` (after the smoke render), both in `dev/regressions.ts`.
+
+## Build list 4: cheap, fast, always finishes (2026-11-22, `docs/BUILD-LIST-4.md`)
+
+Film 3 (`docs/FILM3-FINDINGS.md`) cost $18.73 over two runs and never rendered. Since then:
+
+- **Models: Sonnet and Haiku only, no Opus** (owner decision). One table, `agents/llm.ts:ROLE_MODEL`: Sonnet for the
+  creative work (writer, research plan, director, art director, scene designer, showrunner, packaging, thumbnail craft,
+  voice director) and the calls where a mistake ships (period check, final-cut judge); Haiku for claim checks, query
+  plans, first-pass picture rating, labels, retrieval, checks and the measure-driven agents (picture researcher,
+  editor, colourist, sound designer, viewer QA), which go back to Sonnet only if their own score drops. The scene
+  critic stays on Haiku (it was calibrated there).
+- **Money:** whole-film limit with a reserve, stage caps, agent caps checked before each turn (see **Speed and cost**).
+- **Never a stop:** an art director kit that is not accepted gets one more short go; a kit change that fails is rolled
+  back to the accepted kit; preflight problems left after the ladders are rendered and logged.
+- **Checks that misfired:** `unique_look` measures only designed scenes (clean footage is shared real pictures), only
+  against films on another subject (`film-score.ts:filmSubject`), and escalates only on a clear miss (15 % under the
+  channel's tenth). `film_taste` sends back the worst three scenes a round. The showrunner gets one scene send-back of
+  at most five shots, three send-backs in all. The film score counts strong hits only (the sound designer's measure).
+  The picture refill widens (close-up, the line's words, a still).
+- **Frame defects:** one chart, one unit (money, counts and shares never share a chart: "$1,100" patents);
+  headlines and phrases must be a phrase (`scene-designer.ts:loneText` refuses one common word or a fragment ending on a
+  function word); the critic flags placeholders (pictogram cards) and footage drowned in one colour; washes on footage
+  0.16; the colourist's one-colour limit tightened; every placed shot is dated (a line with no year takes the story's
+  latest year when it is before 2009).
+- Test: `npx tsx apps/cli/src/dev/film3-test.ts` (in `dev/regressions.ts`).
+- **Not measured yet:** whether a film now lands near $3 and 30 minutes, and whether the Haiku agents hold their scores;
+  that is the next frozen film.
 
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
@@ -365,10 +391,9 @@ appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds)
   - a lesson for the agent whose first rung did not prevent it, in its own memory (it goes through the usual lesson
     trials).
 - **Loop and budget control:**
-  - `agentLoop` takes `maxUsd`: the art director stops at $2.50 (a change to its kit at $1.50), as well as at 40 turns;
+  - `agentLoop` takes `maxUsd` and `maxSeconds`, checked BEFORE each turn against what a turn has been costing (never overshot); the cap is the smallest of the agent's own, its stage's and what the film has left. Art director $1.20 / 10 min (a change $0.60 / 5 min), scene designer $0.70 / 8 min (revision $0.30 / 4 min), showrunner $0.35 / 7 min, measure-driven agents 3 min (build list 4).
     the scene designer stops at $1.20 for a first design and $0.60 for a revision.
-  - The scene designer runs at most 6 times per film (first design and every revision from the showrunner, the
-    gate's ladders and the finished film); past that a revision keeps the scenes.
+  - The scene designer runs at most 4 times per film (first design, the showrunner's one send-back, two batched gate rounds); past that a revision keeps the scenes.
   - Stage budgets (`STAGE_BUDGET_USD`) are sized from the stages measured on the agents' films (art director $2.50,
     packaging $1.40, narration $1.20, preflight $1.20, finished-film ladders $1.20, …).
   - The pre-render frame gate's cost is gone (deleted, part A).
@@ -497,7 +522,7 @@ file, tools, memory (`data/agents/<agent>/`), its own score (`apps/cli/src/dev/<
   mp4 via `watch.ts:watchFile`; can only tighten the verdict). Narration: the **voice director hears its own takes**
   (`voice-agent.ts`) before the pronunciation listen-back.
 - **No off switches** (build list 3): every agent always runs and no gate can be waved through; only model, provider and
-  budget settings remain (`OPUMIA_DESIGN_MODEL`, `OPUMIA_CRAFT_MODEL`, `OPUMIA_TTS_MODEL`, `OPUMIA_ASR`, `OPUMIA_MAX_USD`,
+  budget settings remain (`OPUMIA_TTS_MODEL`, `OPUMIA_ASR`, `OPUMIA_MAX_USD`,
   `OPUMIA_TTS_USD_PER_1K`).
 - **Memory that earns its place** (`agents/lessons.ts`): a lesson is dropped if the next films it was shown to score
   3+ points worse; every agent reads the shared film memory `data/films/<channel>.jsonl`; the researcher reuses

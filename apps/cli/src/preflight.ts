@@ -97,6 +97,8 @@ const readJson = async <T>(f: string): Promise<T | null> => readFile(f, "utf8").
 const baseRef = (ref: string) => ref.split("#")[0]!.split("@")[0]!;
 
 export interface PreflightInput {
+  /** Build list 4, item 16: the story's years (fact sheet), for lines that carry no year of their own. */
+  era?: { min: number; max: number } | null;
   /** Step 7: every real person the film names (no stranger's face under a line naming one). */
   people?: string[];
   /** Step 4: trained taste of the final scene frames (median) against the channel's real shots. */
@@ -240,7 +242,8 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     const src = await readJson<{ rows: Array<{ shotId: string; when?: string }> }>(path.join(o.jobDir, "sourcing.json"));
     const items: Array<{ shotId: string; frameFile: string; year: number }> = [];
     for (const m of o.resolution.media.filter((x) => x.role === "primary" && x.origin !== "press")) {
-      const year = yearOf(src?.rows.find((r) => r.shotId === m.shotId)?.when);
+      // build list 4, item 16: every placed shot is dated — a line with no year of its own takes the story's latest year
+      const year = yearOf(src?.rows.find((r) => r.shotId === m.shotId)?.when) ?? (o.era && o.era.max <= 2008 ? o.era.max : null);
       if (year === null || year > 2008) continue;
       const frame = `${m.localPath}.period.jpg`;
       if (await reviewFrame(m.localPath, frame, m.kind === "video" ? 1 : 0)) items.push({ shotId: m.shotId, frameFile: frame, year });
@@ -319,7 +322,7 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
 
   // --- Step 4: taste is the objective — the film's scenes, as a whole, at least at the channel's lowest tenth.
   if (o.taste) {
-    add({ id: "film_taste", label: "Taste of the film's scenes against the channel's real shots (trained heads, median)", value: o.taste.median, target: `≥ ${o.taste.realP10} (the channel's median ${o.taste.realMedian})`, pass: o.taste.median >= o.taste.realP10, level: "blocker", ...(o.taste.low.length ? { repair: "redesign_scene" as const, note: `lowest scenes: ${o.taste.low.slice(0, 6).join(", ")}`, shots: o.taste.low.map((x) => x.split(" ")[0]!) } : {}) });
+    add({ id: "film_taste", label: "Taste of the film's scenes against the channel's real shots (trained heads, median)", value: o.taste.median, target: `≥ ${o.taste.realP10} (the channel's median ${o.taste.realMedian})`, pass: o.taste.median >= o.taste.realP10, level: "blocker", ...(o.taste.low.length ? { repair: "redesign_scene" as const, note: `lowest scenes: ${o.taste.low.slice(0, 6).join(", ")}`, shots: o.taste.low.slice(0, 3).map((x) => x.split(" ")[0]!) } : {}) }); // build list 4, item 8: the worst three per round (lowest first), never the whole film
   }
 
   // --- Uniqueness of the plan against earlier films.
@@ -330,7 +333,9 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     // D38: the look of the scenes (SigLIP centroid, film-score.ts) against our earlier films, in the channel's own range.
     const fs = await readJson<{ look: { nearestOurs: { job: string; distance: number } | null; minBetween: number } | null }>(path.join(o.jobDir, "film-score.json"));
     const nl = fs?.look?.nearestOurs;
-    if (nl && fs?.look) add({ id: "unique_look", label: `Look of the scenes against our nearest film (${nl.job})`, value: nl.distance, target: `≥ ${fs.look.minBetween} (two of the channel's films rarely sit closer)`, pass: nl.distance >= fs.look.minBetween, level: "blocker" });
+    // Build list 4, item 7: escalated only on a clear miss (more than 15 % under the channel's tenth): a hair's-breadth
+    // miss bought a whole new visual concept on film 3 (0.043 against 0.046) and could not move the measure anyway.
+    if (nl && fs?.look) add({ id: "unique_look", label: `Look of the designed scenes against our nearest film on another subject (${nl.job})`, value: nl.distance, target: `≥ ${r3(fs.look.minBetween * 0.85)} (two of the channel's films rarely sit closer than ${fs.look.minBetween})`, pass: nl.distance >= fs.look.minBetween * 0.85, level: "blocker" });
     add({ id: "unique_plan", label: `Respects in which the plan is too close to ${fp?.closest?.to ?? "an earlier film"}`, value: over.length, target: "0", pass: over.length === 0, level: "blocker", ...(soundOnly ? { repair: "reseed_sound" as const } : {}), ...(over.length ? { note: over.join("; ") } : {}) });
   }
 

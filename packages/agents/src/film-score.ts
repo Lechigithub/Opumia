@@ -97,6 +97,9 @@ const outside = (x: number, b: Band) => {
 };
 
 export interface PlanState {
+  /** Build list 4, item 9: each effect's measured sound family (data/audio-profile.json), so "hits" means strong hits —
+   *  the same count the sound designer and the channel profile use. Unknown effects count as hits. */
+  sfxFamily?: Map<string, string>;
   storyboard: { shots: PlanShot[]; durationS: number };
   scenes: PlanScene[];
   media: Media[];
@@ -105,12 +108,18 @@ export interface PlanState {
 }
 
 /** Our film's shots as reference-index rows, read from a job folder. */
+/** Effect asset id → measured family (data/audio-profile.json). */
+export async function sfxFamilies(data: string): Promise<Map<string, string>> {
+  const p = await readFile(path.join(data, "audio-profile.json"), "utf8").then((t) => JSON.parse(t) as { sfx?: Record<string, { family?: string }> }, () => null);
+  return new Map(Object.entries(p?.sfx ?? {}).filter(([, v]) => v.family).map(([k, v]) => [k, v.family!] as [string, string]));
+}
+
 export async function ourShots(jobDir: string): Promise<{ shots: ReferenceShot[]; hits: Array<{ t: number }>; durS: number }> {
   const j = async <T>(f: string): Promise<T | null> => readFile(path.join(jobDir, f), "utf8").then((t) => JSON.parse(t) as T, () => null);
   const sb = await j<{ shots: PlanShot[]; durationS: number }>("storyboard.json");
   if (!sb) throw new Error(`no storyboard in ${jobDir}`);
   const ts = await j<{ segments: Array<{ words: Word[] }> }>("timed-script.json");
-  return ourShotsFrom({ storyboard: sb, scenes: (await j<{ scenes: PlanScene[] }>("scenes.json"))?.scenes ?? [], media: (await j<{ media: Media[] }>("resolution.json"))?.media ?? [], words: (ts?.segments ?? []).flatMap((s) => s.words), manifest: await j("manifest.json") }, path.basename(jobDir));
+  return ourShotsFrom({ storyboard: sb, scenes: (await j<{ scenes: PlanScene[] }>("scenes.json"))?.scenes ?? [], media: (await j<{ media: Media[] }>("resolution.json"))?.media ?? [], words: (ts?.segments ?? []).flatMap((s) => s.words), manifest: await j("manifest.json"), sfxFamily: await sfxFamilies(path.join(path.dirname(path.dirname(jobDir)), "data")) }, path.basename(jobDir));
 }
 
 /** Our film's shots as reference-index rows, from a plan held in memory (the editor's working state). */
@@ -121,7 +130,8 @@ export function ourShotsFrom(st: PlanState, film = "ours"): { shots: ReferenceSh
   const man = st.manifest ?? null;
   const words = st.words.map((w) => ({ w: (w.word ?? w.text ?? "").trim(), s: w.startS ?? w.start ?? 0, e: w.endS ?? w.end ?? 0 }));
   const fps = man?.fps ?? PLATFORM_FPS;
-  const hits = (man?.audio ?? []).filter((a) => a.role === "sfx").map((a) => ({ t: a.startFrame / fps }));
+  const strong = new Set(["sub_boom", "thud", "impact"]);
+  const hits = (man?.audio ?? []).filter((a) => a.role === "sfx" && (!st.sfxFamily || !st.sfxFamily.has((a as { ref?: string }).ref ?? "") || strong.has(st.sfxFamily.get((a as { ref?: string }).ref ?? "")!))).map((a) => ({ t: a.startFrame / fps }));
   const music = (man?.audio ?? []).filter((a) => a.role === "music");
   const dips = music.flatMap((m) => (m.dips ?? []).map((d) => [d.fromFrame / fps, d.toFrame / fps] as [number, number]));
   const cues = music.map((m) => m.startFrame / fps).filter((t) => t > 0.5);
@@ -195,6 +205,13 @@ export function structureOf(prof: ChannelProfile, shots: ReferenceShot[], hits: 
   return { structure, gaps: gaps.sort((a, b) => b.outside - a.outside), measures: m, byPosition };
 }
 
+/** The subject of a topic: its first proper name ("How Kodak invented…" → "kodak"), else its content words. */
+export function filmSubject(topic: string): string {
+  const words = topic.replace(/[^\p{L}\p{N}\s'-]/gu, " ").split(/\s+/).filter(Boolean);
+  const proper = words.slice(1).find((w) => /^\p{Lu}/u.test(w)) ?? (/^\p{Lu}/u.test(words[0] ?? "") && !/^(how|the|why|what|when|a|an)$/i.test(words[0]!) ? words[0] : undefined);
+  return (proper ?? words.filter((w) => w.length > 3).slice(0, 3).join(" ")).toLowerCase();
+}
+
 export async function scoreFilm(o: { root: string; data: string; jobDir: string; channel: ChannelId; taste?: boolean; log?: (s: string) => void }): Promise<FilmScore> {
   const prof = await loadChannelProfile(o.data, o.channel);
   if (!prof) throw new Error(`no channel profile for ${o.channel} — run build-channel-profile`);
@@ -206,11 +223,23 @@ export async function scoreFilm(o: { root: string; data: string; jobDir: string;
   const pdir = ["previews_final", "previews_agent", "previews"].map((d) => path.join(o.jobDir, d)).find((d) => existsSync(d));
   if (pdir && prof.variety.lookDistance) {
     const { readdirSync } = await import("node:fs");
-    const files = readdirSync(pdir).filter((x) => /\.(jpg|png)$/.test(x) && !/sheet/.test(x)).sort().map((x) => path.join(pdir, x));
+    let files = readdirSync(pdir).filter((x) => /\.(jpg|png)$/.test(x) && !/sheet/.test(x)).sort().map((x) => path.join(pdir, x));
+    // Build list 4, item 7: the look we are responsible for is what we DESIGN (kit, layout, grade, treatment). Clean
+    // footage shots are real pictures — two films about the same company rightly share them — so they are left out of
+    // the look when the film has enough designed scenes to measure.
+    const designed = await readFile(path.join(o.jobDir, "scenes.json"), "utf8").then((t) => new Set((JSON.parse(t) as { scenes: Array<{ shotId: string; elements: unknown[] }> }).scenes.filter((s) => s.elements.length > 0).map((s) => s.shotId)), () => null);
+    if (designed) {
+      const own = files.filter((f) => designed.has(path.basename(f).replace(/_\d+\.(jpg|png)$/, "")));
+      if (own.length >= 6) files = own;
+    }
     const l = await lookOf({ root: o.root, data: o.data, files, ...(o.log ? { log: o.log } : {}) });
     if (l) {
       const job = path.basename(o.jobDir);
-      const others = Object.entries(await ourLooks(o.data, o.channel)).filter(([j]) => j !== job).map(([j, v]) => ({ job: j, distance: Math.round(cosDist(l.all, v) * 1e3) / 1e3 })).sort((a, b) => a.distance - b.distance);
+      // ...and a film is held apart only from our films on OTHER subjects: a second film on the same subject is judged by
+      // the reliability suite's own same-topic test, not by this gate (its real pictures cannot differ).
+      const subjectOf = async (j: string) => readFile(path.join(path.dirname(o.jobDir), j, "job.json"), "utf8").then((t) => filmSubject((JSON.parse(t) as { topic?: string }).topic ?? ""), () => "");
+      const mine = await subjectOf(job);
+      const others = (await Promise.all(Object.entries(await ourLooks(o.data, o.channel)).filter(([j]) => j !== job).map(async ([j, v]) => ({ job: j, v, subject: await subjectOf(j) })))).filter((x) => !mine || x.subject !== mine).map(({ job: j, v }) => ({ job: j, distance: Math.round(cosDist(l.all, v) * 1e3) / 1e3 })).sort((a, b) => a.distance - b.distance);
       look = { nearestOurs: others[0] ?? null, withinFilm: Math.round(cosDist(l.a, l.b) * 1e3) / 1e3, minBetween: prof.variety.lookDistance.betweenFilms.p10, minWithin: prof.variety.lookDistance.withinFilm.p10 };
       await saveLook(o.data, o.channel, job, l.all);
       const ld = prof.variety.lookDistance;

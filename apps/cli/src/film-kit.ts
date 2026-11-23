@@ -4,7 +4,7 @@
  * on a phone, design fundamentals, trained taste, likeness to our produced films).
  */
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { embedPictures, filmDesignerAgent, filmLook, loadTaste, producedJobs, scoreTaste, type FilmDesignerReport, type KitTokens } from "@opumia/agents";
@@ -67,6 +67,13 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
     await rename(`${designFile}.tmp`, designFile);
   };
   const kitDir = path.join(o.jobDir, "design", "film");
+  // Build list 4: a change that is not accepted must not leave a half-written kit behind — the accepted kit is kept
+  // aside and put back when the change fails.
+  const keep = path.join(o.jobDir, "design", "film.accepted");
+  if (o.change && existsSync(kitDir)) {
+    await rm(keep, { recursive: true, force: true });
+    await cp(kitDir, keep, { recursive: true });
+  }
   const pub = path.join(o.jobDir, "public");
   const words = o.timed.segments.flatMap((s) => s.words);
   const lineOf = (sh: { startS: number; endS: number }) => words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ");
@@ -128,5 +135,13 @@ export async function runFilmDesigner(o: { root: string; data: string; library: 
     memoryDir: path.join(o.data, "agents", "film-designer"),
     log: o.log,
   });
+  if (o.change && existsSync(keep)) {
+    if (!report.pass) {
+      await rm(kitDir, { recursive: true, force: true });
+      await cp(keep, kitDir, { recursive: true });
+      o.log("  art director: the change was not accepted — the accepted kit is kept as it was");
+    }
+    await rm(keep, { recursive: true, force: true });
+  }
   return { report, design };
 }

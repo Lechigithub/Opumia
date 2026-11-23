@@ -14,7 +14,7 @@ import path from "node:path";
 import type { FactClaim, FactSheet } from "@opumia/contracts";
 import type Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
-import { agentLoop, MODELS, plain, structured, type AgentTool } from "./llm.js";
+import { agentLoop, MODELS, plain, structured, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { readPage } from "./web.js";
 
 const norm = (s: string) => s.toLowerCase().replace(/[‘’“”"'`]/g, "").replace(/[^a-z0-9$%.,\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -201,7 +201,7 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
         }
         const at = np.indexOf(ev.slice(0, 110));
         const context = np.slice(Math.max(0, at - 400), at + ev.length + 400);
-        const chk = await structured({ stage: "research.verify", model: MODELS.haiku, system: [plain("You are a strict fact-checker. Decide whether the PASSAGE supports the CLAIM: supported (the passage states it; every figure, date and name matches), partially_supported (it states part of it, or a rounded or close figure), unsupported (absent, contradicted, or about something else). Judge only from the passage.")], user: `CLAIM: ${i.text}\n\nPASSAGE (from ${hostOf(i.sourceUrl)}):\n${context}`, schema: Check, effort: "low", maxTokens: 400 }).catch(() => null);
+        const chk = await structured({ stage: "research.verify", model: ROLE_MODEL.claimCheck, system: [plain("You are a strict fact-checker. Decide whether the PASSAGE supports the CLAIM: supported (the passage states it; every figure, date and name matches), partially_supported (it states part of it, or a rounded or close figure), unsupported (absent, contradicted, or about something else). Judge only from the passage.")], user: `CLAIM: ${i.text}\n\nPASSAGE (from ${hostOf(i.sourceUrl)}):\n${context}`, schema: Check, effort: "low", maxTokens: 400 }).catch(() => null);
         const verdict = chk?.data.verdict ?? "partially_supported";
         if (verdict === "unsupported") {
           rejected++;
@@ -264,7 +264,8 @@ export async function researchAgent(o: ResearchAgentOptions): Promise<ResearchRe
   if (!quick) log(`  research: one researcher with tools — search, read, verify each claim on a readable page (${MODELS.sonnet})…`);
   const run = await agentLoop({
     stage: "research.agent",
-    model: MODELS.sonnet,
+    model: ROLE_MODEL.researchPlan,
+    maxSeconds: quick ? 120 : 300,
     system,
     user: quick
       ? `The film is: ${o.topic}\n\nThe writer needs these specific facts verified. For each, find a readable source, record it with record_claim (one fact per claim, exact evidence), then call finish (summary and angle may be one line; covered may be empty; list in gaps anything you could not verify). Do not research anything else.\n${o.questions!.map((q) => `- ${q}`).join("\n")}`

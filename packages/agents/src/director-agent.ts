@@ -17,7 +17,7 @@ import type { FactSheet, LibraryIndex, Storyboard, TimedScript } from "@opumia/c
 import * as z from "zod/v4";
 import { directStoryboard, DirectorPlanSchema, PROPS_SPEC, type DirectorPlan } from "./director.js";
 import { buildMenu } from "./library-menu.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { bindFactProps, formatFactTable, numericFacts } from "./numeric-facts.js";
 import type { StylePack } from "./style-pack.js";
 
@@ -206,8 +206,8 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
   ];
   const user = `Direct this film.\n\nMUSIC MENU: ${menu.music.slice(0, 40).map((m) => `${m.id} "${m.title}" ${m.durationS}s`).join("; ")}\n\nNUMERIC FACT TABLE (verified):\n${formatFactTable(nf) || "(none — no charts)"}\n\nNARRATION:\n${o.script.segments.map((s) => `[${s.id} ${s.role}${s.chapter ? ` | chapter "${s.chapter}"` : ""}] ${s.text}`).join("\n")}\n\nWORDS (index:word@seconds):\n${words.map((w, k) => `${k}:${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nStart by reading how the channel shows lines like these.`;
 
-  log(`  director: one director with tools — ${words.length} words, ${Math.round(o.script.durationS)} s, about ${Math.round((o.script.durationS / 60) * cuts.mid)} shots at the channel's pace (${MODELS.sonnet})…`);
-  const run = await agentLoop({ stage: "director.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 24, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The shot list is not accepted yet. Measure it, fix what it shows, and submit.", log });
+  log(`  director: one director with tools — ${words.length} words, ${Math.round(o.script.durationS)} s, about ${Math.round((o.script.durationS / 60) * cuts.mid)} shots at the channel's pace (${ROLE_MODEL.director})…`);
+  const run = await agentLoop({ stage: "director.agent", model: ROLE_MODEL.director, system, user, tools, effort: "medium", maxTurns: 18, maxSeconds: 300, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The shot list is not accepted yet. Measure it, fix what it shows, and submit.", log });
   const plan = (accepted ?? lastPlan) as DirectorPlan | null;
   if (!plan) throw new Error("director: no shot list was produced");
   const pass = accepted !== null;

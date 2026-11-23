@@ -23,7 +23,7 @@ import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
 import { readMemory } from "./lessons.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, ROLE_MODEL, type AgentTool } from "./llm.js";
 import { producedJobs } from "./produced.js";
 import { designFromKit, KIT_ROLES, ROLE_CONTRACT, type KitTokens } from "./kit-design.js";
 import type { ChannelId, FilmDesignSystem } from "@opumia/contracts";
@@ -285,10 +285,10 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const system = [cached(skill), plain(`${earlierText}${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}`)];
   const contract = KIT_ROLES.map((r) => `- ${r}: ${ROLE_CONTRACT[r]}`).join("\n");
   const user = `${o.change ? `${o.change.fresh ? "START AGAIN with a NEW visual concept (the current one must not be reused)" : "CHANGE the accepted kit (design/film/index.tsx is loaded; keep every component and prop the scene designer already uses unless the change says otherwise)"}: ${o.change.request}\n\n` : ""}Design the look of "${o.title}"${o.change && !o.change.fresh ? "" : " from a blank slate"}.\n\nROLES your kit must play (one component each; the engine passes these props):\n${contract}\n\nBRIEF:\n${o.brief.slice(0, 5000)}\n\nSHOTS you can render samples on (id — line — picture):\n${o.shots.map((s) => `${s.id} — "${s.line.slice(0, 90)}" — ${s.picture.slice(0, 70)}`).join("\n")}\n\nStart by studying the reference.`;
-  const model = process.env.OPUMIA_DESIGN_MODEL === "sonnet" ? MODELS.sonnet : MODELS.opus;
+  const model = ROLE_MODEL.artDirector;
   log(`  art director (blank slate): ${o.title.slice(0, 60)} (${model})…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "film-designer.agent", model, system, user, tools, effort: "high", maxTurns: 40, maxUsd: o.change ? 1.5 : 2.5, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
+  const run = await agentLoop({ stage: "film-designer.agent", model, system, user, tools, effort: "medium", maxTurns: o.change ? 14 : 24, maxSeconds: o.change ? 300 : 600, maxUsd: o.change ? 0.6 : 1.2, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
   const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), roles, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });

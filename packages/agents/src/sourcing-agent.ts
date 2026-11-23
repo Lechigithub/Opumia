@@ -22,7 +22,7 @@ import type { ChannelId, ResolutionReport } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { loadChannelProfile } from "./channel-profile.js";
 import { readMemory } from "./lessons.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 
 export interface CoverageRow { shotId: string; line: string; need: string; must: string; when?: string; bestFit: number; footage?: { ref: string; origin: string; provider: string; fit: number; shows: string } | null; scenePictures: number; missing: boolean; candidates: Array<{ source: string; ref: string; fit: number; shows: string; wrongEra?: boolean; banner?: boolean }> }
 export interface SourcingAgentReport { pass: boolean; before: SourcingMeasure; after: SourcingMeasure; ops: string[]; note: string; agent: { turns: number; calls: Record<string, number>; usd: number } }
@@ -165,9 +165,9 @@ export async function sourcingAgent(o: SourcingAgentOptions): Promise<{ resoluti
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}Subjects of this film: ${o.subjects.join(", ") || "none named"}.`)];
-  log(`  picture researcher: ${mText(before)} (${MODELS.sonnet})`);
+  log(`  picture researcher: ${mText(before)} (${ROLE_MODEL.pictureResearcher})`);
   let grace = 1;
-  const run = await agentLoop({ stage: "sourcing.agent", model: MODELS.sonnet, system, user: `Review the pictures found for "${o.title}" and fix what a viewer would catch. Start with read_coverage.`, tools, effort: "medium", maxTurns: 30, maxTokens: 20000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the coverage, look at the weak and named shots, fix them, and submit.", log });
+  const run = await agentLoop({ stage: "sourcing.agent", model: ROLE_MODEL.pictureResearcher, system, user: `Review the pictures found for "${o.title}" and fix what a viewer would catch. Start with read_coverage.`, tools, effort: "medium", maxTurns: 16, maxSeconds: 180, maxTokens: 20000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the coverage, look at the weak and named shots, fix them, and submit.", log });
   // Dropped shots lose their footage (the scene designer builds them); picture slots stay.
   const resolution: ResolutionReport = { ...o.resolution, media: o.resolution.media.filter((m) => !(dropped.has(m.shotId) && m.role === "primary")) };
   const after = measure();

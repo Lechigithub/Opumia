@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
 import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
 import { compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
@@ -65,7 +65,13 @@ async function cachedJson<T>(file: string, schema: ZodType<T, ZodTypeDef, unknow
 // Build list 3, item 31: sized from the stages measured on the films made with the agents (out/*/timing.json medians,
 // with headroom for the ladders): research 0.43, script 0.33, narration 0.84, director 0.42, art director 1.8, scenes
 // 0.27–0.69, showrunner 0.42, packaging 1.08.
-const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.6, A2: 0.5, A3: 1.2, B1: 0.6, B2: 0.2, B2d: 2.5, B2s: 0.15, B3: 0.9, B4e: 0.15, B4c: 0.1, B5: 0.15, B5s: 0.6, B6: 1.2, C1: 0.02, C2: 0.05, C3: 1.4, C4: 0.2, C4v: 0.15, C4j: 0.3, C5: 1.2 };
+// Build list 4, item 6: these are now CAPS on each stage's optional work (agent turns, rungs, revisions: `setStageCap`),
+// not only a report. Sized for the $3 target of a 90 s film with Sonnet for the creative work and Haiku for the rest
+// (film 3, measured with Opus: research 0.37, script 0.37, narration 0.67 + a $0.60 rewrite, director 0.34, art director
+// 2.31, scenes 0.57, showrunner 1.45, preflight 1.92).
+const STAGE_BUDGET_USD: Record<string, number> = { A1: 0.5, A2: 0.5, A3: 1.0, B1: 0.5, B2: 0.2, B2d: 1.2, B2s: 0.1, B3: 0.7, B4e: 0.08, B4c: 0.05, B5: 0.08, B5s: 0.35, B6: 0.6, C1: 0.02, C2: 0.05, C3: 0.8, C4: 0.15, C4v: 0.15, C4j: 0.3, C5: 0.5 };
+/** What a 90 s film should cost (build list 4); printed with every run. */
+const TARGET_USD_90S = 3;
 
 export async function produce(o: ProduceOptions) {
   const jobId = o.job ?? `${slug(o.topic)}-${ChannelId.parse(o.channel)}-${o.aspect.replace(":", "x")}`;
@@ -76,14 +82,20 @@ export async function produce(o: ProduceOptions) {
   const k = Math.max(1, o.durationS / 90) ** 0.7;
   // item 31: the limit fits what a film made by the agents costs (about $6 for 90 s, measured) with room for its ladders;
   // a rung the remaining budget cannot cover is skipped and logged (ladder.ts), never a stop mid-stage.
-  const filmLimit = Number(process.env.OPUMIA_MAX_USD) || (o.durationS <= 90 ? 9 : o.durationS <= 240 ? 16 : 35);
-  setBudget(filmLimit);
+  // Build list 4, items 1–2: the limit counts the whole film (earlier runs of this job included: a resume does not start
+  // again from $0), and a reserve is kept for the finish (render, QA, packaging) that no optional work may spend.
+  const filmLimit = Number(process.env.OPUMIA_MAX_USD) || (o.durationS <= 90 ? 5 : o.durationS <= 240 ? 9 : 20);
+  const reserveUsd = Math.round(1.2 * k * 100) / 100;
+  const spentBefore = await readFile(path.join(jobDir, "usage.json"), "utf8").then((t) => (JSON.parse(t) as { runs: Array<{ usd: number }> }).runs.reduce((a, r) => a + r.usd, 0), () => 0);
+  setBudget(filmLimit, { spentBefore, reserveUsd });
+  if (spentBefore > 0) o.log(`  this film has already spent $${spentBefore.toFixed(2)} of its $${filmLimit.toFixed(2)} limit (target $${(TARGET_USD_90S * k).toFixed(2)})`);
   const stages: Array<{ stage: string; seconds: number; usd: number; budgetUsd: number | null; over: boolean }> = [];
   let open: { stage: string; t: number; n: number } | null = null;
   const closeStage = () => {
     if (!open) return;
     const cur = open;
     open = null;
+    setStageCap(null);
     const usd = Math.round(usageLedger().slice(cur.n).reduce((t, r) => t + r.usd, 0) * 1e4) / 1e4;
     const code = /^\[([A-Z]\d+[a-z]?)\]/.exec(cur.stage)?.[1] ?? "";
     const b = STAGE_BUDGET_USD[code];
@@ -97,6 +109,8 @@ export async function produce(o: ProduceOptions) {
     if (line.startsWith("\n[")) {
       closeStage();
       open = { stage: line.trim(), t: Date.now(), n: usageLedger().length };
+      const cap = STAGE_BUDGET_USD[/^\[([A-Z]\d+[a-z]?)\]/.exec(line.trim())?.[1] ?? ""];
+      setStageCap(cap === undefined ? null : cap * k);
     }
     baseLog(line);
   };
@@ -133,13 +147,14 @@ export async function produce(o: ProduceOptions) {
     // item 30: this film's escalations join the platform's log; a check escalating in two films becomes a fix to make
     await recordEscalations({ data: o.data, jobDir, job: jobId, channel: o.channel }).then(() => analyseEscalations({ data: o.data, channel: o.channel, log: o.log })).catch(() => null);
     closeStage();
+    const filmTotal = filmSpent();
     setBudget(null);
     if (stages.length) {
       const tf = path.join(jobDir, "timing.json");
       const prevT = (await exists(tf)) ? (JSON.parse(await readFile(tf, "utf8")) as { runs: unknown[] }) : { runs: [] };
-      prevT.runs.push({ at: new Date().toISOString(), filmLimitUsd: filmLimit, seconds: Math.round(stages.reduce((t, x) => t + x.seconds, 0)), usd: Math.round(stages.reduce((t, x) => t + x.usd, 0) * 1e4) / 1e4, stages });
+      prevT.runs.push({ at: new Date().toISOString(), filmLimitUsd: filmLimit, spentBeforeUsd: Math.round(spentBefore * 100) / 100, filmUsd: Math.round(filmTotal * 100) / 100, seconds: Math.round(stages.reduce((t, x) => t + x.seconds, 0)), usd: Math.round(stages.reduce((t, x) => t + x.usd, 0) * 1e4) / 1e4, stages });
       await writeFile(tf, JSON.stringify(prevT, null, 2) + "\n").catch(() => {});
-      baseLog(`\nWhere the time and money went:\n${stages.filter((x) => x.seconds >= 1 || x.usd > 0).map((x) => `  ${x.stage.slice(0, 44).padEnd(44)} ${x.seconds.toFixed(0).padStart(5)} s  $${x.usd.toFixed(3)}${x.over ? "  OVER BUDGET" : ""}`).join("\n")}`);
+      baseLog(`\nThe whole film so far: $${filmTotal.toFixed(2)} (target $${(TARGET_USD_90S * k).toFixed(2)}, limit $${filmLimit.toFixed(2)})\nWhere the time and money went:\n${stages.filter((x) => x.seconds >= 1 || x.usd > 0).map((x) => `  ${x.stage.slice(0, 44).padEnd(44)} ${x.seconds.toFixed(0).padStart(5)} s  $${x.usd.toFixed(3)}${x.over ? "  OVER BUDGET" : ""}`).join("\n")}`);
     }
     // Every run is logged, including runs stopped early with --until or by an error.
     const calls = usageLedger().slice(before);
@@ -362,7 +377,14 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     log("\n[B2d] art director (the film's own kit, from a blank slate)");
     const kr = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: short ? 1 : chapterCount(o.durationS), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), log });
     await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(kr.report, null, 2) + "\n");
-    if (!kr.report.pass) throw new Error(`art director: the film's kit was not accepted (${kr.report.note.slice(0, 200)}) — see film-kit.report.json`);
+    if (!kr.report.pass) {
+      // Build list 4, item 3: never a stop. The art director gets one more, shorter go to finish what it started and submit.
+      log(`  art director: kit not accepted (${kr.report.note.slice(0, 120)}) — one more go to finish and submit it`);
+      setStageCap(0.6); // the second go has a small allowance of its own (the film's reserve still stands)
+      const k2 = await runFilmDesigner({ root: o.root, data: o.data, library: o.library, jobDir, job: jobId, channel, title: draft.title, topic: o.topic, acts: short ? 1 : chapterCount(o.durationS), brief: `${draft.title}\nNARRATION:\n${timed.segments.map((sg) => sg.text).join("\n")}`, board, scenes: null, resolution, timed, look: (d) => lookFromProfile(pack.profile.look, d.palette.primarySoft), change: { request: "Finish the kit you started (design/film/index.tsx) and SUBMIT it: fix only what submit_kit names as missing.", fresh: false }, log });
+      await writeFile(path.join(jobDir, "film-kit.report.json"), JSON.stringify(k2.report, null, 2) + "\n");
+      if (!k2.report.pass || !(await exists(kitMetaFile)) || !(await exists(designFile))) throw new Error(`art director: no kit could be made for this film (${k2.report.note.slice(0, 200)}) — see film-kit.report.json`);
+    }
   }
   let design = FilmDesignSystem.parse(JSON.parse(await readFile(designFile, "utf8")));
   let filmKit = JSON.parse(await readFile(kitMetaFile, "utf8")) as FilmKitMeta;
@@ -404,7 +426,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   const likeness = await makeLikeness({ root: o.root, data: o.data, job: jobId });
   // item 31: the scene designer is run at most this many times per film (first design + revisions sent back by the
   // showrunner, the gate's ladders and the finished film); past it, a revision keeps the scenes as they are.
-  const MAX_SCENE_RUNS = 6;
+  // build list 4, item 10: first design + the showrunner's one send-back + two batched rounds from the gates
+  const MAX_SCENE_RUNS = 4;
   let sceneRuns = 0;
   const runSceneAgent = async (extra: { previous?: ScenePlan; revise?: Array<{ shotId: string; note: string }> } = {}) => {
     if (extra.previous && sceneRuns >= MAX_SCENE_RUNS) {
@@ -661,9 +684,12 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     const got: string[] = [];
     for (const id of ids) {
       const want = (wantOf?.(id) ?? srcRows.get(id)?.must ?? board.shots.find((x) => x.id === id)?.intent ?? "").replace(/^(the|a|an)\s+/i, "");
-      // Two tries: what was asked for, then a timeless close-up of it.
-      for (const w of [want, `${want.split(/\s+/).slice(0, 3).join(" ")} close up hands`]) {
-        const r = await gateTools.findPicture({ shotId: id, want: w, as: "footage", kind: "video" }).catch(() => ({ ok: false as const, why: "" }));
+      // Build list 4, item 11: widening tries (film 3's two tries found 0 of 4) — what was asked for, a timeless
+      // close-up of it, the words of the line itself, then a still photograph of it (moved by the camera).
+      const said = lineOf(id).split(/\s+/).filter((x) => x.length > 3 && !/^(that|this|with|from|they|their|were|which|would|could|about)$/i.test(x)).slice(0, 5).join(" ");
+      const tries: Array<{ w: string; kind: "video" | "image" }> = [{ w: want, kind: "video" }, { w: `${want.split(/\s+/).slice(0, 3).join(" ")} close up hands`, kind: "video" }, ...(said ? [{ w: said, kind: "video" as const }] : []), { w: want, kind: "image" }];
+      for (const t of tries) {
+        const r = await gateTools.findPicture({ shotId: id, want: t.w, as: "footage", kind: t.kind }).catch(() => ({ ok: false as const, why: "" }));
         if (r.ok) {
           got.push(id);
           break;
@@ -803,13 +829,22 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const pfTaste = tasteModel && pfFrames.length ? (await scoreTaste({ root: o.root, data: o.data, channel, kind: "shot", items: pfFrames.map((x) => ({ file: x.f })) }).catch(() => [])).map((x, k) => ({ id: pfFrames[k]!.id, v: x?.score ?? null })).filter((x): x is { id: string; v: number } => x.v !== null) : [];
       const pfSorted = [...pfTaste].sort((a2, b2) => a2.v - b2.v);
       const tasteIn = tasteModel && pfSorted.length ? { taste: { median: pfSorted[Math.floor(pfSorted.length / 2)]!.v, realP10: tasteModel.calibration.real.p10, realMedian: tasteModel.calibration.real.median, low: pfSorted.filter((x) => x.v < tasteModel.calibration.real.p10).map((x) => `${x.id} ${x.v}`) } } : {};
-      checks = await preflightChecks({ ...tasteIn, cutBand: { lo: (pack.profile.pacing.cutsPerMin?.p25 ?? 12) * 0.85, hi: (pack.profile.pacing.cutsPerMin?.p75 ?? 21) * 1.15 }, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
+      checks = await preflightChecks({ ...tasteIn, era: eraG ? { min: eraG.min, max: eraG.max } : null, cutBand: { lo: (pack.profile.pacing.cutsPerMin?.p25 ?? 12) * 0.85, hi: (pack.profile.pacing.cutsPerMin?.p75 ?? 21) * 1.15 }, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
       problems = problemsOf(checks);
       const q = newQueue();
-      const done = problems.length ? await ladders.step(problems, makeAct(q, () => checks, defects)) : [];
-      if (rewriteBrief) break;
-      if (q.kitChanged) for (const sc of scenePlan.scenes) stale.add(sc.shotId);
-      const changed = await flush(q, done);
+      // Build list 4, item 3: the film's limit ends the optional repair work, never the film
+      let done: string[] = [];
+      let changed: { shots: Set<string>; all: boolean } = { shots: new Set(), all: false };
+      try {
+        done = problems.length ? await ladders.step(problems, makeAct(q, () => checks, defects)) : [];
+        if (rewriteBrief) break;
+        if (q.kitChanged) for (const sc of scenePlan.scenes) stale.add(sc.shotId);
+        changed = await flush(q, done);
+      } catch (err) {
+        if (!(err instanceof BudgetError)) throw err;
+        log(`  preflight: ${err.message} — no more repairs; the film goes on with what is left logged`);
+        break;
+      }
       for (const id of changed.all ? scenePlan.scenes.map((x) => x.shotId) : changed.shots) (stale.add(id), look2.add(id));
       const failing = checks.filter((c) => !c.pass && c.level === "blocker");
       rounds.push({ round, failing: failing.map((c) => c.id), repairs: done });
@@ -823,14 +858,14 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     await writeFile(preFile, JSON.stringify({ at: new Date().toISOString(), pass: blockers.length === 0, rounds, blockers: blockers.map((c) => c.id), advisory: advisory.map((c) => c.id), checks }, null, 2) + "\n");
     for (const c of blockers) log(`  ✗ ${c.label}: ${c.value} (target ${c.target})${c.note ? ` — ${c.note}` : ""}`);
     for (const c of advisory) log(`  ~ ${c.label}: ${c.value} (target ${c.target}) — reported, no automatic repair`);
-    log(blockers.length ? `  preflight: NOT ready to render — ${blockers.length} check(s) still fail` : `  preflight: ready to render${advisory.length ? ` (${advisory.length} advisory note(s))` : ""}`);
+    log(blockers.length ? `  preflight: ${blockers.length} check(s) still fail after every repair the ladders had — rendering with them logged (preflight.json, and the QA verdict)` : `  preflight: ready to render${advisory.length ? ` (${advisory.length} advisory note(s))` : ""}`);
   }
   if (stop("manifest")) return { jobDir };
-  {
-    // Only a plan that passed is rendered.
-    const pre = await readFile(preFile, "utf8").then((t) => JSON.parse(t) as { pass: boolean; blockers: string[] }, () => null);
-    if (pre && !pre.pass && (redo("render") || !(await exists(finalPath)))) throw new Error(`preflight gate: the plan would not pass the release gate (${pre.blockers.join(", ")}) — see preflight.json; nothing was rendered`);
-  }
+  // Build list 4, item 3: a film always renders. Problems the ladders could not fix are logged in preflight.json and
+  // carried into QA (check `preflight_unresolved`, which keeps the verdict from "pass"); they never stop the film.
+  const preUnresolved = await readFile(preFile, "utf8").then((t) => JSON.parse(t) as { pass: boolean; blockers: string[] }, () => null);
+  // the reserve is for the finish: render, QA, packaging
+  setFinishing(true);
 
   // H33: the publishing package needs only the final plan (facts, narration, design, pictures), not the rendered
   // film — it starts now and runs beside the render (its thumbnail renders in its own folder, thumb-public/).
@@ -886,9 +921,13 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     let fj: Awaited<ReturnType<typeof judgeClips>> | null = null;
     log("\n[C4] QA");
     const qa = await runQA({ finalPath, srtPath, thumbnailPath, manifest, resolution, script: timed, facts, profile: pack.profile, index, jobDir, log });
+    if (preUnresolved && !preUnresolved.pass) {
+      qa.report.checks.push({ id: "preflight_unresolved", severity: "major", passed: false, message: `rendered with ${preUnresolved.blockers.length} preflight check(s) the ladders could not fix: ${preUnresolved.blockers.join(", ")} (see preflight.json, ladders.jsonl)`, measured: preUnresolved.blockers.length, atFrames: [] });
+      if (qa.report.verdict === "pass") qa.report.verdict = "review";
+    }
     // [C4v] Viewer QA (B10): an agent watches the finished file start to end like a viewer and notes what a viewer
     // would notice. Its verdict can only make the film's verdict stricter.
-    if (existsSync(finalPath)) {
+    if (existsSync(finalPath)) try {
       log("\n[C4v] viewer QA");
       const qaText = qa.report.checks.map((c) => `${c.passed ? "✓" : "✗"} [${c.severity}] ${c.id}: ${c.message}`).join("\n");
       viewer = await qaAgent({ channel, title: draft.title, durationS: timed.durationS, qaText, shots: board.shots.map((x) => ({ id: x.id, startS: x.startS, endS: x.endS })), words: timed.segments.flatMap((sg) => sg.words), watch: async (a, b) => {
@@ -905,6 +944,11 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const worst = (rank[v.verdict] > rank[qa.report.verdict] ? v.verdict : qa.report.verdict);
       qa.report.checks.push({ id: "viewer", severity: v.verdict === "fail" ? "blocker" : "major", passed: v.verdict === "pass", message: `${v.summary.slice(0, 300)}${v.issues.length ? ` — ${v.issues.length} issue(s): ${v.issues.slice(0, 4).map((x) => `${x.atS.toFixed(1)} s ${x.what.slice(0, 60)} (${x.owner})`).join("; ")}` : ""}`, measured: v.watchedShare, atFrames: v.issues.map((x) => Math.round(x.atS * manifest.fps)) });
       qa.report.verdict = worst;
+    } catch (err) {
+      if (!(err instanceof BudgetError)) throw err;
+      log(`  viewer QA skipped: ${err.message}`);
+      qa.report.checks.push({ id: "viewer", severity: "major", passed: false, message: `not watched: ${err.message}`, measured: 0, atFrames: [] });
+      if (qa.report.verdict === "pass") qa.report.verdict = "review";
     }
     // [C4j] Final-cut judge (build list 2, step 7): independent of every agent that made the film — the finished film in
     // 8-second stretches, each blind beside two real channel stretches close in meaning. A film the judge picks out
@@ -951,10 +995,18 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
       const sig = (m: RenderManifest) => new Map(board.shots.map((x) => [x.id, JSON.stringify(m.video.filter((l) => l.shotId === x.id))] as [string, string]));
       const before = sig(manifest);
       const beforeFrames = manifest.durationFrames;
-      const done = await post.step(problems, makeAct(q, () => [], viewerNotes));
-      if (rewriteBrief) return toWriter();
-      if (!done.length) break;
-      const ch = await flush(q, done);
+      let done: string[] = [];
+      let ch: { shots: Set<string>; all: boolean };
+      try {
+        done = await post.step(problems, makeAct(q, () => [], viewerNotes));
+        if (rewriteBrief) return toWriter();
+        if (!done.length) break;
+        ch = await flush(q, done);
+      } catch (err) {
+        if (!(err instanceof BudgetError)) throw err;
+        log(`  finished film: ${err.message} — no more repairs; the film is delivered with what is left logged`);
+        break;
+      }
       manifest = await buildManifest({ storyboard: board, script: timed, resolution, ...mopts() });
       await writeFile(path.join(jobDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
       const after = sig(manifest);

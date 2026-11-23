@@ -19,7 +19,7 @@ import type { FilmDesignSystem, ScenePlan } from "@opumia/contracts";
 import { colourCover, contactSheet, measureLook } from "@opumia/senses";
 import * as z from "zod/v4";
 import { readMemory } from "./lessons.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 
 interface ShotColour { luma: number; colourfulness: number; cover: number }
 export interface ColourBand { luma: { p25: number; p75: number }; colourfulness: { p25: number; p75: number }; tintedShare: { median: number; max: number } }
@@ -106,7 +106,7 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
       if (luma > band.luma.p75 * 1.1) outside.push(`too bright (${luma})`);
       if (colourfulness < band.colourfulness.p25 * 0.95) outside.push(`too dull (${colourfulness}; channel ${band.colourfulness.p25}–${band.colourfulness.p75})`);
       if (colourfulness > band.colourfulness.p75 * 1.25) outside.push(`over-saturated (${colourfulness})`);
-      const lim = Math.max(band.tintedShare.median * 2, 0.15);
+      const lim = Math.max(band.tintedShare.median * 1.5, 0.12); // build list 4, item 15: tighter (film 3 shipped red and blue washed footage at 17 %)
       if (share > lim) outside.push(`${Math.round(share * 100)} % of shots carried by one colour (the channel's typical film ${Math.round(band.tintedShare.median * 100)} %, most ${Math.round(band.tintedShare.max * 100)} %)`);
     }
     return { luma, colourfulness, tinted, tintedShare: share, outside };
@@ -229,9 +229,9 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film's colour world (art director): primary ${design.palette.primary}, accent ${design.palette.accent}.`)];
-  log(`  colourist: ${sumText(before).split("\n")[0]}${before.outside.length ? ` — outside: ${before.outside.join("; ")}` : ""} (${MODELS.sonnet})`);
+  log(`  colourist: ${sumText(before).split("\n")[0]}${before.outside.length ? ` — outside: ${before.outside.join("; ")}` : ""} (${ROLE_MODEL.colourist})`);
   let grace = 1;
-  const run = await agentLoop({ stage: "colourist.agent", model: MODELS.sonnet, system, user: `Grade "${o.title}".${o.brief ? ` The preflight gate sent the colour back: ${o.brief}` : ""} Start with read_grade.`, tools, effort: "medium", maxTurns: 24, maxTokens: 16000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the grade, look, change what is outside the channel, render and submit.", log });
+  const run = await agentLoop({ stage: "colourist.agent", model: ROLE_MODEL.colourist, system, user: `Grade "${o.title}".${o.brief ? ` The preflight gate sent the colour back: ${o.brief}` : ""} Start with read_grade.`, tools, effort: "medium", maxTurns: 12, maxSeconds: 180, maxTokens: 16000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the grade, look, change what is outside the channel, render and submit.", log });
   const after = summary();
   const keep = accepted !== null || after.outside.length < before.outside.length;
   const report: ColouristReport = { pass: accepted !== null, before, after: keep ? after : before, ops, note: accepted ?? (keep ? "not submitted; kept its rendered state" : "not submitted: the original grade was kept"), agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };

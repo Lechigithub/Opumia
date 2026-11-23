@@ -16,7 +16,7 @@ import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
 import { readMemory } from "./lessons.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 
 export interface ViewerIssue { atS: number; shotId: string | null; what: string; severity: number; owner: "sourcing" | "scene designer" | "editor" | "sound designer" | "colourist" | "voice" | "writer" | "render"; fix: "replace_broll" | "redesign" | "recut" | "resound" | "regrade" | "rerecord" | "rewrite" | "rerender" | "none" }
 export interface ViewerVerdict { verdict: "pass" | "review" | "fail"; summary: string; issues: ViewerIssue[]; watchedShare: number; agent: { turns: number; calls: Record<string, number>; usd: number } }
@@ -106,10 +106,10 @@ export async function qaAgent(o: QaAgentOptions): Promise<ViewerVerdict> {
   const notes = o.memoryDir ? await readMemory(o.memoryDir, o.channel, { data: path.dirname(path.dirname(o.memoryDir)) }) : "";
   const owner = o.memoryDir ? await readFile(path.join(o.memoryDir, "owner-notes.md"), "utf8").catch(() => "") : "";
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film is ${o.durationS.toFixed(1)} s long.`)];
-  log(`  viewer QA: watching "${o.title.slice(0, 60)}" (${o.durationS.toFixed(0)} s, ${MODELS.sonnet})…`);
+  log(`  viewer QA: watching "${o.title.slice(0, 60)}" (${o.durationS.toFixed(0)} s, ${ROLE_MODEL.viewerQa})…`);
   let grace = 1;
   const turns = Math.min(60, 12 + Math.ceil(o.durationS / 15) * 2);
-  const run = await agentLoop({ stage: "qa.agent", model: MODELS.sonnet, system, user: `Watch "${o.title}" from start to end like a viewer of the channel, note what a viewer would notice, then give the verdict. Start with qa_report, then watch from 0 s.`, tools, effort: "medium", maxTurns: turns, maxTokens: 16000, done: () => decided !== null && (noteSaved || grace-- <= 0), nudge: "No verdict yet. Keep watching where you have not, note issues, then give the verdict.", log });
+  const run = await agentLoop({ stage: "qa.agent", model: ROLE_MODEL.viewerQa, system, user: `Watch "${o.title}" from start to end like a viewer of the channel, note what a viewer would notice, then give the verdict. Start with qa_report, then watch from 0 s.`, tools, effort: "medium", maxTurns: turns, maxSeconds: 300, maxTokens: 16000, done: () => decided !== null && (noteSaved || grace-- <= 0), nudge: "No verdict yet. Keep watching where you have not, note issues, then give the verdict.", log });
   const d = (decided as { verdict: ViewerVerdict["verdict"]; summary: string } | null) ?? { verdict: "review" as const, summary: `the viewer QA did not finish (${Math.round(watchedShare() * 100)} % watched)` };
   const out: ViewerVerdict = { verdict: d.verdict, summary: d.summary, issues, watchedShare: Math.round(watchedShare() * 100) / 100, agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {

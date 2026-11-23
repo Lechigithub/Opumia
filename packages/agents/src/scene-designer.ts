@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
 import { ScenePlan, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
 import * as z from "zod/v4";
-import { MODELS, plain, structured } from "./llm.js";
+import { MODELS, plain, ROLE_MODEL, structured } from "./llm.js";
 
 /**
  * Scene drafts → checked scenes (build list 3, L7): the scene designer AGENT writes every scene (scene-agent.ts);
@@ -72,6 +72,27 @@ export interface DesignScenesOptions {
 
 const isScene = (s: StoryboardShot) => s.source.kind === "designed" && s.source.designed === "scene";
 
+const FUNCTION_END = /\b(from|of|to|the|and|a|an|with|for|in|on|by|at|that|which|its|their|his|her|as|or|but|into|than|was|were|is|are|be)$/i;
+/**
+ * Why on-screen text is not a phrase (null when it is): a broken fragment ending on a function word, or one common word
+ * that is neither a name (written with a capital inside the narration), a figure nor an acronym. Exported for tests.
+ */
+export function loneText(text: string, line: string): string | null {
+  const t = text.replace(/[^\p{L}\p{N}$%€£'\s-]/gu, " ").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  if (FUNCTION_END.test(t)) return "a broken fragment (it ends on a function word)";
+  const ws = t.split(" ");
+  if (ws.length > 1) return null;
+  const w = ws[0]!;
+  if (/\d/.test(w) || (w.length >= 2 && w.length <= 5 && w === w.toUpperCase() && new RegExp(`\\b${w}\\b`).test(line))) return null; // a figure, or an acronym said as one
+  // a name: written with a capital in the narration somewhere that is not the first word of a sentence
+  const toks = line.split(/\s+/);
+  const seen = toks.map((tok, i) => ({ bare: tok.replace(/[^\p{L}\p{N}'-]/gu, "").replace(/'s$/i, ""), start: i === 0 || /[.!?]["”']?$/.test(toks[i - 1] ?? "") })).filter((x) => x.bare.toLowerCase() === w.toLowerCase());
+  // capitalised mid-sentence, or capitalised every time it is said (a brand that opens sentences: "Kodak")
+  const named = seen.some((x) => !x.start && /^\p{Lu}/u.test(x.bare)) || (seen.length > 0 && seen.every((x) => /^\p{Lu}/u.test(x.bare)) && seen.some((x) => x.bare.length > 3));
+  return named ? null : "one common word, not a phrase";
+}
+
 export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   const log = o.log ?? (() => {});
   const all = o.storyboard.shots.filter(isScene);
@@ -87,6 +108,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
   const people = [...new Set([...(o.people ?? []), ...o.storyboard.shots.flatMap((s) => (s.entities ?? []).filter((e) => e.type === "person").map((e) => e.name))].map((n) => n.replace(/\s*\(.*?\)\s*/g, " ").trim().toLowerCase().split(/\s+/).at(-1)!.replace(/[^a-z]/g, "")))].filter((x) => x.length >= 3);
   let nameGuarded = 0;
   let dropped = 0;
+  const refusals: string[] = [];
   let three = 0;
   for (const sh of todo) {
     const d = o.raw.find((x) => x.shotId === sh.id);
@@ -117,6 +139,14 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       try { props = e.propsJson.trim() ? (JSON.parse(e.propsJson) as Record<string, unknown>) : {}; } catch { dropped++; continue; }
       const bad = Object.entries(props).filter(([k, v]) => typeof v === "string" && !/^(slot|color|colour|align|variant|style|kind|mode|side|tone|edge|code|unit|prefix|suffix)$/i.test(k) && (!numsOk(v) || !wordsOk(v)));
       if (bad.length) { dropped++; continue; }
+      // Build list 4, item 14: words on screen read as a phrase. A headline or phrase that is one common word
+      // ("INVESTMENT", "MARKET" over money) or a broken fragment ("EARNED FROM") is refused; a name, a figure or a
+      // label (a caption under a picture) may be one word.
+      const role = Object.entries(o.kit.roles ?? {}).find(([, c]) => c === e.component)?.[0];
+      if (role === "headline" || role === "phrase") {
+        const why = Object.entries(props).filter(([k, v]) => typeof v === "string" && /^(text|title|headline|phrase|line|words)$/i.test(k)).map(([, v]) => loneText(String(v), lineOf(sh.startS - 1, sh.endS + 1))).find(Boolean);
+        if (why) { dropped++; refusals.push(`${sh.id}: "${String(props.text ?? props.title ?? "").slice(0, 40)}" — ${why}`); continue; }
+      }
       for (const [k, v] of Object.entries(props)) if (/slot/i.test(k) && typeof v === "number" && !slots.has(v)) delete props[k];
       if (phraseRole && e.component === phraseRole) props.sync = true;
       els.push({ type: "component", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), name: e.component, props });
@@ -140,7 +170,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       idea: d.idea.slice(0, 200),
       backdrop: stage ? "stage" : "footage",
       dim: clamp(d.dim, 0.1, 0.6),
-      ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.3, mode: "tint" as const } } : {}),
+      ...(d.wash && !stage ? { wash: { color: "primary" as const, strength: 0.16, mode: "tint" as const } } : {}),
       camera: (() => {
         // The picture always travels: enforce at least 0.1 of scale movement.
         let a = clamp(d.camera.fromScale, 1, 1.26);
@@ -152,6 +182,7 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     });
   }
   specs.sort((a, b) => a.shotId.localeCompare(b.shotId));
+  if (refusals.length) log(`  words refused (one common word or a broken fragment — write a phrase from the line, or use a picture): ${refusals.join("; ")}`);
   const kinds = new Map<string, number>();
   for (const s of specs) for (const e of s.elements) kinds.set(e.type === "component" ? `component:${e.name}` : e.type, (kinds.get(e.type === "component" ? `component:${e.name}` : e.type) ?? 0) + 1);
   log(`  scenes: ${specs.length}/${all.length} ready — ${[...kinds.entries()].map(([k, n]) => `${n} ${k}`).join(", ")}${dropped ? `; ${dropped} element(s) or scene(s) refused (missing slot, unknown component, unspoken words or figures)` : ""}${nameGuarded ? `; ${nameGuarded} scene(s) moved to the kit's stage (a real name over a face that is not verified as that person)` : ""}`);
@@ -222,7 +253,7 @@ const Critique = z.object({
       shotId: z.string(),
       ok: z.boolean().describe("true if the shot can ship: no defect a viewer would notice at normal speed"),
       severity: z.number().describe("0–10: 0–3 fine or a matter of taste; 4–5 a small flaw a viewer would not notice; 6–7 a visible defect; 8–10 broken or misleading"),
-      problems: z.array(z.enum(["text_overlap", "off_frame", "unreadable", "covers_subject", "cluttered", "empty_or_dull", "picture_mismatch", "ugly_layout", "broken"])),
+      problems: z.array(z.enum(["text_overlap", "off_frame", "unreadable", "covers_subject", "cluttered", "empty_or_dull", "picture_mismatch", "ugly_layout", "broken", "placeholder", "tinted_footage"])),
       fix: z.string().describe("one concrete instruction for the designer, or empty"),
     }),
   ),
@@ -230,7 +261,7 @@ const Critique = z.object({
 
 /** Each preview is one image: the same shot at several moments, left to right. */
 /** Defects a viewer sees. The rest (clutter, dullness, layout taste) only counts when the critic calls the shot broken. */
-const HARD_DEFECT = new Set(["text_overlap", "off_frame", "unreadable", "covers_subject", "picture_mismatch", "broken"]);
+const HARD_DEFECT = new Set(["text_overlap", "off_frame", "unreadable", "covers_subject", "picture_mismatch", "broken", "placeholder", "tinted_footage"]);
 
 /**
  * Calibrated on real reference frames (dev/critic-test.ts): the critic must pass nearly all of them. Only
@@ -249,8 +280,8 @@ export async function critiqueScenes(o: { channel: string; previews: Array<{ sho
     for (const p of part) blocks.push({ type: "text", text: `SHOT ${p.shotId} — narration: "${p.line.slice(0, 160)}" — intended: ${p.idea.slice(0, 140)}. Preview (early, middle, end of the shot):` }, await img(p.sheet));
     const { data } = await structured({
       stage: "scenes.critique",
-      model: MODELS.haiku,
-      system: [plain(`You are a strict finishing editor for the YouTube documentary channel ${o.channel}, reviewing rendered previews of designed shots before the film is rendered. For each shot say whether it ships. Flag: text overlapping other text or pictures; anything cut off by the frame edge; text that is hard to read against what is behind it — including pale or mid-grey letters on a light label box, or dark letters on a dark box (a box does not make text readable; the letters must stand out from the box itself); a design covering a face or the main subject; clutter; a shot that is empty, dull or just a stock clip with a little text nobody would notice; a picture that does not show what the line is about; an amateur or unbalanced layout; anything visibly broken. Be specific in the fix (what to move, shrink, remove or replace). Do not flag a shot only because it is simple — a strong phrase over good footage ships. The real frames above are the standard: they are simple, sometimes rough, and they ship. A preview sheet shows three moments, so text caught mid-entrance in the first moment is animation, not a defect. Do not ask for elements that are merely absent from the brief, and do not judge taste: flag only what a viewer would see as wrong. Most finished shots should pass.`)],
+      model: ROLE_MODEL.sceneCritic,
+      system: [plain(`You are a strict finishing editor for the YouTube documentary channel ${o.channel}, reviewing rendered previews of designed shots before the film is rendered. For each shot say whether it ships. Flag: text overlapping other text or pictures; anything cut off by the frame edge; text that is hard to read against what is behind it — including pale or mid-grey letters on a light label box, or dark letters on a dark box (a box does not make text readable; the letters must stand out from the box itself); a design covering a face or the main subject; clutter; a shot that is empty, dull or just a stock clip with a little text nobody would notice; a picture that does not show what the line is about; an amateur or unbalanced layout; anything visibly broken; PLACEHOLDERS — generic pictograms that stand in for pictures (grey person silhouettes, mountain-and-sun "image" icons, empty picture frames, blank cards), which read as an unfinished template (problem "placeholder"); real footage drowned in one strong colour (a red or blue wash where the picture's own colours are gone — "tinted_footage"). Be specific in the fix (what to move, shrink, remove or replace). Do not flag a shot only because it is simple — a strong phrase over good footage ships. The real frames above are the standard: they are simple, sometimes rough, and they ship. A preview sheet shows three moments, so text caught mid-entrance in the first moment is animation, not a defect. Do not ask for elements that are merely absent from the brief, and do not judge taste: flag only what a viewer would see as wrong. Most finished shots should pass.`)],
       user: blocks,
       schema: Critique,
       effort: "low",

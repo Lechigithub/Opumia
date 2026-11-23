@@ -20,7 +20,7 @@ import { loadTaste, scoreTaste } from "./taste.js";
 import type { ChannelId } from "@opumia/contracts";
 import type { QualityBand } from "./quality-band.js";
 import * as z from "zod/v4";
-import { agentLoop, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { testTitles, thumbnailImposter } from "./publishing.js";
 import { fitLayout } from "./scene-designer.js";
 import { critiqueConcepts, critiqueThumbnail, deconText, emptyShare, nearestRefsByMeaning, type ConceptScore, type ThumbConcept, type ThumbCraft, type ThumbCritique } from "./thumbnail-craft.js";
@@ -727,7 +727,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   const people = (o.facts.story?.characters ?? []).map((c) => `${c.name} (${c.role})`).join("; ");
   const user = `Package this film.${o.brief ? `\n\nTHE LAST PACKAGE WAS NOT GOOD ENOUGH — ${o.brief}` : ""}\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
   let grace = 1;
-  const runRes = await agentLoop({ stage: "publish.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 56, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
+  const runRes = await agentLoop({ stage: "publish.agent", model: ROLE_MODEL.packaging, system, user, tools, effort: "medium", maxTurns: 30, maxSeconds: 480, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
 
   // Not submitted: the best render that carries no blocking issue (least confidently picked out), with the best title.
   const fallback = (): ThumbRender | null => {
@@ -749,7 +749,7 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
 async function criticBar(memoryDir?: string): Promise<number> {
   if (!memoryDir) return 8;
   const r = await readFile(path.join(memoryDir, "critic-models.json"), "utf8").then((t) => JSON.parse(t) as { results?: Record<string, { real: number[] }> }, () => null);
-  const real = r?.results?.[process.env.OPUMIA_CRAFT_MODEL === "opus" ? "opus" : "sonnet"]?.real;
+  const real = r?.results?.sonnet?.real;
   if (!real?.length) return 8;
   const s = [...real].sort((a, b) => a - b);
   return Math.min(8, Math.floor(s[Math.floor(s.length / 2)]! * 2) / 2);

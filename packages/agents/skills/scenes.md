@@ -95,3 +95,9 @@ Everything you watch comes with a MEASURED block from the same detectors that ju
 - **voice:** a seam is a join you can hear.
 - **trained taste:** the stretch's score against the channel's real median.
 Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.
+
+## Words on screen read as a phrase (build list 4)
+- A headline or phrase is a phrase from the line, never one common word ("INVESTMENT", "MARKET") and never a broken
+  fragment ("EARNED FROM"). One word is fine only for a name, a figure or a label under a picture. The guard refuses
+  the rest; when it does, write the phrase or show a picture instead.
+- No strong one-colour wash on real footage: a picture keeps its own colours (the colourist sets the film grade).

@@ -79,7 +79,13 @@ export function bindFactProps(kind: string, props: Record<string, unknown>, nf: 
     const labels = Array.isArray(props.labels) ? props.labels.map(String) : [];
     if (labels.length !== facts.length) return null;
     const u0 = facts[0]!.unit;
+    // Build list 4, item 12: one chart, one unit. Film 3 put "$3 billion in licensing" and "1,100 patents" on one bar
+    // chart with unit "$", so the count was drawn as "$1,100". Figures of different kinds (money, a count, a share) are
+    // not one chart: the graphic is refused and the shot is designed another way.
+    const kindOf = (u: string) => (u === "$" || u === "€" || u === "£" ? "money" : u === "%" ? "share" : u === "year" ? "year" : "count");
+    if (facts.some((f) => kindOf(f!.unit) !== kindOf(u0))) return null;
     const unit = u0 === "$" || u0 === "€" || u0 === "£" || u0 === "%" ? u0 : String(props.unit ?? "");
+    if (kindOf(u0) === "count" && /^[$€£%]$/.test(unit)) return null;
     const { facts: _x, values: _v, ...rest } = props;
     return { props: { ...rest, unit, values: facts.map((f) => f!.value), labels }, factIds: ids };
   }

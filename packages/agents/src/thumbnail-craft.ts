@@ -10,7 +10,7 @@
  *                   each real one does that ours does not
  *  emptyShare       share of the frame that is flat, dim or blurred (measured the same way on the reference)
  *
- * Deconstruction, concept critique and render critique run on Sonnet 5.5; OPUMIA_CRAFT_MODEL=opus runs them on Opus 5.5
+ * Deconstruction, concept critique and render critique run on Sonnet 5.5 (no Opus, build list 4); was: OPUMIA_CRAFT_MODEL=opus ran them on Opus 5.5
  * (to be compared once the Sonnet result is known — owner decision 2026-11-22).
  */
 import { execFile } from "node:child_process";
@@ -18,12 +18,12 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
-import { MODELS, plain, structured } from "./llm.js";
+import { plain, ROLE_MODEL, structured } from "./llm.js";
 import { nearestByMeaning } from "./retrieve.js";
 import type { ThumbBand } from "./thumbnail-measure.js";
 
-/** Sonnet by default (owner, 2026-11-22: measure the gain without Opus first); OPUMIA_CRAFT_MODEL=opus switches. */
-const craftModel = () => (process.env.OPUMIA_CRAFT_MODEL === "opus" ? MODELS.opus : MODELS.sonnet);
+/** Sonnet (build list 4, item 17: no Opus — the role table in llm.ts). */
+const craftModel = () => ROLE_MODEL.thumbnailCraft;
 const b64img = async (f: string): Promise<Anthropic.Beta.BetaImageBlockParam> => ({ type: "image", source: { type: "base64", media_type: /\.png$/i.test(f) ? "image/png" : "image/jpeg", data: (await readFile(f)).toString("base64") } });
 
 // ---------------------------------------------------------------------------------------------------------

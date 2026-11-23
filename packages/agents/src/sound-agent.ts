@@ -21,7 +21,7 @@ import type { ChannelId, ResolutionReport, ScenePlan, Storyboard, StoryboardShot
 import * as z from "zod/v4";
 import { loadChannelProfile, type ChannelProfile, type Segment } from "./channel-profile.js";
 import { ourShotsFrom, structureOf, type FilmGap } from "./film-score.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { edl, findPassages } from "./reference-library.js";
 import { chapterMoods, type Mood } from "./sound-design.js";
 import { arcDistance, bedArc, endingGap, landEnding, offBar, snapCueChanges } from "./music-edit.js";
@@ -353,9 +353,9 @@ export async function soundAgent(o: SoundAgentOptions): Promise<{ shots: Storybo
   const directives = prof ? directivesSound(prof) : "";
   const system = [cached(skill), plain(`${directives}\n\n${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}The film is ${dur.toFixed(1)} s long; chapters: ${chapterMoods(o.script).map((c) => `${c.chapter} ${c.startS.toFixed(0)}–${c.endS.toFixed(0)} s (${c.mood})`).join("; ")}.`)];
   const user = `Design the sound of this film. The timeline designer made a first pass from the visual moments; it is yours to improve.${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS BACK:\n${o.brief}` : ""}\n\nStart with read_sound.`;
-  log(`  sound designer: ${before.score}/100 at the start (${MODELS.sonnet})…`);
+  log(`  sound designer: ${before.score}/100 at the start (${ROLE_MODEL.soundDesigner})…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "sound.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 36, maxTokens: 20000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The sound is not submitted yet. Read it, study the channel, listen, change what is wrong, and submit.", log });
+  const run = await agentLoop({ stage: "sound.agent", model: ROLE_MODEL.soundDesigner, system, user, tools, effort: "medium", maxTurns: 14, maxSeconds: 180, maxTokens: 20000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The sound is not submitted yet. Read it, study the channel, listen, change what is wrong, and submit.", log });
   const after = measureNow();
   const pass = accepted !== null;
   // never hand over sound that measures worse than the timeline's

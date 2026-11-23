@@ -17,7 +17,7 @@ import { readMemory } from "./lessons.js";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import * as z from "zod/v4";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 
 export interface LineMeasure {
   seconds: number;
@@ -170,7 +170,7 @@ export async function voiceAgent(o: VoiceAgentOptions): Promise<VoiceAgentReport
   const system = [cached(skill), plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes (take these seriously)\n${tail(owner, 20)}\n\n` : ""}Retake budget for this narration: ${budget} line(s).`)];
   log(`  voice director (listening): ${o.lines.length} lines, ${flagsBefore} notice(s), budget ${budget} retake(s)…`);
   let grace = 1;
-  const run = await agentLoop({ stage: "voice.agent", model: MODELS.sonnet, system, user: `Listen to the narration of "${o.title}" and fix the delivery where a listener would notice. Start with read_delivery.`, tools, effort: "medium", maxTurns: 30, maxTokens: 16000, done: () => submitted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the delivery, hear the lines that were flagged, retake or keep, and submit.", log });
+  const run = await agentLoop({ stage: "voice.agent", model: ROLE_MODEL.voiceDirector, system, user: `Listen to the narration of "${o.title}" and fix the delivery where a listener would notice. Start with read_delivery.`, tools, effort: "medium", maxTurns: 16, maxSeconds: 240, maxTokens: 16000, done: () => submitted !== null && (noteSaved || grace-- <= 0), nudge: "Not submitted yet. Read the delivery, hear the lines that were flagged, retake or keep, and submit.", log });
   const flagsAfter = flagCount();
   const report: VoiceAgentReport = { retakes, changed: [...changed].sort((a, b) => a - b), flagsBefore, flagsAfter, notices: { before: noticesBefore, after: noticeMap() }, note: submitted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {

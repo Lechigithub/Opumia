@@ -11,7 +11,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import * as z from "zod/v4";
-import { MODELS, plain, structured } from "./llm.js";
+import { plain, structured, ROLE_MODEL } from "./llm.js";
 
 export const THUMB_HEROES = ["person", "product", "logo", "object", "building", "place", "text", "none"] as const;
 export const THUMB_BACKGROUNDS = ["colour_field", "gradient", "photo_scene", "split_colour", "pattern", "texture"] as const;
@@ -82,7 +82,7 @@ export async function labelThumbnails(files: string[]): Promise<Array<ThumbLabel
         if (data) blocks.push({ type: "text", text: `[${k}]` }, { type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
       }
       if (!blocks.length) return;
-      const res = await structured({ stage: "thumb.label", model: MODELS.sonnet, system: [plain(SYSTEM)], user: blocks, schema: Labels, effort: "low", maxTokens: 3000 }).catch(() => null);
+      const res = await structured({ stage: "thumb.label", model: ROLE_MODEL.labels, system: [plain(SYSTEM)], user: blocks, schema: Labels, effort: "low", maxTokens: 3000 }).catch(() => null);
       for (const l of res?.data.thumbs ?? []) {
         if (l.i < 0 || l.i >= part.items.length) continue;
         const { i: _i, ...rest } = l;

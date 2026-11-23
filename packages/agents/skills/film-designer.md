@@ -80,3 +80,6 @@ export const FILM = {
 - Pictures only through `staticFile(String((p.slots as Record<string, string>)[String(p.slot)]))`.
 - Only `react`, `remotion` and `@remotion/google-fonts/<Font>` may be imported. No URLs, no network.
 - Every word on screen comes from props (the scene designer fills them with words the narrator says).
+- **No placeholders (build list 4).** Never draw stand-ins for pictures: grey person silhouettes, mountain-and-sun
+  "image" icons, empty picture frames or blank cards. They read as an unfinished template. A stage without a picture
+  is texture, light and type; real pictures arrive only through slots.

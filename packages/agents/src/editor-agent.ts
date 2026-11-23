@@ -20,7 +20,7 @@ import { probeDuration, rgbFrames } from "@opumia/senses";
 import * as z from "zod/v4";
 import { loadChannelProfile, type Segment } from "./channel-profile.js";
 import { ourShotsFrom, structureOf, type FilmGap } from "./film-score.js";
-import { agentLoop, cached, MODELS, plain, type AgentTool } from "./llm.js";
+import { agentLoop, cached, plain, type AgentTool, ROLE_MODEL } from "./llm.js";
 import { edl, findPassages } from "./reference-library.js";
 
 /** Measures the editor owns (sound and picture kinds belong to other agents). */
@@ -303,9 +303,9 @@ export async function editFilmAgent(o: EditorAgentOptions): Promise<{ storyboard
     plain(`${notes.trim() ? `## Your own notes from earlier films\n${notes}\n\n` : ""}${owner.trim() ? `## The owner's notes on your work (take these seriously)\n${tail(owner, 20)}\n\n` : ""}Times are in seconds on the narration's clock. Words with times are given so you can place cuts inside phrases.`),
   ];
   const user = `Edit this film (${o.script.title}, ${o.script.aspect}, ${o.script.durationS.toFixed(1)} s).\n\nNARRATION WORDS (word@start):\n${words.map((w) => `${w.word}@${w.startS.toFixed(2)}`).join(" ")}\n\nSHOT INTENTS:\n${board.shots.map((s) => `${s.id} ${s.startS.toFixed(2)}–${s.endS.toFixed(2)} [${s.lineLink}] ${s.intent.slice(0, 90)} · said: "${lineOf(s).slice(0, 80)}"`).join("\n")}${o.brief ? `\n\nTHE SHOWRUNNER SENT THIS CUT BACK:\n${o.brief}` : ""}\n\nStart with read_cut.`;
-  log(`  editor: ${board.shots.length} shots, structure on the editor's measures ${before.structure}/100 (${MODELS.sonnet})…`);
+  log(`  editor: ${board.shots.length} shots, structure on the editor's measures ${before.structure}/100 (${ROLE_MODEL.editor})…`);
   let grace = 2;
-  const run = await agentLoop({ stage: "editor.agent", model: MODELS.sonnet, system, user, tools, effort: "medium", maxTurns: 40, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The cut is not submitted yet. Read it, study the channel, edit, and submit.", log });
+  const run = await agentLoop({ stage: "editor.agent", model: ROLE_MODEL.editor, system, user, tools, effort: "medium", maxTurns: 16, maxSeconds: 180, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The cut is not submitted yet. Read it, study the channel, edit, and submit.", log });
   const after = measureNow();
   const pass = accepted !== null;
   if (!pass && after.structure < before.structure) {
