@@ -104,14 +104,34 @@ and inputs in `out/hand-ftx/frozen/<tag>/` and has a git tag `ratchet/hand-ftx/<
 | v6 | stronger camera, saturation, larger room | 0.85 | 0.77 | 0.34 | 0.12 | 49.0 | 0.039 | 0 | 21 | |
 | v7 | quote on moving footage, cards keep moving | 0.85 | 0.77 | 0.36 | 0.09 | 47.0 | 0.042 | 0 | 21 | |
 | v8 | two reflection sets on the narrator | 0.83 | **0.843** | 0.36 | 0.09 | 47.0 | 0.042 | 0 | 21 | 12.5 % |
-| **v9** | four more clean-footage shots | **0.83** | **0.843** | **0.36** | **0.10** | **46.6** | **0.042** | **0** | **21** | **25 %** |
+| v9 | four more clean-footage shots | 0.83 | 0.843 | 0.36 | 0.10 | 46.6 | 0.042 | 0 | 21 | 25 % |
+| **v10** | music no longer drowns the voice (below) | **0.805** | retired | **0.36** | **0.10** | **46.6** | **0.042** | **0** | **21** | **25 %** |
 
-Rejected (no improvement): v10 with re-tuned delivery settings (voice 0.82, mix 0.85: within noise).
+Rejected (no improvement): an earlier v10 candidate with re-tuned delivery settings (voice 0.82, mix 0.85: within noise).
 
-**Status at v9:**
-- Every content-free measure is inside the channel's band.
-- Mix is at the channel's median.
-- Voice is inside the band (0.83 against a 0.72 floor), below the 0.91 median.
+### v10: the music overpowered the voice (owner, by ear, 2026-11-24)
+- **Measured:** in v9 the voice sat 2.6 dB over the music while speaking; the channel's 37 films sit at 14.4–24.3 dB
+  (median 18.1), with the music ducked a median 8.2 dB under speech.
+- **Causes:**
+  1. The engine did not level the narration. Marcus K arrives 10.7 dB quieter than Christopher, against music at a
+     fixed level.
+  2. The room reflections (`aecho` with gains 0.8/0.6) also cut the dry voice by about 14 dB.
+  3. The music level was tuned on the mix ears, which scored the drowned mix 0.84 and the corrected one 0.58: they
+     reward the defect.
+- **Fixed in the engine (every film):**
+  - every narration is levelled to −16 LUFS before the mix (`audio.ts:NARRATION_LUFS`, `narrationGainDb`);
+  - the room stage is unity-gain, so it adds reflections without lowering the voice.
+- **Fixed in the hand film:** music cues at −12/−13/−12 dB. The voice now sits 19.1 dB over the music while speaking.
+  The owner confirmed by ear: "Sounds right".
+- **In the ratchet:**
+  - `voiceOverBed` is gated against the channel's 14.4–24.3 dB band;
+  - `mix` is still recorded but retired from the gate.
+- **Rule taken from this:** a measure that disagrees with the owner's ear or eye is retired, not obeyed. This is the
+  second one, after the picture-style heads.
+
+**Status at v10:**
+- Every content-free measure is inside the channel's band, now including voice over music.
+- Voice is inside the band (0.805 against a 0.72 floor), below the 0.91 median.
 
 **What no instrument can settle yet:**
 - Picture "style": the trained heads read content (period, subject, logo), not craft. They rank the hand film
