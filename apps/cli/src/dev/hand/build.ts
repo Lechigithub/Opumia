@@ -210,7 +210,7 @@ for (const [i, s] of SHOTS.entries()) {
     camera: (() => { const c = s.scene(s.start).camera; const k = i % 2 ? 1 : -1; return { type: "ken_burns", fromScale: c.fromScale + 0.04, toScale: Math.min(1.6, c.toScale + 0.24), from: [0.5 - 0.1 * k, c.fromY], to: [0.5 + 0.1 * k, c.toY], easing: "linear" }; })(), overlays: [], sfx: [], transitionIn: s.tr ?? "cut" } as Storyboard["shots"][number]);
   // v11 (2026-11-24): the channel's films run low-key (whole-film luma median 0.25 over the first 80 s, ours was 0.36),
   // so footage sits under a deeper dim: LOWKEY is added to every footage shot's dim, type stays at full brightness.
-  const sc = s.scene(s.start) as SceneSpec;
+  const sc = s.scene(s.start) as Omit<SceneSpec, "shotId" | "idea">;
   if ((sc.backdrop ?? "footage") === "footage") (sc as { dim?: number }).dim = Math.min(0.7, ((sc as { dim?: number }).dim ?? 0) + LOWKEY);
   scenes.push({ shotId: s.id, idea: s.intent, ...sc } as SceneSpec);
 }
