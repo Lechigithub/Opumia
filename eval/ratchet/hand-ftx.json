@@ -24,7 +24,12 @@
     "wideText": 0.527,
     "smallBoxed": 0.07,
     "caps": 0.485,
-    "sizeSpread": 0.796
+    "sizeSpread": 0.796,
+    "strokeMed": 0.122,
+    "strokeLo": 0.076,
+    "aspectMed": 0.342,
+    "heavyShare": 0.511,
+    "lightShare": 0.199
   },
   "ownerApproval": "freeze the v12 now first (2026-11-24: names set huge, frame-wide figures, second type voice, judged by eye)",
   "previous": {
@@ -48,6 +53,7 @@
     }
   },
   "notes": [
-    "2026-11-24: text measures (text-band.py) back-filled for v12; v11 had wideText 0.353 (channel 80 s p10 0.32)"
+    "2026-11-24: text measures (text-band.py) back-filled for v12; v11 had wideText 0.353 (channel 80 s p10 0.32)",
+    "2026-11-24: typeface properties back-filled for v12 at 120 frames (30 frames read 0.105-0.139 stroke on one film: too noisy)"
   ]
 }

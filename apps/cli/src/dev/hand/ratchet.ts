@@ -29,16 +29,20 @@ const LB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "m
 // Grade over the whole film (grade-band.py, 37 films): contrast (p95−p5 luma), blown highlights, frames carried by one colour.
 const GB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-grade-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
 const TB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-text-band-80s.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
+// Typeface properties (type-band.py over every reference channel's letter shapes): weight and width of the lettering
+const TY = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-type-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
+const TYPE_KEYS = ["strokeMed", "strokeLo", "aspectMed", "heavyShare", "lightShare"];
 const BAND: Record<string, [number, number]> = { voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
   // How words are set (text-band.py, on-device OCR, first 80 s of the 37 films): frames with words, tallest and widest
   // line, small boxed name tags, capitals, spread of sizes
-  ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])) };
+  ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
+  ...Object.fromEntries(TYPE_KEYS.map((k) => [k, [TY[k]!.p10, TY[k]!.p90] as [number, number]])) };
 /** Higher is better for these; noise below which a drop is not a regression. */
 const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03 };
 /** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
  *  rewards a defect. Retired 2026-11-24. */
 const RETIRED = new Set(["mix"]);
-const BAND_NOISE: Record<string, number> = { textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -76,6 +80,16 @@ if (existsSync(path.join(job, "manifest.json"))) {
 {
   const t = JSON.parse(execFileSync(path.join(process.env.HOME!, "lechi_tts/venv/bin/python"), ["-I", path.join(root, "apps/cli/src/dev/hand/text-band.py"), path.resolve(film)]).toString()) as Record<string, number>;
   for (const [k, v] of Object.entries(t)) m[k] = +v.toFixed(3);
+}
+// the lettering's weight and width (letter-shape crops, same function as the reference channels')
+{
+  const dir = path.join(job, "type-ratchet");
+  await import("node:fs/promises").then((f) => f.rm(dir, { recursive: true, force: true }));
+  const py = path.join(process.env.HOME!, "lechi_tts/venv/bin/python");
+  execFileSync(py, ["-I", path.join(root, "apps/cli/src/dev/hand/type-crops.py"), dir, "120", `film=${path.resolve(film)}`]);
+  const r = JSON.parse(execFileSync(py, ["-I", path.join(root, "apps/cli/src/dev/hand/type-band.py"), path.join(root, "data", "type-crops"), "magnates-media", dir]).toString()) as { ours: Record<string, Record<string, number>> };
+  const o = Object.values(r.ours)[0] ?? {};
+  for (const k of TYPE_KEYS) if (o[k] !== undefined) m[k] = +o[k]!.toFixed(3);
 }
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {

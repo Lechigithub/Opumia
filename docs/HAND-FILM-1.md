@@ -225,3 +225,23 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 - The voice sits inside the channel's band (p10 0.72) and below its median (0.91). Picking takes does not move it. What
   is left: rewording the lines that score low for speech, auditioning other voices on the whole script in the mix, or a
   human narrator. Each is the owner's call.
+
+### Lettering measured as lettering (2026-11-24)
+- **Crops** (`type-crops.py`): every line of words that on-device OCR finds is cut out and reduced to its letter shapes
+  (white on black; no footage, no colour). It is run on all 154 reference films of the five channels
+  (`data/type-crops/`, 11,321 lines) and on ours.
+- **Properties** (`type-band.py` → `data/quality-profile/magnates-media-type-band.json`): stroke weight against line
+  height, letter width, ink, and the shares of heavy and light lines. MagnatesMedia's lettering is heavier than the
+  other four channels' (median stroke 0.143 vs 0.124; heavy lines 54–85 %), of middling width, and rarely light.
+  Looking at the crops, it mixes narrow heavy caps (Anton-like) with wide rounded heavy caps (geometric sans).
+- **Type-only scorer** (`type-style.ts`, `data/taste/magnates-media-type.json`): SigLIP on letter shapes, trained
+  on the real channels only. On held-out films: line AUC 0.73, film AUC 0.91. Our films and the agent films all
+  score 0.46–0.51, too close together to rank. It is informational, not gated.
+- **Repeatability:** 30 sampled frames read one film's median stroke anywhere from 0.105 to 0.139, so the ratchet
+  samples 120 frames (0.127–0.129).
+- **v13 candidate:** the thin second type style is replaced by wide heavy caps (Montserrat ExtraBold), now also on
+  "72 HOURS", "SELL EVERY FTT" and "STEALING $8 BILLION", and the labels are heavier. At 120 frames: stroke
+  0.122 → 0.129 and heavy lines 51 → 55 %, both into the band; light lines 20 → 18 % (band ≤ 16 %); width
+  0.342 → 0.347 (band ≥ 0.38). The steps are within noise, so the ratchet does not freeze it by itself.
+- **What still holds us outside the band:** light and narrow lines come mostly from the five document and post
+  shots (many lines of thin article text each), and from Anton on the remaining cards.
