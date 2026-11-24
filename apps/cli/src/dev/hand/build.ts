@@ -15,11 +15,13 @@ const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
 const only = process.argv.includes("--only") ? new Set(process.argv[process.argv.indexOf("--only") + 1]!.split(",")) : null;
 // the narration in use (NARRATOR=marcus → timed-script-marcus.json); cut points were designed on Christopher's timing
 // and are carried over word by word (warp), so every cut stays on the same word
-const NARRATOR = process.env.NARRATOR ?? "christopher";
+const NARRATOR = process.env.NARRATOR ?? "marcus2";
+const WARP = NARRATOR !== "marcus2"; // the v1 script's narrations were cut on Christopher's timings and warped
 const timed = TimedScript.parse(JSON.parse(await readFile(path.join(job, `timed-script-${NARRATOR}.json`), "utf8")));
 const W = timed.segments.flatMap((s) => s.words);
 const OLD = TimedScript.parse(JSON.parse(await readFile(path.join(job, "timed-script-christopher.json"), "utf8"))).segments.flatMap((s) => s.words);
 const warp = (t: number) => {
+  if (!WARP) return t;
   if (t <= OLD[0]!.startS) return Math.max(0, t - OLD[0]!.startS + W[0]!.startS);
   for (let k = 0; k < OLD.length - 1; k++) if (t < OLD[k + 1]!.startS) return W[k]!.startS + ((t - OLD[k]!.startS) / Math.max(0.01, OLD[k + 1]!.startS - OLD[k]!.startS)) * (W[k + 1]!.startS - W[k]!.startS);
   return t - OLD.at(-1)!.startS + W.at(-1)!.startS;
@@ -71,116 +73,132 @@ const SHOTS: Shot[] = [
   { id: "S01", start: 0, seg: "l01", intent: "a message sent at night", footage: "phone", trim: 2, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.0, 1.4), finish: fin(0.4, 0.7, 0.3), atmos: { kind: "dust", opacity: 0.6 },
       elements: [{ type: "component", name: "Kinetic", x: 0.1, y: 0.36, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[2, "NOVEMBER", "w"], [2, "7", "y"], ["|", ""], [5, "2022", "y"]]), size: 190 } }] }) },
-  { id: "S02", start: 2.72, seg: "l01", intent: "Sam Bankman-Fried", slots: { 0: "cut_sbf", 1: "sbf_cnbc_still" }, tr: "film",
+  { id: "S02", start: 2.9, seg: "l01", intent: "Sam Bankman-Fried", slots: { 0: "cut_sbf", 1: "sbf_cnbc_still" }, tr: "film",
     scene: (t) => ({ backdrop: "world", atmos: { kind: "leak", opacity: 0.6 }, world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accent" }, dim: 0.15, camera: cam(1.0, 1.16), finish: fin(0.35, 0.6, 0.2),
       elements: [
         { type: "cutout", slot: 0, x: 0.46, y: 0.08, w: 0.5, z: 0.6, rot: 0, at: 0, enter: "settle", shadow: true, outline: true, contactShadow: 0.5 },
-        { type: "component", name: "Name", x: 0.04, y: 0.26, w: 0.46, at: rel(t, 6), z: 0.8, rot: 0, enter: "fade", props: { text: "Sam | Bankman-Fried", role: "founder of FTX" } },
+        { type: "component", name: "Name", x: 0.04, y: 0.26, w: 0.46, at: rel(t, 7), z: 0.8, rot: 0, enter: "fade", props: { text: "Sam | Bankman-Fried", role: "founder of FTX" } },
       ] }) },
-  { id: "S02b", start: 4.05, seg: "l01", intent: "sent the world a message", footage: "sbf_cnbc", trim: 3, tr: "cut",
+  { id: "S02b", start: 4.0, seg: "l01", intent: "has a message for the world", footage: "sbf_cnbc", trim: 3, tr: "cut",
     scene: () => ({ backdrop: "footage", dim: 0, camera: cam(1.05, 1.25), finish: fin(0.35, 0.5, 0.2), elements: [] }) },
-  { id: "S03", start: 5.8, seg: "l02", intent: "the post: FTX is fine", footage: "phone", trim: 8, slots: { 0: "tweet" }, tr: "flash",
+  { id: "S03", start: 5.62, seg: "l02", intent: "the post: FTX is fine", footage: "phone", trim: 8, slots: { 0: "tweet" }, tr: "flash",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.7 }, wash: { color: "primary", strength: 0.3, mode: "tint" }, camera: cam(1.1, 1.28), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Card", x: 0.1, y: 0.28, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -2 } }] }) },
-  { id: "S03b", start: 7.6, seg: "l02", intent: "assets are fine (punch in)", footage: "phone", trim: 10, slots: { 0: "tweet" }, tr: "zoom_punch",
+  { id: "S03b", start: 7.3, seg: "l02", intent: "assets are fine (punch in)", footage: "phone", trim: 10, slots: { 0: "tweet" }, tr: "zoom_punch",
     scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.8 }, camera: cam(1.1, 1.3), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Card", x: -0.12, y: -0.05, w: 1.5, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -3 } }] }) },
-  { id: "S04", start: 9.75, seg: "l03", intent: "four days later", footage: "fire", trim: 3, tr: "film",
+  { id: "S04", start: 9.3, seg: "l03", intent: "four days later", footage: "fire", trim: 3, tr: "film",
     scene: (t) => ({ backdrop: "footage", atmos: { kind: "embers", opacity: 0.7 }, dim: 0.2, camera: cam(1.0, 1.18), finish: fin(0.4, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[19, "Four"], [20, "days"], [21, "later", "y"]]), size: 150, font: "wide" } }] }) },
-  { id: "S05", start: 11.05, seg: "l03", intent: "the $32 billion empire burning", footage: "burn100", trim: 1.5, tr: "cut",
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[21, "Four"], [22, "days"], [23, "later", "y"]]), size: 150, font: "wide" } }] }) },
+  { id: "S05", start: 10.5, seg: "l03", intent: "the $32 billion empire burning", footage: "burn100", trim: 1.5, tr: "cut",
     scene: (t) => ({ backdrop: "footage", atmos: { kind: "money", opacity: 0.8 }, dim: 0.25, camera: cam(1.05, 1.23), finish: fin(0.4, 0.55, 0.25),
-      elements: [{ type: "component", name: "Counter", x: 0.06, y: 0.2, w: 0.88, at: rel(t, 23), z: 0.75, rot: 0, enter: "fade", props: { prefix: "$", to: 32, suffix: " BILLION", frames: 18, label: "an empire worth" } }] }) },
-  { id: "S06", start: 13.7, seg: "l03", intent: "bankrupt", footage: "crash1", trim: 4, slots: { 0: "ftx_logo" }, tr: "zoom_punch",
+      elements: [{ type: "component", name: "Counter", x: 0.1, y: 0.2, w: 0.8, at: rel(t, 25), z: 0.75, rot: 0, enter: "fade", props: { prefix: "$", to: 32, suffix: " BILLION", frames: 18, label: "an empire worth" } }] }) },
+  { id: "S06", start: 12.7, seg: "l03", intent: "bankrupt", footage: "crash1", trim: 4, slots: { 0: "ftx_logo" }, tr: "zoom_punch",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "accentDeep", strength: 0.35, mode: "tint" }, fx: { glitch: true }, camera: cam(1.1, 1.33), finish: fin(0.4, 0.6),
       elements: [
         { type: "card3d", slot: 0, x: 0.3, y: 0.08, w: 0.4, z: 0.5, rot: 0, at: 0, enter: "zoom", tilt: -8, spin: 18 },
-        { type: "component", name: "Stamp", x: 0.24, y: 0.52, w: 0.52, at: rel(t, 28), z: 0.9, rot: 0, enter: "fade", props: { text: "Bankrupt", size: 190 } },
+        { type: "component", name: "Stamp", x: 0.24, y: 0.52, w: 0.52, at: rel(t, 30), z: 0.9, rot: 0, enter: "fade", props: { text: "Bankrupt", size: 190 } },
       ] }) },
-  { id: "S07", start: 15.2, seg: "l04", intent: "a week before: SBF on air, all smiles", footage: "sbf_bbg", trim: 0.2, tr: "film",
+  { id: "S07", start: 14.1, seg: "l03", intent: "so how does a company worth that much vanish? (SBF on air, all smiles)", footage: "sbf_bbg", trim: 0.2, tr: "film",
     scene: () => ({ backdrop: "footage", dim: 0, camera: cam(1.0, 1.14), finish: fin(0.3, 0.45), elements: [] }) },
-  { id: "S08", start: 17.5, seg: "l04", intent: "the leaked balance sheet (CoinDesk)", footage: "sbf_bbg", trim: 0, slots: { 0: "coindesk" }, tr: "cut",
+  { id: "S07b", start: 16.4, seg: "l03", intent: "vanish in less than a week", footage: "paperburn", trim: 0, tr: "cut",
+    scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.05, 1.22), finish: fin(0.4, 0.6),
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.3, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[41, "LESS THAN"], ["|", ""], [43, "A WEEK", "y"]]), size: 170, font: "wide" } }] }) },
+  { id: "S07c", start: 18.25, seg: "l03", intent: "it started with one document (a data room)", footage: "cables", trim: 4, tr: "film",
+    scene: (t) => ({ backdrop: "footage", dim: 0.35, camera: cam(1.05, 1.25), finish: fin(0.4, 0.6),
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.34, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[48, "ONE"], [49, "DOCUMENT", "y"]]), size: 170, font: "wide" } }] }) },
+  { id: "S08", start: 20.85, seg: "l03", intent: "the leaked balance sheet (CoinDesk)", footage: "sbf_bbg", trim: 0, slots: { 0: "coindesk" }, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.75 }, camera: cam(1.0, 1.14), finish: fin(0.35, 0.6, 0.2),
-      elements: [{ type: "component", name: "Card", x: 0.1, y: 0.26, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: 1.5, aspect: 305 / 780, crop: { y0: 0.12, y1: 0.7 }, hl: { x: 0.02, y: 0.75, w: 0.74, h: 0.15, from: fr(t, 41), to: fr(t, 44) + 8 } } }] }) },
-  { id: "S09", start: 20.4, seg: "l04", intent: "Alameda's $14.6 billion", footage: "spread", trim: 2, slots: { 0: "alameda" }, tr: "cut",
+      elements: [{ type: "component", name: "Card", x: 0.1, y: 0.26, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: 1.5, aspect: 305 / 780, crop: { y0: 0.12, y1: 0.7 }, hl: { x: 0.02, y: 0.75, w: 0.74, h: 0.15, from: fr(t, 55), to: fr(t, 59) + 8 } } }] }) },
+  { id: "S09", start: 24.7, seg: "l04", intent: "Alameda's $14.6 billion", footage: "spread", trim: 2, slots: { 0: "alameda" }, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.3, mode: "tint" }, fx: { dof: 0.6 }, camera: cam(1.08, 1.2, 0.45, 0.55), finish: fin(0.35, 0.6),
       elements: [
-        { type: "photo", slot: 0, x: 0.25, y: 0.12, w: 0.5, z: 0.6, rot: 0, at: rel(t, 47), enter: "slide_down", grade: "natural" },
-        { type: "component", name: "Counter", x: 0.04, y: 0.34, w: 0.92, at: rel(t, 49), z: 0.8, rot: 0, enter: "fade", props: { prefix: "$", to: 14.6, decimals: 1, suffix: " BILLION", frames: 20, label: "in assets" } },
+        { type: "photo", slot: 0, x: 0.25, y: 0.12, w: 0.5, z: 0.6, rot: 0, at: 0, enter: "slide_down", grade: "natural" },
+        { type: "component", name: "Counter", x: 0.1, y: 0.34, w: 0.8, at: rel(t, 66), z: 0.8, rot: 0, enter: "fade", props: { prefix: "$", to: 14.6, decimals: 1, suffix: " BILLION", frames: 20, label: "in assets" } },
       ] }) },
-  { id: "S10", start: 24.15, seg: "l04", intent: "40% was FTT", footage: "btc", trim: 2, tr: "flash",
+  { id: "S10", start: 23.7, seg: "l04", intent: "40% was FTT", footage: "btc", trim: 2, tr: "flash",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.8 }, camera: cam(1.0, 1.16), finish: fin(0.35, 0.6),
-      elements: [{ type: "component", name: "Donut", x: 0.33, y: 0.12, w: 0.34, at: 0, z: 0.7, rot: 0, enter: "fade", props: { share: 0.4, label: "FTT" } }] }) },
-  { id: "S11", start: 25.7, seg: "l04", intent: "a token his own exchange had made up", footage: "coins", trim: 0.5, tr: "cut",
+      elements: [{ type: "component", name: "Donut", x: 0.33, y: 0.12, w: 0.34, at: 0, z: 0.7, rot: 0, enter: "fade", props: { share: 0.4, label: "FTT", from: 1, frames: 14 } }] }) },
+  { id: "S11", start: 27.7, seg: "l04", intent: "a token his own exchange had made up", footage: "coins", trim: 0.5, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0, wash: { color: "accent", strength: 0.55, mode: "duotone" }, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
       elements: [] }) },
-  { id: "S12", start: 28.5, seg: "l05", intent: "his own coupons", footage: "sbf_cnbc", trim: 0, slots: { 0: "ftx_logo" }, tr: "film",
+  { id: "S12", start: 31.9, seg: "l05", intent: "his own coupons", footage: "sbf_cnbc", trim: 0, slots: { 0: "ftx_logo" }, tr: "film",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.5, mode: "duotone" }, drift: { slot: 0, mode: "fall", count: 14 }, camera: cam(1.1, 1.28), finish: fin(0.4, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.55, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[73, "HIS OWN"], [75, "coupons", "y", true]]), size: 200 } }] }) },
-  { id: "S13", start: 32.55, seg: "l06", intent: "Changpeng Zhao, head of Binance", footage: "cz", trim: 0, tr: "film", panX: [0.44, 0.4],
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.55, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[88, "HIS OWN"], [90, "coupons", "y", true]]), size: 200 } }] }) },
+  { id: "S12b", start: 35.4, seg: "l05", intent: "coupons are only worth something while people believe in them", footage: "btc", trim: 8, tr: "cut",
+    scene: () => ({ backdrop: "footage", dim: 0, wash: { color: "accent", strength: 0.35, mode: "tint" }, camera: cam(1.05, 1.22), finish: fin(0.35, 0.5), elements: [] }) },
+  { id: "S13", start: 38.85, seg: "l06", intent: "Changpeng Zhao, head of Binance", footage: "cz", trim: 0, tr: "film", panX: [0.44, 0.4],
     scene: (t) => ({ backdrop: "footage", dim: 0.1, camera: cam(1.0, 1.16), finish: fin(0.3, 0.45),
-      elements: [{ type: "component", name: "Name", x: 0.05, y: 0.56, w: 0.32, at: rel(t, 81), z: 0.8, rot: 0, enter: "fade", props: { text: "Changpeng | Zhao", role: "CEO of Binance", roleC: "w" } }] }) },
-  { id: "S14", start: 35.4, seg: "l06", intent: "sell every FTT", footage: "crash2", trim: 8, slots: { 0: "cut_cz" }, tr: "cut",
+      elements: [{ type: "component", name: "Name", x: 0.05, y: 0.56, w: 0.32, at: rel(t, 107), z: 0.8, rot: 0, enter: "fade", props: { text: "Changpeng | Zhao", role: "CEO of Binance", roleC: "w" } }] }) },
+  { id: "S14", start: 41.6, seg: "l06", intent: "sell every FTT", footage: "crash2", trim: 8, slots: { 0: "cut_cz" }, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "accentDeep", strength: 0.4, mode: "tint" }, camera: cam(1.1, 1.28), finish: fin(0.4, 0.6),
       elements: [
         { type: "cutout", slot: 0, x: 0.04, y: 0.18, w: 0.4, z: 0.6, rot: 0, at: 0, enter: "slide_right", shadow: true, glow: "accent", contactShadow: 0.4 },
-        { type: "component", name: "Kinetic", x: 0.46, y: 0.24, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[86, "SELL", "r"], ["|", ""], [87, "EVERY"], ["|", ""], [88, "FTT", "y"]]), size: 190, font: "wide" } },
+        { type: "component", name: "Kinetic", x: 0.46, y: 0.24, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[112, "SELL", "r"], ["|", ""], [113, "EVERY"], ["|", ""], [114, "FTT", "y"]]), size: 190, font: "wide" } },
       ] }) },
-  { id: "S15", start: 38.75, seg: "l07", intent: "customers ran", footage: "run", trim: 3, tr: "flash",
+  { id: "S15", start: 44.75, seg: "l06", intent: "you can guess what happened next: customers ran", footage: "run", trim: 3, tr: "flash",
     scene: () => ({ backdrop: "footage", dim: 0, camera: cam(1.02, 1.18), finish: fin(0.3, 0.45), elements: [] }) },
-  { id: "S16", start: 40.8, seg: "l07", intent: "$6 billion out", footage: "queue", trim: 2, tr: "cut",
+  { id: "S16", start: 48.55, seg: "l07", intent: "$6 billion out", footage: "queue", trim: 2, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "accentDeep", strength: 0.7, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.4, 0.6),
       elements: [
-        { type: "component", name: "Counter", x: 0.05, y: 0.26, w: 0.9, at: 0, z: 0.8, rot: 0, enter: "fade", props: { prefix: "$", to: 6, suffix: " BILLION", frames: 14, label: "withdrawn", fill: "red" } },
+        { type: "component", name: "Counter", x: 0.1, y: 0.26, w: 0.8, at: 0, z: 0.8, rot: 0, enter: "fade", props: { prefix: "$", to: 6, suffix: " BILLION", frames: 14, label: "withdrawn", fill: "red" } },
       ] }) },
-  { id: "S17", start: 43.7, seg: "l07", intent: "in 72 hours", footage: "paperburn", trim: 4, tr: "cut",
+  { id: "S17", start: 51.35, seg: "l07", intent: "in 72 hours", footage: "paperburn", trim: 4, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.05, 1.23), finish: fin(0.4, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[103, "72", "y"], [104, "HOURS"]]), size: 260, font: "wide" } }] }) },
-  { id: "S18", start: 45.65, seg: "l08", intent: "Binance agreed to buy", footage: "hand", trim: 1, tr: "film",
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[135, "72", "y"], [136, "HOURS"]]), size: 260, font: "wide" } }] }) },
+  { id: "S18", start: 53.2, seg: "l08", intent: "Binance agreed to buy", footage: "hand", trim: 1, tr: "film",
     scene: (t) => ({ backdrop: "footage", dim: 0, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
       elements: [] }) },
-  { id: "S19", start: 48.0, seg: "l08", intent: "one day later it walked away", footage: "walk", trim: 0, tr: "cut",
+  { id: "S19", start: 55.35, seg: "l08", intent: "one day later it walked away", footage: "walk", trim: 0, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0, wash: { color: "surface", strength: 0.85, mode: "duotone" }, camera: cam(1.0, 1.16), finish: fin(0.35, 0.55),
       elements: [] }) },
-  { id: "S20", start: 50.2, seg: "l08", intent: "beyond our control (Binance's words)", footage: "run", trim: 11, tr: "film",
+  { id: "S20", start: 57.9, seg: "l08", intent: "whatever it had found was beyond saving", footage: "run", trim: 11, tr: "film",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.6 }, camera: cam(1.1, 1.26), finish: fin(0.4, 0.65),
-      elements: [{ type: "component", name: "Quote", x: 0.1, y: 0.22, w: 0.8, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[119, "THE ISSUES"], [121, "ARE"], [122, "BEYOND", "y"], [123, "OUR"], [124, "CONTROL", "y"], [125, "OR"], [126, "ABILITY"], [127, "TO"], [128, "HELP."]]), by: "Binance, 9 November 2022", byFrom: fr(t, 128) + 4, size: 110, font: "wide" } }] }) },
-  { id: "S21", start: 54.6, seg: "l09", intent: "John J. Ray III, sent in to clean up", footage: "ray", trim: 0, tr: "flash",
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.34, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[150, "WHATEVER"], [151, "IT"], [152, "HAD"], [153, "FOUND"], ["|", ""], [154, "WAS"], [155, "BEYOND", "y"], [156, "SAVING", "r"]]), size: 110, font: "wide" } }] }) },
+  { id: "S21", start: 61.0, seg: "l09", intent: "John J. Ray III, brought in to clean up", footage: "ray", trim: 0, tr: "flash",
     scene: (t) => ({ backdrop: "footage", dim: 0.1, camera: cam(1.0, 1.16), finish: fin(0.3, 0.45),
-      elements: [{ type: "component", name: "Name", x: 0.6, y: 0.3, w: 0.37, at: rel(t, 130), z: 0.8, rot: 0, enter: "fade", props: { text: "John J. | Ray III", role: "new CEO of FTX", align: "right" } }] }) },
-  { id: "S22", start: 57.55, seg: "l09", intent: "Enron", footage: "fire", trim: 6, slots: { 0: "enron" }, tr: "zoom_punch",
+      elements: [{ type: "component", name: "Name", x: 0.6, y: 0.3, w: 0.37, at: rel(t, 158), z: 0.8, rot: 0, enter: "fade", props: { text: "John J. | Ray III", role: "new CEO of FTX", align: "right" } }] }) },
+  { id: "S22", start: 63.1, seg: "l09", intent: "Enron", footage: "fire", trim: 6, slots: { 0: "enron" }, tr: "zoom_punch",
     scene: () => ({ backdrop: "footage", dim: 0.3, camera: cam(1.0, 1.23), finish: fin(0.35, 0.6, 0.3),
       elements: [{ type: "card3d", slot: 0, x: 0.3, y: 0.06, w: 0.4, z: 0.6, rot: 0, at: 0, enter: "zoom", tilt: -10, spin: 30 },
         { type: "component", name: "Kinetic", x: 0.1, y: 0.74, w: 0.8, at: 0.05, z: 0.8, rot: 0, enter: "fade", props: { words: [{ text: "Enron", from: 0, c: "w" }, { text: "2001", from: 6, c: "y" }], size: 190, font: "wide" } }] }) },
-  { id: "S23", start: 58.6, seg: "l09", intent: "never such a complete failure (CBS)", footage: "ray", trim: 0.5, slots: { 0: "cbs" }, tr: "cut",
+  { id: "S23", start: 64.7, seg: "l09", intent: "even by his standards (CBS headline)", footage: "ray", trim: 0.5, slots: { 0: "cbs" }, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.75 }, camera: cam(1.0, 1.14), finish: fin(0.35, 0.6),
-      elements: [{ type: "component", name: "Card", x: 0.1, y: 0.3, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -1.5, aspect: 560 / 700, crop: { y0: 0.065, y1: 0.225 }, hl: { x: 0.36, y: 0.52, w: 0.44, h: 0.42, from: fr(t, 147), to: fr(t, 155) } } }] }) },
-  { id: "S23b", start: 61.4, seg: "l09", intent: "failure of corporate controls (punch in on the quote)", footage: "ray", trim: 3.5, slots: { 0: "cbs" }, tr: "zoom_punch",
+      elements: [{ type: "component", name: "Card", x: 0.1, y: 0.3, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -1.5, aspect: 560 / 700, crop: { y0: 0.065, y1: 0.225 }, hl: { x: 0.36, y: 0.52, w: 0.44, h: 0.42, from: fr(t, 171), to: fr(t, 173) } } }] }) },
+  { id: "S23b", start: 66.2, seg: "l09", intent: "this was a complete failure (punch in on his words)", footage: "ray", trim: 3.5, slots: { 0: "cbs" }, tr: "zoom_punch",
     scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.2), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Card", x: -0.2, y: -1.16, w: 1.4, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -2, hl: { x: 0.02, y: 0.79, w: 0.95, h: 0.11, from: 0, to: 30 } } }] }) },
-  { id: "S24", start: 64.2, seg: "l10", intent: "March 2024, the court", footage: "scrum", trim: 0, tr: "film",
+  { id: "S24", start: 68.6, seg: "l10", intent: "March 2024, the court", footage: "scrum", trim: 0, tr: "film",
     scene: (t) => ({ backdrop: "footage", dim: 0, wash: { color: "accentDeep", strength: 0.75, mode: "duotone" }, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
       elements: [] }) },
-  { id: "S25", start: 65.95, seg: "l10", intent: "sentenced to 25 years", footage: "sbf_court", trim: 2.5, tr: "cut",
+  { id: "S25", start: 70.3, seg: "l10", intent: "sentenced to 25 years", footage: "sbf_court", trim: 2.5, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.2, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
-      elements: [{ type: "component", name: "Counter", x: 0.52, y: 0.2, w: 0.44, at: rel(t, 163), z: 0.8, rot: 0, enter: "fade", props: { to: 25, frames: 16, label: "years" } }] }) },
-  { id: "S26", start: 69.05, seg: "l10", intent: "for stealing $8 billion", footage: "pile", trim: 1, tr: "cut",
+      elements: [{ type: "component", name: "Counter", x: 0.52, y: 0.2, w: 0.44, at: rel(t, 185), z: 0.8, rot: 0, enter: "fade", props: { to: 25, frames: 16, label: "years" } }] }) },
+  { id: "S26", start: 73.0, seg: "l10", intent: "for stealing $8 billion", footage: "pile", trim: 1, tr: "cut",
     scene: (t) => ({ backdrop: "footage", wash: { color: "accentDeep", strength: 0.25, mode: "tint" }, dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.23), finish: fin(0.35, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.3, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[166, "STEALING", "r"], ["|", ""], [167, "$8 BILLION", "y"]]), size: 210, font: "wide" } }] }) },
-  { id: "S27", start: 72.9, seg: "l11", intent: "the judge (Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.3, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[188, "STEALING", "r"], ["|", ""], [189, "$8 BILLION", "y"]]), size: 210, font: "wide" } }] }) },
+  { id: "S26b", start: 76.9, seg: "l11", intent: "soon after that tweet (the post again)", footage: "phone", trim: 11, slots: { 0: "tweet" }, tr: "film",
+    scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.8 }, wash: { color: "surface", strength: 0.85, mode: "duotone" }, camera: cam(1.08, 1.2), finish: fin(0.45, 0.65),
+      elements: [{ type: "component", name: "Card", x: 0.1, y: 0.28, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: 2 } }] }) },
+  { id: "S26c", start: 79.45, seg: "l11", intent: "he had started to worry FTX would not be fine", footage: "phone", trim: 12.5, tr: "zoom_punch",
+    scene: (t) => ({ backdrop: "footage", dim: 0.45, fx: { dof: 0.9 }, wash: { color: "surface", strength: 0.85, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.45, 0.7),
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.85, rot: 0, enter: "fade", props: { words: kin(t, [[207, "WOULD"], [208, "NOT", "r"], [209, "BE FINE"]]), size: 170, font: "wide" } }] }) },
+  { id: "S27", start: 82.05, seg: "l11", intent: "in the judge's words (Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
     scene: () => ({ backdrop: "footage", dim: 0.15, camera: cam(1.0, 1.0, 0.5, 0.5, 0.45, 0.45), finish: fin(0.35, 0.55), elements: [] }) },
-  { id: "S28", start: 74.75, seg: "l11", intent: "he knew it was criminal", slots: { 0: "cut_sbf_court", 1: "scrum_still" }, tr: "cut",
+  { id: "S28", start: 83.7, seg: "l11", intent: "he had made a very bad bet", slots: { 0: "cut_sbf_court", 1: "scrum_still" }, tr: "cut",
     scene: (t) => ({ backdrop: "world", world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accentDeep" }, dim: 0.25, camera: cam(1.0, 1.16), finish: fin(0.45, 0.65),
       elements: [
         { type: "cutout", slot: 0, x: 0.52, y: 0.06, w: 0.46, z: 0.6, rot: 0, at: 0, enter: "settle", shadow: true, glow: "accent" },
-        { type: "component", name: "Kinetic", x: 0.04, y: 0.3, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[181, "HE KNEW"], ["|", ""], [184, "CRIMINAL", "r"]]), size: 150, align: "left" } },
+        { type: "component", name: "Kinetic", x: 0.04, y: 0.3, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[220, "A VERY"], ["|", ""], [221, "BAD", "r"], [222, "BET"]]), size: 150, align: "left", font: "wide" } },
       ] }) },
-  { id: "S29", start: 76.65, seg: "l11", intent: "a very bad bet", footage: "sbf_court", trim: 0, tr: "cut",
+  { id: "S29", start: 85.9, seg: "l11", intent: "that he would never get caught", footage: "sbf_court", trim: 0, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.6, mode: "duotone" }, camera: cam(1.05, 1.33), finish: fin(0.45, 0.75),
-      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[189, "A VERY"], [190, "BAD", "r"], [191, "BET"]]), size: 150, font: "wide" } }] }) },
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[226, "NEVER"], [227, "GET"], [228, "CAUGHT", "r"]]), size: 150, font: "wide" } }] }) },
 ];
 
-for (const s of SHOTS) s.start = +warp(s.start).toFixed(2);
+// v16: cut points are set on this narration's own words (the warp carried the v1 script's cuts to another narrator)
+if (WARP) for (const s of SHOTS) s.start = +warp(s.start).toFixed(2);
+SHOTS.sort((a, b) => a.start - b.start);
 // ---- write the job ----
 const dur = +(timed.durationS + 0.6).toFixed(2);
 const pub = path.join(job, "public");
@@ -216,16 +234,16 @@ for (const [i, s] of SHOTS.entries()) {
 // ---- sound: hits peak on the visual moment (start = moment − measured attack); beds change at the turns ----
 const prof = JSON.parse(await readFile(path.join(root, "data", "audio-profile.json"), "utf8")) as { sfx: Record<string, { attackS: number }> };
 const HITS: Array<[string, number, number]> = [
-  ["608bd9f4437bc222", at(19), -4], // boom: FOUR days later
-  ["506353c7272f6de3", at(28), -2], ["1794a26d359d39b5", at(28), -6], // stamp: BANKRUPT
-  ["c8eac9e229c3fd1c", warp(24.15), -8], // whoosh-hit into the 40 %
-  ["e8e77cb57b045804", at(73), -12], // coins under "his own coupons"
-  ["f0ecbbabe0339b24", at(86), -4], // SELL
-  ["3c04c2822cfb527f", warp(38.75), -8], // riser into "customers ran"
-  ["5b238f52f756cf20", at(95), -5], // $6B
-  ["f5e1453e264ceac1", warp(57.55), -5], // Enron
-  ["76f884fedb10e13b", at(163) + 0.67, -4], // 25 lands
-  ["f112c4720b330a9e", at(191), -3], // BET
+  ["608bd9f4437bc222", at(21), -4], // boom: FOUR days later
+  ["506353c7272f6de3", at(30), -2], ["1794a26d359d39b5", at(30), -6], // stamp: BANKRUPT
+  ["c8eac9e229c3fd1c", 27.7, -8], // whoosh-hit into the 40 %
+  ["e8e77cb57b045804", at(88), -12], // coins under "his own coupons"
+  ["f0ecbbabe0339b24", at(112), -4], // SELL
+  ["3c04c2822cfb527f", at(125), -8], // riser into "customers ran"
+  ["5b238f52f756cf20", at(127), -5], // $6B
+  ["f5e1453e264ceac1", 63.1, -5], // Enron
+  ["76f884fedb10e13b", at(185) + 0.67, -4], // 25 lands
+  ["f112c4720b330a9e", at(222), -3], // BET
 ];
 for (const [id, moment, gain] of HITS) {
   const atS = Math.max(0, +(moment - (prof.sfx[id]?.attackS ?? 0)).toFixed(3));
@@ -233,9 +251,9 @@ for (const [id, moment, gain] of HITS) {
   sh.sfx.push({ assetId: id, atS, gainDb: gain });
 }
 const MUSIC0 = [
-  { assetId: "17d16bdc91e20542", startS: 0, endS: 38.75, gainDb: -12, mood: "tension" as const, drops: [{ startS: 9.1, endS: 9.85 }, { startS: 37.9, endS: 38.75 }] },
-  { assetId: "a5b692a28d20ada4", startS: 38.75, endS: 64.2, gainDb: -13, mood: "collapse" as const, drops: [{ startS: 56.9, endS: 57.55 }] },
-  { assetId: "55e3d88a31ecffee", startS: 64.2, endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: 76.2, endS: 76.65 }] },
+  { assetId: "17d16bdc91e20542", startS: 0, endS: 46.98, gainDb: -12, mood: "tension" as const, drops: [{ startS: 8.9, endS: 9.4 }, { startS: 46.2, endS: 46.98 }] },
+  { assetId: "a5b692a28d20ada4", startS: 46.98, endS: 68.6, gainDb: -13, mood: "collapse" as const, drops: [{ startS: 62.4, endS: 63.1 }] },
+  { assetId: "55e3d88a31ecffee", startS: 68.6, endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: 81.3, endS: 82.05 }] },
 ];
 const MUSIC = MUSIC0.map((c) => ({ ...c, startS: +warp(c.startS).toFixed(2), endS: c.endS === dur ? dur : +warp(c.endS).toFixed(2), drops: c.drops.map((d) => ({ startS: +warp(d.startS).toFixed(2), endS: +warp(d.endS).toFixed(2) })) }));
 let board = Storyboard.parse({ schemaVersion: 1, id: "sb_hand_ftx", scriptId: timed.id, styleProfileId: "magnates-media", aspect: "16:9", durationS: dur, shots, music: [], generatedAt: new Date().toISOString() });

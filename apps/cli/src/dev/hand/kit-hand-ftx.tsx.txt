@@ -97,7 +97,7 @@ const Card: React.FC<P> = (p) => {
 const Donut: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const W = useW(p);
   const share = Number(p.share ?? 0.4); const r = W * 0.36; const C = 2 * Math.PI * r;
-  const a = interpolate(f, [6, 30], [0, share], { ...clamp, easing: (t) => 1 - Math.pow(1 - t, 3) });
+  const a = interpolate(f, [Number(p.from ?? 6), Number(p.frames ?? 30)], [0, share], { ...clamp, easing: (t) => 1 - Math.pow(1 - t, 3) });
   const k = interpolate(f, [0, 8], [0, 1], clamp);
   return <div style={{ width: W, height: W, position: "relative", opacity: k, transform: `scale(${0.8 + 0.2 * k})` }}>
     <svg width={W} height={W} viewBox={`0 0 ${W} ${W}`}>

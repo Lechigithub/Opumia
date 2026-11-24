@@ -3,7 +3,8 @@
 // take per line is kept, trimmed on its own alignment, and the lines are joined with the written gaps.
 //   OPUMIA_NO_CLAUDE=1 npx tsx apps/cli/src/dev/hand/narrate.ts out/hand-ftx
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { scoreSoundTaste } from "@opumia/agents";
@@ -36,7 +37,10 @@ for (const [i, L] of LINES.entries()) {
   const spoken = L.text.split(/\s+/).map((w) => { const k = w.replace(/[^A-Za-z-]/g, ""); return SAY[k] ? w.replace(k, SAY[k]!) : w; }).join(" ");
   const cands: Take[] = [];
   for (const seed of (process.env.SEEDS ? process.env.SEEDS.split(",").map(Number) : TAG ? [11, 23] : [11, 23, 37])) {
-    const raw = path.join(takes, `${L.id}-s${seed}.json`);
+    // a cached take is reused only if it was spoken from this exact text (a reused tag once served an old script)
+    const old = path.join(takes, `${L.id}-s${seed}.json`);
+    const sameText = (f: string) => existsSync(f) && (JSON.parse(readFileSync(f, "utf8")) as { alignment: CharAlignment }).alignment.characters.join("") === spoken;
+    const raw = sameText(old) ? old : path.join(takes, `${L.id}-s${seed}-${createHash("sha1").update(spoken).digest("hex").slice(0, 8)}.json`);
     let r: { audio: string; alignment: CharAlignment };
     if (existsSync(raw)) r = JSON.parse(await readFile(raw, "utf8"));
     else {

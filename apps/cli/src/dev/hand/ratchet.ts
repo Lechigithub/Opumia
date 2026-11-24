@@ -47,7 +47,8 @@ const BAND_NOISE: Record<string, number> = { strokeMed: 0.006, strokeLo: 0.006, 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
 export async function measure(file: string): Promise<Record<string, number>> {
-  const span = Math.min(80, dur(file) - 0.5);
+  // the whole film (up to 2 min): an 80 s cap cut a longer film's ending out of the comparison (v16, 87 s)
+  const span = Math.min(120, dur(file) - 0.5);
   const ts = Array.from({ length: Math.floor(span / 2) }, (_, i) => 1 + i * 2);
   const taste = (await scoreTaste({ root, data, channel: "magnates-media", kind: "shot", items: ts.map((t) => ({ file, t })) })).map((x) => x?.score ?? NaN);
   const wins = Array.from({ length: Math.floor(span / 4) }, (_, i) => ({ file, t: i * 4, dur: 4 }));

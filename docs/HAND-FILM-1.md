@@ -278,3 +278,32 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 
   No other measure moved beyond noise.
 - The widest line is at the band's top edge (0.654 vs p90 0.641): watched, not acted on.
+
+### v16 candidate: the script rewritten in the channel's way of telling (2026-11-24)
+- **Measured gap.** The v1 script's 16 sentences were labelled with the channel's line kinds (labelled in the session
+  as the API is off, so I also labelled six real 80 s passages as a control). v1 had quotes 37 % (channel 0–7 %),
+  bare facts 25 % (9–19 %), explains 6 % (16–40 %), and no viewer address, question, tease or motive. The real
+  passages address the viewer ("Meet Ross", "we'll get to that"), ask ("So what happened?"), tease and explain; in
+  about 67 real lines there were 2 quotes.
+- **v2 script** (`script.ts`; v1 in `script-v1.ts.txt`): same verified facts and beats.
+  - It opens on a moment in the present tense, asks "So how does a company worth that much vanish in less than a
+    week?", teases "It started with one document" and explains the coupons ("only worth something while people
+    believe in them").
+  - It turns to the viewer: "And you can guess what happened next."
+  - It names a fear from the record: c22, he "started to worry that FTX would not be fine".
+  - It quotes twice: the tweet and the judge.
+  - Its 18 sentences: quotes 2, facts 3, explains 3, address, question, tease and motive 1 each. 87 s at 157 wpm,
+    Marcus K.
+- **Re-cut.** Every shot, word-timed type, hit and music cue is moved onto the new words (no warp). Five shots are
+  added: the question over SBF on air, "LESS THAN A WEEK" over burning paper, "ONE DOCUMENT" over a data room, clean
+  coins under the coupon line, and the tweet callback in black and white with "WOULD NOT BE FINE". The ending lands
+  on "A VERY BAD BET" and "NEVER GET CAUGHT". The 40 % donut now comes in on the words "forty percent".
+- **Two fixes made along the way:**
+  - the take cache served an old script's takes for a reused voice tag; a take is now reused only if it was spoken
+    from the same text;
+  - the ratchet measured only the first 80 s, so a longer film's ending fell outside it; it now measures the whole
+    film, up to 2 min.
+- **Ratchet.** Every look, grade, text and typeface measure is in band. Taste-floor frames rise 24 → 27. Picture
+  taste has a median of 4.7 against v15's 4.9, past its 0.15 noise, in two renders; that scorer reads content and
+  which footage moments its samples hit. Voice is 0.778 against 0.805 (within noise). Not frozen by the measures;
+  the owner judges.
