@@ -381,3 +381,17 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 - **Ratchet:** `staplesCovered` is the share of the checkable staples the film's plan uses (scenes, storyboard,
   manifest). v19 0.857 → v20 1.0. Three staples cannot be read from the plan: hard cuts with a palette reset, literal
   narration-matched visuals, stretches with a music bed and no effects. They wait for the blind comparison.
+
+### v21: sound at the channel's density (frozen)
+- **Band** (first 90 s of the 37 films, from the reference index's per-shot hits, drops and cue changes;
+  `data/quality-profile/magnates-media-sound-band.json`):
+  - hits 0.6–5.3 a minute (median 2.6);
+  - music drop-outs 0–2.5 a minute;
+  - cue changes 0.6–1.8 a minute;
+  - hits are mostly thuds and booms, with a few typing clicks and pops.
+- **v20** had 7.4 hit moments a minute and 2.7 drop-outs a minute. Too dense: the channel lets most stretches play on
+  the music alone, which is one of its staples (35 %).
+- **v21 keeps hits on the biggest reveals only:** the ding as the tweet lands, FOUR DAYS LATER, BANKRUPT, SELL,
+  $6 BILLION, 25 years, BAD BET. It removes the whoosh, the coins, the riser, the Enron hit and the typing, and the
+  first drop-out. Result: 4.0 hits and 2.0 drops a minute.
+- **The ratchet now guards** hits, drops and cue changes per minute against that band.

@@ -260,15 +260,11 @@ for (const [i, s] of SHOTS.entries()) {
 // ---- sound: hits peak on the visual moment (start = moment − measured attack); beds change at the turns ----
 const prof = JSON.parse(await readFile(path.join(root, "data", "audio-profile.json"), "utf8")) as { sfx: Record<string, { attackS: number }> };
 const HITS: Array<[string, number, number]> = [
-  ["b5a0ef3311c601d8", warp(5.62) - 0.25, -14], ["1b0b7141511d7bc1", warp(5.62) + 0.35, -8], // the post is typed and lands, in silence
+  ["1b0b7141511d7bc1", warp(5.62) + 0.35, -8], // the post lands, in silence
   ["608bd9f4437bc222", at(G("l03", 0)), -4], // boom: FOUR days later
   ["506353c7272f6de3", at(G("l03", 9)), -2], ["1794a26d359d39b5", at(G("l03", 9)), -6], // stamp: BANKRUPT
-  ["c8eac9e229c3fd1c", warp(23.7), -8], // whoosh-hit into the 40 %
-  ["e8e77cb57b045804", at(G("l05", 7)), -12], // coins under "his own coupons"
   ["f0ecbbabe0339b24", at(G("l06", 10)), -4], // SELL
-  ["3c04c2822cfb527f", at(G("l07", 0)), -8], // riser into "customers ran"
   ["5b238f52f756cf20", at(G("l07", 2)), -5], // $6B
-  ["f5e1453e264ceac1", warp(63.1), -5], // Enron
   ["76f884fedb10e13b", at(G("l10", 15)) + 0.67, -4], // 25 lands
   ["f112c4720b330a9e", at(G("l11", 24)), -3], // BET
 ];
@@ -278,7 +274,7 @@ for (const [id, moment, gain] of HITS) {
   sh.sfx.push({ assetId: id, atS, gainDb: gain });
 }
 const MUSIC0 = [
-  { assetId: "17d16bdc91e20542", startS: 0, endS: 46.98, gainDb: -12, mood: "tension" as const, drops: [{ startS: 8.9, endS: 9.4 }, { startS: 46.2, endS: 46.98 }] },
+  { assetId: "17d16bdc91e20542", startS: 0, endS: 46.98, gainDb: -12, mood: "tension" as const, drops: [{ startS: 46.2, endS: 46.98 }] },
   { assetId: "a5b692a28d20ada4", startS: 46.98, endS: 68.6, gainDb: -13, mood: "collapse" as const, drops: [{ startS: 62.4, endS: 63.1 }] },
   { assetId: "55e3d88a31ecffee", startS: 68.6, endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: 81.3, endS: 82.05 }] },
 ];

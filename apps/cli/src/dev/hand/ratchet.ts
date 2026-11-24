@@ -36,7 +36,9 @@ const TYPE_KEYS = ["strokeMed", "strokeLo", "aspectMed", "heavyShare", "lightSha
 // motives, and lines that talk to the viewer
 const SB = JSON.parse(readFileSync(path.join(root, "data", "story-profile", "magnates-media.json"), "utf8")) as { kinds: Record<string, { p10: number; p90: number }>; viewer: { p10: number; p90: number } };
 const STORY_KINDS = ["quote", "fact", "explain", "tease", "motive"];
-const BAND: Record<string, [number, number]> = { ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
+// Sound (first 90 s of the channel's films): hits, music drop-outs and cue changes per minute
+const SOB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-sound-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
+const BAND: Record<string, [number, number]> = { ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
   // How words are set (text-band.py, on-device OCR, first 80 s of the 37 films): frames with words, tallest and widest
   // line, small boxed name tags, capitals, spread of sizes
   ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
@@ -48,7 +50,7 @@ const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 
 // voice: the ears' score depends on the words, so it cannot compare films with different scripts; the owner's ear
 // judged the voice fine (2026-11-24). Recorded, not gated. Voice work is sound quality and mix only, at natural pace.
 const RETIRED = new Set(["mix", "voice"]);
-const BAND_NOISE: Record<string, number> = { quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -151,6 +153,17 @@ if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "stor
   const known = staples.filter((k) => k in has);
   m.staplesCovered = +(known.filter((k) => has[k]).length / known.length).toFixed(3);
   console.log(`staples: ${known.map((k) => `${has[k] ? "+" : "-"}${k}`).join(" ")} (not checkable from the plan: ${staples.filter((k) => !(k in has)).join(", ")})`);
+}
+// sound events per minute from the manifest: hit moments (effects within 0.4 s count once), drop-outs, cue changes
+if (existsSync(path.join(job, "manifest.json")) && existsSync(path.join(job, "storyboard.json"))) {
+  const man = JSON.parse(await readFile(path.join(job, "manifest.json"), "utf8")) as { fps: number; audio: Array<{ role?: string; startFrame: number }> };
+  const sb = JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { durationS: number; music: Array<{ drops?: unknown[] }> };
+  const ts = man.audio.filter((a) => a.role === "sfx").map((a) => a.startFrame / man.fps).sort((a, b) => a - b);
+  const moments = ts.filter((t, i) => i === 0 || t - ts[i - 1]! > 0.4).length;
+  const min = sb.durationS / 60;
+  m.hitsPerMin = +(moments / min).toFixed(2);
+  m.dropsPerMin = +(sb.music.reduce((a, c) => a + (c.drops?.length ?? 0), 0) / min).toFixed(2);
+  m.cueChangesPerMin = +(Math.max(0, sb.music.length - 1) / min).toFixed(2);
 }
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {
