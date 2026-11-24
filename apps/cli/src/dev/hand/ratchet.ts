@@ -19,10 +19,10 @@ const ji = process.argv.indexOf("--job"), job = ji > 0 ? path.resolve(process.ar
 const baseFile = path.join(root, "eval", "ratchet", `${name}.json`);
 
 /** The channel's band for each look measure (MagnatesMedia, measured on the reference); distance to it is what counts. */
-const BAND: Record<string, [number, number]> = { luma: [0.3, 0.45], darkShare: [0, 0.13], colourfulness: [31, 48], motion: [0.04, 0.1], stillShare: [0, 0.08], cutsPerMin: [13, 38] };
+const BAND: Record<string, [number, number]> = { cleanShare: [0.19, 0.75], luma: [0.3, 0.45], darkShare: [0, 0.13], colourfulness: [31, 48], motion: [0.04, 0.1], stillShare: [0, 0.08], cutsPerMin: [13, 38] };
 /** Higher is better for these; noise below which a drop is not a regression. */
 const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03, mix: 0.03 };
-const BAND_NOISE: Record<string, number> = { luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -42,6 +42,11 @@ export async function measure(file: string): Promise<Record<string, number>> {
 const off = (k: string, v: number) => { const [a, b] = BAND[k]!; return v < a ? a - v : v > b ? v - b : 0; };
 
 const m = await measure(path.resolve(film));
+// share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
+if (existsSync(path.join(job, "scenes.json"))) {
+  const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<{ backdrop?: string; elements: unknown[] }> }).scenes;
+  m.cleanShare = +(sc.filter((x) => (x.backdrop ?? "footage") === "footage" && !x.elements.length).length / sc.length).toFixed(3);
+}
 const base = existsSync(baseFile) ? (JSON.parse(await readFile(baseFile, "utf8")) as { tag: string; measures: Record<string, number> }) : null;
 const worse: string[] = [], better: string[] = [];
 for (const [k, v] of Object.entries(m)) {
