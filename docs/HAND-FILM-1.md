@@ -213,3 +213,15 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 - Over the first 10 min instead of 80 s, the channel carries fewer and smaller words (0.39–0.69, 0.086–0.172). The
   band must match the film's length; longer films will need their own window.
 - Not measured: whether the type looks good, and font identity. Those stay with the owner's eye.
+
+### Voice: more takes do not close it (2026-11-24, rejected candidate)
+- Two more Marcus K takes per line (seeds 37, 53; ≈ 2.3k ElevenLabs characters), and the best take kept per line by
+  word error, then the dry ear-score. Eight of 11 lines scored 0.02–0.08 higher dry.
+- In the film the voice measured 0.79 against v12's 0.805, within noise. Taste rose 4.9 → 5.1, but that comes from the
+  shifted timings changing which frames are sampled, not from any picture change. Not frozen; v12's narration is
+  restored.
+- Line 6 ("Then the head of Binance, Changpeng Zhao, said he would sell every FTT on his books") scores 0.14–0.26 dry
+  on every take, so its wording is the problem, not the take.
+- The voice sits inside the channel's band (p10 0.72) and below its median (0.91). Picking takes does not move it. What
+  is left: rewording the lines that score low for speech, auditioning other voices on the whole script in the mix, or a
+  human narrator. Each is the owner's call.
