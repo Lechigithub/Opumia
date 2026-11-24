@@ -1,14 +1,14 @@
 {
   "name": "hand-ftx",
-  "tag": "v17",
+  "tag": "v19",
   "best": {
     "taste": {
-      "value": 4.85,
-      "from": "v17"
+      "value": 4.93,
+      "from": "v19"
     },
     "tasteAboveFloor": {
-      "value": 29,
-      "from": "v17"
+      "value": 37,
+      "from": "v19"
     },
     "voice": {
       "value": 0.806,
@@ -102,17 +102,13 @@
       "value": 0.065,
       "from": "v15"
     },
-    "cleanShare": {
-      "value": 0.25,
-      "from": "v15"
-    },
     "quoteShare": {
-      "value": 0.158,
-      "from": "v16"
+      "value": 0.059,
+      "from": "v19"
     },
     "factShare": {
-      "value": 0.211,
-      "from": "v16"
+      "value": 0.176,
+      "from": "v19"
     },
     "explainShare": {
       "value": 0.158,
@@ -129,82 +125,83 @@
     "viewerShare": {
       "value": 0.053,
       "from": "v16"
+    },
+    "cleanShare": {
+      "value": 0.25,
+      "from": "v15"
     }
   },
-  "film": "out/hand-ftx/frozen/v17/film_16x9.mp4",
-  "frozenAt": "2026-11-24T19:05:01.562Z",
+  "film": "out/hand-ftx/frozen/v19/film_16x9.mp4",
+  "frozenAt": "2026-11-24T20:47:11.345Z",
   "measures": {
-    "taste": 4.85,
-    "tasteAboveFloor": 29,
-    "voice": 0.787,
-    "mix": 0.582,
-    "luma": 0.266,
-    "darkShare": 0.216,
-    "colourfulness": 43.876,
-    "motion": 0.0374,
-    "stillShare": 0.024,
-    "cutsPerMin": 17.241,
-    "voiceOverBed": 20.1,
-    "contrast": 0.6,
-    "highlights": 0.0124,
+    "taste": 4.93,
+    "tasteAboveFloor": 37,
+    "voice": 0.759,
+    "mix": 0.544,
+    "luma": 0.269,
+    "darkShare": 0.203,
+    "colourfulness": 44.676,
+    "motion": 0.0366,
+    "stillShare": 0.016,
+    "cutsPerMin": 16.93,
+    "voiceOverBed": 20.2,
+    "contrast": 0.596,
+    "highlights": 0.0117,
     "oneColour": 0.167,
-    "textFrames": 0.65,
-    "bigText": 0.143,
-    "wideText": 0.604,
+    "textFrames": 0.633,
+    "bigText": 0.152,
+    "wideText": 0.61,
     "smallBoxed": 0,
-    "caps": 0.53,
-    "sizeSpread": 0.826,
-    "strokeMed": 0.159,
-    "strokeLo": 0.104,
-    "aspectMed": 0.444,
-    "heavyShare": 0.693,
-    "lightShare": 0.111,
-    "quoteShare": 0.158,
-    "factShare": 0.211,
-    "explainShare": 0.158,
-    "teaseShare": 0.053,
-    "motiveShare": 0.053,
-    "viewerShare": 0.053,
+    "caps": 0.542,
+    "sizeSpread": 0.866,
+    "strokeMed": 0.166,
+    "strokeLo": 0.113,
+    "aspectMed": 0.44,
+    "heavyShare": 0.734,
+    "lightShare": 0.064,
+    "quoteShare": 0.059,
+    "factShare": 0.176,
+    "explainShare": 0.176,
+    "teaseShare": 0.059,
+    "motiveShare": 0.059,
+    "viewerShare": 0.059,
     "cleanShare": 0.243
   },
   "previous": {
-    "tag": "v15",
+    "tag": "v17",
     "measures": {
-      "taste": 4.82,
-      "tasteAboveFloor": 24,
-      "voice": 0.805,
-      "mix": 0.585,
-      "luma": 0.296,
-      "darkShare": 0.114,
-      "colourfulness": 44.22,
-      "motion": 0.037,
-      "stillShare": 0.025,
-      "cutsPerMin": 19.841,
-      "voiceOverBed": 19.1,
-      "contrast": 0.677,
-      "highlights": 0.0161,
-      "oneColour": 0.1,
-      "textFrames": 0.7,
-      "bigText": 0.17,
-      "wideText": 0.654,
-      "smallBoxed": 0.024,
-      "caps": 0.57,
-      "sizeSpread": 0.837,
-      "strokeMed": 0.168,
-      "strokeLo": 0.112,
-      "aspectMed": 0.436,
-      "heavyShare": 0.731,
-      "lightShare": 0.065,
-      "cleanShare": 0.25,
-      "quoteShare": 0.375,
-      "factShare": 0.25,
-      "explainShare": 0.063,
-      "teaseShare": 0,
-      "motiveShare": 0,
-      "viewerShare": 0
+      "taste": 4.85,
+      "tasteAboveFloor": 29,
+      "voice": 0.787,
+      "mix": 0.582,
+      "luma": 0.266,
+      "darkShare": 0.216,
+      "colourfulness": 43.876,
+      "motion": 0.0374,
+      "stillShare": 0.024,
+      "cutsPerMin": 17.241,
+      "voiceOverBed": 20.1,
+      "contrast": 0.6,
+      "highlights": 0.0124,
+      "oneColour": 0.167,
+      "textFrames": 0.65,
+      "bigText": 0.143,
+      "wideText": 0.604,
+      "smallBoxed": 0,
+      "caps": 0.53,
+      "sizeSpread": 0.826,
+      "strokeMed": 0.159,
+      "strokeLo": 0.104,
+      "aspectMed": 0.444,
+      "heavyShare": 0.693,
+      "lightShare": 0.111,
+      "quoteShare": 0.158,
+      "factShare": 0.211,
+      "explainShare": 0.158,
+      "teaseShare": 0.053,
+      "motiveShare": 0.053,
+      "viewerShare": 0.053,
+      "cleanShare": 0.243
     }
-  },
-  "notes": [
-    "2026-11-24: voice is now the mean of 4 window grids; v15 0.806, v17 0.754 (v17's single grid read 0.787 and let a voice drop through). Noise: taste 0.1, voice 0.02 on the averaged measures"
-  ]
+  }
 }

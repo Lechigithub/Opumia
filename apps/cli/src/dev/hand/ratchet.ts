@@ -45,7 +45,9 @@ const BAND: Record<string, [number, number]> = { ...Object.fromEntries(STORY_KIN
 const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 0.02 };
 /** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
  *  rewards a defect. Retired 2026-11-24. */
-const RETIRED = new Set(["mix"]);
+// voice: the ears' score depends on the words, so it cannot compare films with different scripts; the owner's ear
+// judged the voice fine (2026-11-24). Recorded, not gated. Voice work is sound quality and mix only, at natural pace.
+const RETIRED = new Set(["mix", "voice"]);
 const BAND_NOISE: Record<string, number> = { quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
