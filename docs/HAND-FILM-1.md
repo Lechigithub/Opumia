@@ -395,3 +395,18 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   $6 BILLION, 25 years, BAD BET. It removes the whoosh, the coins, the riser, the Enron hit and the typing, and the
   first drop-out. Result: 4.0 hits and 2.0 drops a minute.
 - **The ratchet now guards** hits, drops and cue changes per minute against that band.
+
+### v22: thumbnail and title (frozen)
+- **Thumbnail** (`thumb.ts`, the platform's `ThumbnailScene`), built from the film's own real pictures: the burning
+  $100 bill (Pexels) as the background, the Commons cut-out of SBF with a red rim of light, the FTX logo card, fire
+  screened under it, "$32B" in gold and "GONE" on a red box. This follows the channel's measured thumbnail habits: a
+  cut-out person as hero (~40 %), a real photo behind, glow 51 %, money/fire ~30 %, one or two heavy words, label box
+  35 %. No generated imagery.
+- **Finishing as in the platform** (`publish.ts`): rendered at 2560×1440, brought down with Lanczos, unsharp mask and
+  film grain. The first render was soft (sharpest detail 1,579 vs the channel's floor of 2,288; grain 2.5 vs median
+  17.5). Finished: sharpest 4,159, typical 704, contrast 204, grain 15.9, all inside the channel's band.
+- **Title:** "FTX: The $32 Billion Empire That Vanished In 4 Days". The channel's pattern; every word supported by the
+  narration.
+- **Ratchet:** thumbnail sharpness, detail, contrast and grain are guarded. A new measure inside its band counts as a
+  gain. The thumbnail taste head reads 3/10 ("like our past work"); it reads content, so it is recorded, not gated,
+  like the picture heads.

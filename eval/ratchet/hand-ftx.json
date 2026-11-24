@@ -1,6 +1,6 @@
 {
   "name": "hand-ftx",
-  "tag": "v21",
+  "tag": "v22",
   "best": {
     "taste": {
       "value": 4.95,
@@ -130,10 +130,6 @@
       "value": 1,
       "from": "v20"
     },
-    "cleanShare": {
-      "value": 0.25,
-      "from": "v15"
-    },
     "hitsPerMin": {
       "value": 4.04,
       "from": "v21"
@@ -145,10 +141,30 @@
     "cueChangesPerMin": {
       "value": 1.35,
       "from": "v20"
+    },
+    "cleanShare": {
+      "value": 0.25,
+      "from": "v15"
+    },
+    "thumbSharpTop": {
+      "value": 4159,
+      "from": "v22"
+    },
+    "thumbSharpMedian": {
+      "value": 704,
+      "from": "v22"
+    },
+    "thumbContrast": {
+      "value": 204,
+      "from": "v22"
+    },
+    "thumbGrain": {
+      "value": 15.9,
+      "from": "v22"
     }
   },
-  "film": "out/hand-ftx/frozen/v21/film_16x9.mp4",
-  "frozenAt": "2026-11-24T21:05:44.923Z",
+  "film": "out/hand-ftx/frozen/v22/film_16x9.mp4",
+  "frozenAt": "2026-11-24T21:10:54.020Z",
   "measures": {
     "taste": 4.95,
     "tasteAboveFloor": 39,
@@ -185,36 +201,40 @@
     "hitsPerMin": 4.04,
     "dropsPerMin": 2.02,
     "cueChangesPerMin": 1.35,
+    "thumbSharpTop": 4159,
+    "thumbSharpMedian": 704,
+    "thumbContrast": 204,
+    "thumbGrain": 15.9,
     "cleanShare": 0.243
   },
   "previous": {
-    "tag": "v20",
+    "tag": "v21",
     "measures": {
       "taste": 4.95,
       "tasteAboveFloor": 39,
-      "voice": 0.759,
-      "mix": 0.544,
+      "voice": 0.77,
+      "mix": 0.574,
       "luma": 0.263,
       "darkShare": 0.21,
-      "colourfulness": 44.235,
+      "colourfulness": 44.233,
       "motion": 0.0366,
       "stillShare": 0.016,
       "cutsPerMin": 16.253,
-      "voiceOverBed": 20.2,
-      "contrast": 0.599,
+      "voiceOverBed": 20.4,
+      "contrast": 0.598,
       "highlights": 0.0149,
       "oneColour": 0.167,
-      "textFrames": 0.617,
-      "bigText": 0.152,
-      "wideText": 0.608,
+      "textFrames": 0.633,
+      "bigText": 0.15,
+      "wideText": 0.606,
       "smallBoxed": 0,
-      "caps": 0.571,
-      "sizeSpread": 0.849,
-      "strokeMed": 0.166,
-      "strokeLo": 0.131,
-      "aspectMed": 0.443,
-      "heavyShare": 0.814,
-      "lightShare": 0.053,
+      "caps": 0.593,
+      "sizeSpread": 0.868,
+      "strokeMed": 0.168,
+      "strokeLo": 0.125,
+      "aspectMed": 0.452,
+      "heavyShare": 0.777,
+      "lightShare": 0.06,
       "quoteShare": 0.059,
       "factShare": 0.176,
       "explainShare": 0.176,
@@ -222,10 +242,10 @@
       "motiveShare": 0.059,
       "viewerShare": 0.059,
       "staplesCovered": 1,
-      "cleanShare": 0.243,
-      "hitsPerMin": 7.41,
-      "dropsPerMin": 2.7,
-      "cueChangesPerMin": 1.35
+      "hitsPerMin": 4.04,
+      "dropsPerMin": 2.02,
+      "cueChangesPerMin": 1.35,
+      "cleanShare": 0.243
     }
   }
 }

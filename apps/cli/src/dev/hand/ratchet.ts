@@ -38,7 +38,10 @@ const SB = JSON.parse(readFileSync(path.join(root, "data", "story-profile", "mag
 const STORY_KINDS = ["quote", "fact", "explain", "tease", "motive"];
 // Sound (first 90 s of the channel's films): hits, music drop-outs and cue changes per minute
 const SOB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-sound-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
-const BAND: Record<string, [number, number]> = { ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
+// The thumbnail's pixels against the channel's 37 thumbnails (data/quality-profile/<channel>.json): sharpest and
+// typical detail, contrast (floors), grain (p10–p90)
+const QT = (JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media.json"), "utf8")) as { thumbs: Record<string, { p10: number; median: number; p90?: number }> }).thumbs;
+const BAND: Record<string, [number, number]> = { thumbSharpTop: [QT.sharpTop!.p10, Infinity], thumbSharpMedian: [QT.sharpMedian!.p10, Infinity], thumbContrast: [QT.contrast!.p10, Infinity], thumbGrain: [QT.grain!.p10, QT.grain!.p90!], ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
   // How words are set (text-band.py, on-device OCR, first 80 s of the 37 films): frames with words, tallest and widest
   // line, small boxed name tags, capitals, spread of sizes
   ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
@@ -50,7 +53,7 @@ const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 
 // voice: the ears' score depends on the words, so it cannot compare films with different scripts; the owner's ear
 // judged the voice fine (2026-11-24). Recorded, not gated. Voice work is sound quality and mix only, at natural pace.
 const RETIRED = new Set(["mix", "voice"]);
-const BAND_NOISE: Record<string, number> = { hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { thumbSharpTop: 100, thumbSharpMedian: 20, thumbContrast: 3, thumbGrain: 1, hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -165,6 +168,12 @@ if (existsSync(path.join(job, "manifest.json")) && existsSync(path.join(job, "st
   m.dropsPerMin = +(sb.music.reduce((a, c) => a + (c.drops?.length ?? 0), 0) / min).toFixed(2);
   m.cueChangesPerMin = +(Math.max(0, sb.music.length - 1) / min).toFixed(2);
 }
+// the thumbnail (thumbnail.jpg beside the film)
+if (existsSync(path.join(job, "thumbnail.jpg"))) {
+  const { measureCraft } = await import("@opumia/senses");
+  const c = await measureCraft(path.join(job, "thumbnail.jpg"));
+  m.thumbSharpTop = Math.round(c.sharpTop); m.thumbSharpMedian = Math.round(c.sharpMedian); m.thumbContrast = Math.round(c.contrast); m.thumbGrain = +c.grain.toFixed(1);
+}
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {
   const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<{ backdrop?: string; elements: unknown[] }> }).scenes;
@@ -185,6 +194,8 @@ for (const [k, v] of Object.entries(m)) {
   const b = best[k]?.value, f = base?.measures[k];
   if (b !== undefined && Number.isFinite(b) && cmp(k, v, b) < 0) worse.push(`${k} best ${b} (${best[k]!.from}) → ${v}${k in BAND ? ` (band ${BAND[k]})` : ""}`);
   if (f !== undefined && Number.isFinite(f) && cmp(k, v, f) > 0) better.push(`${k} ${f} → ${v}${k in BAND ? ` (band ${BAND[k]})` : ""}`);
+  // a measure the frozen film did not have (a new deliverable, such as the thumbnail), now inside its band, is a gain
+  if ((f === undefined || !Number.isFinite(f)) && k in BAND && off(k, v) === 0) better.push(`${k} new, ${v} (band ${BAND[k]})`);
 }
 console.log(JSON.stringify(m));
 const raise = () => { for (const [k, v] of Object.entries(m)) { if (RETIRED.has(k) || !Number.isFinite(v)) continue; const b = best[k]; const up = !b || (k in HIGHER ? v > b.value : off(k, v) < off(k, b.value) || (off(k, v) === off(k, b.value) && false)); if (up) best[k] = { value: v, from: tag ?? lockLabel ?? "?" }; } };
@@ -200,7 +211,7 @@ if (tag) {
   const dir = path.join(job, "frozen", tag);
   await mkdir(dir, { recursive: true });
   await cp(path.resolve(film), path.join(dir, path.basename(film)));
-  for (const f of ["timed-script.json", "storyboard.json", "scenes.json", "resolution.json", "design.json", "manifest.json", "narration.mp3", "design/film/index.tsx"]) if (existsSync(path.join(job, f))) await cp(path.join(job, f), path.join(dir, f), { recursive: true });
+  for (const f of ["thumbnail.jpg", "publish-hand.json", "timed-script.json", "storyboard.json", "scenes.json", "resolution.json", "design.json", "manifest.json", "narration.mp3", "design/film/index.tsx"]) if (existsSync(path.join(job, f))) await cp(path.join(job, f), path.join(dir, f), { recursive: true });
   await cp(path.join(root, "apps/cli/src/dev/hand"), path.join(dir, "hand-scripts"), { recursive: true });
   await mkdir(path.dirname(baseFile), { recursive: true });
   raise();
