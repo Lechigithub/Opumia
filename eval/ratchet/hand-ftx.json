@@ -1,43 +1,44 @@
 {
   "name": "hand-ftx",
-  "tag": "v11",
-  "film": "out/hand-ftx/frozen/v11/film_16x9.mp4",
-  "frozenAt": "2026-11-24T14:09:51.968Z",
+  "tag": "v12",
+  "film": "out/hand-ftx/frozen/v12/film_16x9.mp4",
+  "frozenAt": "2026-11-24T14:54:14.965Z",
   "measures": {
     "taste": 4.9,
     "tasteAboveFloor": 27,
     "voice": 0.805,
     "mix": 0.585,
-    "luma": 0.305,
-    "darkShare": 0.114,
-    "colourfulness": 42.504,
-    "motion": 0.0394,
-    "stillShare": 0,
-    "cutsPerMin": 20.635,
+    "luma": 0.307,
+    "darkShare": 0.119,
+    "colourfulness": 44.158,
+    "motion": 0.0387,
+    "stillShare": 0.025,
+    "cutsPerMin": 19.841,
     "voiceOverBed": 19.1,
-    "cleanShare": 0.25,
-    "contrast": 0.658,
-    "highlights": 0.0096,
-    "oneColour": 0.033
+    "contrast": 0.683,
+    "highlights": 0.0193,
+    "oneColour": 0.1,
+    "cleanShare": 0.25
   },
+  "ownerApproval": "freeze the v12 now first (2026-11-24: names set huge, frame-wide figures, second type voice, judged by eye)",
   "previous": {
-    "tag": "v10",
+    "tag": "v11",
     "measures": {
-      "taste": 5,
+      "taste": 4.9,
       "tasteAboveFloor": 27,
       "voice": 0.805,
       "mix": 0.585,
-      "luma": 0.36,
-      "darkShare": 0.098,
-      "colourfulness": 46.609,
-      "motion": 0.0423,
+      "luma": 0.305,
+      "darkShare": 0.114,
+      "colourfulness": 42.504,
+      "motion": 0.0394,
       "stillShare": 0,
-      "cutsPerMin": 21.429,
+      "cutsPerMin": 20.635,
       "voiceOverBed": 19.1,
-      "cleanShare": 0.25
+      "cleanShare": 0.25,
+      "contrast": 0.658,
+      "highlights": 0.0096,
+      "oneColour": 0.033
     }
-  },
-  "notes": [
-    "2026-11-24: contrast, highlights, oneColour back-filled for v11 (grade-band.py on the frozen film)"
-  ]
+  }
 }

@@ -15,6 +15,9 @@ import { measureLook } from "@opumia/senses";
 const root = process.cwd(), data = path.join(root, "data");
 const [name, film] = process.argv.slice(2) as [string, string];
 const fi = process.argv.indexOf("--freeze"), tag = fi > 0 ? process.argv[fi + 1] : null;
+// --owner "<their words>": the owner approved by eye a change no measure can see yet; freezes with no regression even
+// if nothing measured improved, and records the approval
+const oi = process.argv.indexOf("--owner"), owner = oi > 0 ? process.argv[oi + 1] : null;
 const ji = process.argv.indexOf("--job"), job = ji > 0 ? path.resolve(process.argv[ji + 1]!) : path.dirname(path.resolve(film));
 const baseFile = path.join(root, "eval", "ratchet", `${name}.json`);
 
@@ -82,13 +85,13 @@ console.log(JSON.stringify(m));
 console.log(base ? `vs frozen ${base.tag}: ${worse.length ? `REGRESSES ${worse.join("; ")}` : "no regression"}${better.length ? ` | improves ${better.join("; ")}` : ""}` : "no frozen baseline yet");
 if (tag) {
   if (base && worse.length) { console.log("NOT FROZEN: a frozen level may never go down"); process.exit(2); }
-  if (base && !better.length) { console.log("NOT FROZEN: nothing improved"); process.exit(3); }
+  if (base && !better.length && !owner) { console.log("NOT FROZEN: nothing improved"); process.exit(3); }
   const dir = path.join(job, "frozen", tag);
   await mkdir(dir, { recursive: true });
   await cp(path.resolve(film), path.join(dir, path.basename(film)));
   for (const f of ["timed-script.json", "storyboard.json", "scenes.json", "resolution.json", "design.json", "manifest.json", "narration.mp3", "design/film/index.tsx"]) if (existsSync(path.join(job, f))) await cp(path.join(job, f), path.join(dir, f), { recursive: true });
   await cp(path.join(root, "apps/cli/src/dev/hand"), path.join(dir, "hand-scripts"), { recursive: true });
   await mkdir(path.dirname(baseFile), { recursive: true });
-  await writeFile(baseFile, JSON.stringify({ name, tag, film: path.relative(root, path.join(dir, path.basename(film))), frozenAt: new Date().toISOString(), measures: m, previous: base ? { tag: base.tag, measures: base.measures } : null }, null, 2));
+  await writeFile(baseFile, JSON.stringify({ name, tag, film: path.relative(root, path.join(dir, path.basename(film))), frozenAt: new Date().toISOString(), measures: m, ...(owner ? { ownerApproval: owner } : {}), previous: base ? { tag: base.tag, measures: base.measures } : null }, null, 2));
   console.log(`FROZEN ${name} at ${tag} → ${path.relative(root, dir)}; commit eval/ratchet and tag: git tag ratchet/${name}/${tag}`);
 }
