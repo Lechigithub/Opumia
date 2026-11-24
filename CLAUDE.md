@@ -135,6 +135,23 @@ Reference/        REFERENCE CORPUS: READ-ONLY
 
 Embeddings (`*.npy`), keyframes (`footage/keys/**`), the SigLIP model dir, the lucide JS sources, logs and shell scripts are **sidecars**, not assets. The index records them by reference without expanding them.
 
+## Copying the reference channel (owner decision 2026-11-24)
+
+Copy everything about how the channel makes its films, as exactly as possible, if it closes a gap:
+- how it writes: script style, story structure, beat order, sentence shapes, rhetoric;
+- how it looks and moves: typefaces (licensed where commercial), layouts, type treatments, colour, grades,
+  transitions, cutting and pacing;
+- how it sounds and packages: music and sound style, thumbnail and title formulas.
+
+Any topic is open, including ones the channel has covered: nobody owns a subject.
+
+What is never reused:
+- the channel's name;
+- its actual material word for word or file for file: its sentences, video frames, graphics, music files and
+  thumbnails (copyright, and YouTube Content ID / reused-content strikes);
+- its brand marks: logo, corner bug, intro/outro;
+- a clone of its narrator's voice. Matching his delivery is fine.
+
 ## Reference corpus
 
 Six channels serve as the style corpus: `MagnatesMedia`, `Logically Answered`, `Big Company`, `Modern MBA`, `How Money Works`, `Moon`.
@@ -278,7 +295,7 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Story measurement** (`agents/story-measure.ts`): every line of a narration is labelled for what it does (scene, story, fact, explain, motive, quote, question, address, tease, maxim) by the same function for our scripts and the channel's real films. The blind A/B story judge could not tell a bland rewrite from the real channel (missed 4 of 4); this can. Measured on 30 MagnatesMedia films (`data/story-profile/magnates-media.json`): explains what things mean in 16–40 % of lines, talks to the viewer or as the narrator in 2–24 %, quotes ≤ 7 %, bare facts ≤ 19 %. Bland rewrites: viewer address 0 %; our old scripts: explains 6–17 %, quotes 8–24 %, facts up to 39 %.
 - **Skill:** `packages/agents/skills/writer.md`.
 - **Tools** (`agents/writer-agent.ts`): `list_reference_films`, `read_reference_film` (whole real narrations, `data/story-profile/<channel>-films.json`), `search_reference`, `measure_draft` (story band, length at the voice's pace, structure, figures, every figure and quotation checked against the verified fact sheet, speakable punctuation), `submit_script`, `note_lesson`.
-- **One author:** code only verifies and formats (figures, ear punctuation); it never rewrites a sentence. No story menu: the writer builds each film's own structure from its facts; the old hook/ending names survive only as labels for the uniqueness check.
+- **One author:** code only verifies and formats (figures, ear punctuation); it never rewrites a sentence. The writer reproduces the channel's own story structures (studied from real films) as exactly as it can, filled with this film's facts; the old hook/ending names survive only as labels for the uniqueness check.
 - **Memory:** `data/agents/writer/<channel>.md` (its own lessons and a log of every script) and `data/agents/writer/owner-notes.md` (the owner's feedback — add a line there and the writer reads it before its next script).
 - **Score:** `npx tsx apps/cli/src/dev/writer-score.ts out/<job> …` → `data/agents/writer/score-history.json`. First score (2026-11-22): 3 of 3 accepted (Kodak 97 s $0.36, Theranos 129 s $0.37, Enron 78 s $0.23); the five-pass writer on Kodak: not accepted, 200 s, $0.61.
 - **Gate:** a script that is not accepted is not narrated (`script.story.json`). The five-pass writer was removed (build list 3): a channel without a story band gets its band built first.

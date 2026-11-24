@@ -138,7 +138,7 @@ async function buildFromReference(channelId: ChannelId, roots: { reference: stri
     : "";
   const text = [
     `# CHANNEL STYLE PACK: ${ch.displayName} (${channelId})`,
-    `This pack describes how the reference channel writes and paces its documentaries. Use it to match the hook formula, act structure, pacing and rhetorical tone. It is a style reference: never copy its sentences, facts or topics.`,
+    `This pack describes how the reference channel writes and paces its documentaries. Use it to match the hook formula, act structure, pacing and rhetorical tone. Reproduce how it writes as exactly as you can: hook formula, act and story structure, beat order, sentence shapes and length, rhetoric and tone. Any topic is open. Only two limits: never reuse its sentences word for word, and every fact comes from this film's verified fact sheet.`,
     `\n# 1. MEASURED STYLE PROFILE (JSON)\n${JSON.stringify(stable(profileStable))}`,
     unified,
     cards ? `\n# 2. STORY TECHNIQUE CARDS FOR THIS CHANNEL (JSON)\n${JSON.stringify(stable(cards))}` : "",
@@ -225,7 +225,7 @@ async function narrativeDevices(analysis: string, storyFiles: string[]): Promise
     `- Cold open: hook types ${hooks}. The hook runs to a median ${Math.round(med(hookEnds))} s, then a one-line thesis ("This is the story of…"). Only ${chrono}/${films} films open with an old date — the channel opens IN MEDIA RES (the peak, the paradox, the stakes), and only AFTER the thesis jumps back ("The story begins in…").`,
     `- Tension loops: a tension turn (a "But…/However…/And yet…" reversal, a question, "little did", "there was one problem", "would soon", "had no idea") lands every ${Math.round(med(gaps))} s at the median (p75 ${Math.round(p75(gaps))} s). Every beat ends by opening the next question; payoffs come later.`,
     `- Contrast & scale: numbers are almost never bare — they are framed against a rival, a country, a lifetime or "every person on the planet".`,
-    `\n## 6a. REAL COLD OPENS UP TO THE THESIS (style reference; never copy)\n${coldOpens.join("\n")}`,
+    `\n## 6a. REAL COLD OPENS UP TO THE THESIS (open the way these open, as exactly as you can; never reuse the words)\n${coldOpens.join("\n")}`,
     `\n## 6b. THE PIVOT AFTER THE THESIS (how the flashback starts)\n${pivots.join("\n")}`,
     `\n## 6c. OPEN-LOOP / CLIFFHANGER LINES\n${loops.join("\n")}`,
     `\n## 6d. TWIST LINES\n${twists.join("\n")}`,

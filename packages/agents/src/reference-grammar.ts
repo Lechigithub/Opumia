@@ -109,7 +109,7 @@ export function grammarText(rows: GrammarRow[]): string {
     ...table,
     `\n## 8a. FOOTAGE OVER LITERAL LINES (how specific the picture is)`,
     ...footage.map(fmt),
-    `\n## 8b. DESIGNED SHOTS (layout, motion and elements — compose your own, never copy)`,
+    `\n## 8b. DESIGNED SHOTS (layout, motion and elements — reproduce them as closely as you can with this film's own pictures and words)`,
     ...designed.map(fmt),
   ].join("\n");
 }
@@ -160,7 +160,7 @@ export async function beatLibrary(reference: string, storyFiles: string[]): Prom
 export function beatText(beats: BeatPassage[], perRole = 3): string {
   if (!beats.length) return "";
   const roles = [...new Set(beats.map((b) => b.role.replace(/ \(.*\)$/, "")))].sort();
-  const lines: string[] = [`\n# 9. BEAT LIBRARY (real narration per story role — the voice to match; never copy)`];
+  const lines: string[] = [`\n# 9. BEAT LIBRARY (real narration per story role — match its voice and structure exactly; never reuse a line word for word)`];
   for (const r of roles) {
     const xs = beats.filter((b) => b.role.startsWith(r)).sort((a, b) => a.film.localeCompare(b.film));
     const step = Math.max(1, Math.floor(xs.length / perRole));
