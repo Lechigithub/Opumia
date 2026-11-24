@@ -13,11 +13,7 @@ const dir = path.join(job, "ears"); await mkdir(dir, { recursive: true });
 const m = RenderManifest.parse(JSON.parse(await readFile(path.join(job, "manifest.json"), "utf8")));
 const st = await premixStems(m, dir);
 const ff = (a: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", ...a]);
-const V: Record<string, [string, number]> = {
-  asis: ["anull", 0],
-  plusSmallRoom: ["aecho=0.8:0.5:23|41:0.18|0.11", 0],
-  plusSmallRoomBedUp2: ["aecho=0.8:0.5:23|41:0.18|0.11", 2],
-};
+const V: Record<string, [string, number]> = { asis: ["anull", 0] };
 for (const [k, [vf, bedDb]] of Object.entries(V)) {
   const out = path.join(dir, `v_${k}.wav`);
   ff(["-i", st.voice, "-i", st.bed, "-filter_complex", `[0:a]${vf}[v];[1:a]volume=${bedDb}dB[b];[v][b]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.5[o]`, "-map", "[o]", out]);

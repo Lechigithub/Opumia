@@ -229,9 +229,9 @@ for (const [id, moment, gain] of HITS) {
   sh.sfx.push({ assetId: id, atS, gainDb: gain });
 }
 const MUSIC0 = [
-  { assetId: "17d16bdc91e20542", startS: 0, endS: 38.75, gainDb: -9, mood: "tension" as const, drops: [{ startS: 9.1, endS: 9.85 }, { startS: 37.9, endS: 38.75 }] },
-  { assetId: "a5b692a28d20ada4", startS: 38.75, endS: 64.2, gainDb: -10, mood: "collapse" as const, drops: [{ startS: 56.9, endS: 57.55 }] },
-  { assetId: "55e3d88a31ecffee", startS: 64.2, endS: dur, gainDb: -9, mood: "resolve" as const, drops: [{ startS: 76.2, endS: 76.65 }] },
+  { assetId: "17d16bdc91e20542", startS: 0, endS: 38.75, gainDb: -12, mood: "tension" as const, drops: [{ startS: 9.1, endS: 9.85 }, { startS: 37.9, endS: 38.75 }] },
+  { assetId: "a5b692a28d20ada4", startS: 38.75, endS: 64.2, gainDb: -13, mood: "collapse" as const, drops: [{ startS: 56.9, endS: 57.55 }] },
+  { assetId: "55e3d88a31ecffee", startS: 64.2, endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: 76.2, endS: 76.65 }] },
 ];
 const MUSIC = MUSIC0.map((c) => ({ ...c, startS: +warp(c.startS).toFixed(2), endS: c.endS === dur ? dur : +warp(c.endS).toFixed(2), drops: c.drops.map((d) => ({ startS: +warp(d.startS).toFixed(2), endS: +warp(d.endS).toFixed(2) })) }));
 let board = Storyboard.parse({ schemaVersion: 1, id: "sb_hand_ftx", scriptId: timed.id, styleProfileId: "magnates-media", aspect: "16:9", durationS: dur, shots, music: [], generatedAt: new Date().toISOString() });

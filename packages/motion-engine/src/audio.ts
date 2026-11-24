@@ -39,6 +39,21 @@ const ROOM_TONE_BELOW_VOICE_RMS_DB = 27;
 /** RMS level of the brown-noise source after its filters, at amplitude 1 (measured). */
 const TONE_SOURCE_RMS_DB = -19.1;
 
+/**
+ * Every narration enters the mix at one loudness (owner, hand film v9: switching to a voice ElevenLabs delivers 10.7 dB
+ * quieter left the music 11 dB too loud against it). Music, effects and room tone are set against this fixed level.
+ */
+const NARRATION_LUFS = -16;
+async function integratedLufs(file: string): Promise<number | null> {
+  const r = await ff(["-i", file, "-af", "ebur128", "-f", "null", "-"]).catch(() => null);
+  const all = [...(r?.stderr ?? "").matchAll(/^\s+I:\s+(-?[\d.]+) LUFS/gm)].map((x) => Number(x[1]));
+  return all.length ? all[all.length - 1]! : null;
+}
+async function narrationGainDb(file: string): Promise<number> {
+  const i = await integratedLufs(file);
+  return i === null || !Number.isFinite(i) ? 0 : Math.max(-20, Math.min(20, NARRATION_LUFS - i));
+}
+
 async function overallRmsDb(file: string): Promise<number | null> {
   const r = await ff(["-i", file, "-af", "astats=metadata=0", "-f", "null", "-"]).catch(() => null);
   const all = [...(r?.stderr ?? "").matchAll(/RMS level dB:\s*(-?[\d.]+)/g)].map((x) => Number(x[1]));
@@ -50,9 +65,9 @@ async function overallRmsDb(file: string): Promise<number | null> {
  * reflections (23 / 41 ms, −15 / −19 dB) put the voice in a small room: measured on the same film, voice humanness
  * 0.37 → 0.54 and channel mix 0.25 → 0.35, with no audible echo.
  */
-const VOICE_ROOM = "aecho=0.8:0.6:31|53:0.14|0.09,aecho=0.8:0.5:23|41:0.18|0.11"; // two reflection sets (hand film v8 sweep): voice 0.815 → 0.832, mix 0.779 → 0.807
+const VOICE_ROOM = "aecho=1:1:31|53:0.14|0.09,aecho=1:1:23|41:0.12|0.08"; // reflections only: in/out gain 1 (the earlier 0.8/0.6 and 0.8/0.5 gains cut the voice ≈ 14 dB and let the music overpower it — owner, hand film v9)
 
-function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" | "voice" | "bed" = "all") {
+function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" | "voice" | "bed" = "all", voiceGainDb = 0) {
   const fps = m.fps;
   const durS = m.durationFrames / fps;
   const voice = m.audio.find((a) => a.role === "narration");
@@ -63,7 +78,7 @@ function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" |
   const chains: string[] = [];
   // Broadcast narrator chain: rumble cut, chest warmth (+2 dB @ 160 Hz), boxiness dip (−2 dB @ 380 Hz), presence lift
   // (+1.5 dB @ 3.2 kHz), de-esser, two-stage compression (slow levelling, then a fast catch), soft air shelf.
-  chains.push(`[0:a]aresample=48000,aformat=channel_layouts=stereo,highpass=f=70,equalizer=f=160:t=q:w=1.0:g=2,equalizer=f=380:t=q:w=1.4:g=-2,equalizer=f=3200:t=q:w=1.2:g=1.5,deesser=i=0.35:m=0.5:f=0.5,acompressor=threshold=-24dB:ratio=2.2:attack=20:release=250:makeup=2,acompressor=threshold=-12dB:ratio=4:attack=3:release=60:makeup=1,highshelf=f=11000:g=1,${VOICE_ROOM},apad=whole_dur=${durS.toFixed(3)}[vo]`);
+  chains.push(`[0:a]aresample=48000,aformat=channel_layouts=stereo,volume=${voiceGainDb.toFixed(2)}dB,highpass=f=70,equalizer=f=160:t=q:w=1.0:g=2,equalizer=f=380:t=q:w=1.4:g=-2,equalizer=f=3200:t=q:w=1.2:g=1.5,deesser=i=0.35:m=0.5:f=0.5,acompressor=threshold=-24dB:ratio=2.2:attack=20:release=250:makeup=2,acompressor=threshold=-12dB:ratio=4:attack=3:release=60:makeup=1,highshelf=f=11000:g=1,${VOICE_ROOM},apad=whole_dur=${durS.toFixed(3)}[vo]`);
   const mixIns: string[] = [];
   let idx = 1;
   if (music.length) {
@@ -120,8 +135,10 @@ const LN = (target: number, tp: number) => `loudnorm=I=${target}:TP=${tp}:LRA=11
 /** Two-pass EBU R128 mastering to the manifest's LUFS target (default −14) with a −1.5 dBTP ceiling. */
 export async function masterAudio(m: RenderManifest, outWav: string, truePeak = -1.5): Promise<LoudnessStats> {
   const voice = m.audio.find((a) => a.role === "narration");
-  const vRms = voice ? await overallRmsDb(voice.src) : null;
-  const { inputs, graph } = mixGraph(m, vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB);
+  const vGain = voice ? await narrationGainDb(voice.src) : 0;
+  const vRms0 = voice ? await overallRmsDb(voice.src) : null;
+  const vRms = vRms0 === null ? null : vRms0 + vGain;
+  const { inputs, graph } = mixGraph(m, vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB, "all", vGain);
   // Pass 1: measure.
   const p1 = await ff([...inputs, "-filter_complex", `${graph};[mix]${LN(m.loudnessTargetLufs, truePeak)}:print_format=json[out]`, "-map", "[out]", "-f", "null", "-"]);
   const j = JSON.parse(/\{[^{}]*"input_i"[^{}]*\}/s.exec(p1.stderr)?.[0] ?? "{}") as Record<string, string>;
@@ -138,11 +155,12 @@ export async function masterAudio(m: RenderManifest, outWav: string, truePeak = 
  */
 export async function premixStems(m: RenderManifest, dir: string): Promise<{ mix: string; voice: string; bed: string }> {
   const voice = m.audio.find((a) => a.role === "narration");
-  const vRms = voice ? await overallRmsDb(voice.src) : null;
-  const tone = vRms === null ? null : vRms - ROOM_TONE_BELOW_VOICE_RMS_DB;
+  const vGain = voice ? await narrationGainDb(voice.src) : 0;
+  const vRms0 = voice ? await overallRmsDb(voice.src) : null;
+  const tone = vRms0 === null ? null : vRms0 + vGain - ROOM_TONE_BELOW_VOICE_RMS_DB;
   const out = { mix: `${dir}/premix.wav`, voice: `${dir}/stem-voice.wav`, bed: `${dir}/stem-bed.wav` };
   for (const [stem, file] of [["all", out.mix], ["voice", out.voice], ["bed", out.bed]] as const) {
-    const { inputs, graph } = mixGraph(m, tone, stem);
+    const { inputs, graph } = mixGraph(m, tone, stem, vGain);
     await ff([...inputs, "-filter_complex", graph, "-map", "[mix]", "-c:a", "pcm_s16le", file]);
   }
   return out;

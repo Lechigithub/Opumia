@@ -19,10 +19,14 @@ const ji = process.argv.indexOf("--job"), job = ji > 0 ? path.resolve(process.ar
 const baseFile = path.join(root, "eval", "ratchet", `${name}.json`);
 
 /** The channel's band for each look measure (MagnatesMedia, measured on the reference); distance to it is what counts. */
-const BAND: Record<string, [number, number]> = { cleanShare: [0.19, 0.75], luma: [0.3, 0.45], darkShare: [0, 0.13], colourfulness: [31, 48], motion: [0.04, 0.1], stillShare: [0, 0.08], cutsPerMin: [13, 38] };
+// voiceOverBed: the channel's 37 films, voice over the bed while speaking (Reference sound.json): p10 14.4, p90 24.3 dB
+const BAND: Record<string, [number, number]> = { voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], luma: [0.3, 0.45], darkShare: [0, 0.13], colourfulness: [31, 48], motion: [0.04, 0.1], stillShare: [0, 0.08], cutsPerMin: [13, 38] };
 /** Higher is better for these; noise below which a drop is not a regression. */
-const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03, mix: 0.03 };
-const BAND_NOISE: Record<string, number> = { cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03 };
+/** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
+ *  rewards a defect. Retired 2026-11-24. */
+const RETIRED = new Set(["mix"]);
+const BAND_NOISE: Record<string, number> = { voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -42,6 +46,15 @@ export async function measure(file: string): Promise<Record<string, number>> {
 const off = (k: string, v: number) => { const [a, b] = BAND[k]!; return v < a ? a - v : v > b ? v - b : 0; };
 
 const m = await measure(path.resolve(film));
+// voice over the bed while speaking, from the film's own stems (same 100 ms method as the reference analysis)
+if (existsSync(path.join(job, "manifest.json"))) {
+  const { premixStems } = await import("@opumia/motion-engine");
+  const { RenderManifest } = await import("@opumia/contracts");
+  const st = await premixStems(RenderManifest.parse(JSON.parse(await readFile(path.join(job, "manifest.json"), "utf8"))), path.join(job, "ears"));
+  const out = execFileSync(path.join(process.env.HOME!, "lechi_tts/venv/bin/python"), ["-I", path.join(root, "apps/cli/src/dev/hand/mix-measure.py"), st.voice, st.bed]).toString();
+  const v = /speaking (-?[\d.]+) dB/.exec(out);
+  if (v) m.voiceOverBed = Number(v[1]);
+}
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {
   const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<{ backdrop?: string; elements: unknown[] }> }).scenes;
@@ -51,7 +64,7 @@ const base = existsSync(baseFile) ? (JSON.parse(await readFile(baseFile, "utf8")
 const worse: string[] = [], better: string[] = [];
 for (const [k, v] of Object.entries(m)) {
   const b = base?.measures[k];
-  if (b === undefined || !Number.isFinite(b)) continue;
+  if (b === undefined || !Number.isFinite(b) || RETIRED.has(k)) continue;
   if (k in HIGHER) { if (v < b - HIGHER[k]!) worse.push(`${k} ${b} → ${v}`); else if (v > b + HIGHER[k]!) better.push(`${k} ${b} → ${v}`); }
   else { const d0 = off(k, b), d1 = off(k, v); if (d1 > d0 + BAND_NOISE[k]!) worse.push(`${k} ${b} → ${v} (band ${BAND[k]})`); else if (d1 < d0 - BAND_NOISE[k]!) better.push(`${k} ${b} → ${v} (band ${BAND[k]})`); }
 }
