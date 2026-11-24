@@ -701,7 +701,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     // craft inventory: tonal plucks for small reveals — synthesised (the library has none), offered with the library's
     const plucks = await ensurePlucks(o.data).catch(() => []);
     for (const pk of plucks) {
-      if (!index.assets.some((a) => a.id === pk.id)) index.assets.push({ schemaVersion: 1, id: pk.id, category: "sfx", relPath: pk.file, kind: "audio", ext: "mp3", sizeBytes: 0, mtimeMs: 0, tags: ["pluck", "tonal"], provenance: { license: "own (deterministic synthesis)", attributionRequired: false, basis: "synthesised with FFmpeg" } } as never);
+      if (!index.assets.some((a) => a.id === pk.id)) index.assets.push({ schemaVersion: 1, id: pk.id, category: "sfx", relPath: pk.file, kind: "audio", ext: "mp3", sizeBytes: 0, mtimeMs: 0, tags: ["pluck", "tonal"], provenance: { license: "own (deterministic synthesis)", attributionRequired: false, basis: "synthesised with FFmpeg" }, facets: { class: "pluck", intendedUse: "a light tonal accent under a label or small reveal" } } as never);
       ap.sfx[pk.id] = { seconds: pk.seconds, peakDb: -6, centroidHz: 900, lowShare: 0.15, attackS: 0.004, energyCentre: 0.12, family: "pluck" } as never;
     }
     for (const pk of plucks) if (!usable.some((a) => a.id === pk.id)) usable.push(index.assets.find((a) => a.id === pk.id)!);

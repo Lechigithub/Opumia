@@ -92,7 +92,8 @@ export const Documentary: React.FC<DocProps> = ({ manifest, look, design }) => {
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       <AbsoluteFill style={{ filter: `saturate(${sat.toFixed(3)}) contrast(${Math.min(con, 1.14).toFixed(3)}) brightness(${bri.toFixed(3)})` }}>{below.map(render)}</AbsoluteFill>
       <Grade {...(act ? { act } : {})} />
-      {above.map(render)}
+      {/* the act's exposure (the colourist's) reaches the designed scenes too — a film of designed shots is lit by it */}
+      <AbsoluteFill style={Math.abs(bri - 1) > 0.005 ? { filter: `brightness(${bri.toFixed(3)})` } : undefined}>{above.map(render)}</AbsoluteFill>
       {/* The film's own transition across every cut a shot asks to bridge ("film"), centred on the cut. */}
       {(() => {
         const T = FILM.transitions[FILM.transition ?? ""];

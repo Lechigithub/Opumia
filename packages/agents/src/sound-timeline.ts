@@ -106,7 +106,7 @@ const WANT: Record<Mood, { bpm: [number, number]; pulse: number }> = { intrigue:
 /** Steps 3–4 as tools: pick a file for a family, set its level and placement, rank beds for a span, enter a bed on the beat. */
 export function soundKit(o: SoundTimelineOptions) {
   const rnd = seeded(o.seed);
-  const cls = (a: AssetRecord) => String(a.facets.class ?? "");
+  const cls = (a: AssetRecord) => String(a.facets?.class ?? "");
   const all = o.sfxAssets.filter((a) => o.sfxProfile[a.id]);
   const pool = (fam: Family): AssetRecord[] => {
     // craft inventory: tonal plucks are synthesised (the library has none) — their profile is known
