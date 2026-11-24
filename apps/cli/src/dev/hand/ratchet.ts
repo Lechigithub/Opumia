@@ -42,7 +42,7 @@ const BAND: Record<string, [number, number]> = { ...Object.fromEntries(STORY_KIN
   ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
   ...Object.fromEntries(TYPE_KEYS.map((k) => [k, [TY[k]!.p10, TY[k]!.p90] as [number, number]])) };
 /** Higher is better for these; noise below which a drop is not a regression. */
-const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 0.02 };
+const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 0.02, staplesCovered: 0.01 };
 /** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
  *  rewards a defect. Retired 2026-11-24. */
 // voice: the ears' score depends on the words, so it cannot compare films with different scripts; the owner's ear
@@ -123,6 +123,34 @@ if (existsSync(path.join(job, "story-kinds.json"))) {
   const pr = storyProfile(sk.sentences, sk.kinds as never);
   for (const k of STORY_KINDS) m[`${k}Share`] = pr.share[k as keyof typeof pr.share];
   m.viewerShare = pr.viewerShare;
+}
+// the channel's staples (techniques in >= 20 % of its stretches, data/technique-inventory) the film's plan uses
+if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "storyboard.json"))) {
+  type El = { name?: string; type?: string; props?: { words?: Array<{ c?: string }>; align?: string } };
+  type Sc = { backdrop?: string; world?: { kind?: string }; wash?: { color?: string; strength?: number; mode?: string }; fx?: { dof?: number }; finish?: { grain?: number }; atmos?: { kind?: string }; elements: El[] };
+  const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Sc[] }).scenes;
+  const sb = JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ startS: number; endS: number }>; music: Array<{ drops?: unknown[] }> };
+  const els = sc.flatMap((x) => x.elements);
+  const has: Record<string, boolean> = {
+    filmstrip_grid_layout: sc.some((x) => x.world?.kind === "filmstrip" || x.world?.kind === "contact_grid"),
+    text_on_label_shape: els.some((e) => e.name === "Label"),
+    monochrome_high_contrast_grade: sc.some((x) => x.wash?.mode === "duotone" && ["black", "surface"].includes(x.wash.color ?? "") && (x.wash.strength ?? 0) >= 0.7),
+    duotone_color_tint: sc.some((x) => x.wash?.mode === "duotone" && !["black", "surface"].includes(x.wash.color ?? "")),
+    word_by_word_build: els.some((e) => e.name === "Kinetic"),
+    keyword_colour_highlight: els.some((e) => (e.props?.words ?? []).some((w) => w.c === "y" || w.c === "r")),
+    centered_caps_title: els.some((e) => e.name === "Kinetic" && (e.props?.align ?? "center") === "center"),
+    depth_of_field_blur: sc.some((x) => (x.fx?.dof ?? 0) > 0),
+    film_grain_dust_scratches: sc.some((x) => (x.finish?.grain ?? 0) > 0 || x.atmos?.kind === "dust"),
+    music_cue_change: sb.music.length > 1,
+    music_drop_out: sb.music.some((c) => (c.drops ?? []).length > 0),
+    b_roll_reenactment_clip: sc.some((x) => (x.backdrop ?? "footage") === "footage"),
+    long_hold_slow_cuts: sb.shots.some((x) => x.endS - x.startS >= 4),
+    impact_hit_on_reveal: existsSync(path.join(job, "manifest.json")) && ((JSON.parse(await readFile(path.join(job, "manifest.json"), "utf8")) as { audio?: Array<{ role?: string }> }).audio ?? []).some((x) => x.role === "sfx"),
+  };
+  const staples = (JSON.parse(readFileSync(path.join(data, "technique-inventory", "magnates-media", "band.json"), "utf8")) as { techniques: Array<{ id: string; share: number }> }).techniques.filter((v) => v.share >= 0.2).map((v) => v.id);
+  const known = staples.filter((k) => k in has);
+  m.staplesCovered = +(known.filter((k) => has[k]).length / known.length).toFixed(3);
+  console.log(`staples: ${known.map((k) => `${has[k] ? "+" : "-"}${k}`).join(" ")} (not checkable from the plan: ${staples.filter((k) => !(k in has)).join(", ")})`);
 }
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {

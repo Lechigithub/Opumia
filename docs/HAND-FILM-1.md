@@ -367,3 +367,17 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 - **Voice per line in the mix:** most lines read 0.84–0.88, better than their v15 counterparts. Line 9 reads 0.70,
   line 6 0.73, line 11 0.76, line 3 0.79. The film-level gap now comes from those four lines and from windows that
   straddle the pauses between lines.
+
+### v19 frozen; v20: the channel's staples (frozen)
+- **v19:** the voice score is retired from the gate. The owner judged the voice fine; the score depends on the words,
+  so it cannot compare films with different scripts. Voice work stays at sound quality and mix, at the voice's natural
+  pace. v19 froze on the story gains.
+- **Staples:** techniques in at least 20 % of the channel's stretches (`data/technique-inventory/magnates-media/band.json`).
+  v19 lacked the filmstrip or contact-sheet layout (25 %) and text on a label shape (24 %).
+- **v20 adds:**
+  - "Soon after that tweet" as a filmstrip sliding from the tweet to SBF on air to the court scrum;
+  - "A WEEK EARLIER" and "SOON AFTER THAT TWEET" on tilted gold labels;
+  - two more high-contrast monochrome shots, SBF on air and the sentencing with only the gold "25" in colour.
+- **Ratchet:** `staplesCovered` is the share of the checkable staples the film's plan uses (scenes, storyboard,
+  manifest). v19 0.857 → v20 1.0. Three staples cannot be read from the plan: hard cuts with a palette reset, literal
+  narration-matched visuals, stretches with a music bed and no effects. They wait for the blind comparison.
