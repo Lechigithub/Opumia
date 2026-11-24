@@ -307,3 +307,26 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   taste has a median of 4.7 against v15's 4.9, past its 0.15 noise, in two renders; that scorer reads content and
   which footage moments its samples hit. Voice is 0.778 against 0.805 (within noise). Not frozen by the measures;
   the owner judges.
+
+### v17: every measure at its best level at once (frozen)
+- **Bests per measure** (owner: "only freeze the better part"). The ratchet keeps, for each measure, the best level
+  any version reached, and where it came from (`best` in `eval/ratchet/hand-ftx.json`).
+  - `--lock-best <label>` records a candidate's better measures without freezing the film.
+  - A regression is judged against those bests; an improvement against the frozen film.
+  - v16's story gains, widest text and taste-floor count were locked this way. Taste and voice kept v15's levels.
+- **Story in the ratchet:** each script sentence records its line kind (`script.ts` `kinds`); the build writes
+  `story-kinds.json`. The ratchet scores the shares with `storyProfile` against the channel's 30-film band: quotes,
+  facts, explanations, teases, motives, and lines that talk to the viewer. They are labelled in the session, so this is
+  weaker than the other instruments until the blind comparison exists. Counted strictly per sentence, v2 is: quotes
+  15.8 % (the tweet counts as two; band ≤ 6.7 %), facts 21 % (≤ 18.9 %), explains 15.8 % (≥ 15.6 %), tease, motive and
+  viewer lines inside the band.
+- **Taste noise:** the same film's taste median moves by up to 0.3 with the sample grid alone (`taste-noise.ts`). It
+  is now the mean of four grids: v15 4.82, v17 4.85. The earlier "4.9 → 4.7" was the grid.
+- **v17** = v16 plus:
+  - washes the channel uses on its weakest shots: "ASSETS ARE FINE." set big in gold, the $8 billion and "would not
+    be fine" shots in red, SBF on air in gold, a tint on Ray, a lighter Enron card;
+  - line 6 says "a rival" instead of the name, which the name card already shows (dry voice score 0.19 → 0.24);
+  - cuts anchored to the words (`timed-script-cutref-v2.json`), so a re-recorded line cannot misalign a cut.
+
+  Frozen: no measure below its best, and it improves on v15 in story and taste-floor frames.
+- **Still open in the story:** quotes and bare facts are above the band.

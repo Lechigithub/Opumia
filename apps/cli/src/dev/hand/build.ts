@@ -16,10 +16,13 @@ const only = process.argv.includes("--only") ? new Set(process.argv[process.argv
 // the narration in use (NARRATOR=marcus → timed-script-marcus.json); cut points were designed on Christopher's timing
 // and are carried over word by word (warp), so every cut stays on the same word
 const NARRATOR = process.env.NARRATOR ?? "marcus2";
-const WARP = NARRATOR !== "marcus2"; // the v1 script's narrations were cut on Christopher's timings and warped
+// Cut points are designed on one narration (the cut reference) and carried word by word onto the narration in use, so a
+// re-recorded line never misaligns a cut. v2 script: cut on timed-script-cutref-v2.json (v16); v1: on Christopher's.
+const CUTREF = NARRATOR === "marcus2" ? "cutref-v2" : "christopher";
+const WARP = true;
 const timed = TimedScript.parse(JSON.parse(await readFile(path.join(job, `timed-script-${NARRATOR}.json`), "utf8")));
 const W = timed.segments.flatMap((s) => s.words);
-const OLD = TimedScript.parse(JSON.parse(await readFile(path.join(job, "timed-script-christopher.json"), "utf8"))).segments.flatMap((s) => s.words);
+const OLD = TimedScript.parse(JSON.parse(await readFile(path.join(job, `timed-script-${CUTREF}.json`), "utf8"))).segments.flatMap((s) => s.words);
 const warp = (t: number) => {
   if (!WARP) return t;
   if (t <= OLD[0]!.startS) return Math.max(0, t - OLD[0]!.startS + W[0]!.startS);
@@ -84,9 +87,9 @@ const SHOTS: Shot[] = [
   { id: "S03", start: 5.62, seg: "l02", intent: "the post: FTX is fine", footage: "phone", trim: 8, slots: { 0: "tweet" }, tr: "flash",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.7 }, wash: { color: "primary", strength: 0.3, mode: "tint" }, camera: cam(1.1, 1.28), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Card", x: 0.1, y: 0.28, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -2 } }] }) },
-  { id: "S03b", start: 7.3, seg: "l02", intent: "assets are fine (punch in)", footage: "phone", trim: 10, slots: { 0: "tweet" }, tr: "zoom_punch",
-    scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.8 }, camera: cam(1.1, 1.3), finish: fin(0.35, 0.6),
-      elements: [{ type: "component", name: "Card", x: -0.12, y: -0.05, w: 1.5, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -3 } }] }) },
+  { id: "S03b", start: 7.3, seg: "l02", intent: "assets are fine (his words, set big)", footage: "phone", trim: 10, tr: "zoom_punch",
+    scene: (t) => ({ backdrop: "footage", dim: 0.35, fx: { dof: 0.85 }, wash: { color: "accent", strength: 0.5, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.35, 0.6),
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.34, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[18, "ASSETS"], [19, "ARE"], [20, "FINE.", "y"]]), size: 170, font: "wide" } }] }) },
   { id: "S04", start: 9.3, seg: "l03", intent: "four days later", footage: "fire", trim: 3, tr: "film",
     scene: (t) => ({ backdrop: "footage", atmos: { kind: "embers", opacity: 0.7 }, dim: 0.2, camera: cam(1.0, 1.18), finish: fin(0.4, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[21, "Four"], [22, "days"], [23, "later", "y"]]), size: 150, font: "wide" } }] }) },
@@ -100,7 +103,7 @@ const SHOTS: Shot[] = [
         { type: "component", name: "Stamp", x: 0.24, y: 0.52, w: 0.52, at: rel(t, 30), z: 0.9, rot: 0, enter: "fade", props: { text: "Bankrupt", size: 190 } },
       ] }) },
   { id: "S07", start: 14.1, seg: "l03", intent: "so how does a company worth that much vanish? (SBF on air, all smiles)", footage: "sbf_bbg", trim: 0.2, tr: "film",
-    scene: () => ({ backdrop: "footage", dim: 0, camera: cam(1.0, 1.14), finish: fin(0.3, 0.45), elements: [] }) },
+    scene: () => ({ backdrop: "footage", dim: 0, wash: { color: "accent", strength: 0.5, mode: "duotone" }, camera: cam(1.0, 1.14), finish: fin(0.35, 0.55), elements: [] }) },
   { id: "S07b", start: 16.4, seg: "l03", intent: "vanish in less than a week", footage: "paperburn", trim: 0, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.05, 1.22), finish: fin(0.4, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.3, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[41, "LESS THAN"], ["|", ""], [43, "A WEEK", "y"]]), size: 170, font: "wide" } }] }) },
@@ -156,10 +159,10 @@ const SHOTS: Shot[] = [
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.6 }, camera: cam(1.1, 1.26), finish: fin(0.4, 0.65),
       elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.34, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[150, "WHATEVER"], [151, "IT"], [152, "HAD"], [153, "FOUND"], ["|", ""], [154, "WAS"], [155, "BEYOND", "y"], [156, "SAVING", "r"]]), size: 110, font: "wide" } }] }) },
   { id: "S21", start: 61.0, seg: "l09", intent: "John J. Ray III, brought in to clean up", footage: "ray", trim: 0, tr: "flash",
-    scene: (t) => ({ backdrop: "footage", dim: 0.1, camera: cam(1.0, 1.16), finish: fin(0.3, 0.45),
+    scene: (t) => ({ backdrop: "footage", dim: 0.15, wash: { color: "primary", strength: 0.35, mode: "tint" }, camera: cam(1.0, 1.16), finish: fin(0.35, 0.55),
       elements: [{ type: "component", name: "Name", x: 0.6, y: 0.3, w: 0.37, at: rel(t, 158), z: 0.8, rot: 0, enter: "fade", props: { text: "John J. | Ray III", role: "new CEO of FTX", align: "right" } }] }) },
   { id: "S22", start: 63.1, seg: "l09", intent: "Enron", footage: "fire", trim: 6, slots: { 0: "enron" }, tr: "zoom_punch",
-    scene: () => ({ backdrop: "footage", dim: 0.3, camera: cam(1.0, 1.23), finish: fin(0.35, 0.6, 0.3),
+    scene: () => ({ backdrop: "footage", dim: 0.1, camera: cam(1.0, 1.23), finish: fin(0.35, 0.6, 0.3),
       elements: [{ type: "card3d", slot: 0, x: 0.3, y: 0.06, w: 0.4, z: 0.6, rot: 0, at: 0, enter: "zoom", tilt: -10, spin: 30 },
         { type: "component", name: "Kinetic", x: 0.1, y: 0.74, w: 0.8, at: 0.05, z: 0.8, rot: 0, enter: "fade", props: { words: [{ text: "Enron", from: 0, c: "w" }, { text: "2001", from: 6, c: "y" }], size: 190, font: "wide" } }] }) },
   { id: "S23", start: 64.7, seg: "l09", intent: "even by his standards (CBS headline)", footage: "ray", trim: 0.5, slots: { 0: "cbs" }, tr: "cut",
@@ -175,13 +178,13 @@ const SHOTS: Shot[] = [
     scene: (t) => ({ backdrop: "footage", dim: 0.2, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
       elements: [{ type: "component", name: "Counter", x: 0.52, y: 0.2, w: 0.44, at: rel(t, 185), z: 0.8, rot: 0, enter: "fade", props: { to: 25, frames: 16, label: "years" } }] }) },
   { id: "S26", start: 73.0, seg: "l10", intent: "for stealing $8 billion", footage: "pile", trim: 1, tr: "cut",
-    scene: (t) => ({ backdrop: "footage", wash: { color: "accentDeep", strength: 0.25, mode: "tint" }, dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.23), finish: fin(0.35, 0.6),
+    scene: (t) => ({ backdrop: "footage", wash: { color: "accentDeep", strength: 0.65, mode: "duotone" }, dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.23), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.3, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[188, "STEALING", "r"], ["|", ""], [189, "$8 BILLION", "y"]]), size: 210, font: "wide" } }] }) },
   { id: "S26b", start: 76.9, seg: "l11", intent: "soon after that tweet (the post again)", footage: "phone", trim: 11, slots: { 0: "tweet" }, tr: "film",
     scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.8 }, wash: { color: "surface", strength: 0.85, mode: "duotone" }, camera: cam(1.08, 1.2), finish: fin(0.45, 0.65),
       elements: [{ type: "component", name: "Card", x: 0.1, y: 0.28, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: 2 } }] }) },
   { id: "S26c", start: 79.45, seg: "l11", intent: "he had started to worry FTX would not be fine", footage: "phone", trim: 12.5, tr: "zoom_punch",
-    scene: (t) => ({ backdrop: "footage", dim: 0.45, fx: { dof: 0.9 }, wash: { color: "surface", strength: 0.85, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.45, 0.7),
+    scene: (t) => ({ backdrop: "footage", dim: 0.4, fx: { dof: 0.9 }, wash: { color: "accentDeep", strength: 0.65, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.45, 0.7),
       elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.85, rot: 0, enter: "fade", props: { words: kin(t, [[207, "WOULD"], [208, "NOT", "r"], [209, "BE FINE"]]), size: 170, font: "wide" } }] }) },
   { id: "S27", start: 82.05, seg: "l11", intent: "in the judge's words (Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
     scene: () => ({ backdrop: "footage", dim: 0.15, camera: cam(1.0, 1.0, 0.5, 0.5, 0.45, 0.45), finish: fin(0.35, 0.55), elements: [] }) },
@@ -236,12 +239,12 @@ const prof = JSON.parse(await readFile(path.join(root, "data", "audio-profile.js
 const HITS: Array<[string, number, number]> = [
   ["608bd9f4437bc222", at(21), -4], // boom: FOUR days later
   ["506353c7272f6de3", at(30), -2], ["1794a26d359d39b5", at(30), -6], // stamp: BANKRUPT
-  ["c8eac9e229c3fd1c", 27.7, -8], // whoosh-hit into the 40 %
+  ["c8eac9e229c3fd1c", warp(23.7), -8], // whoosh-hit into the 40 %
   ["e8e77cb57b045804", at(88), -12], // coins under "his own coupons"
   ["f0ecbbabe0339b24", at(112), -4], // SELL
   ["3c04c2822cfb527f", at(125), -8], // riser into "customers ran"
   ["5b238f52f756cf20", at(127), -5], // $6B
-  ["f5e1453e264ceac1", 63.1, -5], // Enron
+  ["f5e1453e264ceac1", warp(63.1), -5], // Enron
   ["76f884fedb10e13b", at(185) + 0.67, -4], // 25 lands
   ["f112c4720b330a9e", at(222), -3], // BET
 ];
@@ -268,6 +271,14 @@ const design = FilmDesignSystem.parse({ schemaVersion: 2, id: "hand-ftx", channe
   palette: { primary: "#3a2408", primarySoft: "#8a6420", accent: "#ffcc00", accentDeep: "#ff2b2b", surface: "#0b0806", surfaceAlt: "#1c140a", paper: "#f4efe4", marker: "#ffcc00", text: "#ffffff", textMuted: "#d9cdb5" },
   fonts: { display: "Anton", body: "Oswald" }, texture: { grain: 0.22, vignette: 0.55 }, acts: [{ name: "fall", tint: "#ffb000", tintStrength: 0.08, saturation: 1.02, contrast: Number(process.env.ACT_CONTRAST ?? 1.12), brightness: 1.0 }], generatedAt: new Date().toISOString() });
 for (const [f, v] of [["storyboard.json", board], ["resolution.json", resolution], ["scenes.json", plan], ["design.json", design]] as const) await writeFile(path.join(job, f), JSON.stringify(v, null, 2));
+// what each sentence of the narration does (the script's recorded line kinds), for the ratchet's story measures
+{
+  const { LINES } = await import("./script.js");
+  const { sentencesOf } = await import("@opumia/agents");
+  const sentences: string[] = [], kinds: string[] = [];
+  for (const L of LINES) { const ss = sentencesOf(L.text); ss.forEach((x, i) => { sentences.push(x); kinds.push(L.kinds?.[i] ?? "story"); }); if (L.kinds && L.kinds.length !== ss.length) throw new Error(`${L.id}: ${ss.length} sentences, ${L.kinds.length} kinds`); }
+  await writeFile(path.join(job, "story-kinds.json"), JSON.stringify({ sentences, kinds }, null, 1));
+}
 await writeFile(path.join(job, "job.json"), JSON.stringify({ channel: "magnates-media", aspect: "16:9", topic: "How FTX collapsed in four days", hand: true }, null, 2));
 
 const sceneMap = new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x]));

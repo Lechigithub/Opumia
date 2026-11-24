@@ -1,65 +1,207 @@
 {
   "name": "hand-ftx",
-  "tag": "v15",
-  "film": "out/hand-ftx/frozen/v15/film_16x9.mp4",
-  "frozenAt": "2026-11-24T17:49:02.867Z",
+  "tag": "v17",
+  "best": {
+    "taste": {
+      "value": 4.85,
+      "from": "v17"
+    },
+    "tasteAboveFloor": {
+      "value": 29,
+      "from": "v17"
+    },
+    "voice": {
+      "value": 0.805,
+      "from": "v15"
+    },
+    "mix": {
+      "value": 0.585,
+      "from": "v15"
+    },
+    "luma": {
+      "value": 0.296,
+      "from": "v15"
+    },
+    "darkShare": {
+      "value": 0.114,
+      "from": "v15"
+    },
+    "colourfulness": {
+      "value": 44.22,
+      "from": "v15"
+    },
+    "motion": {
+      "value": 0.037,
+      "from": "v15"
+    },
+    "stillShare": {
+      "value": 0.025,
+      "from": "v15"
+    },
+    "cutsPerMin": {
+      "value": 19.841,
+      "from": "v15"
+    },
+    "voiceOverBed": {
+      "value": 19.1,
+      "from": "v15"
+    },
+    "contrast": {
+      "value": 0.677,
+      "from": "v15"
+    },
+    "highlights": {
+      "value": 0.0161,
+      "from": "v15"
+    },
+    "oneColour": {
+      "value": 0.1,
+      "from": "v15"
+    },
+    "textFrames": {
+      "value": 0.7,
+      "from": "v15"
+    },
+    "bigText": {
+      "value": 0.17,
+      "from": "v15"
+    },
+    "wideText": {
+      "value": 0.609,
+      "from": "v16"
+    },
+    "smallBoxed": {
+      "value": 0.024,
+      "from": "v15"
+    },
+    "caps": {
+      "value": 0.57,
+      "from": "v15"
+    },
+    "sizeSpread": {
+      "value": 0.837,
+      "from": "v15"
+    },
+    "strokeMed": {
+      "value": 0.168,
+      "from": "v15"
+    },
+    "strokeLo": {
+      "value": 0.112,
+      "from": "v15"
+    },
+    "aspectMed": {
+      "value": 0.436,
+      "from": "v15"
+    },
+    "heavyShare": {
+      "value": 0.731,
+      "from": "v15"
+    },
+    "lightShare": {
+      "value": 0.065,
+      "from": "v15"
+    },
+    "cleanShare": {
+      "value": 0.25,
+      "from": "v15"
+    },
+    "quoteShare": {
+      "value": 0.158,
+      "from": "v16"
+    },
+    "factShare": {
+      "value": 0.211,
+      "from": "v16"
+    },
+    "explainShare": {
+      "value": 0.158,
+      "from": "v16"
+    },
+    "teaseShare": {
+      "value": 0.053,
+      "from": "v16"
+    },
+    "motiveShare": {
+      "value": 0.053,
+      "from": "v16"
+    },
+    "viewerShare": {
+      "value": 0.053,
+      "from": "v16"
+    }
+  },
+  "film": "out/hand-ftx/frozen/v17/film_16x9.mp4",
+  "frozenAt": "2026-11-24T19:05:01.562Z",
   "measures": {
-    "taste": 4.9,
-    "tasteAboveFloor": 24,
-    "voice": 0.805,
-    "mix": 0.585,
-    "luma": 0.296,
-    "darkShare": 0.114,
-    "colourfulness": 44.22,
-    "motion": 0.037,
-    "stillShare": 0.025,
-    "cutsPerMin": 19.841,
-    "voiceOverBed": 19.1,
-    "contrast": 0.677,
-    "highlights": 0.0161,
-    "oneColour": 0.1,
-    "textFrames": 0.7,
-    "bigText": 0.17,
-    "wideText": 0.654,
-    "smallBoxed": 0.024,
-    "caps": 0.57,
-    "sizeSpread": 0.837,
-    "strokeMed": 0.168,
-    "strokeLo": 0.112,
-    "aspectMed": 0.436,
-    "heavyShare": 0.731,
-    "lightShare": 0.065,
-    "cleanShare": 0.25
+    "taste": 4.85,
+    "tasteAboveFloor": 29,
+    "voice": 0.787,
+    "mix": 0.582,
+    "luma": 0.266,
+    "darkShare": 0.216,
+    "colourfulness": 43.876,
+    "motion": 0.0374,
+    "stillShare": 0.024,
+    "cutsPerMin": 17.241,
+    "voiceOverBed": 20.1,
+    "contrast": 0.6,
+    "highlights": 0.0124,
+    "oneColour": 0.167,
+    "textFrames": 0.65,
+    "bigText": 0.143,
+    "wideText": 0.604,
+    "smallBoxed": 0,
+    "caps": 0.53,
+    "sizeSpread": 0.826,
+    "strokeMed": 0.159,
+    "strokeLo": 0.104,
+    "aspectMed": 0.444,
+    "heavyShare": 0.693,
+    "lightShare": 0.111,
+    "quoteShare": 0.158,
+    "factShare": 0.211,
+    "explainShare": 0.158,
+    "teaseShare": 0.053,
+    "motiveShare": 0.053,
+    "viewerShare": 0.053,
+    "cleanShare": 0.243
   },
   "previous": {
-    "tag": "v14",
+    "tag": "v15",
     "measures": {
-      "taste": 4.9,
-      "tasteAboveFloor": 26,
+      "taste": 4.82,
+      "tasteAboveFloor": 24,
       "voice": 0.805,
       "mix": 0.585,
-      "luma": 0.297,
+      "luma": 0.296,
       "darkShare": 0.114,
-      "colourfulness": 44.249,
-      "motion": 0.0387,
+      "colourfulness": 44.22,
+      "motion": 0.037,
       "stillShare": 0.025,
       "cutsPerMin": 19.841,
       "voiceOverBed": 19.1,
-      "contrast": 0.682,
+      "contrast": 0.677,
       "highlights": 0.0161,
       "oneColour": 0.1,
-      "textFrames": 0.733,
-      "bigText": 0.166,
-      "wideText": 0.642,
-      "smallBoxed": 0.023,
-      "caps": 0.687,
-      "sizeSpread": 0.782,
-      "strokeMed": 0.141,
-      "strokeLo": 0.082,
-      "aspectMed": 0.351,
-      "heavyShare": 0.59,
-      "lightShare": 0.195,
-      "cleanShare": 0.25
+      "textFrames": 0.7,
+      "bigText": 0.17,
+      "wideText": 0.654,
+      "smallBoxed": 0.024,
+      "caps": 0.57,
+      "sizeSpread": 0.837,
+      "strokeMed": 0.168,
+      "strokeLo": 0.112,
+      "aspectMed": 0.436,
+      "heavyShare": 0.731,
+      "lightShare": 0.065,
+      "cleanShare": 0.25,
+      "quoteShare": 0.375,
+      "factShare": 0.25,
+      "explainShare": 0.063,
+      "teaseShare": 0,
+      "motiveShare": 0,
+      "viewerShare": 0
     }
   }
 }
