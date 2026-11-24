@@ -36,7 +36,8 @@ const chosen: Take[] = [];
 for (const [i, L] of LINES.entries()) {
   const spoken = L.text.split(/\s+/).map((w) => { const k = w.replace(/[^A-Za-z-]/g, ""); return SAY[k] ? w.replace(k, SAY[k]!) : w; }).join(" ");
   const cands: Take[] = [];
-  for (const seed of (process.env.SEEDS ? process.env.SEEDS.split(",").map(Number) : TAG ? [11, 23] : [11, 23, 37])) {
+  const seeds = process.env[`SEEDS_${L.id}`] ?? process.env.SEEDS; // SEEDS_l10=11,23,37,53 adds takes to one line only
+  for (const seed of (seeds ? seeds.split(",").map(Number) : TAG ? [11, 23] : [11, 23, 37])) {
     // a cached take is reused only if it was spoken from this exact text (a reused tag once served an old script)
     const old = path.join(takes, `${L.id}-s${seed}.json`);
     const sameText = (f: string) => existsSync(f) && (JSON.parse(readFileSync(f, "utf8")) as { alignment: CharAlignment }).alignment.characters.join("") === spoken;

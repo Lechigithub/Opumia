@@ -330,3 +330,22 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 
   Frozen: no measure below its best, and it improves on v15 in story and taste-floor frames.
 - **Still open in the story:** quotes and bare facts are above the band.
+
+### v18 candidate: quotes and facts inside the band; the voice falls (not frozen)
+- **Script.**
+  - The tweet is spoken as one sentence ("FTX is fine, assets are fine.").
+  - The judge's line is the narrator's own conclusion, drawn from the court's finding (c31): "In the end, he had made
+    a very bad bet, that he would never get caught."
+  - The sentencing is a moment: "On the twenty-eighth of March, 2024, Bankman-Fried stood before Judge Kaplan, who
+    sentenced him…" (c11, c13).
+  - Story shares: quotes 5.6 %, facts 16.7 %, explanations 22 %, tease, motive and viewer lines all inside the band.
+    Scenes are 16.7 % (band ≤ 11 %).
+- **Cuts** for the changed lines start on their own words (`atWord`); one music drop moved onto "In the end".
+- **Taste** 4.92 (four-grid mean), taste-floor frames 33.
+- **Voice measured properly** (`voice-noise.ts`, four window grids; the ratchet now uses the mean, noise 0.02): v15
+  0.806, v17 0.754, v18 0.740 after three more takes on the five weakest lines.
+  - v17's freeze let a voice drop through: one grid read 0.787. The voice best stays at v15's 0.806, so it must come
+    back before any freeze.
+  - Per line in the mix (`voice-lines.ts`): the tweet spoken as one sentence scores 0.49 (two sentences: 0.65), "Even
+    by his standards…" 0.65 (v1's line 0.78), "the head of Binance, a rival…" 0.68.
+  - The new lines read less naturally with this voice. It is not take luck.

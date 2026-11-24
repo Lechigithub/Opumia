@@ -42,7 +42,7 @@ const BAND: Record<string, [number, number]> = { ...Object.fromEntries(STORY_KIN
   ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
   ...Object.fromEntries(TYPE_KEYS.map((k) => [k, [TY[k]!.p10, TY[k]!.p90] as [number, number]])) };
 /** Higher is better for these; noise below which a drop is not a regression. */
-const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03 };
+const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 0.02 };
 /** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
  *  rewards a defect. Retired 2026-11-24. */
 const RETIRED = new Set(["mix"]);
@@ -62,12 +62,16 @@ export async function measure(file: string): Promise<Record<string, number>> {
   const tasteMean = +(grids.reduce((x, y) => x + y, 0) / grids.length).toFixed(2);
   const wins = Array.from({ length: Math.floor(span / 4) }, (_, i) => ({ file, t: i * 4, dur: 4 }));
   const voice = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins });
+  // the voice median moves by up to 0.05 with the window grid (voice-noise.ts): mean of four grids offset 0/1/2/3 s
+  const vg: number[] = [voice?.median ?? NaN];
+  for (const o of [1, 2, 3]) vg.push((await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins.map((w) => ({ ...w, t: w.t + o })).filter((w) => w.t + 4 <= span + 0.5) }))?.median ?? NaN);
+  const voiceMean = +(vg.reduce((x, y) => x + y, 0) / vg.length).toFixed(3);
   const mix = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "mix", items: wins });
   const l = (await measureLook(file, { t: span })) as unknown as Record<string, number>;
   // motion at full precision (measureLook rounds to 0.01): the median of the 4 s windows
   const mw: number[] = [];
   for (let t = 0; t + 4 <= span; t += 4) mw.push((await measureLook(file, { ss: t, t: 4 })).motion);
-  return { taste: tasteMean, tasteAboveFloor: taste.filter((x) => x >= 4.4).length, voice: voice?.median ?? NaN, mix: mix?.median ?? NaN, luma: l.luma!, darkShare: l.darkShare!, colourfulness: l.colourfulness!, motion: +med(mw).toFixed(4), stillShare: l.stillShare!, cutsPerMin: l.cutsPerMin! };
+  return { taste: tasteMean, tasteAboveFloor: taste.filter((x) => x >= 4.4).length, voice: voiceMean, mix: mix?.median ?? NaN, luma: l.luma!, darkShare: l.darkShare!, colourfulness: l.colourfulness!, motion: +med(mw).toFixed(4), stillShare: l.stillShare!, cutsPerMin: l.cutsPerMin! };
 }
 const off = (k: string, v: number) => { const [a, b] = BAND[k]!; return v < a ? a - v : v > b ? v - b : 0; };
 

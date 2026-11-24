@@ -11,7 +11,7 @@
       "from": "v17"
     },
     "voice": {
-      "value": 0.805,
+      "value": 0.806,
       "from": "v15"
     },
     "mix": {
@@ -203,5 +203,8 @@
       "motiveShare": 0,
       "viewerShare": 0
     }
-  }
+  },
+  "notes": [
+    "2026-11-24: voice is now the mean of 4 window grids; v15 0.806, v17 0.754 (v17's single grid read 0.787 and let a voice drop through). Noise: taste 0.1, voice 0.02 on the averaged measures"
+  ]
 }

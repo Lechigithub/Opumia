@@ -67,7 +67,8 @@ const MEDIA: Record<string, M> = {
 };
 
 // ---- shots ----
-interface Shot { id: string; start: number; seg: string; intent: string; footage?: string; trim?: number; slots?: Record<number, string>; tr?: Storyboard["shots"][number]["transitionIn"]; /** a still hold: no camera move (the channel holds ~4 % of the time) */ hold?: boolean; /** the storyboard camera's horizontal centre, from → to (default 0.5 ± 0.1, alternating) */ panX?: [number, number]; scene: (t0: number) => Omit<SceneSpec, "shotId" | "idea"> & { idea?: string } }
+interface Shot { id: string; start: number; seg: string; intent: string; footage?: string; trim?: number; slots?: Record<number, string>; tr?: Storyboard["shots"][number]["transitionIn"]; /** a still hold: no camera move (the channel holds ~4 % of the time) */ hold?: boolean; /** the storyboard camera's horizontal centre, from → to (default 0.5 ± 0.1, alternating) */ panX?: [number, number];
+  /** start on this word of the narration in use (minus `lead` s) instead of a cut-reference time (lines whose words changed) */ atWord?: number; lead?: number; scene: (t0: number) => Omit<SceneSpec, "shotId" | "idea"> & { idea?: string } }
 const cam = (a = 1.0, b = 1.2, x0 = 0.47, x1 = 0.53, y0 = 0.5, y1 = 0.5) => ({ fromScale: a, toScale: b, fromX: x0, toX: x1, fromY: y0, toY: y1 });
 const kin = (t0: number, parts: Array<[number | "|", string, string?, boolean?]>) => parts.map(([i, text, c, script]) => (i === "|" ? { text: "|", from: 0 } : { text, from: fr(t0, i), ...(c ? { c } : {}), ...(script ? { script } : {}) }));
 const fin = (g = 0.35, v = 0.55, leak = 0) => ({ grain: g, vignette: v, leak });
@@ -171,36 +172,36 @@ const SHOTS: Shot[] = [
   { id: "S23b", start: 66.2, seg: "l09", intent: "this was a complete failure (punch in on his words)", footage: "ray", trim: 3.5, slots: { 0: "cbs" }, tr: "zoom_punch",
     scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.2), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Card", x: -0.2, y: -1.16, w: 1.4, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -2, hl: { x: 0.02, y: 0.79, w: 0.95, h: 0.11, from: 0, to: 30 } } }] }) },
-  { id: "S24", start: 68.6, seg: "l10", intent: "March 2024, the court", footage: "scrum", trim: 0, tr: "film",
+  { id: "S24", start: 0, atWord: 178, lead: 0.1, seg: "l10", intent: "the twenty-eighth of March, 2024 (press at the court)", footage: "scrum", trim: 0, tr: "film",
     scene: (t) => ({ backdrop: "footage", dim: 0, wash: { color: "accentDeep", strength: 0.75, mode: "duotone" }, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
       elements: [] }) },
-  { id: "S25", start: 70.3, seg: "l10", intent: "sentenced to 25 years", footage: "sbf_court", trim: 2.5, tr: "cut",
+  { id: "S25", start: 0, atWord: 184, lead: 0.1, seg: "l10", intent: "stood before Judge Kaplan, sentenced to 25 years", footage: "sbf_court", trim: 2.5, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.2, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
-      elements: [{ type: "component", name: "Counter", x: 0.52, y: 0.2, w: 0.44, at: rel(t, 185), z: 0.8, rot: 0, enter: "fade", props: { to: 25, frames: 16, label: "years" } }] }) },
-  { id: "S26", start: 73.0, seg: "l10", intent: "for stealing $8 billion", footage: "pile", trim: 1, tr: "cut",
+      elements: [{ type: "component", name: "Counter", x: 0.52, y: 0.2, w: 0.44, at: rel(t, 193), z: 0.8, rot: 0, enter: "fade", props: { to: 25, frames: 16, label: "years" } }] }) },
+  { id: "S26", start: 0, atWord: 195, seg: "l10", intent: "for stealing $8 billion", footage: "pile", trim: 1, tr: "cut",
     scene: (t) => ({ backdrop: "footage", wash: { color: "accentDeep", strength: 0.65, mode: "duotone" }, dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.23), finish: fin(0.35, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.3, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[188, "STEALING", "r"], ["|", ""], [189, "$8 BILLION", "y"]]), size: 210, font: "wide" } }] }) },
-  { id: "S26b", start: 76.9, seg: "l11", intent: "soon after that tweet (the post again)", footage: "phone", trim: 11, slots: { 0: "tweet" }, tr: "film",
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.3, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[196, "STEALING", "r"], ["|", ""], [197, "$8 BILLION", "y"]]), size: 210, font: "wide" } }] }) },
+  { id: "S26b", start: 0, atWord: 204, seg: "l11", intent: "soon after that tweet (the post again)", footage: "phone", trim: 11, slots: { 0: "tweet" }, tr: "film",
     scene: () => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.8 }, wash: { color: "surface", strength: 0.85, mode: "duotone" }, camera: cam(1.08, 1.2), finish: fin(0.45, 0.65),
       elements: [{ type: "component", name: "Card", x: 0.1, y: 0.28, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: 2 } }] }) },
-  { id: "S26c", start: 79.45, seg: "l11", intent: "he had started to worry FTX would not be fine", footage: "phone", trim: 12.5, tr: "zoom_punch",
+  { id: "S26c", start: 0, atWord: 213, seg: "l11", intent: "he had started to worry FTX would not be fine", footage: "phone", trim: 12.5, tr: "zoom_punch",
     scene: (t) => ({ backdrop: "footage", dim: 0.4, fx: { dof: 0.9 }, wash: { color: "accentDeep", strength: 0.65, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.45, 0.7),
-      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.85, rot: 0, enter: "fade", props: { words: kin(t, [[207, "WOULD"], [208, "NOT", "r"], [209, "BE FINE"]]), size: 170, font: "wide" } }] }) },
-  { id: "S27", start: 82.05, seg: "l11", intent: "in the judge's words (Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.85, rot: 0, enter: "fade", props: { words: kin(t, [[215, "WOULD"], [216, "NOT", "r"], [217, "BE FINE"]]), size: 170, font: "wide" } }] }) },
+  { id: "S27", start: 0, atWord: 219, seg: "l11", intent: "in the end (the Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
     scene: () => ({ backdrop: "footage", dim: 0.15, camera: cam(1.0, 1.0, 0.5, 0.5, 0.45, 0.45), finish: fin(0.35, 0.55), elements: [] }) },
-  { id: "S28", start: 83.7, seg: "l11", intent: "he had made a very bad bet", slots: { 0: "cut_sbf_court", 1: "scrum_still" }, tr: "cut",
+  { id: "S28", start: 0, atWord: 222, seg: "l11", intent: "he had made a very bad bet", slots: { 0: "cut_sbf_court", 1: "scrum_still" }, tr: "cut",
     scene: (t) => ({ backdrop: "world", world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accentDeep" }, dim: 0.25, camera: cam(1.0, 1.16), finish: fin(0.45, 0.65),
       elements: [
         { type: "cutout", slot: 0, x: 0.52, y: 0.06, w: 0.46, z: 0.6, rot: 0, at: 0, enter: "settle", shadow: true, glow: "accent" },
-        { type: "component", name: "Kinetic", x: 0.04, y: 0.3, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[220, "A VERY"], ["|", ""], [221, "BAD", "r"], [222, "BET"]]), size: 150, align: "left", font: "wide" } },
+        { type: "component", name: "Kinetic", x: 0.04, y: 0.3, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[226, "A VERY"], ["|", ""], [227, "BAD", "r"], [228, "BET"]]), size: 150, align: "left", font: "wide" } },
       ] }) },
-  { id: "S29", start: 85.9, seg: "l11", intent: "that he would never get caught", footage: "sbf_court", trim: 0, tr: "cut",
+  { id: "S29", start: 0, atWord: 229, seg: "l11", intent: "that he would never get caught", footage: "sbf_court", trim: 0, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.6, mode: "duotone" }, camera: cam(1.05, 1.33), finish: fin(0.45, 0.75),
-      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[226, "NEVER"], [227, "GET"], [228, "CAUGHT", "r"]]), size: 150, font: "wide" } }] }) },
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[232, "NEVER"], [233, "GET"], [234, "CAUGHT", "r"]]), size: 150, font: "wide" } }] }) },
 ];
 
 // v16: cut points are set on this narration's own words (the warp carried the v1 script's cuts to another narrator)
-if (WARP) for (const s of SHOTS) s.start = +warp(s.start).toFixed(2);
+if (WARP) for (const s of SHOTS) s.start = +(s.atWord !== undefined ? at(s.atWord) - (s.lead ?? 0.08) : warp(s.start)).toFixed(2);
 SHOTS.sort((a, b) => a.start - b.start);
 // ---- write the job ----
 const dur = +(timed.durationS + 0.6).toFixed(2);
@@ -245,8 +246,8 @@ const HITS: Array<[string, number, number]> = [
   ["3c04c2822cfb527f", at(125), -8], // riser into "customers ran"
   ["5b238f52f756cf20", at(127), -5], // $6B
   ["f5e1453e264ceac1", warp(63.1), -5], // Enron
-  ["76f884fedb10e13b", at(185) + 0.67, -4], // 25 lands
-  ["f112c4720b330a9e", at(222), -3], // BET
+  ["76f884fedb10e13b", at(193) + 0.67, -4], // 25 lands
+  ["f112c4720b330a9e", at(228), -3], // BET
 ];
 for (const [id, moment, gain] of HITS) {
   const atS = Math.max(0, +(moment - (prof.sfx[id]?.attackS ?? 0)).toFixed(3));
@@ -259,6 +260,8 @@ const MUSIC0 = [
   { assetId: "55e3d88a31ecffee", startS: 68.6, endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: 81.3, endS: 82.05 }] },
 ];
 const MUSIC = MUSIC0.map((c) => ({ ...c, startS: +warp(c.startS).toFixed(2), endS: c.endS === dur ? dur : +warp(c.endS).toFixed(2), drops: c.drops.map((d) => ({ startS: +warp(d.startS).toFixed(2), endS: +warp(d.endS).toFixed(2) })) }));
+// line 11's words changed (v17b): its drop sits on its own words, before "In the end"
+MUSIC[2]!.drops = [{ startS: +(at(219) - 0.75).toFixed(2), endS: +at(219).toFixed(2) }];
 let board = Storyboard.parse({ schemaVersion: 1, id: "sb_hand_ftx", scriptId: timed.id, styleProfileId: "magnates-media", aspect: "16:9", durationS: dur, shots, music: [], generatedAt: new Date().toISOString() });
 board = Storyboard.parse({ ...board, music: MUSIC });
 let resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 0, stock: media.filter((m) => m.origin === "stock").length, archival: media.filter((m) => m.origin === "archival").length, designed: shots.length }, generatedAt: new Date().toISOString() });
