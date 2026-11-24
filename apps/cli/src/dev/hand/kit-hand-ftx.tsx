@@ -66,8 +66,8 @@ const Card: React.FC<P> = (p) => {
   const k = spring({ frame: f, fps, config: { damping: 14, stiffness: 120 } });
   const hl = p.hl as { x: number; y: number; w: number; h: number; from?: number; to?: number } | undefined;
   const sweep = hl ? interpolate(f, [hl.from ?? 12, hl.to ?? 30], [0, 1], clamp) : 0;
-  const push = interpolate(f, [0, 90], [1, 1.16]);
-  return <div style={{ width: W, transform: `translateY(${(1 - k) * 160}px) rotate(${(p.rot ?? -2) * k}deg) scale(${push})`, opacity: Math.min(1, k * 1.6), position: "relative", background: PAPER, padding: W * 0.018, boxShadow: "0 30px 70px rgba(0,0,0,.8)" }}>
+  const push = 1 + f * 0.0045; // keeps pushing for as long as it is on screen
+  return <div style={{ width: W, transform: `translate(${Math.sin(f / 20) * 10}px, ${(1 - k) * 160}px) rotate(${(p.rot ?? -2) * k + Math.sin(f / 26) * 0.8}deg) scale(${push})`, opacity: Math.min(1, k * 1.6), position: "relative", background: PAPER, padding: W * 0.018, boxShadow: "0 30px 70px rgba(0,0,0,.8)" }}>
     {src ? <Img src={staticFile(src)} style={{ width: "100%", display: "block" }} /> : null}
     {hl ? <div style={{ position: "absolute", left: `calc(${hl.x * 100}% + ${W * 0.018}px)`, top: `calc(${hl.y * 100}% + ${W * 0.018}px)`, width: `${hl.w * 100 * sweep}%`, height: `${hl.h * 100}%`, background: GOLD, mixBlendMode: "multiply", opacity: 0.85 }} /> : null}
     {[[-0.03, -0.035, -8], [0.86, -0.04, 7]].map(([x, y, r], i) => <div key={i} style={{ position: "absolute", left: `${x * 100}%`, top: `${y * 100}%`, width: W * 0.16, height: W * 0.045, background: "rgba(235,225,190,.82)", transform: `rotate(${r}deg)`, boxShadow: "0 2px 6px rgba(0,0,0,.3)" }} />)}

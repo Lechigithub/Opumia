@@ -68,7 +68,7 @@ const fin = (g = 0.35, v = 0.55, leak = 0) => ({ grain: g, vignette: v, leak });
 
 const SHOTS: Shot[] = [
   { id: "S01", start: 0, seg: "l01", intent: "a message sent at night", footage: "phone", trim: 2, tr: "cut",
-    scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.08, 1.26), finish: fin(0.4, 0.7, 0.3), atmos: { kind: "dust", opacity: 0.6 },
+    scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.0, 1.4), finish: fin(0.4, 0.7, 0.3), atmos: { kind: "dust", opacity: 0.6 },
       elements: [{ type: "component", name: "Kinetic", x: 0.1, y: 0.36, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[2, "NOVEMBER", "w"], [2, "7", "y"], ["|", ""], [5, "2022", "y"]]), size: 190 } }] }) },
   { id: "S02", start: 2.72, seg: "l01", intent: "Sam Bankman-Fried", slots: { 0: "cut_sbf", 1: "sbf_cnbc_still" }, tr: "film",
     scene: (t) => ({ backdrop: "world", atmos: { kind: "leak", opacity: 0.6 }, world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accent" }, dim: 0.15, camera: cam(1.0, 1.16), finish: fin(0.35, 0.6, 0.2),
@@ -142,7 +142,7 @@ const SHOTS: Shot[] = [
   { id: "S19", start: 48.0, seg: "l08", intent: "one day later it walked away", footage: "walk", trim: 0, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.2, camera: cam(1.0, 1.16), finish: fin(0.35, 0.55),
       elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.74, w: 0.6, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[112, "ONE DAY"], [114, "LATER", "y"]]), size: 120, align: "left" } }] }) },
-  { id: "S20", start: 50.2, seg: "l08", intent: "beyond our control (Binance's words)", footage: "cables", trim: 4, tr: "film",
+  { id: "S20", start: 50.2, seg: "l08", intent: "beyond our control (Binance's words)", footage: "run", trim: 11, tr: "film",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.6 }, camera: cam(1.1, 1.26), finish: fin(0.4, 0.65),
       elements: [{ type: "component", name: "Quote", x: 0.1, y: 0.22, w: 0.8, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[119, "THE ISSUES"], [121, "ARE"], [122, "BEYOND", "y"], [123, "OUR"], [124, "CONTROL", "y"], [125, "OR"], [126, "ABILITY"], [127, "TO"], [128, "HELP."]]), by: "Binance, 9 November 2022", byFrom: fr(t, 128) + 4, size: 110 } }] }) },
   { id: "S21", start: 54.6, seg: "l09", intent: "John J. Ray III, sent in to clean up", footage: "ray", trim: 0, tr: "flash",
