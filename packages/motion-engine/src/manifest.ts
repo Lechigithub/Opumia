@@ -228,7 +228,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     if (!r) return;
     const startFrame = k === 0 ? 0 : Math.max(0, F(m.startS) - F(0.75)); // 1.5 s crossfade around cue changes
     const endFrame = k === arr.length - 1 ? durationFrames : Math.min(durationFrames, F(m.endS) + F(0.75));
-    audio.push({ id: `music_${k}_${m.assetId}`, role: "music", ref: m.assetId, src: r.localPath, startFrame, endFrame, trimStartFrame: F(m.inS ?? 0), gainDb: m.gainDb, duckUnderNarrationDb: -8, fadeInFrames: k === 0 ? F(0.4) : F(1.5), fadeOutFrames: k === arr.length - 1 ? F(1.2) : F(1.5), dips: (m.drops ?? []).map((d) => ({ fromFrame: F(d.startS), toFrame: F(d.endS), gainDb: -36 })) });
+    audio.push({ id: `music_${k}_${m.assetId}`, role: "music", ref: m.assetId, src: r.localPath, startFrame, endFrame, trimStartFrame: F(m.inS ?? 0), gainDb: m.gainDb, duckUnderNarrationDb: -14, fadeInFrames: k === 0 ? F(0.4) : F(1.5), fadeOutFrames: k === arr.length - 1 ? F(1.2) : F(1.5), dips: (m.drops ?? []).map((d) => ({ fromFrame: F(d.startS), toFrame: F(d.endS), gainDb: -36 })) });
   });
 
   const seen = new Set<string>();

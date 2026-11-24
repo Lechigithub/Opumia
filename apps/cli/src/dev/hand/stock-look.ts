@@ -24,7 +24,7 @@ for (const q of queries) {
     const key = `${c.provider}_${c.externalId}`;
     cat[key] = c;
     const f = path.join(dir, `${key}.jpg`);
-    if (existsSync(f) || (await thumbOf({ url: c.thumbUrl ?? c.fileUrl, video: false }, f).catch(() => false))) tiles.push(f);
+    if (existsSync(f) || (await thumbOf({ url: c.thumbUrl ?? c.fileUrl ?? undefined, video: false }, f).catch(() => false))) tiles.push(f);
     console.log(`${q} [${i}] ${key} ${c.width}x${c.height} ${c.durationS ?? ""}s ${c.title.slice(0, 60)}`);
   }
   if (tiles.length) {

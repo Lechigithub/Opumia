@@ -163,7 +163,9 @@ export const OverlayLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const p = (layer.props ?? {}) as { kind?: string; opacity?: number };
   const blend = layer.blend === "normal" ? "normal" : layer.blend;
   return (
-    <AbsoluteFill style={{ mixBlendMode: blend as React.CSSProperties["mixBlendMode"], opacity: p.opacity ?? 0.55, pointerEvents: "none" }}>
+    <AbsoluteFill style={{ mixBlendMode: blend as React.CSSProperties["mixBlendMode"], opacity: p.opacity ?? 0.55, pointerEvents: "none", // hand film 1: library atmospheres carry lifted (grey) blacks; screened as they are they wash a dark shot
+      // grey. Crush the blacks first so only the dust, smoke or light itself adds to the picture.
+      ...(blend === "screen" ? { filter: "brightness(0.82) contrast(1.6)" } : {}) }}>
       <Source src={layer.src ?? ""} kind={p.kind ?? "video"} focus={[0.5, 0.5]} />
     </AbsoluteFill>
   );

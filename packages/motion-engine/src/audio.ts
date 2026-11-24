@@ -45,6 +45,13 @@ async function overallRmsDb(file: string): Promise<number | null> {
   return all.length ? all[all.length - 1]! : null;
 }
 
+/**
+ * Hand film 1 (docs/HAND-FILM-1.md): a dry TTS voice on a clean bed is what the ears hear as synthetic. Two early
+ * reflections (23 / 41 ms, −15 / −19 dB) put the voice in a small room: measured on the same film, voice humanness
+ * 0.37 → 0.54 and channel mix 0.25 → 0.35, with no audible echo.
+ */
+const VOICE_ROOM = "aecho=0.8:0.5:23|41:0.18|0.11";
+
 function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" | "voice" | "bed" = "all") {
   const fps = m.fps;
   const durS = m.durationFrames / fps;
@@ -56,7 +63,7 @@ function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" |
   const chains: string[] = [];
   // Broadcast narrator chain: rumble cut, chest warmth (+2 dB @ 160 Hz), boxiness dip (−2 dB @ 380 Hz), presence lift
   // (+1.5 dB @ 3.2 kHz), de-esser, two-stage compression (slow levelling, then a fast catch), soft air shelf.
-  chains.push(`[0:a]aresample=48000,aformat=channel_layouts=stereo,highpass=f=70,equalizer=f=160:t=q:w=1.0:g=2,equalizer=f=380:t=q:w=1.4:g=-2,equalizer=f=3200:t=q:w=1.2:g=1.5,deesser=i=0.35:m=0.5:f=0.5,acompressor=threshold=-24dB:ratio=2.2:attack=20:release=250:makeup=2,acompressor=threshold=-12dB:ratio=4:attack=3:release=60:makeup=1,highshelf=f=11000:g=1,apad=whole_dur=${durS.toFixed(3)}[vo]`);
+  chains.push(`[0:a]aresample=48000,aformat=channel_layouts=stereo,highpass=f=70,equalizer=f=160:t=q:w=1.0:g=2,equalizer=f=380:t=q:w=1.4:g=-2,equalizer=f=3200:t=q:w=1.2:g=1.5,deesser=i=0.35:m=0.5:f=0.5,acompressor=threshold=-24dB:ratio=2.2:attack=20:release=250:makeup=2,acompressor=threshold=-12dB:ratio=4:attack=3:release=60:makeup=1,highshelf=f=11000:g=1,${VOICE_ROOM},apad=whole_dur=${durS.toFixed(3)}[vo]`);
   const mixIns: string[] = [];
   let idx = 1;
   if (music.length) {
@@ -75,7 +82,8 @@ function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" |
     chains.push(cueLabels.length > 1 ? `${cueLabels.join("")}amix=inputs=${cueLabels.length}:duration=longest:normalize=0[mus]` : `${cueLabels[0]}anull[mus]`);
     chains.push(`[vo]asplit=2[vomix][vokey]`);
     // Duck the bed under the voice (≈ duckUnderNarrationDb of gain reduction while speaking).
-    const ratio = Math.min(20, Math.max(2, Math.abs(music[0]!.duckUnderNarrationDb ?? -10) / 2));
+    // a real duck: the channel's bed drops ≈ 14.5 dB under the voice and swells between lines (Reference sound.json)
+    const ratio = Math.min(20, Math.max(2, Math.abs(music[0]!.duckUnderNarrationDb ?? -14) / 1.2));
     chains.push(`[mus][vokey]sidechaincompress=threshold=0.02:ratio=${ratio}:attack=15:release=350:makeup=1[ducked]`);
     mixIns.push("[vomix]", "[ducked]");
   } else mixIns.push("[vo]");

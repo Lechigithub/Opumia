@@ -81,7 +81,7 @@ export type SceneWorld = z.infer<typeof SceneWorld>;
 export const SceneFinish = z.object({ grain: z.number().min(0).max(1).default(0), vignette: z.number().min(0).max(1).default(0), leak: z.number().min(0).max(1).default(0), /** craft inventory: a halftone / grunge dot print texture */ halftone: z.number().min(0).max(1).optional() });
 /** Craft inventory: a real filmed atmosphere over the shot (Library/overlays, screen-blended): the channel's smoke and
  *  fog layers, embers and dust, film scratches, film burns and the sprocket gate. */
-export const ATMOS_KINDS = ["smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak", "snow", "confetti", "bokeh"] as const;
+export const ATMOS_KINDS = ["smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak", "money", "snow", "confetti", "bokeh"] as const;
 export const SceneAtmos = z.object({ kind: z.enum(ATMOS_KINDS), opacity: z.number().min(0.1).max(1).default(0.6) });
 
 export const SceneSpec = z.object({

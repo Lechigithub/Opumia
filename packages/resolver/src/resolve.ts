@@ -1080,8 +1080,9 @@ export async function resolveAudio(o: { storyboard: Storyboard; index: LibraryIn
  * the manifest. Picked deterministically per film, never the same file twice in a row.
  */
 export async function resolveAtmosphere(o: { storyboard: Storyboard; scenes: Array<{ shotId: string; atmos?: { kind: string; opacity: number } }>; index: LibraryIndex; libraryRoot: string; jobDir: string; resolution: ResolutionReport; seed: string }): Promise<{ storyboard: Storyboard; resolution: ResolutionReport; placed: number }> {
-  const RE: Record<string, RegExp> = { smoke: /smoke_(drift|white|faint)/, embers: /embers|sparks/, dust: /dust_particles|dust_pool|grain_loop/, scratches: /scratches|8mm/, burn: /burn_/, sprocket: /sprocket|film_frame/, leak: /leak_/ };
-  const all = o.index.assets.filter((a) => isUsable(a) && a.category === "overlays" && a.kind === "video");
+  const RE: Record<string, RegExp> = { smoke: /smoke_(drift|white|faint)/, embers: /embers|sparks/, dust: /dust_particles|dust_pool|grain_loop/, scratches: /scratches|8mm/, burn: /burn_/, sprocket: /sprocket|film_frame/, leak: /leak_/, money: /money_banknotes/ };
+  // hand film 1: atmospheres are screen-blended, so a clip filmed on white ("…_on_white_…") turns the whole shot white
+  const all = o.index.assets.filter((a) => isUsable(a) && a.category === "overlays" && a.kind === "video" && !/_on_white/i.test(a.relPath));
   const media = o.resolution.media.filter((m) => !(m.role === "overlay" && m.origin === "library" && /^atmos_/.test(path.basename(m.localPath))));
   const mediaDir = path.join(o.jobDir, "public", "media");
   await mkdir(mediaDir, { recursive: true });
