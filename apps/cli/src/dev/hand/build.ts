@@ -206,7 +206,7 @@ for (const [i, s] of SHOTS.entries()) {
   const fp = s.footage ? MEDIA[s.footage]! : null;
   shots.push({ schemaVersion: 2, id: s.id, scriptSegmentId: s.seg, index: i, startS: s.start, endS: end, intent: s.intent, lineLink: "literal",
     source: { kind: "designed", designed: "scene", props: { brief: s.intent }, assetIds: [] }, ...(s.trim !== undefined && fp?.kind === "video" ? { trimInS: s.trim } : {}),
-    camera: (() => { const c = s.scene(s.start).camera; const k = i % 2 ? 1 : -1; return { type: "ken_burns", fromScale: c.fromScale + 0.02, toScale: Math.min(1.45, c.toScale + 0.12), from: [0.5 - 0.06 * k, c.fromY], to: [0.5 + 0.06 * k, c.toY], easing: "linear" }; })(), overlays: [], sfx: [], transitionIn: s.tr ?? "cut" } as Storyboard["shots"][number]);
+    camera: (() => { const c = s.scene(s.start).camera; const k = i % 2 ? 1 : -1; return { type: "ken_burns", fromScale: c.fromScale + 0.04, toScale: Math.min(1.6, c.toScale + 0.24), from: [0.5 - 0.1 * k, c.fromY], to: [0.5 + 0.1 * k, c.toY], easing: "linear" }; })(), overlays: [], sfx: [], transitionIn: s.tr ?? "cut" } as Storyboard["shots"][number]);
   scenes.push({ shotId: s.id, idea: s.intent, ...s.scene(s.start) } as SceneSpec);
 }
 // ---- sound: hits peak on the visual moment (start = moment − measured attack); beds change at the turns ----
@@ -244,7 +244,7 @@ resolution = await resolveAudio({ storyboard: board, index, libraryRoot: path.jo
 const plan = ScenePlan.parse({ schemaVersion: 2, storyboardId: board.id, scenes, generatedAt: new Date().toISOString() });
 const design = FilmDesignSystem.parse({ schemaVersion: 2, id: "hand-ftx", channelId: "magnates-media", topic: "FTX", concept: "The receipt: gold light on black money; claims land as huge condensed caps; documents taped down and highlighted; every cut a burst of gold light.",
   palette: { primary: "#3a2408", primarySoft: "#8a6420", accent: "#ffcc00", accentDeep: "#ff2b2b", surface: "#0b0806", surfaceAlt: "#1c140a", paper: "#f4efe4", marker: "#ffcc00", text: "#ffffff", textMuted: "#d9cdb5" },
-  fonts: { display: "Anton", body: "Oswald" }, texture: { grain: 0.22, vignette: 0.55 }, acts: [{ name: "fall", tint: "#ffb000", tintStrength: 0.08, saturation: 1.12, contrast: 1.12, brightness: 1.1 }], generatedAt: new Date().toISOString() });
+  fonts: { display: "Anton", body: "Oswald" }, texture: { grain: 0.22, vignette: 0.55 }, acts: [{ name: "fall", tint: "#ffb000", tintStrength: 0.08, saturation: 1.02, contrast: 1.12, brightness: 1.1 }], generatedAt: new Date().toISOString() });
 for (const [f, v] of [["storyboard.json", board], ["resolution.json", resolution], ["scenes.json", plan], ["design.json", design]] as const) await writeFile(path.join(job, f), JSON.stringify(v, null, 2));
 await writeFile(path.join(job, "job.json"), JSON.stringify({ channel: "magnates-media", aspect: "16:9", topic: "How FTX collapsed in four days", hand: true }, null, 2));
 

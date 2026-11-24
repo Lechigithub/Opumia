@@ -14,15 +14,15 @@ const m = RenderManifest.parse(JSON.parse(await readFile(path.join(job, "manifes
 const st = await premixStems(m, dir);
 const ff = (a: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", ...a]);
 const V: Record<string, [string, number]> = {
-  asis: ["anull", 0], bedUp6: ["anull", 6], bedDown6: ["anull", -6],
-  room: ["aecho=0.8:0.5:23|41:0.18|0.11", 0],
-  mic: ["acompressor=threshold=-20dB:ratio=3:attack=5:release=80,asoftclip=type=tanh:threshold=0.9,lowpass=f=12000,equalizer=f=120:t=q:w=1:g=2", 0],
-  roomMicBedUp: ["aecho=0.8:0.5:23|41:0.18|0.11,acompressor=threshold=-20dB:ratio=3:attack=5:release=80,asoftclip=type=tanh:threshold=0.9", 4],
+  roomMore: ["aecho=0.8:0.6:31|53:0.14|0.09", 0],
+  room3: ["aecho=0.8:0.65:31|53|79:0.14|0.09|0.05", 0],
+  roomBig: ["aecho=0.8:0.65:37|61|89:0.16|0.11|0.07", 0],
+  roomMoreTail: ["aecho=0.8:0.6:31|53:0.14|0.09,aecho=0.9:0.9:120:0.04", 0],
 };
 for (const [k, [vf, bedDb]] of Object.entries(V)) {
   const out = path.join(dir, `v_${k}.wav`);
   ff(["-i", st.voice, "-i", st.bed, "-filter_complex", `[0:a]${vf}[v];[1:a]volume=${bedDb}dB[b];[v][b]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.5[o]`, "-map", "[o]", out]);
-  const items = Array.from({ length: 10 }, (_, i) => ({ file: out, t: 2 + i * 7.5, dur: 4 }));
+  const items = Array.from({ length: 18 }, (_, i) => ({ file: out, t: i * 4, dur: 4 }));
   const v = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items });
   const x = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "mix", items });
   console.log(`${k}: voice ${v?.median} mix ${x?.median}`);

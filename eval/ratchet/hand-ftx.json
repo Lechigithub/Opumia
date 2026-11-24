@@ -1,33 +1,33 @@
 {
   "name": "hand-ftx",
-  "tag": "v5",
-  "film": "out/hand-ftx/frozen/v5/film_16x9.mp4",
-  "frozenAt": "2026-11-24T08:14:21.139Z",
+  "tag": "v6",
+  "film": "out/hand-ftx/frozen/v6/film_16x9.mp4",
+  "frozenAt": "2026-11-24T08:20:31.747Z",
   "measures": {
-    "taste": 4.9,
-    "tasteAboveFloor": 26,
-    "voice": 0.827,
-    "mix": 0.771,
+    "taste": 5,
+    "tasteAboveFloor": 28,
+    "voice": 0.846,
+    "mix": 0.77,
     "luma": 0.342,
-    "darkShare": 0.114,
-    "colourfulness": 50.925,
-    "motion": 0.0373,
-    "stillShare": 0.003,
+    "darkShare": 0.116,
+    "colourfulness": 49.006,
+    "motion": 0.0389,
+    "stillShare": 0,
     "cutsPerMin": 21.429
   },
   "previous": {
-    "tag": "v4",
+    "tag": "v5",
     "measures": {
-      "taste": 4.8,
+      "taste": 4.9,
       "tasteAboveFloor": 26,
-      "voice": 0.618,
-      "mix": 0.484,
-      "luma": 0.341,
-      "darkShare": 0.115,
-      "colourfulness": 50.576,
-      "motion": 0.0364,
-      "stillShare": 0.006,
-      "cutsPerMin": 20.25
+      "voice": 0.827,
+      "mix": 0.771,
+      "luma": 0.342,
+      "darkShare": 0.114,
+      "colourfulness": 50.925,
+      "motion": 0.0373,
+      "stillShare": 0.003,
+      "cutsPerMin": 21.429
     }
   }
 }
