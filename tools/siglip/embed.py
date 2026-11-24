@@ -54,6 +54,13 @@ def degrade(im, kind, seed):
         sm = im.resize((int(w * s), int(h * s)))
         bg.paste(sm, (rnd.randint(0, w - sm.width), rnd.randint(0, h - sm.height)))
         return bg
+    if kind == "corners":  # every channel's logo bug and corner furniture masked (a fair style comparison)
+        from PIL import ImageDraw
+        d = ImageDraw.Draw(im)
+        cw, chh = int(w * 0.16), int(h * 0.16)
+        for x0, y0 in ((0, 0), (w - cw, 0), (0, h - chh), (w - cw, h - chh)):
+            d.rectangle([x0, y0, x0 + cw, y0 + chh], fill=(0, 0, 0))
+        return im
     if kind == "jpeg":
         b = io.BytesIO(); im.save(b, "JPEG", quality=rnd.choice([6, 10, 14])); return Image.open(b).convert("RGB")
     return im

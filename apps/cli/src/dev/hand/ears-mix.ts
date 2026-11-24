@@ -14,10 +14,9 @@ const m = RenderManifest.parse(JSON.parse(await readFile(path.join(job, "manifes
 const st = await premixStems(m, dir);
 const ff = (a: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", ...a]);
 const V: Record<string, [string, number]> = {
-  roomMore: ["aecho=0.8:0.6:31|53:0.14|0.09", 0],
-  room3: ["aecho=0.8:0.65:31|53|79:0.14|0.09|0.05", 0],
-  roomBig: ["aecho=0.8:0.65:37|61|89:0.16|0.11|0.07", 0],
-  roomMoreTail: ["aecho=0.8:0.6:31|53:0.14|0.09,aecho=0.9:0.9:120:0.04", 0],
+  asis: ["anull", 0],
+  plusSmallRoom: ["aecho=0.8:0.5:23|41:0.18|0.11", 0],
+  plusSmallRoomBedUp2: ["aecho=0.8:0.5:23|41:0.18|0.11", 2],
 };
 for (const [k, [vf, bedDb]] of Object.entries(V)) {
   const out = path.join(dir, `v_${k}.wav`);

@@ -50,7 +50,7 @@ async function overallRmsDb(file: string): Promise<number | null> {
  * reflections (23 / 41 ms, −15 / −19 dB) put the voice in a small room: measured on the same film, voice humanness
  * 0.37 → 0.54 and channel mix 0.25 → 0.35, with no audible echo.
  */
-const VOICE_ROOM = "aecho=0.8:0.6:31|53:0.14|0.09"; // re-swept on hand film v5 (Marcus K): voice 0.82 → 0.84, mix 0.78 → 0.82
+const VOICE_ROOM = "aecho=0.8:0.6:31|53:0.14|0.09,aecho=0.8:0.5:23|41:0.18|0.11"; // two reflection sets (hand film v8 sweep): voice 0.815 → 0.832, mix 0.779 → 0.807
 
 function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" | "voice" | "bed" = "all") {
   const fps = m.fps;
