@@ -87,7 +87,7 @@ const SHOTS: Shot[] = [
       elements: [{ type: "component", name: "Card", x: -0.12, y: -0.05, w: 1.5, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -3 } }] }) },
   { id: "S04", start: 9.75, seg: "l03", intent: "four days later", footage: "fire", trim: 3, tr: "film",
     scene: (t) => ({ backdrop: "footage", atmos: { kind: "embers", opacity: 0.7 }, dim: 0.2, camera: cam(1.0, 1.18), finish: fin(0.4, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[19, "Four"], [20, "days"], [21, "later", "y"]]), size: 200, font: "wide" } }] }) },
+      elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[19, "Four"], [20, "days"], [21, "later", "y"]]), size: 150, font: "wide" } }] }) },
   { id: "S05", start: 11.05, seg: "l03", intent: "the $32 billion empire burning", footage: "burn100", trim: 1.5, tr: "cut",
     scene: (t) => ({ backdrop: "footage", atmos: { kind: "money", opacity: 0.8 }, dim: 0.25, camera: cam(1.05, 1.23), finish: fin(0.4, 0.55, 0.25),
       elements: [{ type: "component", name: "Counter", x: 0.06, y: 0.2, w: 0.88, at: rel(t, 23), z: 0.75, rot: 0, enter: "fade", props: { prefix: "$", to: 32, suffix: " BILLION", frames: 18, label: "an empire worth" } }] }) },
