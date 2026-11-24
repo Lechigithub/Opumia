@@ -139,3 +139,43 @@ Rejected (no improvement): an earlier v10 candidate with re-tuned delivery setti
 - Story, humour, cutting on the beat.
 
 The judge for these is the owner, or a blind test that has been validated against the owner.
+
+## Picture style with the subject held equal (2026-11-24)
+`side-by-side.ts` puts each of our 32 shots beside the 3 MagnatesMedia shots nearest to it in SigLIP image space
+(`out/hand-ftx/side-by-side/sheet_*.jpg`, `pairs.json`). The match is good (crowd with crowd, burning money with
+burning money, documents with documents), so what still differs is style.
+
+**Method check.** Real films run through the same matching (`CONTROL=<film id>`) also come out brighter and more
+saturated than their neighbours. The match leans dark, so per-shot grade differences from it are not evidence. Grade
+is measured instead over whole films with one function on both (`grade-band.py`, `look-band.ts`).
+
+**The look bands were wrong.** The ratchet's first bands came from two 80 s windows of one film (Ponzi). Over the
+first 80 s of all 37 films (`data/quality-profile/magnates-media-look-band-80s.json`, p10–p90):
+
+| | old band | real band | v10 | v11 |
+|---|---|---|---|---|
+| luma | 0.30–0.45 | 0.18–0.35 (median 0.25) | 0.36 | 0.305 |
+| dark share | 0–0.13 | 0.03–0.36 | 0.10 | 0.11 |
+| colourfulness | 31–48 | 25–75 | 46.6 | 42.5 |
+| motion | 0.04–0.10 | 0.018–0.048 | 0.042 | 0.039 |
+| still share | 0–0.08 | 0.013–0.15 | 0 | 0 |
+| cuts/min | 13–38 | 8–49 (median 22.5) | 21 | 21 |
+
+- Earlier fix 5 ("too dark: cap dim at 0.3") pushed the film the wrong way. The channel is low-key.
+- The ratchet now reads these bands.
+- **v11:** the act grade no longer lifts exposure (1.1 → 1.0), and every footage shot gets 0.22 more dim, with type at
+  full brightness. Every other measure is held (taste-floor frames 27 = 27).
+
+Over whole films (`grade-band.py`), v10 also had harder contrast (0.74 vs p90 0.71) and more blown highlights (4.9 %
+vs p90 3.2 %).
+
+**Seen by eye on the sheets, not yet measured:**
+1. Names are never small lower-third boxes. The channel sets a name huge beside a cut-out (thick white sticker
+   outline), or doesn't show it at all.
+2. Big figures fill most of the frame width and often carry texture (footage inside the letters, metal, glow). Ours
+   are centred, about a third of the width, plain yellow Anton.
+3. The type changes with the moment: condensed caps, thin mixed case ("Dark Days", "BURNED"), red emphasis words.
+   Ours is yellow and white Anton on every card, which reads as a template.
+4. Press and stock footage are often pushed into one mood: duotone, red/green/purple wash, black and white (whole
+   films 2.5–22.5 % of frames carried by one colour, median 12.5 %; ours 5 %).
+5. Footage never holds still in ours; the channel holds about 4 % of the time.

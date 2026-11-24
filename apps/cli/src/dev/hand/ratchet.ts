@@ -6,7 +6,7 @@
 // is set by the caller (printed).
 //   npx tsx apps/cli/src/dev/hand/ratchet.ts <name> <film.mp4> [--freeze <tag>] [--job out/<job>]
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { scoreSoundTaste, scoreTaste } from "@opumia/agents";
@@ -20,7 +20,10 @@ const baseFile = path.join(root, "eval", "ratchet", `${name}.json`);
 
 /** The channel's band for each look measure (MagnatesMedia, measured on the reference); distance to it is what counts. */
 // voiceOverBed: the channel's 37 films, voice over the bed while speaking (Reference sound.json): p10 14.4, p90 24.3 dB
-const BAND: Record<string, [number, number]> = { voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], luma: [0.3, 0.45], darkShare: [0, 0.13], colourfulness: [31, 48], motion: [0.04, 0.1], stillShare: [0, 0.08], cutsPerMin: [13, 38] };
+// Look bands (2026-11-24): p10–p90 of all 37 MagnatesMedia films over their first 80 s (look-band.ts, SPAN=80). The
+// first bands (luma 0.30–0.45, motion 0.04–0.10, …) came from two windows of one film and pushed the film too bright.
+const LB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-look-band-80s.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
+const BAND: Record<string, [number, number]> = { voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])) };
 /** Higher is better for these; noise below which a drop is not a regression. */
 const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03 };
 /** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
