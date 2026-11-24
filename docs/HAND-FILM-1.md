@@ -448,3 +448,41 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   means optimising against a detector of our own past work. The blind comparison is the valid test.
 - **Ratchet:** no regression. The changes are judged by eye or on unguarded scores, so v24 is not frozen on the
   measures.
+
+### v25: designed scenes in one visual world (frozen)
+- **The owner's verdict:** "the film you created is clearly not at the style reference quality". Judged by eye with
+  16-frame strips of 20 s from Uber, Silk Road and Ponzi beside ours.
+  - Each real film holds one look for a whole stretch: Uber black-and-white with blue type, Silk Road acid green and
+    magenta, Ponzi sepia and gold.
+  - They build scenes (a lightbulb on black, a hooded figure in particles, a network of light) and compose the type
+    into them.
+  - Ours flipped between looks every few seconds and was mostly stock with captions.
+  - None of the ratchet's instruments saw it: they measure averages, not whether neighbouring shots share a world or
+    whether a frame is built.
+- **Measured:** designed pictures take 16–83 % of the channel's opening screen time (median 64 %, reference-index
+  picture label; `designed-band.json`); ours had 6.5 %. A per-frame colour-concentration measure (`coherence.py`) did
+  not separate us: the warm grade unified the hues. That instrument is not used.
+- **v25, fourteen shots rebuilt as designed scenes** from the engine's worlds with real pictures in them:
+  - the date over the typing phone in black and white with a gold bar;
+  - the tweet and the articles taped on paper;
+  - "ASSETS ARE FINE." over a gold duotone of the phone;
+  - a light burst for "FOUR DAYS LATER";
+  - the hourglass for "LESS THAN A WEEK" (library, CC BY-SA);
+  - the 40 % donut over a duotone of coins with a coin pile;
+  - SBF with FTX coupons falling;
+  - a terminal for "72 HOURS";
+  - Enron on paper;
+  - the money-pile duotone for "$8 BILLION";
+  - a title sequence: "FTX — the $32 billion empire that vanished" over the city at night.
+- **One world:** every footage shot is pulled into the same warm black-and-white (`WORLD_WASH`, a pale tone at
+  strength 0.6), worlds use the dark ground and the gold accent, red stays only in the danger words, and the cut-outs
+  are warm monochrome copies.
+  - A saturated sepia was tried first: 43 % one-colour frames.
+  - Ponzi itself, a sepia-gold film, has 12 %. Its world is mostly dark and neutral, with gold as the accent.
+- **Result:**
+  - designed share 0.065 → 0.398 (in band);
+  - picture taste 5.0 → 5.13, its first real gain;
+  - no regression.
+  - The staple check now recognises any monochrome tone.
+- **Still different by eye:** the type is still mostly laid on top, not composed into the scene; the paper worlds
+  are plain; several stock clips still read as stock.

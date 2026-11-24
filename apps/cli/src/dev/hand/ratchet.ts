@@ -47,7 +47,10 @@ const SCENE_BAND = (JSON.parse(readFileSync(path.join(root, "data", "story-profi
 // Cut timing (first 90 s of the channel's films): median distance from a cut to a word boundary; share in a pause
 const CB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-cut-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
 // footage below the channel's own frame floor (its softest tenth): up to 10 % of shots is the channel's own rate
-const BAND: Record<string, [number, number]> = { footageBelowFloor: [0, 0.1], cutToWord: [CB.cutToWord!.p10, CB.cutToWord!.p90], cutInPause: [CB.cutInPause!.p10, CB.cutInPause!.p90], sceneShare: [SCENE_BAND.p10, SCENE_BAND.p90], thumbSharpTop: [QT.sharpTop!.p10, Infinity], thumbSharpMedian: [QT.sharpMedian!.p10, Infinity], thumbContrast: [QT.contrast!.p10, Infinity], thumbGrain: [QT.grain!.p10, QT.grain!.p90!], ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
+// designed pictures' share of screen time (first 90 s of the channel's films: 16–83 %, median 64 %); judging the
+// film beside the real ones by eye found ours mostly stock with captions (6.5 %)
+const DB = (JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-designed-band.json"), "utf8")) as { band: { p10: number; p90: number } }).band;
+const BAND: Record<string, [number, number]> = { designedShare: [DB.p10, DB.p90], footageBelowFloor: [0, 0.1], cutToWord: [CB.cutToWord!.p10, CB.cutToWord!.p90], cutInPause: [CB.cutInPause!.p10, CB.cutInPause!.p90], sceneShare: [SCENE_BAND.p10, SCENE_BAND.p90], thumbSharpTop: [QT.sharpTop!.p10, Infinity], thumbSharpMedian: [QT.sharpMedian!.p10, Infinity], thumbContrast: [QT.contrast!.p10, Infinity], thumbGrain: [QT.grain!.p10, QT.grain!.p90!], ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
   // How words are set (text-band.py, on-device OCR, first 80 s of the 37 films): frames with words, tallest and widest
   // line, small boxed name tags, capitals, spread of sizes
   ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
@@ -59,7 +62,7 @@ const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 
 // voice: the ears' score depends on the words, so it cannot compare films with different scripts; the owner's ear
 // judged the voice fine (2026-11-24). Recorded, not gated. Voice work is sound quality and mix only, at natural pace.
 const RETIRED = new Set(["mix", "voice"]);
-const BAND_NOISE: Record<string, number> = { footageBelowFloor: 0.02, cutToWord: 0.008, cutInPause: 0.03, sceneShare: 0.03, thumbSharpTop: 100, thumbSharpMedian: 20, thumbContrast: 3, thumbGrain: 1, hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { designedShare: 0.02, footageBelowFloor: 0.02, cutToWord: 0.008, cutInPause: 0.03, sceneShare: 0.03, thumbSharpTop: 100, thumbSharpMedian: 20, thumbContrast: 3, thumbGrain: 1, hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -146,8 +149,8 @@ if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "stor
   const has: Record<string, boolean> = {
     filmstrip_grid_layout: sc.some((x) => x.world?.kind === "filmstrip" || x.world?.kind === "contact_grid"),
     text_on_label_shape: els.some((e) => e.name === "Label"),
-    monochrome_high_contrast_grade: sc.some((x) => x.wash?.mode === "duotone" && ["black", "surface"].includes(x.wash.color ?? "") && (x.wash.strength ?? 0) >= 0.7),
-    duotone_color_tint: sc.some((x) => x.wash?.mode === "duotone" && !["black", "surface"].includes(x.wash.color ?? "")),
+    monochrome_high_contrast_grade: sc.some((x) => x.wash?.mode === "duotone" && ["black", "surface", "textMuted", "paper"].includes(x.wash.color ?? "") && (x.wash.strength ?? 0) >= 0.55), // any monochrome tone (warm black-and-white counts)
+    duotone_color_tint: sc.some((x) => (x.wash?.mode === "duotone" && !["black", "surface", "textMuted", "paper"].includes(x.wash.color ?? "")) || x.world?.kind === "duotone"),
     word_by_word_build: els.some((e) => e.name === "Kinetic"),
     keyword_colour_highlight: els.some((e) => (e.props?.words ?? []).some((w) => w.c === "y" || w.c === "r")),
     centered_caps_title: els.some((e) => e.name === "Kinetic" && (e.props?.align ?? "center") === "center"),
@@ -203,6 +206,13 @@ if (existsSync(path.join(job, "resolution.json")) && existsSync(path.join(job, "
   let n = 0, below = 0;
   for (const s of sbq) { const mm = media.find((x) => x.shotId === s.id && x.role === "primary" && x.kind === "video"); if (!mm || !existsSync(mm.localPath)) continue; n++; const c = await measureCraft(mm.localPath, (s.trimInS ?? 0) + 0.5); if (c.sharpTop < qf.sharpTop!.p10 || c.contrast < qf.contrast!.p10) below++; }
   if (n) m.footageBelowFloor = +(below / n).toFixed(3);
+}
+// designed share of screen time: shots whose picture is built (a world or the kit's stage), not footage
+if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "storyboard.json"))) {
+  const scd = new Map((JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<{ shotId: string; backdrop?: string }> }).scenes.map((x) => [x.shotId, x.backdrop ?? "footage"]));
+  const shd = (JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ id: string; startS: number; endS: number }> }).shots;
+  const tot = shd.reduce((a, x) => a + x.endS - x.startS, 0);
+  m.designedShare = +(shd.filter((x) => scd.get(x.id) !== "footage").reduce((a, x) => a + x.endS - x.startS, 0) / tot).toFixed(3);
 }
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {
