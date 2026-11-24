@@ -58,6 +58,8 @@ export function resetClient() {
   _client = null;
 }
 export function client(): Anthropic {
+  // owner, 2026-11-23: while quality is proven by hand in a Claude Code session, the platform makes NO Claude API call
+  if (process.env.OPUMIA_NO_CLAUDE) throw new Error("Claude API disabled (OPUMIA_NO_CLAUDE): this step must be done without a model call");
   guardBudget();
   if (_client) return _client;
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPUMIA_ANTHROPIC_KEY;
