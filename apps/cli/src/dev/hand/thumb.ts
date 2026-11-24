@@ -8,19 +8,19 @@ import path from "node:path";
 import { renderThumbnailScene } from "@opumia/motion-engine";
 const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
 // variants of the same subject (VARIANT=a|b|c|d), compared on the same measures; the best is kept as thumbnail.jpg
-const V = process.env.VARIANT ?? "a";
+const V = process.env.VARIANT ?? "f";
 const hero = V === "b" || V === "d" ? "pic/sbf_court.png" : "pic/sbf.png";
 const bg = V === "b" ? "pic/crash.jpg" : "pic/bg_burn.jpg";
-const heroW = V === "c" ? 0.6 : 0.52;
-const big = V === "c" ? "$32B → $0" : "$32B";
-const box = V === "d" ? "BANKRUPT" : "GONE";
+const heroW = V === "c" || V === "e" || V === "f" ? 0.6 : V === "d" || V === "b" ? 0.6 : 0.52;
+const headline = V === "c" || V === "e" ? "$32B → $0" : "$32B";
+const box = V === "d" || V === "e" || V === "f" ? "BANKRUPT" : "GONE";
 const spec = {
   shotId: "thumbnail", idea: "the $32 billion empire gone in four days", backdrop: "world", dim: 0.25,
   camera: { fromScale: 1, toScale: 1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 },
   elements: [
-    ...(V === "c" ? [] : [{ type: "card3d", slot: 2, x: 0.05, y: 0.06, w: 0.2, rot: 0, z: 0.5, at: 0, enter: "fade", tilt: -14, spin: 10 }]),
-    { type: "cutout", slot: 1, x: 1 - heroW - 0.0, y: 0.04, w: heroW, rot: 0, z: 0.6, at: 0, enter: "fade", shadow: true, glowColor: V === "b" ? "#ffcc00" : "#ff2b2b", glowSize: 1.3, matchColor: "#5a2a1a", matchStrength: 0.35, brightness: 1.08 },
-    { type: "text", text: big, role: "display", x: 0.04, y: V === "c" ? 0.3 : 0.36, w: V === "c" ? 0.5 : 0.5, rot: 0, z: 0.7, at: 0, enter: "fade", size: V === "c" ? 0.17 : 0.26, align: "left", color: "text", font: "heavy_sans", letter: "plain", fill: "#ffcc00" },
+    ...(V === "c" || V === "e" || V === "f" ? [] : [{ type: "card3d", slot: 2, x: 0.05, y: 0.06, w: 0.2, rot: 0, z: 0.5, at: 0, enter: "fade", tilt: -14, spin: 10 }]),
+    { type: "cutout", slot: 1, x: 1 - heroW - 0.0, y: V === "d" || V === "b" ? 0.2 : 0.04, w: heroW, rot: 0, z: 0.6, at: 0, enter: "fade", shadow: true, glowColor: V === "b" ? "#ffcc00" : "#ff2b2b", glowSize: 1.3, matchColor: "#5a2a1a", matchStrength: 0.35, brightness: 1.08 },
+    { type: "text", text: headline, role: "display", x: 0.04, y: V === "c" ? 0.3 : V === "e" ? 0.4 : V === "f" ? 0.3 : 0.36, w: V === "e" ? 0.62 : 0.5, rot: 0, z: 0.7, at: 0, enter: "fade", size: V === "c" ? 0.17 : V === "e" ? 0.135 : V === "f" ? 0.24 : 0.26, align: "left", color: "text", font: "heavy_sans", letter: "plain", fill: "#ffcc00" },
     { type: "text", text: box, role: "display", x: 0.05, y: 0.68, w: 0.45, rot: -3, z: 0.7, at: 0, enter: "fade", size: 0.13, align: "left", color: "text", font: "heavy_sans", letter: "label_box", fill: "#ffffff", boxFill: "#d0021b" },
   ],
 };

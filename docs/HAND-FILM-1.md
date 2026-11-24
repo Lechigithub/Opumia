@@ -426,3 +426,25 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 - **Two staples made measurable on the film:** a hard cut with a palette reset (mean colour before and after a cut)
   and a stretch carried by music alone (10 s with no effect). 16 of the 17 staples above 20 % are now checked; literal
   narration-matched pictures are checked by eye (next).
+
+### v24 candidate: pictures checked against their lines, thumbnail variants, voice chain, picture taste
+- **#7, every shot against the words spoken over it** (contact sheets with each shot's words). Two misfits, both the
+  same joggers clip: "Customers ran" (a pun, not a bank run) and "Whatever it had found was beyond saving" (no link).
+  They are replaced by a crowd running across a square in sepia (Pexels 5695519) and crumpled papers in a bin (Pexels
+  7668957), both above the channel's frame floor. The rest fit their line literally.
+- **#4, thumbnail:** six variants of the same subject, compared on the thumbnail scorer, which is fair when the
+  content is held equal, and all inside the channel's quality band.
+  - The court cut-out scored best (4.3) but its background removal left a rectangle: rejected by eye.
+  - "$32B → $0" (3.9) breaks the platform's rule (a figure the narration never says): rejected.
+  - Kept: variant f, the clean cut-out large like the channel's heroes, "$32B" and "BANKRUPT" (3.7, against 3.6).
+  - The scorer still reads it as "our past work": partly closed.
+- **#5, voice sound quality and mix only** (`voice-chain.ts`: the same narration through chain variants over the
+  film's own bed, speech-only windows, four grids):
+  - current 0.764, dry 0.756, lighter room 0.763, more presence 0.772, gentler compression 0.750, warmer 0.760;
+  - all within the measure's noise (±0.02);
+  - the chain is at its best within what can be measured; no change made; no ElevenLabs characters spent.
+- **#3, picture taste** on its own calibration: real channel shots median 6.1, p10 4.4; ours 4.9, inside the range,
+  lower part. The head was trained partly to tell our earlier films from the channel's, so raising its number further
+  means optimising against a detector of our own past work. The blind comparison is the valid test.
+- **Ratchet:** no regression. The changes are judged by eye or on unguarded scores, so v24 is not frozen on the
+  measures.
