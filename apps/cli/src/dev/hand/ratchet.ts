@@ -41,7 +41,13 @@ const SOB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "
 // The thumbnail's pixels against the channel's 37 thumbnails (data/quality-profile/<channel>.json): sharpest and
 // typical detail, contrast (floors), grain (p10–p90)
 const QT = (JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media.json"), "utf8")) as { thumbs: Record<string, { p10: number; median: number; p90?: number }> }).thumbs;
-const BAND: Record<string, [number, number]> = { thumbSharpTop: [QT.sharpTop!.p10, Infinity], thumbSharpMedian: [QT.sharpMedian!.p10, Infinity], thumbContrast: [QT.contrast!.p10, Infinity], thumbGrain: [QT.grain!.p10, QT.grain!.p90!], ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
+// moments (scene lines) against real windows of the film's length (data/story-profile/<channel>-scenes-<L>s.json): over
+// whole films the channel has 3–11 %, but in 90 s windows 0–41 % (median 17.6 %), like the look bands
+const SCENE_BAND = (JSON.parse(readFileSync(path.join(root, "data", "story-profile", "magnates-media-scenes-90s.json"), "utf8")) as { moment: { p10: number; p90: number } }).moment;
+// Cut timing (first 90 s of the channel's films): median distance from a cut to a word boundary; share in a pause
+const CB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-cut-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
+// footage below the channel's own frame floor (its softest tenth): up to 10 % of shots is the channel's own rate
+const BAND: Record<string, [number, number]> = { footageBelowFloor: [0, 0.1], cutToWord: [CB.cutToWord!.p10, CB.cutToWord!.p90], cutInPause: [CB.cutInPause!.p10, CB.cutInPause!.p90], sceneShare: [SCENE_BAND.p10, SCENE_BAND.p90], thumbSharpTop: [QT.sharpTop!.p10, Infinity], thumbSharpMedian: [QT.sharpMedian!.p10, Infinity], thumbContrast: [QT.contrast!.p10, Infinity], thumbGrain: [QT.grain!.p10, QT.grain!.p90!], ...Object.fromEntries(Object.entries(SOB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), ...Object.fromEntries(STORY_KINDS.map((k) => [`${k}Share`, [SB.kinds[k]!.p10, SB.kinds[k]!.p90] as [number, number]])), viewerShare: [SB.viewer.p10, SB.viewer.p90], voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90],
   // How words are set (text-band.py, on-device OCR, first 80 s of the 37 films): frames with words, tallest and widest
   // line, small boxed name tags, capitals, spread of sizes
   ...Object.fromEntries(Object.entries(TB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])),
@@ -53,7 +59,7 @@ const HIGHER: Record<string, number> = { taste: 0.1, tasteAboveFloor: 2, voice: 
 // voice: the ears' score depends on the words, so it cannot compare films with different scripts; the owner's ear
 // judged the voice fine (2026-11-24). Recorded, not gated. Voice work is sound quality and mix only, at natural pace.
 const RETIRED = new Set(["mix", "voice"]);
-const BAND_NOISE: Record<string, number> = { thumbSharpTop: 100, thumbSharpMedian: 20, thumbContrast: 3, thumbGrain: 1, hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { footageBelowFloor: 0.02, cutToWord: 0.008, cutInPause: 0.03, sceneShare: 0.03, thumbSharpTop: 100, thumbSharpMedian: 20, thumbContrast: 3, thumbGrain: 1, hitsPerMin: 0.3, dropsPerMin: 0.3, cueChangesPerMin: 0.3, quoteShare: 0.02, factShare: 0.02, explainShare: 0.02, teaseShare: 0.02, motiveShare: 0.02, viewerShare: 0.02, strokeMed: 0.006, strokeLo: 0.006, aspectMed: 0.015, heavyShare: 0.04, lightShare: 0.03, textFrames: 0.03, bigText: 0.01, wideText: 0.02, smallBoxed: 0.03, caps: 0.05, sizeSpread: 0.03, contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -127,6 +133,7 @@ if (existsSync(path.join(job, "story-kinds.json"))) {
   const sk = JSON.parse(await readFile(path.join(job, "story-kinds.json"), "utf8")) as { sentences: string[]; kinds: string[] };
   const pr = storyProfile(sk.sentences, sk.kinds as never);
   for (const k of STORY_KINDS) m[`${k}Share`] = pr.share[k as keyof typeof pr.share];
+  m.sceneShare = pr.share.scene;
   m.viewerShare = pr.viewerShare;
 }
 // the channel's staples (techniques in >= 20 % of its stretches, data/technique-inventory) the film's plan uses
@@ -134,7 +141,7 @@ if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "stor
   type El = { name?: string; type?: string; props?: { words?: Array<{ c?: string }>; align?: string } };
   type Sc = { backdrop?: string; world?: { kind?: string }; wash?: { color?: string; strength?: number; mode?: string }; fx?: { dof?: number }; finish?: { grain?: number }; atmos?: { kind?: string }; elements: El[] };
   const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Sc[] }).scenes;
-  const sb = JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ startS: number; endS: number }>; music: Array<{ drops?: unknown[] }> };
+  const sb = JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { durationS?: number; shots: Array<{ startS: number; endS: number }>; music: Array<{ drops?: unknown[] }> };
   const els = sc.flatMap((x) => x.elements);
   const has: Record<string, boolean> = {
     filmstrip_grid_layout: sc.some((x) => x.world?.kind === "filmstrip" || x.world?.kind === "contact_grid"),
@@ -150,6 +157,10 @@ if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "stor
     music_drop_out: sb.music.some((c) => (c.drops ?? []).length > 0),
     b_roll_reenactment_clip: sc.some((x) => (x.backdrop ?? "footage") === "footage"),
     long_hold_slow_cuts: sb.shots.some((x) => x.endS - x.startS >= 4),
+    // a hard cut that resets the palette: mean colour of a 32×18 frame 0.15 s before and after a cut differs by > 70
+    hard_cut_style_shift: (() => { const rgb = (t: number) => { const b = execFileSync("ffmpeg", ["-v", "error", "-ss", Math.max(0, t).toFixed(2), "-i", path.resolve(film), "-frames:v", "1", "-vf", "scale=32:18", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]); const n = b.length / 3; let r = 0, g = 0, bl = 0; for (let i = 0; i < n; i++) { r += b[3 * i]!; g += b[3 * i + 1]!; bl += b[3 * i + 2]!; } return [r / n, g / n, bl / n]; }; return sb.shots.slice(1).some((x) => { const a = rgb(x.startS - 0.15), c = rgb(x.startS + 0.15); return Math.hypot(a[0]! - c[0]!, a[1]! - c[1]!, a[2]! - c[2]!) > 70; }); })(),
+    // a stretch carried by the music alone: 10 s with no sound effect
+    single_music_bed_no_sfx: (() => { const man = JSON.parse(readFileSync(path.join(job, "manifest.json"), "utf8")) as { fps: number; audio: Array<{ role?: string; startFrame: number }> }; const hs = [0, ...man.audio.filter((a) => a.role === "sfx").map((a) => a.startFrame / man.fps).sort((a, b) => a - b), (sb as { durationS?: number }).durationS ?? 90]; return hs.some((t, i) => i > 0 && t - hs[i - 1]! >= 10); })(),
     impact_hit_on_reveal: existsSync(path.join(job, "manifest.json")) && ((JSON.parse(await readFile(path.join(job, "manifest.json"), "utf8")) as { audio?: Array<{ role?: string }> }).audio ?? []).some((x) => x.role === "sfx"),
   };
   const staples = (JSON.parse(readFileSync(path.join(data, "technique-inventory", "magnates-media", "band.json"), "utf8")) as { techniques: Array<{ id: string; share: number }> }).techniques.filter((v) => v.share >= 0.2).map((v) => v.id);
@@ -173,6 +184,25 @@ if (existsSync(path.join(job, "thumbnail.jpg"))) {
   const { measureCraft } = await import("@opumia/senses");
   const c = await measureCraft(path.join(job, "thumbnail.jpg"));
   m.thumbSharpTop = Math.round(c.sharpTop); m.thumbSharpMedian = Math.round(c.sharpMedian); m.thumbContrast = Math.round(c.contrast); m.thumbGrain = +c.grain.toFixed(1);
+}
+// cut timing against the narration's words, same definitions as the reference index
+if (existsSync(path.join(job, "narration-words.json")) && existsSync(path.join(job, "storyboard.json"))) {
+  const W = JSON.parse(await readFile(path.join(job, "narration-words.json"), "utf8")) as Array<{ startS: number; endS: number }>;
+  const bounds = W.flatMap((w) => [w.startS, w.endS]);
+  const pauses = W.slice(0, -1).map((w, k) => [w.endS, W[k + 1]!.startS] as [number, number]).filter(([a, b]) => b - a >= 0.15);
+  const cuts = (JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ startS: number }> }).shots.slice(1).map((x) => x.startS);
+  m.cutToWord = +med(cuts.map((t) => Math.min(...bounds.map((b) => Math.abs(b - t))))).toFixed(3);
+  m.cutInPause = +(cuts.filter((t) => pauses.some(([a, b]) => t >= a - 0.03 && t <= b + 0.03)).length / cuts.length).toFixed(3);
+}
+// footage pixel quality at the moment each shot uses it (footage-quality.ts), against the channel's frame floor
+if (existsSync(path.join(job, "resolution.json")) && existsSync(path.join(job, "storyboard.json"))) {
+  const { measureCraft } = await import("@opumia/senses");
+  const qf = (JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media.json"), "utf8")) as { frames: Record<string, { p10: number }> }).frames;
+  const sbq = (JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ id: string; trimInS?: number }> }).shots;
+  const media = (JSON.parse(await readFile(path.join(job, "resolution.json"), "utf8")) as { media: Array<{ shotId: string; role: string; kind: string; localPath: string }> }).media;
+  let n = 0, below = 0;
+  for (const s of sbq) { const mm = media.find((x) => x.shotId === s.id && x.role === "primary" && x.kind === "video"); if (!mm || !existsSync(mm.localPath)) continue; n++; const c = await measureCraft(mm.localPath, (s.trimInS ?? 0) + 0.5); if (c.sharpTop < qf.sharpTop!.p10 || c.contrast < qf.contrast!.p10) below++; }
+  if (n) m.footageBelowFloor = +(below / n).toFixed(3);
 }
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {

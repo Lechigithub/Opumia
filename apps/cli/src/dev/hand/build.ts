@@ -65,6 +65,7 @@ const MEDIA: Record<string, M> = {
   phone: ST("33942937", "Pexels"), burn100: ST("8370593", "Pexels"), crash1: ST("38687556", "Pexels"), crash2: ST("38859052", "Pexels"),
   coins: ST("30804767", "Pexels"), run: ST("25786069", "Pexels"), gavel: ST("6699964", "Pexels"), fire: ST("11977691", "Pexels"),
   queue: ST("6229548", "Pexels"), pile: ST("6266286", "Pexels"), spread: ST("5466776", "Pexels"), btc: ST("4406964", "Pexels"), cables: ST("1085656", "Pexels"),
+  phone2: ST("6414098", "Pexels"), phone3: ST("6279142", "Pexels"),
   hand: ST("8426049", "Pexels"), walk: ST("14569532", "Pexels"), paperburn: ST("30509780", "Pexels"),
   sbf_bbg: YT("sbf_bloomberg", "HOMA3RxhAPw", "FTX CEO Sam Bankman-Fried: Bloomberg Crypto 09/27/2022", "Bloomberg Television", 251.5, "Sam Bankman-Fried (press)"),
   sbf_cnbc: YT("sbf_cnbc", "PMneW1ZxHSc", "FTX CEO Sam Bankman-Fried on decision to move company to Bahamas", "CNBC Television", 56, "Sam Bankman-Fried (press)"),
@@ -95,7 +96,7 @@ const kin = (t0: number, parts: Array<[number | "|", string, string?, boolean?]>
 const fin = (g = 0.35, v = 0.55, leak = 0) => ({ grain: g, vignette: v, leak });
 
 const SHOTS: Shot[] = [
-  { id: "S01", start: 0, seg: "l01", intent: "a message sent at night", footage: "phone", trim: 2, tr: "cut",
+  { id: "S01", start: 0, seg: "l01", intent: "a message sent at night", footage: "phone2", trim: 4, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.0, 1.4), finish: fin(0.4, 0.7, 0.3), atmos: { kind: "dust", opacity: 0.6 },
       elements: [{ type: "component", name: "Kinetic", x: 0.1, y: 0.36, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[G("l01", 2), "NOVEMBER", "w"], [G("l01", 2), "7", "y"], ["|", ""], [G("l01", 5), "2022", "y"]]), size: 190 } }] }) },
   { id: "S02", start: 2.9, seg: "l01", intent: "Sam Bankman-Fried", slots: { 0: "cut_sbf", 1: "sbf_cnbc_still" }, tr: "film",
@@ -106,13 +107,13 @@ const SHOTS: Shot[] = [
       ] }) },
   { id: "S02b", start: 4.0, seg: "l01", intent: "has a message for the world", footage: "sbf_cnbc", trim: 3, tr: "cut",
     scene: () => ({ backdrop: "footage", dim: 0.1, wash: { color: "black", strength: 0.85, mode: "duotone" }, camera: cam(1.05, 1.25), finish: fin(0.35, 0.5, 0.2), elements: [] }) },
-  { id: "S03", start: 5.62, seg: "l02", intent: "the post: FTX is fine", footage: "phone", trim: 8, slots: { 0: "tweet" }, tr: "flash",
+  { id: "S03", start: 5.62, seg: "l02", intent: "the post: FTX is fine", footage: "phone2", trim: 9, slots: { 0: "tweet" }, tr: "flash",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.7 }, wash: { color: "primary", strength: 0.3, mode: "tint" }, camera: cam(1.1, 1.28), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Card", x: 0.1, y: 0.28, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: -2 } }] }) },
-  { id: "S03b", start: 7.3, seg: "l02", intent: "assets are fine (his words, set big)", footage: "phone", trim: 10, tr: "zoom_punch",
+  { id: "S03b", start: 7.3, seg: "l02", intent: "assets are fine (his words, set big)", footage: "phone2", trim: 13, tr: "zoom_punch",
     scene: () => ({ backdrop: "footage", dim: 0.35, fx: { dof: 0.85 }, wash: { color: "accent", strength: 0.5, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.34, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: [{ text: "ASSETS", from: 2 }, { text: "ARE", from: 8 }, { text: "FINE.", from: 14, c: "y" }], size: 170, font: "wide" } }] }) },
-  { id: "S04", start: 9.3, seg: "l03", intent: "four days later", footage: "fire", trim: 3, tr: "film",
+  { id: "S04", start: 9.3, seg: "l03", intent: "four days later", footage: "fire", trim: 10, tr: "film",
     scene: (t) => ({ backdrop: "footage", atmos: { kind: "embers", opacity: 0.7 }, dim: 0.2, camera: cam(1.0, 1.18), finish: fin(0.4, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.33, w: 0.84, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[G("l03", 0), "Four"], [G("l03", 1), "days"], [G("l03", 2), "later", "y"]]), size: 150, font: "wide" } }] }) },
   { id: "S05", start: 10.5, seg: "l03", intent: "the $32 billion empire burning", footage: "burn100", trim: 1.5, tr: "cut",
@@ -130,7 +131,7 @@ const SHOTS: Shot[] = [
     scene: (t) => ({ backdrop: "footage", dim: 0.3, camera: cam(1.05, 1.22), finish: fin(0.4, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.3, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[G("l03", 20), "LESS THAN"], ["|", ""], [G("l03", 22), "A WEEK", "y"]]), size: 170, font: "wide" } }] }) },
   { id: "S07c", start: 18.25, seg: "l03", intent: "it started with one document (a data room)", footage: "cables", trim: 4, tr: "film",
-    scene: (t) => ({ backdrop: "footage", dim: 0.35, camera: cam(1.05, 1.25), finish: fin(0.4, 0.6),
+    scene: (t) => ({ backdrop: "footage", dim: 0.15, camera: cam(1.05, 1.25), finish: fin(0.4, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.08, y: 0.34, w: 0.84, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[G("l03", 27), "ONE"], [G("l03", 28), "DOCUMENT", "y"]]), size: 170, font: "wide" } }] }) },
   { id: "S08", start: 20.85, seg: "l03", intent: "the leaked balance sheet (CoinDesk)", footage: "sbf_bbg", trim: 0, slots: { 0: "coindesk" }, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.75 }, camera: cam(1.0, 1.14), finish: fin(0.35, 0.6, 0.2),
@@ -206,9 +207,9 @@ const SHOTS: Shot[] = [
   { id: "S26b", start: 0, atWord: G("l11", 0), seg: "l11", intent: "soon after that tweet (his week in frames: the post, on air, the court)", slots: { 0: "tweet", 1: "sbf_cnbc_still", 2: "scrum_still" }, tr: "film",
     scene: (t) => ({ backdrop: "world", world: { kind: "filmstrip", slot: 0, slots: [1, 2], color: "primary", accent: "accent" }, dim: 0, camera: cam(1.0, 1.08), finish: fin(0.45, 0.6),
       elements: [{ type: "component", name: "Label", x: 0.06, y: 0.06, w: 0.5, at: 0.1, z: 0.9, rot: -2, enter: "fade", props: { text: "Soon after that tweet", size: 62 } }] }) },
-  { id: "S26c", start: 0, atWord: G("l11", 9), seg: "l11", intent: "he had started to worry FTX would not be fine", footage: "phone", trim: 12.5, tr: "zoom_punch",
+  { id: "S26c", start: 0, atWord: G("l11", 9), seg: "l11", intent: "he had started to worry FTX would not be fine", footage: "phone3", trim: 2.5, tr: "zoom_punch",
     scene: (t) => ({ backdrop: "footage", dim: 0.4, fx: { dof: 0.9 }, wash: { color: "accentDeep", strength: 0.65, mode: "duotone" }, camera: cam(1.1, 1.3), finish: fin(0.45, 0.7),
-      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.85, rot: 0, enter: "fade", props: { words: kin(t, [[G("l11", 11), "WOULD"], [G("l11", 12), "NOT", "r"], [G("l11", 13), "BE FINE"]]), size: 170, font: "wide" } }] }) },
+      elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.85, rot: 0, enter: "fade", props: { words: kin(t, [[G("l11", 11), "WOULD"], [G("l11", 12), "NOT", "r"], [G("l11", 13), "BE FINE"]]), size: 130, font: "wide" } }] }) },
   { id: "S27", start: 0, atWord: G("l11", 15), seg: "l11", intent: "in the end (the Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
     scene: () => ({ backdrop: "footage", dim: 0.15, camera: cam(1.0, 1.0, 0.5, 0.5, 0.45, 0.45), finish: fin(0.35, 0.55), elements: [] }) },
   { id: "S28", start: 0, atWord: G("l11", 18), seg: "l11", intent: "he had made a very bad bet", slots: { 0: "cut_sbf_court", 1: "scrum_still" }, tr: "cut",
@@ -224,6 +225,17 @@ const SHOTS: Shot[] = [
 
 // v16: cut points are set on this narration's own words (the warp carried the v1 script's cuts to another narrator)
 if (WARP) for (const s of SHOTS) s.start = +(s.atWord !== undefined ? at(s.atWord) - (s.lead ?? 0.08) : warp(s.start)).toFixed(2);
+// Cut timing (v23): the channel's cuts sit a median 0.10 s from a word boundary (0.06–0.21 by film) and 5–28 % fall in
+// a pause; cutting exactly on word starts gave 0.04 (too mechanical). A cut that opens a line stays in the pause before
+// it; a cut inside a line lands half-way into its word (on the stressed middle, as an editor cuts on rhythm).
+{
+  const lineStarts = new Set(NEWS.map((sg) => sg.words[0]?.startS));
+  for (const sh of SHOTS) {
+    const w = W.find((x) => x.startS >= sh.start - 0.02);
+    if (!w || w.startS - sh.start > 0.6 || lineStarts.has(w.startS)) continue;
+    sh.start = +(w.startS + 0.5 * Math.max(0, w.endS - w.startS)).toFixed(2);
+  }
+}
 SHOTS.sort((a, b) => a.start - b.start);
 // ---- write the job ----
 const dur = +(timed.durationS + 0.6).toFixed(2);

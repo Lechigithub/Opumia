@@ -410,3 +410,19 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
 - **Ratchet:** thumbnail sharpness, detail, contrast and grain are guarded. A new measure inside its band counts as a
   gain. The thumbnail taste head reads 3/10 ("like our past work"); it reads content, so it is recorded, not gated,
   like the picture heads.
+
+### v23: moments at the film's length, cut timing, footage quality, two more staples measured (frozen)
+- **Moment lines:** judged against 90 s windows of the channel's films (median 17.6 %, p90 41 %), not whole films
+  (3–11 %). Ours is 17.6 %, at the median: the same length mismatch as the first look bands.
+- **Cut timing** (`cut-band.json`, reference-index definitions: distance from a cut to the nearest word boundary,
+  share in pauses ≥ 0.15 s). The channel: 0.06–0.21 s (median 0.10), 5–28 % in pauses. Cutting exactly on words gave
+  0.04 s, too mechanical. Rule: a cut that opens a line stays in the pause before it; a cut inside a line lands half
+  way into its word. Now 0.08 s, 25 % in pauses.
+- **Footage quality at the moment each shot uses** (`footage-quality.ts`; quality-gap measured each clip at 1 s of
+  the source, which is not what the film shows). The old phone clip was soft and flat wherever it was used (4 shots),
+  and the fire shot was flat at 3 s. They are replaced by two sharp, contrasty phone clips (Pexels 6414098, 6279142)
+  and the fire at 10 s. 6 of 34 shots under the channel's floor → 1 (the server room, 1 contrast point short). Up to
+  10 % is the channel's own rate.
+- **Two staples made measurable on the film:** a hard cut with a palette reset (mean colour before and after a cut)
+  and a stretch carried by music alone (10 s with no effect). 16 of the 17 staples above 20 % are now checked; literal
+  narration-matched pictures are checked by eye (next).
