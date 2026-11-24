@@ -25,7 +25,7 @@ const SAY: Record<string, string> = { Binance: "Bye-nance" }; // the lexicon's v
 
 const base = await resolveChannelVoice("magnates-media", data, console.log);
 // an audition voice (hand film only): VOICE_ID + VOICE_TAG; the platform's channel voice is not changed
-const voice = process.env.VOICE_ID ? { ...base, voiceId: process.env.VOICE_ID, settings: { ...base.settings, stability: 0.35, style: 0.4 } } : base;
+const voice = process.env.VOICE_ID ? { ...base, voiceId: process.env.VOICE_ID, settings: { ...base.settings, stability: Number(process.env.VOICE_STAB ?? 0.35), style: Number(process.env.VOICE_STYLE ?? 0.4) } } : base;
 const model = ttsModel();
 const ff = (args: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args]);
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());

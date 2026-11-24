@@ -91,3 +91,31 @@ Voice (0.62 vs 0.91) and mix (0.55 vs 0.84) are still short.
 6. **Voice:** an ears-scored audition among the professional voices, at the owner's word.
 7. **Proof:** one film through the agents with these changes (needs the API), scored on the corrected instruments
    and by the owner against this hand film.
+
+## Ratchet: every level frozen, never lower (2026-11-24)
+`apps/cli/src/dev/hand/ratchet.ts` keeps every measure of the frozen film in `eval/ratchet/hand-ftx.json`. A new
+version is frozen only if no measure is worse (within noise) and one is better. Each frozen version keeps its film
+and inputs in `out/hand-ftx/frozen/<tag>/` and has a git tag `ratchet/hand-ftx/<tag>`.
+
+| frozen | what changed | voice (ch. 0.72–0.91) | mix (ch. 0.74–0.84) | luma | dark | colour (≤48) | motion (≥0.04) | still | cuts/min | clean shots (19–75 %) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v4 | baseline | 0.62 | 0.48 | 0.34 | 0.12 | 50.6 | 0.036 | 0.6 % | 20 | 12.5 % |
+| v5 | narrator Marcus K (ears-chosen) | 0.83 | 0.77 | 0.34 | 0.11 | 50.9 | 0.037 | 0.3 % | 21 | |
+| v6 | stronger camera, saturation, larger room | 0.85 | 0.77 | 0.34 | 0.12 | 49.0 | 0.039 | 0 | 21 | |
+| v7 | quote on moving footage, cards keep moving | 0.85 | 0.77 | 0.36 | 0.09 | 47.0 | 0.042 | 0 | 21 | |
+| v8 | two reflection sets on the narrator | 0.83 | **0.843** | 0.36 | 0.09 | 47.0 | 0.042 | 0 | 21 | 12.5 % |
+| **v9** | four more clean-footage shots | **0.83** | **0.843** | **0.36** | **0.10** | **46.6** | **0.042** | **0** | **21** | **25 %** |
+
+Rejected (no improvement): v10 with re-tuned delivery settings (voice 0.82, mix 0.85: within noise).
+
+**Status at v9:**
+- Every content-free measure is inside the channel's band.
+- Mix is at the channel's median.
+- Voice is inside the band (0.83 against a 0.72 floor), below the 0.91 median.
+
+**What no instrument can settle yet:**
+- Picture "style": the trained heads read content (period, subject, logo), not craft. They rank the hand film
+  below agent films the owner judged worse, so they cannot be targets until they agree with the owner's ranking.
+- Story, humour, cutting on the beat.
+
+The judge for these is the owner, or a blind test that has been validated against the owner.
