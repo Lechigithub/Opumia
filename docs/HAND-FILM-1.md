@@ -259,3 +259,22 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   inside the footage, not the film's lettering: banknote printing, a stock phone screen in Russian behind the tweet,
   ticker numbers, the real article and tweet text. Closing them means choosing footage with less text in it, which is
   a picture choice. The measure cannot yet tell designed lettering from text in the footage.
+
+### v15: the text in the footage (frozen on the measures)
+- Each crop now carries its time (`type-crops.py` `t`), so light and narrow lines can be traced to their shot. One
+  shot held most of them: S26 ("for stealing $8 billion", 38 of 60 light lines and 60 of 112 narrow ones). Its
+  stock money bundles have paper bands with printed Cyrillic text. S09's banknote printing added a few more.
+- Fix: shallow-focus blur behind the type on S26 (`dof 0.85`) and S09 (`0.6`), as the channel keeps money soft behind
+  big figures.
+- Every typeface measure is now inside the channel's band:
+
+  | | v14 | v15 |
+  |---|---|---|
+  | median stroke | 0.141 | 0.168 |
+  | lightest quarter | 0.082 | 0.112 |
+  | width | 0.351 | 0.436 |
+  | heavy lines | 59 % | 73 % |
+  | light lines | 20 % | 6.5 % |
+
+  No other measure moved beyond noise.
+- The widest line is at the band's top edge (0.654 vs p90 0.641): watched, not acted on.

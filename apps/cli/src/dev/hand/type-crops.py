@@ -58,11 +58,12 @@ def film(label, name, f):
     d = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]))
     d = min(d, 600)
     tmp = tempfile.mkdtemp()
-    ps = []
+    ps, tof = [], {}
     for i in range(N):
         p = os.path.join(tmp, f"f{i:03d}.png")
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{d * (0.02 + 0.96 * i / max(1, N - 1)):.2f}", "-i", f, "-frames:v", "1", "-vf", "scale=1280:720", p])
-        if os.path.exists(p): ps.append(p)
+        t = d * (0.02 + 0.96 * i / max(1, N - 1))
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", f, "-frames:v", "1", "-vf", "scale=1280:720", p])
+        if os.path.exists(p): ps.append(p); tof[p] = round(t, 2)
     boxes = {}
     for i in range(0, len(ps), 40):
         for l in subprocess.run([OCR, *ps[i:i + 40]], capture_output=True, text=True).stdout.splitlines():
@@ -80,7 +81,7 @@ def film(label, name, f):
             hp = m.shape[0]
             dt = ndimage.distance_transform_edt(m)
             letters = [c for c in txt if c.isalpha()]
-            row = {"film": name, "channel": label, "text": txt, "h": round(b["y1"] - b["y0"], 4),
+            row = {"film": name, "channel": label, "t": tof[p], "text": txt, "h": round(b["y1"] - b["y0"], 4),
                    "stroke": round(float(2 * np.percentile(dt[m], 90) / hp), 4), "ink": round(float(m.mean()), 4),
                    "aspect": round(float(m.shape[1] / (chars * hp)), 4), "caps": bool(len(letters) >= 3 and all(c.isupper() for c in letters))}
             # the mask the scorer sees: letters only, white on black, height 96, on a 384×384 canvas

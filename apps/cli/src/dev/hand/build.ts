@@ -103,7 +103,7 @@ const SHOTS: Shot[] = [
     scene: (t) => ({ backdrop: "footage", dim: 0.3, fx: { dof: 0.75 }, camera: cam(1.0, 1.14), finish: fin(0.35, 0.6, 0.2),
       elements: [{ type: "component", name: "Card", x: 0.1, y: 0.26, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { slot: 0, rot: 1.5, aspect: 305 / 780, crop: { y0: 0.12, y1: 0.7 }, hl: { x: 0.02, y: 0.75, w: 0.74, h: 0.15, from: fr(t, 41), to: fr(t, 44) + 8 } } }] }) },
   { id: "S09", start: 20.4, seg: "l04", intent: "Alameda's $14.6 billion", footage: "spread", trim: 2, slots: { 0: "alameda" }, tr: "cut",
-    scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.3, mode: "tint" }, camera: cam(1.08, 1.2, 0.45, 0.55), finish: fin(0.35, 0.6),
+    scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.3, mode: "tint" }, fx: { dof: 0.6 }, camera: cam(1.08, 1.2, 0.45, 0.55), finish: fin(0.35, 0.6),
       elements: [
         { type: "photo", slot: 0, x: 0.25, y: 0.12, w: 0.5, z: 0.6, rot: 0, at: rel(t, 47), enter: "slide_down", grade: "natural" },
         { type: "component", name: "Counter", x: 0.04, y: 0.34, w: 0.92, at: rel(t, 49), z: 0.8, rot: 0, enter: "fade", props: { prefix: "$", to: 14.6, decimals: 1, suffix: " BILLION", frames: 20, label: "in assets" } },
@@ -165,7 +165,7 @@ const SHOTS: Shot[] = [
     scene: (t) => ({ backdrop: "footage", dim: 0.2, camera: cam(1.05, 1.2), finish: fin(0.35, 0.55),
       elements: [{ type: "component", name: "Counter", x: 0.52, y: 0.2, w: 0.44, at: rel(t, 163), z: 0.8, rot: 0, enter: "fade", props: { to: 25, frames: 16, label: "years" } }] }) },
   { id: "S26", start: 69.05, seg: "l10", intent: "for stealing $8 billion", footage: "pile", trim: 1, tr: "cut",
-    scene: (t) => ({ backdrop: "footage", wash: { color: "accentDeep", strength: 0.25, mode: "tint" }, dim: 0.3, camera: cam(1.05, 1.23), finish: fin(0.35, 0.6),
+    scene: (t) => ({ backdrop: "footage", wash: { color: "accentDeep", strength: 0.25, mode: "tint" }, dim: 0.3, fx: { dof: 0.85 }, camera: cam(1.05, 1.23), finish: fin(0.35, 0.6),
       elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.3, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[166, "STEALING", "r"], ["|", ""], [167, "$8 BILLION", "y"]]), size: 210, font: "wide" } }] }) },
   { id: "S27", start: 72.9, seg: "l11", intent: "the judge (Manhattan federal court)", footage: "courthouse", tr: "film", hold: true,
     scene: () => ({ backdrop: "footage", dim: 0.15, camera: cam(1.0, 1.0, 0.5, 0.5, 0.45, 0.45), finish: fin(0.35, 0.55), elements: [] }) },
