@@ -25,6 +25,8 @@ def film(f, n=40):
     v = np.array([look(a) for a in frames(f, n)])
     return {k: float(np.median(v[:, i])) if k != "oneColour" else float(v[:, i].mean()) for i, k in enumerate(K)}
 ours = film(sys.argv[1], 60)
+if len(sys.argv) < 3:  # ours only (the ratchet)
+    print(json.dumps(ours)); sys.exit(0)
 refs = [film(l.strip()) for l in open(sys.argv[2]) if l.strip()]
 out = {"ours": ours, "channel": {k: {"p10": float(np.percentile([r[k] for r in refs], 10)), "median": float(np.median([r[k] for r in refs])), "p90": float(np.percentile([r[k] for r in refs], 90))} for k in K}, "films": len(refs)}
 print(json.dumps(out, indent=1))

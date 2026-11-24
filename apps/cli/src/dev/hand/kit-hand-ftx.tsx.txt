@@ -7,7 +7,7 @@ import { loadFont as anton } from "@remotion/google-fonts/Anton";
 import { loadFont as oswald } from "@remotion/google-fonts/Oswald";
 import { loadFont as marker } from "@remotion/google-fonts/PermanentMarker";
 const D = anton("normal", { weights: ["400"], subsets: ["latin"] }).fontFamily;
-const B = oswald("normal", { weights: ["500", "700"], subsets: ["latin"] }).fontFamily;
+const B = oswald("normal", { weights: ["300", "500", "700"], subsets: ["latin"] }).fontFamily;
 const S = marker("normal", { weights: ["400"], subsets: ["latin"] }).fontFamily;
 const GOLD = "#ffcc00", WHITE = "#ffffff", RED = "#ff2b2b", INK = "#0b0806", PAPER = "#f4efe4";
 type P = Record<string, any>;
@@ -25,28 +25,40 @@ const Kinetic: React.FC<P> = (p) => {
   const longest = Math.max(...lines.map((l) => l.reduce((a, w) => a + w.text.length + 1, 0)));
   const size = Number(p.size ?? Math.min(W * 0.2, (W * 0.95) / (longest * 0.5)));
   const align = String(p.align ?? "center");
+  const thin = p.font === "thin"; // the second voice: light condensed, mixed case, wide tracking (v12, the channel changes type with the moment)
   const live = 1 + f * 0.0016;
   return <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: align === "left" ? "flex-start" : "center", gap: size * 0.02, transform: `scale(${live}) translateY(${Math.sin(f / 18) * 4}px)` }}>
     {lines.map((l, li) => <div key={li} style={{ display: "flex", gap: size * 0.22, alignItems: "baseline" }}>{l.map((w, i) => {
       const k = spring({ frame: f - w.from, fps, config: { damping: 13, stiffness: 220, mass: 0.6 } });
       const vis = f >= w.from ? 1 : 0;
       const sc = interpolate(k, [0, 1], [1.35, 1]);
-      return <span key={i} style={{ fontFamily: w.script ? S : D, fontSize: w.script ? size * 0.82 : size, lineHeight: 1, textTransform: w.script ? "none" : "uppercase", color: COL[w.c ?? "w"], textShadow: heavy, opacity: vis * Math.min(1, k * 2), transform: `scale(${sc}) rotate(${w.script ? -4 : 0}deg)`, filter: `blur(${(1 - Math.min(1, k)) * 6}px)`, display: "inline-block", letterSpacing: w.script ? 0 : size * 0.01 }}>{w.text}</span>;
+      return <span key={i} style={{ fontFamily: w.script ? S : thin ? B : D, fontWeight: thin ? 300 : undefined, fontSize: w.script ? size * 0.82 : size, lineHeight: 1, textTransform: w.script || thin ? "none" : "uppercase", color: COL[w.c ?? "w"], textShadow: thin ? "0 4px 30px rgba(0,0,0,.9)" : heavy, opacity: vis * Math.min(1, k * 2), transform: `scale(${sc}) rotate(${w.script ? -4 : 0}deg)`, filter: `blur(${(1 - Math.min(1, k)) * 6}px)`, display: "inline-block", letterSpacing: w.script ? 0 : thin ? size * 0.06 : size * 0.01 }}>{w.text}</span>;
     })}</div>)}
   </div>;
 };
 
-/** A figure that counts up to its value (prefix/suffix kept), gold, with a white label under it. */
+/** A figure that counts up to its value and fills the frame's width (the channel's figures span most of the frame), in
+ *  metallic gold (or red) with a hot glow; its label in light condensed type above it. */
 const Counter: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const W = useW(p);
   const to = Number(p.to ?? 0), dec = Number(p.decimals ?? 0), dur = Number(p.frames ?? 24);
   const v = interpolate(f, [0, dur], [Number(p.from ?? to * 0.3), to], { ...clamp, easing: (t) => 1 - Math.pow(1 - t, 3) });
   const txt = `${p.prefix ?? ""}${v.toFixed(dec)}${p.suffix ?? ""}`;
-  const size = Number(p.size ?? W * 0.22);
-  const pop = interpolate(f, [dur, dur + 4, dur + 9], [1, 1.08, 1], clamp);
-  return <div style={{ width: "100%", textAlign: "center", opacity: interpolate(f, [0, 4], [0, 1], clamp) }}>
-    <div style={{ fontFamily: D, fontSize: size, lineHeight: 1, color: GOLD, textShadow: heavy, transform: `scale(${pop})` }}>{txt}</div>
-    {p.label ? <div style={{ fontFamily: D, fontSize: size * 0.3, color: WHITE, textTransform: "uppercase", textShadow: heavy, marginTop: size * 0.04, opacity: interpolate(f, [6, 12], [0, 1], clamp) }}>{String(p.label)}</div> : null}
+  const fin = `${p.prefix ?? ""}${to.toFixed(dec)}${p.suffix ?? ""}`;
+  const { height: FH } = useVideoConfig();
+  // Anton figures are ≈ 0.55 em wide; never taller than 42 % of the frame (the channel's big figures span the width,
+  // not the height)
+  const size = Number(p.size ?? Math.min((W * 0.95) / (fin.length * 0.55), FH * 0.42));
+  const pop = interpolate(f, [dur, dur + 4, dur + 9], [1, 1.06, 1], clamp);
+  const red = p.fill === "red";
+  const metal = red ? "linear-gradient(180deg,#ffb3a8 0%,#ff2b2b 42%,#8a0c0c 58%,#ff5a4a 100%)" : "linear-gradient(180deg,#fff6c8 0%,#ffd23a 38%,#a86e00 55%,#ffcc00 78%,#fff0a0 100%)";
+  const glow = red ? "rgba(255,43,43,.55)" : "rgba(255,190,40,.5)";
+  return <div style={{ width: "100%", textAlign: "center", opacity: interpolate(f, [0, 4], [0, 1], clamp), transform: `scale(${1 + f * 0.0012})` }}>
+    {p.label ? <div style={{ fontFamily: B, fontWeight: 300, fontSize: size * 0.26, color: WHITE, letterSpacing: size * 0.02, textShadow: "0 4px 24px rgba(0,0,0,.9)", marginBottom: -size * 0.04, opacity: interpolate(f, [6, 12], [0, 1], clamp) }}>{String(p.label)}</div> : null}
+    <div style={{ position: "relative", fontFamily: D, fontSize: size, lineHeight: 1, transform: `scale(${pop})` }}>
+      <div style={{ position: "absolute", inset: 0, color: "transparent", textShadow: `0 0 ${size * 0.25}px ${glow}, 0 ${size * 0.04}px ${size * 0.08}px rgba(0,0,0,.8)` }}>{txt}</div>
+      <div style={{ position: "relative", background: metal, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", WebkitTextStroke: `${Math.max(1, size * 0.006)}px rgba(255,255,255,.35)` }}>{txt}</div>
+    </div>
   </div>;
 };
 
@@ -118,6 +130,20 @@ const Label: React.FC<P> = (p) => {
   </div>;
 };
 
+/** A name set huge beside its person (the channel never uses a lower-third box): condensed caps sized to the box's
+ *  width, the role in light type above it. Lines split at "|". */
+const Name: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const lines = String(p.text ?? "").split("|").map((x) => x.trim());
+  const longest = Math.max(...lines.map((l) => l.length));
+  const size = Number(p.size ?? (W * 0.98) / (longest * 0.43));
+  const align = String(p.align ?? "left");
+  return <div style={{ width: "100%", textAlign: align as "left", transform: `scale(${1 + f * 0.0012})`, transformOrigin: align === "right" ? "right center" : "left center" }}>
+    {p.role ? <div style={{ fontFamily: B, fontWeight: 500, fontSize: size * 0.34, color: COL[String(p.roleC ?? "y")], letterSpacing: size * 0.02, textShadow: "0 2px 0 rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.95), 0 0 40px rgba(0,0,0,.8)", opacity: interpolate(f, [8, 16], [0, 1], clamp) }}>{String(p.role)}</div> : null}
+    {lines.map((l, i) => { const a = interpolate(f, [i * 4, i * 4 + 8], [0, 1], { ...clamp, easing: (t) => 1 - Math.pow(1 - t, 3) }); return <div key={i} style={{ fontFamily: D, fontSize: size, lineHeight: 0.95, color: WHITE, textTransform: "uppercase", textShadow: heavy, opacity: a, transform: `translateX(${(1 - a) * (align === "right" ? 60 : -60)}px)` }}>{l}</div>; })}
+  </div>;
+};
+
 /** A thick arrow drawing itself down (a fall) or up. */
 const Arrow: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const W = useW(p); const H = Number(p.boxH ?? W);
@@ -168,18 +194,19 @@ const GoldFlash: React.FC<{ progress: number }> = ({ progress }) => {
 };
 
 export const FILM = {
-  components: { Kinetic, Counter, Stamp, Card, Donut, Quote, Label, Arrow, Stage, Chapter, Chart, MapC, Doc, Headline: Kinetic, Phrase: Kinetic, Number: Counter },
+  components: { Kinetic, Counter, Stamp, Card, Donut, Quote, Label, Name, Arrow, Stage, Chapter, Chart, MapC, Doc, Headline: Kinetic, Phrase: Kinetic, Number: Counter },
   roles: { headline: "Kinetic", phrase: "Kinetic", label: "Label", number: "Counter", quote: "Quote", chapter: "Chapter", stage: "Stage", chart: "Chart", map: "MapC", document: "Card" },
   transitions: { goldflash: GoldFlash }, transition: "goldflash", transitionFrames: 8,
   fonts: { display: `"${D}", sans-serif`, body: `"${B}", sans-serif` },
   meta: {
-    Kinetic: { use: "spoken words landing one by one in huge condensed caps; gold for the key word, red for danger, script for an aside", props: "words[{text,from(frames),c:y|w|r,script}], '|' breaks a line, size, align" },
-    Counter: { use: "a spoken figure counting up", props: "to, from, prefix, suffix, decimals, frames, label, size" },
+    Kinetic: { use: "spoken words landing one by one in huge condensed caps; gold for the key word, red for danger, script for an aside", props: "words[{text,from(frames),c:y|w|r,script}], '|' breaks a line, size, align, font:thin" },
+    Counter: { use: "a spoken figure counting up", props: "to, from, prefix, suffix, decimals, frames, label, size, fill:red" },
     Stamp: { use: "a verdict slammed on (BANKRUPT)", props: "text, rot, size" },
     Card: { use: "a real document or post taped down, highlighter sweep", props: "slot, rot, hl{x,y,w,h,from,to}" },
     Donut: { use: "a share of a whole", props: "share, label" },
     Quote: { use: "a verbatim quote word by word", props: "words[{text,from,c}], by, byFrom, size" },
     Label: { use: "name tag", props: "text, sub, size" },
+    Name: { use: "a person's name set huge beside them", props: "text ('|' splits lines), role, align, size" },
     Arrow: { use: "a fall or rise drawn", props: "dir, c" },
     Stage: { use: "gold streaks on black", props: "" },
     Chapter: { use: "title lock-up", props: "title, subtitle" },

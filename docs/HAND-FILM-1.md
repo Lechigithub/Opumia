@@ -179,3 +179,17 @@ vs p90 3.2 %).
 4. Press and stock footage are often pushed into one mood: duotone, red/green/purple wash, black and white (whole
    films 2.5–22.5 % of frames carried by one colour, median 12.5 %; ours 5 %).
 5. Footage never holds still in ours; the channel holds about 4 % of the time.
+
+### v12 candidate: the five eye-found differences built (2026-11-24)
+1. Names are set huge beside the person (`Name`: condensed caps sized to the box, role in light type above). Cut-outs
+   get a white sticker outline instead of a gold glow. No lower-third boxes.
+2. Figures are spelled out across most of the frame ("$32 BILLION") in metallic gold or red with a glow; the label is
+   in light condensed type above.
+3. A second type voice (`Kinetic font: "thin"`, light Oswald, mixed case, wide tracking) for time and place cards
+   ("Four days later", "Enron, 2001"); less yellow.
+4. Four more one-colour shots: gold coins, a red bank-run queue, the walk-out in black and white, the court scrum in
+   red. Whole-film one-colour frames went from 3 % to 10 % (channel median 12.5 %).
+5. One still hold (the courthouse, no camera move): still share 0 → 2.5 % (channel 1.3–15 %).
+
+Ratchet: no regression; it measures none of 1–3. Per the plan, the owner judges these by eye before v12 is frozen.
+`out/hand-ftx/v11-vs-v12.jpg` has six before/after pairs.

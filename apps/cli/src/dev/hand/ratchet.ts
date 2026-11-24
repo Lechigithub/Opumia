@@ -23,13 +23,15 @@ const baseFile = path.join(root, "eval", "ratchet", `${name}.json`);
 // Look bands (2026-11-24): p10–p90 of all 37 MagnatesMedia films over their first 80 s (look-band.ts, SPAN=80). The
 // first bands (luma 0.30–0.45, motion 0.04–0.10, …) came from two windows of one film and pushed the film too bright.
 const LB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-look-band-80s.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
-const BAND: Record<string, [number, number]> = { voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])) };
+// Grade over the whole film (grade-band.py, 37 films): contrast (p95−p5 luma), blown highlights, frames carried by one colour.
+const GB = JSON.parse(readFileSync(path.join(root, "data", "quality-profile", "magnates-media-grade-band.json"), "utf8")).band as Record<string, { p10: number; p90: number }>;
+const BAND: Record<string, [number, number]> = { voiceOverBed: [14.4, 24.3], cleanShare: [0.19, 0.75], ...Object.fromEntries(Object.entries(LB).map(([k, b]) => [k, [b.p10, b.p90] as [number, number]])), contrast: [GB.contrast!.p10, GB.contrast!.p90], highlights: [GB.hi!.p10, GB.hi!.p90], oneColour: [GB.oneColour!.p10, GB.oneColour!.p90] };
 /** Higher is better for these; noise below which a drop is not a regression. */
 const HIGHER: Record<string, number> = { taste: 0.15, tasteAboveFloor: 2, voice: 0.03 };
 /** Recorded, never gated: the owner heard the music overpowering the voice in a mix this scored 0.84 (v9), so it
  *  rewards a defect. Retired 2026-11-24. */
 const RETIRED = new Set(["mix"]);
-const BAND_NOISE: Record<string, number> = { voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
+const BAND_NOISE: Record<string, number> = { contrast: 0.01, highlights: 0.003, oneColour: 0.02, voiceOverBed: 1, cleanShare: 0.02, luma: 0.01, darkShare: 0.02, colourfulness: 1, motion: 0.003, stillShare: 0.02, cutsPerMin: 1 };
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -57,6 +59,11 @@ if (existsSync(path.join(job, "manifest.json"))) {
   const out = execFileSync(path.join(process.env.HOME!, "lechi_tts/venv/bin/python"), ["-I", path.join(root, "apps/cli/src/dev/hand/mix-measure.py"), st.voice, st.bed]).toString();
   const v = /speaking (-?[\d.]+) dB/.exec(out);
   if (v) m.voiceOverBed = Number(v[1]);
+}
+// grade over the whole film, same function as the channel's band
+{
+  const g = JSON.parse(execFileSync(path.join(process.env.HOME!, "lechi_tts/venv/bin/python"), ["-I", path.join(root, "apps/cli/src/dev/hand/grade-band.py"), path.resolve(film)]).toString()) as Record<string, number>;
+  m.contrast = +g.contrast!.toFixed(3); m.highlights = +g.hi!.toFixed(4); m.oneColour = +g.oneColour!.toFixed(3);
 }
 // share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
 if (existsSync(path.join(job, "scenes.json"))) {
