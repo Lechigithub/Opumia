@@ -193,3 +193,23 @@ vs p90 3.2 %).
 
 Ratchet: no regression; it measures none of 1–3. Per the plan, the owner judges these by eye before v12 is frozen.
 `out/hand-ftx/v11-vs-v12.jpg` has six before/after pairs.
+
+### Text measures (2026-11-24, after v12 was frozen on the owner's eye)
+`text-band.py` reads every frame's words with on-device OCR (macOS Vision), the same function on the channel's films
+and ours, ignoring the channel's corner logo. The band is the first 80 s of all 37 films
+(`data/quality-profile/magnates-media-text-band-80s.json`). The ratchet now guards all six measures.
+
+| | channel p10–p90 (median) | v11 | v12 |
+|---|---|---|---|
+| frames with words | 0.47–0.74 (0.60) | 0.73 | 0.72 |
+| tallest line, share of height | 0.087–0.219 (0.144) | 0.177 | 0.182 |
+| widest line, share of width | 0.32–0.64 (0.52) | 0.35 | 0.53 |
+| small boxed name tags | 0–0.14 | 0.07 | 0.07 |
+| capitals | 0.21–0.95 (0.64) | 0.52 | 0.49 |
+| spread of type sizes | 0.56–0.89 (0.74) | 0.80 | 0.80 |
+
+- The widest line moved from near the channel's floor to its median. That is v12's change, now visible to an
+  instrument.
+- Over the first 10 min instead of 80 s, the channel carries fewer and smaller words (0.39–0.69, 0.086–0.172). The
+  band must match the film's length; longer films will need their own window.
+- Not measured: whether the type looks good, and font identity. Those stay with the owner's eye.

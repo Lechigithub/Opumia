@@ -35,7 +35,7 @@ const chosen: Take[] = [];
 for (const [i, L] of LINES.entries()) {
   const spoken = L.text.split(/\s+/).map((w) => { const k = w.replace(/[^A-Za-z-]/g, ""); return SAY[k] ? w.replace(k, SAY[k]!) : w; }).join(" ");
   const cands: Take[] = [];
-  for (const seed of (TAG ? [11, 23] : [11, 23, 37])) {
+  for (const seed of (process.env.SEEDS ? process.env.SEEDS.split(",").map(Number) : TAG ? [11, 23] : [11, 23, 37])) {
     const raw = path.join(takes, `${L.id}-s${seed}.json`);
     let r: { audio: string; alignment: CharAlignment };
     if (existsSync(raw)) r = JSON.parse(await readFile(raw, "utf8"));

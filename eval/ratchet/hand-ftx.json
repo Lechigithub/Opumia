@@ -18,7 +18,13 @@
     "contrast": 0.683,
     "highlights": 0.0193,
     "oneColour": 0.1,
-    "cleanShare": 0.25
+    "cleanShare": 0.25,
+    "textFrames": 0.717,
+    "bigText": 0.182,
+    "wideText": 0.527,
+    "smallBoxed": 0.07,
+    "caps": 0.485,
+    "sizeSpread": 0.796
   },
   "ownerApproval": "freeze the v12 now first (2026-11-24: names set huge, frame-wide figures, second type voice, judged by eye)",
   "previous": {
@@ -40,5 +46,8 @@
       "highlights": 0.0096,
       "oneColour": 0.033
     }
-  }
+  },
+  "notes": [
+    "2026-11-24: text measures (text-band.py) back-filled for v12; v11 had wideText 0.353 (channel 80 s p10 0.32)"
+  ]
 }
