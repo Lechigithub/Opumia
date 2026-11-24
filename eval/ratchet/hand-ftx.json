@@ -15,7 +15,10 @@
     "stillShare": 0,
     "cutsPerMin": 20.635,
     "voiceOverBed": 19.1,
-    "cleanShare": 0.25
+    "cleanShare": 0.25,
+    "contrast": 0.658,
+    "highlights": 0.0096,
+    "oneColour": 0.033
   },
   "previous": {
     "tag": "v10",
@@ -33,5 +36,8 @@
       "voiceOverBed": 19.1,
       "cleanShare": 0.25
     }
-  }
+  },
+  "notes": [
+    "2026-11-24: contrast, highlights, oneColour back-filled for v11 (grade-band.py on the frozen film)"
+  ]
 }
