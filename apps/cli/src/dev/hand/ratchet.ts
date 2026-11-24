@@ -50,7 +50,13 @@ const BAND_NOISE: Record<string, number> = { quoteShare: 0.02, factShare: 0.02, 
 
 const med = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
-export async function measure(file: string): Promise<Record<string, number>> {
+/** Narration spans of a film: from narration-words.json beside it (written by the build), else none. */
+async function speechOf(dir: string): Promise<Array<[number, number]>> {
+  const f = path.join(dir, "narration-words.json");
+  if (!existsSync(f)) return [];
+  return (JSON.parse(await readFile(f, "utf8")) as Array<{ startS: number; endS: number }>).map((w) => [w.startS, Math.max(w.startS + 0.15, w.endS)] as [number, number]);
+}
+export async function measure(file: string, speech: Array<[number, number]> = []): Promise<Record<string, number>> {
   // the whole film (up to 2 min): an 80 s cap cut a longer film's ending out of the comparison (v16, 87 s)
   const span = Math.min(120, dur(file) - 0.5);
   const ts = Array.from({ length: Math.floor(span / 2) }, (_, i) => 1 + i * 2);
@@ -60,11 +66,14 @@ export async function measure(file: string): Promise<Record<string, number>> {
   const grids: number[] = [med(taste)];
   for (const o of [0.5, 1, 1.5]) grids.push(med((await scoreTaste({ root, data, channel: "magnates-media", kind: "shot", items: ts.map((t) => ({ file, t: t + o })).filter((x) => x.t < span) })).map((x) => x?.score ?? NaN)));
   const tasteMean = +(grids.reduce((x, y) => x + y, 0) / grids.length).toFixed(2);
+  // the voice is judged only where the narrator speaks: windows at least 75 % covered by narration (a silent beat,
+  // such as the tweet shown without narration, says nothing about the voice)
+  const spoken = (t: number, d: number) => !speech.length || speech.reduce((a, [x, y]) => a + Math.max(0, Math.min(y + 0.12, t + d) - Math.max(x, t)), 0) >= 0.75 * d;
   const wins = Array.from({ length: Math.floor(span / 4) }, (_, i) => ({ file, t: i * 4, dur: 4 }));
-  const voice = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins });
+  const voice = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins.filter((w) => spoken(w.t, w.dur)) });
   // the voice median moves by up to 0.05 with the window grid (voice-noise.ts): mean of four grids offset 0/1/2/3 s
   const vg: number[] = [voice?.median ?? NaN];
-  for (const o of [1, 2, 3]) vg.push((await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins.map((w) => ({ ...w, t: w.t + o })).filter((w) => w.t + 4 <= span + 0.5) }))?.median ?? NaN);
+  for (const o of [1, 2, 3]) vg.push((await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins.map((w) => ({ ...w, t: w.t + o })).filter((w) => w.t + 4 <= span + 0.5 && spoken(w.t, w.dur)) }))?.median ?? NaN);
   const voiceMean = +(vg.reduce((x, y) => x + y, 0) / vg.length).toFixed(3);
   const mix = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "mix", items: wins });
   const l = (await measureLook(file, { t: span })) as unknown as Record<string, number>;
@@ -75,7 +84,7 @@ export async function measure(file: string): Promise<Record<string, number>> {
 }
 const off = (k: string, v: number) => { const [a, b] = BAND[k]!; return v < a ? a - v : v > b ? v - b : 0; };
 
-const m = await measure(path.resolve(film));
+const sp = process.argv.indexOf("--speech"), m = await measure(path.resolve(film), await speechOf(sp > 0 ? path.resolve(process.argv[sp + 1]!) : path.dirname(path.resolve(film))));
 // voice over the bed while speaking, from the film's own stems (same 100 ms method as the reference analysis)
 if (existsSync(path.join(job, "manifest.json"))) {
   const { premixStems } = await import("@opumia/motion-engine");

@@ -349,3 +349,21 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   - Per line in the mix (`voice-lines.ts`): the tweet spoken as one sentence scores 0.49 (two sentences: 0.65), "Even
     by his standards…" 0.65 (v1's line 0.78), "the head of Binance, a rival…" 0.68.
   - The new lines read less naturally with this voice. It is not take luck.
+
+### v19 candidate: silent tweet, lines reworded for the ear (not frozen)
+- **The tweet is shown in silence:** no narration; typing and a ding as it lands, with "ASSETS ARE FINE." set in gold.
+- **Line 6:** "Then the boss of rival exchange Binance said he would sell every FTT on his books. You can probably guess what
+  happened next."
+- **Line 9:** "Even he wrote that he had never seen such a complete failure." This is v1's wording, which read best; it
+  matches the CBS headline and is the film's one quote.
+- **Cuts anchored within lines:** every word-timed element refers to a word of its line (`G(line, k)`), and cut
+  times carry over line by line (`warp`). Lines can change length, or be removed, without misaligning anything.
+- **Speech-only voice:** the ratchet scores the voice only where the narration covers 75 % of a window
+  (`narration-words.json`). v15 is unchanged at 0.806.
+- **Result:**
+  - story inside the band: quotes 5.9 %, facts 17.6 %, explanations 17.6 %;
+  - taste 4.93; taste-floor frames 37;
+  - voice 0.759 against the 0.806 best.
+- **Voice per line in the mix:** most lines read 0.84–0.88, better than their v15 counterparts. Line 9 reads 0.70,
+  line 6 0.73, line 11 0.76, line 3 0.79. The film-level gap now comes from those four lines and from windows that
+  straddle the pauses between lines.
