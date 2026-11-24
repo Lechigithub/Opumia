@@ -17,12 +17,15 @@ const root = process.cwd();
 loadKeys(root);
 const data = path.join(root, "data");
 const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
-const takes = path.join(job, "takes");
+const TAG = process.env.VOICE_TAG ?? "";
+const takes = path.join(job, TAG ? `takes-${TAG}` : "takes");
 await mkdir(takes, { recursive: true });
 const SR = 44100;
 const SAY: Record<string, string> = { Binance: "Bye-nance" }; // the lexicon's verified form for this voice
 
-const voice = await resolveChannelVoice("magnates-media", data, console.log);
+const base = await resolveChannelVoice("magnates-media", data, console.log);
+// an audition voice (hand film only): VOICE_ID + VOICE_TAG; the platform's channel voice is not changed
+const voice = process.env.VOICE_ID ? { ...base, voiceId: process.env.VOICE_ID, settings: { ...base.settings, stability: 0.35, style: 0.4 } } : base;
 const model = ttsModel();
 const ff = (args: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args]);
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString());
@@ -32,7 +35,7 @@ const chosen: Take[] = [];
 for (const [i, L] of LINES.entries()) {
   const spoken = L.text.split(/\s+/).map((w) => { const k = w.replace(/[^A-Za-z-]/g, ""); return SAY[k] ? w.replace(k, SAY[k]!) : w; }).join(" ");
   const cands: Take[] = [];
-  for (const seed of [11, 23, 37]) {
+  for (const seed of (TAG ? [11, 23] : [11, 23, 37])) {
     const raw = path.join(takes, `${L.id}-s${seed}.json`);
     let r: { audio: string; alignment: CharAlignment };
     if (existsSync(raw)) r = JSON.parse(await readFile(raw, "utf8"));
@@ -76,9 +79,9 @@ for (const [i, L] of LINES.entries()) {
 }
 const list = path.join(takes, "concat.txt");
 await writeFile(list, parts.map((p) => `file '${p}'`).join("\n"));
-const out = path.join(job, "narration.mp3");
+const out = path.join(job, TAG ? `narration-${TAG}.mp3` : "narration.mp3");
 ff(["-f", "concat", "-safe", "0", "-i", list, "-c:a", "libmp3lame", "-b:a", "192k", out]);
 const timed = TimedScript.parse({ schemaVersion: 1, id: path.basename(job), title: TITLE, styleProfileId: "magnates-media", aspect: "16:9", language: "en", voice: { provider: "elevenlabs", voiceId: voice.voiceId, modelId: model, audioPath: out }, segments: segs, durationS: +dur(out).toFixed(3), generatedAt: new Date().toISOString() });
-await writeFile(path.join(job, "timed-script.json"), JSON.stringify(timed, null, 2));
+await writeFile(path.join(job, TAG ? `timed-script-${TAG}.json` : "timed-script.json"), JSON.stringify(timed, null, 2));
 const words = LINES.reduce((a, l) => a + l.text.split(/\s+/).length, 0);
 console.log(`narration ${timed.durationS.toFixed(1)} s, ${words} words, ${(words / (timed.durationS / 60)).toFixed(0)} wpm`);

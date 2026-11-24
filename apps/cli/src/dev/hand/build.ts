@@ -12,8 +12,17 @@ import { resolveAtmosphere, resolveAudio } from "@opumia/resolver";
 const root = process.cwd();
 const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
 const only = process.argv.includes("--only") ? new Set(process.argv[process.argv.indexOf("--only") + 1]!.split(",")) : null;
-const timed = TimedScript.parse(JSON.parse(await readFile(path.join(job, "timed-script.json"), "utf8")));
+// the narration in use (NARRATOR=marcus → timed-script-marcus.json); cut points were designed on Christopher's timing
+// and are carried over word by word (warp), so every cut stays on the same word
+const NARRATOR = process.env.NARRATOR ?? "christopher";
+const timed = TimedScript.parse(JSON.parse(await readFile(path.join(job, `timed-script-${NARRATOR}.json`), "utf8")));
 const W = timed.segments.flatMap((s) => s.words);
+const OLD = TimedScript.parse(JSON.parse(await readFile(path.join(job, "timed-script-christopher.json"), "utf8"))).segments.flatMap((s) => s.words);
+const warp = (t: number) => {
+  if (t <= OLD[0]!.startS) return Math.max(0, t - OLD[0]!.startS + W[0]!.startS);
+  for (let k = 0; k < OLD.length - 1; k++) if (t < OLD[k + 1]!.startS) return W[k]!.startS + ((t - OLD[k]!.startS) / Math.max(0.01, OLD[k + 1]!.startS - OLD[k]!.startS)) * (W[k + 1]!.startS - W[k]!.startS);
+  return t - OLD.at(-1)!.startS + W.at(-1)!.startS;
+};
 const at = (i: number) => W[i]!.startS;
 const FPS = 24;
 const fr = (shotStart: number, wordIdx: number) => Math.max(0, Math.round((at(wordIdx) - shotStart) * FPS));
@@ -171,6 +180,7 @@ const SHOTS: Shot[] = [
       elements: [{ type: "component", name: "Kinetic", x: 0.06, y: 0.36, w: 0.88, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[189, "A VERY"], [190, "BAD", "r"], [191, "BET", "y"]]), size: 230 } }] }) },
 ];
 
+for (const s of SHOTS) s.start = +warp(s.start).toFixed(2);
 // ---- write the job ----
 const dur = +(timed.durationS + 0.6).toFixed(2);
 const pub = path.join(job, "public");
@@ -204,12 +214,12 @@ const prof = JSON.parse(await readFile(path.join(root, "data", "audio-profile.js
 const HITS: Array<[string, number, number]> = [
   ["608bd9f4437bc222", at(19), -4], // boom: FOUR days later
   ["506353c7272f6de3", at(28), -2], ["1794a26d359d39b5", at(28), -6], // stamp: BANKRUPT
-  ["c8eac9e229c3fd1c", 24.15, -8], // whoosh-hit into the 40 %
+  ["c8eac9e229c3fd1c", warp(24.15), -8], // whoosh-hit into the 40 %
   ["e8e77cb57b045804", at(73), -12], // coins under "his own coupons"
   ["f0ecbbabe0339b24", at(86), -4], // SELL
-  ["3c04c2822cfb527f", 38.75, -8], // riser into "customers ran"
+  ["3c04c2822cfb527f", warp(38.75), -8], // riser into "customers ran"
   ["5b238f52f756cf20", at(95), -5], // $6B
-  ["f5e1453e264ceac1", 57.55, -5], // Enron
+  ["f5e1453e264ceac1", warp(57.55), -5], // Enron
   ["76f884fedb10e13b", at(163) + 0.67, -4], // 25 lands
   ["f112c4720b330a9e", at(191), -3], // BET
 ];
@@ -218,11 +228,12 @@ for (const [id, moment, gain] of HITS) {
   const sh = shots.find((x) => atS >= x.startS && atS < x.endS) ?? shots.at(-1)!;
   sh.sfx.push({ assetId: id, atS, gainDb: gain });
 }
-const MUSIC = [
+const MUSIC0 = [
   { assetId: "17d16bdc91e20542", startS: 0, endS: 38.75, gainDb: -9, mood: "tension" as const, drops: [{ startS: 9.1, endS: 9.85 }, { startS: 37.9, endS: 38.75 }] },
   { assetId: "a5b692a28d20ada4", startS: 38.75, endS: 64.2, gainDb: -10, mood: "collapse" as const, drops: [{ startS: 56.9, endS: 57.55 }] },
   { assetId: "55e3d88a31ecffee", startS: 64.2, endS: dur, gainDb: -9, mood: "resolve" as const, drops: [{ startS: 76.2, endS: 76.65 }] },
 ];
+const MUSIC = MUSIC0.map((c) => ({ ...c, startS: +warp(c.startS).toFixed(2), endS: c.endS === dur ? dur : +warp(c.endS).toFixed(2), drops: c.drops.map((d) => ({ startS: +warp(d.startS).toFixed(2), endS: +warp(d.endS).toFixed(2) })) }));
 let board = Storyboard.parse({ schemaVersion: 1, id: "sb_hand_ftx", scriptId: timed.id, styleProfileId: "magnates-media", aspect: "16:9", durationS: dur, shots, music: [], generatedAt: new Date().toISOString() });
 board = Storyboard.parse({ ...board, music: MUSIC });
 let resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 0, stock: media.filter((m) => m.origin === "stock").length, archival: media.filter((m) => m.origin === "archival").length, designed: shots.length }, generatedAt: new Date().toISOString() });
