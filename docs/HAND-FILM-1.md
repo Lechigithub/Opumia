@@ -245,3 +245,17 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   0.342 → 0.347 (band ≥ 0.38). The steps are within noise, so the ratchet does not freeze it by itself.
 - **What still holds us outside the band:** light and narrow lines come mostly from the five document and post
   shots (many lines of thin article text each), and from Anton on the remaining cards.
+
+### v14: articles show a few big lines; more wide heavy caps (frozen on the measures)
+- The CoinDesk card shows only its headline and the "$14.6 billion" line, and the CBS card only its headline (which
+  carries the spoken quote), larger and with the highlight on the words being said (`Card crop`). The Binance quote
+  and "A VERY BAD BET" use the wide heavy caps.
+- At 120 frames, v13 → v14:
+  - median stroke 0.129 → 0.141 (channel median 0.143);
+  - heavy lines 53 → 59 %;
+  - lightest quarter 0.076 → 0.082 (band ≥ 0.086);
+  - small boxed text 7 → 2 %.
+- Still outside the band: light lines (20 %) and letter width (0.35). Of the 60 light lines left, nearly all are text
+  inside the footage, not the film's lettering: banknote printing, a stock phone screen in Russian behind the tweet,
+  ticker numbers, the real article and tweet text. Closing them means choosing footage with less text in it, which is
+  a picture choice. The measure cannot yet tell designed lettering from text in the footage.
