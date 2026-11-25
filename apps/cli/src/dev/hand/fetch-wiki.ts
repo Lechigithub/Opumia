@@ -7,7 +7,8 @@ import { wikipediaImages } from "@opumia/resolver";
 const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
 const dl = path.join(job, "downloads", "wiki");
 await mkdir(dl, { recursive: true });
-const subjects = [
+// WIKI_SUBJECTS="Name|person;Other|company" picks another film's subjects (default: the FTX film's)
+const subjects = process.env.WIKI_SUBJECTS ? process.env.WIKI_SUBJECTS.split(";").map((x) => { const [name, type] = x.split("|"); return { name: name!, type: type ?? "person" }; }) : [
   { name: "Sam Bankman-Fried", type: "person" }, { name: "Changpeng Zhao", type: "person" }, { name: "John J. Ray III", type: "person" },
   { name: "Lewis Kaplan", type: "person" }, { name: "FTX (company)", type: "company" }, { name: "Binance", type: "company" },
   { name: "Enron", type: "company" }, { name: "Alameda Research", type: "company" }, { name: "Bankruptcy of FTX", type: "event" },

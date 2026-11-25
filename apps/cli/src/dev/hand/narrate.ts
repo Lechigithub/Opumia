@@ -12,7 +12,9 @@ import { TimedScript } from "@opumia/contracts";
 import { resolveChannelVoice, tokensFromAlignment, alignWords, ttsModel, ttsWithTimestamps, type CharAlignment } from "@opumia/narration";
 import { diffSpeech, transcribe } from "@opumia/senses";
 import { loadKeys } from "../../keys.js";
-import { LINES, TITLE } from "./script.js";
+import type { HandLine } from "./script.js";
+// HAND_SCRIPT=script-wirecard picks another hand film's script (default: the FTX script)
+const { LINES, TITLE } = (await import(`./${process.env.HAND_SCRIPT ?? "script"}.js`)) as { LINES: HandLine[]; TITLE: string };
 
 const root = process.cwd();
 loadKeys(root);
