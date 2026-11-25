@@ -224,7 +224,9 @@ floating card still reads as an interface.
 
 **Older lessons from the hand film, still true:**
 - **Keep footage moving.** Every footage shot travels: a real push plus a pan.
-- **Dim lightly.** Never dim footage under type by more than 0.3; the channel is not dark.
+- **The channel is low-key, not bright.** Over the first 80 s of its 37 films the mean brightness is 0.18–0.35
+  (median 0.25), and 3–36 % of frames are dark. An early hand-film rule capped dimming at 0.3 to brighten the film;
+  that was wrong and was reversed (v11). Keep the type at full brightness over darker footage.
 - **Never put documents and figures on a near-black stage.** Set them over real footage, defocused.
 - **Each moment gets its own picture.** One stock shot is never used for five moments.
 - **Split long holds.** Show the card, then punch in on the highlighted line.
