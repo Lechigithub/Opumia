@@ -95,7 +95,7 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
       const spec = s.overlays.find((x) => x.assetId === ov.ref) ?? s.overlays[0];
       // a cover transition's overlay lasts only over the cut, on top of everything
       const cover = spec?.durS !== undefined;
-      video.push({ id: `${s.id}_ov_${ov.ref}`, shotId: s.id, sourceKind: "library", ref: ov.ref, src: ov.publicPath, startFrame: start, endFrame: cover ? Math.min(end, start + Math.round(spec!.durS! * fps)) : end, trimStartFrame: 0, zIndex: cover ? 60 : 1, blend: "screen", keyframes: [], props: { kind: ov.kind, opacity: spec?.opacity ?? 0.5 } });
+      video.push({ id: `${s.id}_ov_${ov.ref}`, shotId: s.id, sourceKind: "library", ref: ov.ref, src: ov.publicPath, startFrame: start, endFrame: cover ? Math.min(end, start + Math.round(spec!.durS! * fps)) : end, trimStartFrame: 0, zIndex: cover ? 60 : 3, blend: "screen", keyframes: [], props: { kind: ov.kind, opacity: spec?.opacity ?? 0.5 } });
     }
 
     if (designed) {

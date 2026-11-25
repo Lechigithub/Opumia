@@ -109,7 +109,7 @@ const SHOTS: Shot[] = [
     scene: (t) => ({ backdrop: "world", atmos: { kind: "leak", opacity: 0.6 }, world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accent" }, dim: 0.15, camera: cam(1.0, 1.16), finish: fin(0.35, 0.6, 0.2),
       elements: [
         { type: "cutout", slot: 0, x: 0.46, y: 0.08, w: 0.5, z: 0.6, rot: 0, at: 0, enter: "settle", shadow: true, outline: true, contactShadow: 0.5 },
-        { type: "component", name: "Name", x: 0.04, y: 0.26, w: 0.46, at: rel(t, G("l01", 7)), z: 0.8, rot: 0, enter: "fade", props: { text: "Sam | Bankman-Fried", role: "founder of FTX" } },
+        { type: "component", name: "Name", x: 0.04, y: 0.2, w: 0.62, at: rel(t, G("l01", 7)), z: 0.5, rot: 0, enter: "fade", props: { text: "Sam | Bankman-Fried", role: "founder of FTX" } },
       ] }) },
   { id: "S02b", start: 4.0, seg: "l01", intent: "has a message for the world", footage: "sbf_cnbc", trim: 3, tr: "cut",
     scene: () => ({ backdrop: "footage", dim: 0.1, wash: { color: "black", strength: 0.85, mode: "duotone" }, camera: cam(1.05, 1.25), finish: fin(0.35, 0.5, 0.2), elements: [] }) },
@@ -139,7 +139,7 @@ const SHOTS: Shot[] = [
         { type: "component", name: "Kinetic", x: 0.4, y: 0.3, w: 0.56, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[G("l03", 20), "LESS THAN"], ["|", ""], [G("l03", 22), "A WEEK", "y"]]), size: 130, font: "wide", align: "left" } }] }) },
   { id: "S07c", start: 18.25, seg: "l03", intent: "title: FTX, the $32 billion empire that vanished (over the city at night)", slots: { 1: "courthouse" }, tr: "film",
     scene: (t) => ({ backdrop: "world", world: { kind: "gradient", slot: 1, color: "primary", accent: "accent" }, dim: 0, atmos: { kind: "dust", opacity: 0.5 }, camera: cam(1.05, 1.25), finish: fin(0.4, 0.6),
-      elements: [{ type: "component", name: "Kinetic", x: 0.1, y: 0.22, w: 0.8, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: [{ text: "FTX", from: 0, c: "y" }], size: 300 } },
+      elements: [{ type: "text3d", text: "FTX", x: 0.2, y: 0.12, w: 0.6, h: 0.42, at: 0, z: 0.8, rot: 0, enter: "fade", spin: 14, material: "gold" },
         { type: "component", name: "Kinetic", x: 0.1, y: 0.62, w: 0.8, at: 0.4, z: 0.8, rot: 0, enter: "fade", props: { words: [{ text: "THE", from: 0 }, { text: "$32 BILLION", from: 3, c: "y" }, { text: "EMPIRE", from: 6 }, { text: "|", from: 0 }, { text: "THAT", from: 9 }, { text: "VANISHED", from: 12 }], size: 66, font: "wide" } }] }) },
   { id: "S08", start: 20.85, seg: "l03", intent: "the leaked balance sheet (CoinDesk)", slots: { 0: "coindesk" }, tr: "cut",
     scene: (t) => ({ backdrop: "world", world: { kind: "paper", color: "primary", accent: "accent" }, dim: 0, camera: cam(1.0, 1.14), finish: fin(0.35, 0.6, 0.2),
@@ -224,8 +224,8 @@ const SHOTS: Shot[] = [
   { id: "S28", start: 0, atWord: G("l11", 18), seg: "l11", intent: "he had made a very bad bet", slots: { 0: "cut_sbf_court", 1: "scrum_still" }, tr: "cut",
     scene: (t) => ({ backdrop: "world", world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accentDeep" }, dim: 0.25, camera: cam(1.0, 1.16), finish: fin(0.45, 0.65),
       elements: [
+        { type: "component", name: "Kinetic", x: 0.02, y: 0.24, w: 0.62, at: 0, z: 0.5, rot: 0, enter: "fade", props: { words: kin(t, [[G("l11", 22), "A VERY"], ["|", ""], [G("l11", 23), "BAD", "r"], [G("l11", 24), "BET"]]), size: 170, font: "wide", align: "left" } },
         { type: "cutout", slot: 0, x: 0.52, y: 0.06, w: 0.46, z: 0.6, rot: 0, at: 0, enter: "settle", shadow: true, glow: "accent" },
-        { type: "component", name: "Kinetic", x: 0.04, y: 0.3, w: 0.5, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words: kin(t, [[G("l11", 22), "A VERY"], ["|", ""], [G("l11", 23), "BAD", "r"], [G("l11", 24), "BET"]]), size: 150, align: "left", font: "wide" } },
       ] }) },
   { id: "S29", start: 0, atWord: G("l11", 25), seg: "l11", intent: "that he would never get caught", footage: "sbf_court", trim: 0, tr: "cut",
     scene: (t) => ({ backdrop: "footage", dim: 0.3, wash: { color: "primary", strength: 0.6, mode: "duotone" }, camera: cam(1.05, 1.33), finish: fin(0.45, 0.75),
@@ -251,13 +251,18 @@ SHOTS.sort((a, b) => a.start - b.start);
 // a whole stretch: Uber black-and-white and blue, Silk Road green and magenta, Ponzi sepia and gold). Every footage
 // shot is pulled into the same warm sepia-gold duotone; designed worlds use the dark ground and the gold accent; red
 // stays only in the type of danger words.
-const WORLD_WASH = { color: (process.env.WORLD_COLOR ?? "textMuted") as "primarySoft", strength: Number(process.env.WORLD_STRENGTH ?? 0.6), mode: "duotone" as const };
+// v27: the world is warm and firelit (Ponzi: orange fire, gold, deep red), not grey-gold: a soft gold tint over the
+// footage, every scene layered with moving atmospheres (the engine now draws them above the scene)
+const WORLD_WASH = { color: (process.env.WORLD_COLOR ?? "accent") as "primarySoft", strength: Number(process.env.WORLD_STRENGTH ?? 0.3), mode: (process.env.WORLD_MODE ?? "tint") as "duotone" };
+const ATMOS: Record<string, [string, number]> = { S01: ["dust", 0.6], S02b: ["dust", 0.4], S03: ["dust", 0.5], S03b: ["leak", 0.5], S05: ["embers", 0.7], S06: ["smoke", 0.5], S07: ["leak", 0.4], S07b: ["embers", 0.6], S07c: ["smoke", 0.5], S08: ["dust", 0.5], S09: ["money", 0.7], S10: ["embers", 0.5], S11: ["leak", 0.4], S12: ["dust", 0.5], S12b: ["leak", 0.4], S13: ["smoke", 0.4], S14: ["embers", 0.6], S15: ["dust", 0.5], S16: ["smoke", 0.5], S17: ["dust", 0.4], S18: ["leak", 0.4], S19: ["dust", 0.5], S20: ["smoke", 0.5], S21: ["dust", 0.4], S22: ["embers", 0.6], S23: ["dust", 0.4], S23b: ["dust", 0.4], S24: ["smoke", 0.6], S25: ["embers", 0.6], S26: ["money", 0.8], S26b: ["sprocket", 0.5], S26c: ["smoke", 0.6], S28: ["embers", 0.7], S29: ["smoke", 0.6] };
 for (const sh of SHOTS) {
   const orig = sh.scene;
   sh.scene = (t0: number) => {
     const sc = orig(t0) as Record<string, unknown> & { backdrop?: string; world?: { accent?: string } };
     if ((sc.backdrop ?? "footage") === "footage") sc.wash = WORLD_WASH;
     if (sc.world && sc.world.accent === "accentDeep") sc.world.accent = "accent";
+    const a = ATMOS[sh.id];
+    if (a && !(sc as { atmos?: unknown }).atmos) (sc as { atmos?: unknown }).atmos = { kind: a[0], opacity: a[1] };
     return sc as ReturnType<typeof orig>;
   };
 }

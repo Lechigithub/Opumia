@@ -486,3 +486,30 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
   - The staple check now recognises any monochrome tone.
 - **Still different by eye:** the type is still mostly laid on top, not composed into the scene; the paper worlds
   are plain; several stock clips still read as stock.
+
+### v27 candidate: atmospheres made visible, warm palette, type in the scene (not frozen)
+- **Watched one frame a second and "listened"** (Whisper transcript and loudness every 0.5 s, `listen.ts`) beside
+  the first 90 s of Ponzi.
+  - Ponzi builds each frame from 3–6 moving layers: real photos inside objects, money raining over cut-outs, fire,
+    actors in period costume, a 3D room, glowing script names, 3D letters behind people, chapter emblems.
+  - v25 was one picture and a caption, in grey-gold.
+- **Engine fix (every film, the agents' too):** atmospheres (smoke, embers, dust, light leaks, falling money) were
+  placed at depth 1, under the scene at depth 2, so they never showed. They now sit at depth 3
+  (`manifest.ts`).
+- **Sound, measured properly:** the channel masters at −12 to −13 LUFS, like ours, and its opening loudness range runs
+  1.8–14.9 LU (median ≈ 3.5); ours is 2.6. The "ours is loud throughout" judgement from the loudness trace was
+  overstated: sound is inside the channel's range.
+- **v27:**
+  - a warm gold tint instead of grey-gold;
+  - an atmosphere on 34 scenes;
+  - the title in 3D gold letters;
+  - "A VERY BAD BET" behind the court cut-out; the name partly behind SBF's cut-out.
+- **Ratchet:**
+  - one-colour frames 0.333 (band ≤ 0.225): the tint at 0.3 over-saturates the crowd and coins;
+  - the monochrome staple is lost.
+  - Not frozen.
+- **By eye:** warmer and more alive, still far off Ponzi.
+  - Most scenes are still one picture with a light atmosphere, where Ponzi composes several pictures and effects
+    into one staged image.
+  - The cut-outs of CZ still look pasted on.
+  - The type is still mostly the same caps.
