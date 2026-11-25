@@ -15,10 +15,10 @@ const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
 const only = process.argv.includes("--only") ? new Set(process.argv[process.argv.indexOf("--only") + 1]!.split(",")) : null;
 // the narration in use (NARRATOR=marcus → timed-script-marcus.json); cut points were designed on Christopher's timing
 // and are carried over word by word (warp), so every cut stays on the same word
-const NARRATOR = process.env.NARRATOR ?? "marcus2";
+const NARRATOR = process.env.NARRATOR ?? "marcus3"; // marcus3 (2026-11-25): marcus2 with the 1.7 s hole after line 1 cut to 0.4 s and a 2 s breath for the title card after the hook question
 // Cut points are designed on one narration (the cut reference) and carried word by word onto the narration in use, so a
 // re-recorded line never misaligns a cut. v2 script: cut on timed-script-cutref-v2.json (v16); v1: on Christopher's.
-const CUTREF = NARRATOR === "marcus2" ? "cutref-v2" : "christopher";
+const CUTREF = NARRATOR.startsWith("marcus") && NARRATOR !== "marcus" ? "cutref-v2" : "christopher";
 const WARP = true;
 const timed = TimedScript.parse(JSON.parse(await readFile(path.join(job, `timed-script-${NARRATOR}.json`), "utf8")));
 const W = timed.segments.flatMap((s) => s.words);
@@ -63,6 +63,12 @@ const CM = (file: string, license: string, credit: string, depicts: string): M =
 const PG = (file: string, url: string, title: string, channel: string, depicts: string): M => ({ file, kind: "image", origin: "press", provider: "web", license: "Fair use (source article shown under commentary)", url, fair: { title, channel, atS: 0 }, depicts });
 const PB = (id: string, credit: string): M => ({ file: `downloads/stock/pixabay_${id}.mp4`, kind: "video", origin: "stock", provider: "pixabay", license: "Pixabay Content License", credit, url: `https://pixabay.com/videos/id-${id}/` });
 const MEDIA: Record<string, M> = {
+  // the minute (2026-11-25): performed footage, one picture per sentence
+  v_fire: ST("6103751", "Video by Yeck Rider on Pexels"), v_demo: PB("223593", "Video by LadislavBur on Pixabay"), v_files: ST("7062984", "Video by Dziana Hasanbekava on Pexels"),
+  v_coatman: ST("7231258", "Video by MART PRODUCTION on Pexels"), v_crowd: ST("30334109", "Video by Ranjeet Chauhan on Pexels"), v_trader: ST("7578608", "Video by Tima Miroshnichenko on Pexels"),
+  v_deal: ST("8135692", "Video by kaboompics on Pexels"), v_corridor: ST("14569532", "Video by Max Medyk on Pexels"), v_hourglass: ST("37127709", "Video by Dominiquemel16 Ramos on Pexels"),
+  o_coins: { file: "downloads/library/coins_pile.png", kind: "image", origin: "library", provider: "library", license: "CC BY-SA 2.0", credit: "\"Medieval coin haord (pile of coins). (FindID 579532).jpg\" by Birmingham Museums Trust, Angie Bolton, CC BY-SA 2.0, via Wikimedia Commons", url: "https://commons.wikimedia.org/wiki/File:Medieval_coin_haord_(pile_of_coins)._(FindID_579532).jpg" },
+  v_station: ST("40635479", "Video by FREE VIDEO HAPPY on Pexels"), v_queue: ST("1191560", "Video by clara blasco on Pexels"), v_coins: ST("30882744", "Video by Just For Music And Film on Pexels"),
   // v30: none of these was used by an earlier version
   v_city: PB("267744", "Pixabay"), v_aerial: ST("33637800", "Pexels"), v_phone_rg: ST("32246883", "Pexels"), v_phone_man: ST("8212368", "Pexels"),
   v_cards: ST("14925749", "Pexels"), v_dominoes_woman: ST("8102759", "Pexels"), v_dominoes: PB("28659", "Pixabay"), v_beach: PB("4623", "Pixabay"),
@@ -120,7 +126,7 @@ const MEDIA: Record<string, M> = {
 
 // ---- shots ----
 interface Shot { id: string; start: number; seg: string; intent: string; footage?: string; trim?: number; slots?: Record<number, string>; tr?: Storyboard["shots"][number]["transitionIn"]; /** a still hold: no camera move (the channel holds ~4 % of the time) */ hold?: boolean; /** the storyboard camera's horizontal centre, from → to (default 0.5 ± 0.1, alternating) */ panX?: [number, number];
-  /** start on this word of the narration in use (minus `lead` s) instead of a cut-reference time (lines whose words changed) */ atWord?: number; lead?: number; scene: (t0: number) => Omit<SceneSpec, "shotId" | "idea"> & { idea?: string } }
+  /** start on this word of the narration in use (minus `lead` s) instead of a cut-reference time (lines whose words changed) */ atWord?: number; lead?: number; /** the minute: start at this time, not a word; keep the start as set (no cut-timing nudge) */ atTime?: () => number; fixed?: boolean; scene: (t0: number) => Omit<SceneSpec, "shotId" | "idea"> & { idea?: string } }
 const cam = (a = 1.0, b = 1.2, x0 = 0.47, x1 = 0.53, y0 = 0.5, y1 = 0.5) => ({ fromScale: a, toScale: b, fromX: x0, toX: x1, fromY: y0, toY: y1 });
 const kin = (t0: number, parts: Array<[number | "|", string, string?, boolean?]>) => parts.map(([i, text, c, script]) => (i === "|" ? { text: "|", from: 0 } : { text, from: fr(t0, i), ...(c ? { c } : {}), ...(script ? { script } : {}) }));
 const fin = (g = 0.35, v = 0.55, leak = 0) => ({ grain: g, vignette: v, leak });
@@ -149,45 +155,46 @@ const unrush = (stops: Stop[], travel: number) => { const outS = stops.map((s) =
 const J = (stops: Stop[], o: { travel?: number; push?: number } = {}) => ({ backdrop: "journey" as const, journey: { stops: chain(unrush(stops, o.travel ?? 1.0)).map((s) => ({ rz: 0, size: 1, look: "natural", frame: "none", elements: [], ...s })), travel: o.travel ?? 1.0, push: o.push ?? 0.035, ground: "black" as const } as never, dim: 0, camera: cam(1, 1), finish: fin(0.3, 0.25), elements: [] as never[] });
 const ph = (x: number, y: number, w: number, words: unknown, extra: Record<string, unknown> = {}) => ({ type: "component", name: "Phrase", x, y, w, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words, ...extra } });
 const C = (name: string, x: number, y: number, w: number, at: number, props: Record<string, unknown>) => ({ type: "component", name, x, y, w, at, z: 0.8, rot: 0, enter: "fade", props });
+/** the title card sits in the breath after the hook question ("…in less than a week?" → "It started…") */
+const TITLE_START = +(at(G("l03", 23)) + 0.55).toFixed(2), TITLE_END = +(at(G("l03", 24)) - 0.05).toFixed(2);
+// ---- the minute's helpers: word times relative to a shot, its length from the next shot, words that build ----
+const SHOT_AT: Record<string, () => number> = {};
+const wordAt = (seg: string, k: number) => at(G(seg, k));
+const startOf = (id: string): number => SHOT_AT[id] ? SHOT_AT[id]!() : 0;
+let curT = 0;
+const w = (seg: string, k: number) => +(wordAt(seg, k) - curT).toFixed(2);
+const rw = (seg: string, k: number) => w(seg, k);
+type WSpec = { words: Array<{ text: string; at: number; br?: boolean }>; x: number; y: number; w: number; size: number; style?: string; until?: number; align?: string };
+const W2 = (parts: Array<[string, string, number, boolean?]>, x: number, y: number, wd: number, size: number, style = "gold", o: { until?: number; align?: string } = {}): WSpec => ({ words: parts.map(([text, seg, k, br]) => ({ text, at: w(seg, k), ...(br ? { br } : {}) })), x, y, w: wd, size, style, ...o });
+const full = (name: string, t: number, next: string, times: Record<string, number>) => ({ backdrop: "stage" as const, dim: 0, camera: cam(1, 1), finish: fin(0.28, 0.15), elements: [{ ...C(name, 0, 0, 1, 0, { t: times, len: +(startOf(next) - t).toFixed(2) }), h: 1 } as never] });
+const beat = (name: string, t: number, next: string, props: Record<string, unknown>) => ({ backdrop: "stage" as const, dim: 0, camera: cam(1, 1), finish: fin(0.28, 0.15), elements: [{ ...C("Beat", 0, 0, 1, 0, { ...props, len: +(startOf(next) - t).toFixed(2) }), h: 1 } as never] });
 const SHOTS: Shot[] = [
-  // v31: the first ten seconds built by hand as one layered composite (the kit's Opening), not panels
-  { id: "OPEN", start: 0, seg: "l01", intent: "the date flies through the night city; he rises out of its light with his name swinging in behind him and his messages floating out; into his phone and his post, in silence; the glass cracks; four days later his $32 billion tumbles as banknotes until it is bankrupt", slots: { 0: "v_city", 1: "c_sbf_face", 2: "v_sparks", 3: "o_bill_front", 4: "o_bill_back", 5: "c_sbf_suit", 6: "s_sbf_face" }, tr: "cut",
-    scene: (t) => ({ backdrop: "stage", dim: 0, camera: cam(1, 1), finish: fin(0.3, 0.2), elements: [C("Opening", 0, 0, 1, 0, { t: { seventh: at(G("l01", 2)) - t, "2022": at(G("l01", 5)) - t, sam: at(G("l01", 7)) - t, bankman: at(G("l01", 8)) - t, message: at(G("l01", 11)) - t, world: at(G("l01", 14)) - t, post: 5.68 - t, four: at(G("l03", 0)) - t, "thirty-two": at(G("l03", 4)) - t, bankrupt: at(G("l03", 9)) - t }, end: at(G("l03", 10)) - 0.1 - t }) as never] }) },
-  { id: "C", start: 0, atWord: G("l03", 10), seg: "l03", intent: "how does it vanish: a castle of sand, then the tide that takes them", slots: { 0: "v_sandcastle", 1: "v_beach" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 0, trim: 6, look: "warm", drift: [0.02, 0, 0.06, -0.3], elements: [ph(0.06, 0.1, 0.88, kin(t, [[G("l03", 11), "How does a company"], ["|", ""], [G("l03", 15), "worth that much"], [G("l03", 18), "vanish?", "r"]]), { size: 130, until: fr(t, G("l03", 18)) + 50 })] },
-      { at: rel(t, G("l03", 19)), y: 1, move: "rise", slot: 1, trim: 4, look: "faded", drift: [0.03, 0, 0.03, 0] },
-    ]) },
-  { id: "D", start: 0, atWord: G("l04", 0), seg: "l04", intent: "the leak: from the machines into the balance sheet itself, cash laid beside it on the table", slots: { 0: "v_drives", 1: "o_dollars" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 0, look: "cool", drift: [0, 0, 0.09, 0.2] },
-      { at: rel(t, G("l04", 5)), move: "push", stage: true, drift: [0.015, 0, 0.05, 0.3], fore: [{ type: "cutout", slot: 1, x: 0.7, y: 0.62, w: 0.3, z: 0.9, rot: -12, at: 0.3, enter: "settle", shadow: true }], elements: [C("Ledger", 0.06, 0.08, 0.58, 0, { title: "Alameda Research · balance sheet", rot: -2, rows: [{ a: "Total assets", b: "$14.6B", mark: true, from: fr(t, G("l04", 16)) }, { a: "FTT, the token FTX made", b: "40%", mark: true, from: fr(t, G("l04", 10)) }] })] },
-    ]) },
-  { id: "D2", start: 0, atWord: G("l04", 21), lead: 0.1, seg: "l04", intent: "his own chips stacked over a market of his own making (cut-out over a duotone chart)", slots: { 0: "c_chips", 1: "v_chart_red" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 1, trim: 3, look: "contrast", dof: 0.45, drift: [-0.01, 0, 0.07, 0.3], elements: [ph(0.08, 0.08, 0.6, kin(t, [[G("l04", 24), "a token his own"], ["|", ""], [G("l04", 26), "exchange made up", "r"]]), { align: "left", size: 120, build: true })], fore: [{ type: "cutout", slot: 0, x: 0.12, y: 0.4, w: 0.86, z: 0.9, rot: 0, at: 0, enter: "slide_up", shadow: true }] },
-    ]) },
-  { id: "E", start: 0, atWord: G("l05", 0), seg: "l05", intent: "his own coupons over the house of cards they built; worth something only while people believe", slots: { 0: "v_phone_man", 2: "c_chips" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, stage: true, drift: [0.02, 0, 0.05, 0.6], fore: [{ type: "cutout", slot: 2, x: 0.58, y: 0.5, w: 0.44, z: 0.9, rot: 0, at: 0.2, enter: "slide_up", shadow: true }], elements: [C("Coupon", 0.08, 0.14, 0.5, 0.1, { text: "FTT", small: "issued by FTX", stub: "FTX", rot: -6 }), ph(0.06, 0.74, 0.6, kin(t, [[G("l05", 3), "the money was"], [G("l05", 7), "his own coupons", "r"]]), { size: 110 })] },
-      { at: rel(t, G("l05", 10)) + 0.4, move: "push", slot: 0, trim: 1, look: "bright", drift: [-0.03, 0, 0.05, 0] },
-    ]) },
-  { id: "F", start: 0, atWord: G("l06", 0), seg: "l06", intent: "the rival's boss, cut out against a falling market in duotone; sell every FTT; the dominoes are set", slots: { 0: "c_cz", 1: "v_chart_purple", 2: "v_dominoes_woman" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 1, look: "duotone", dof: 0.5, drift: [0.01, 0, 0.05, 0.2], elements: [ph(0.1, 0.2, 0.55, kin(t, [[G("l06", 6), "Changpeng"], ["|", ""], [G("l06", 6), "Zhao"]]), { align: "left", size: 210 }), C("Said", 0.1, 0.66, 0.5, 0, { words: [{ text: "the boss of Binance", from: fr(t, G("l06", 2)) }], size: 70 })], fore: [{ type: "cutout", slot: 0, x: 0.5, y: 0.12, w: 0.48, z: 0.9, rot: 0, at: 0, enter: "slide_left", shadow: true }] },
-      { at: rel(t, G("l06", 9)), x: 1, move: "whip", slot: 1, trim: 2, look: "contrast", elements: [ph(0.06, 0.3, 0.88, kin(t, [[G("l06", 10), "sell"], [G("l06", 11), "every"], [G("l06", 12), "FTT", "r"]]), { size: 220, build: true })] },
-      { at: rel(t, G("l06", 16)), x: 1, y: 1, move: "rise", slot: 2, trim: 0.5, look: "faded" },
-    ]) },
-  { id: "G", start: 0, atWord: G("l07", 0), seg: "l07", intent: "customers ran: the money floats out of the boxes; six billion in seventy-two hours", slots: { 0: "v_boxes", 1: "v_aerial", 2: "o_dollars" }, tr: "film",
-    scene: (t) => ({ ...J([
-      { at: 0, slot: 0, look: "warm", drift: [0.04, 0, 0.05, 0] },
-      { at: rel(t, G("l07", 2)), move: "push", slot: 1, look: "cool", elements: [C("Figure", 0.1, 0.1, 0.8, rel(t, G("l07", 2)), { text: "$6 BILLION", label: "walked out of FTX", fill: "red" }), C("Figure", 0.25, 0.56, 0.5, rel(t, G("l07", 10)), { text: "IN 72 HOURS" })] },
-    ]) }) },
-  { id: "H", start: 0, atWord: G("l08", 0), seg: "l08", intent: "Binance said yes, then shut the door; the lock turns", slots: { 0: "v_garage", 1: "v_lock" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 0, trim: 2, look: "bright", drift: [0, 0, 0.06, 0], elements: [ph(0.1, 0.08, 0.8, kin(t, [[G("l08", 7), "one day later"]]), { size: 90 }), ph(0.04, 0.6, 0.92, kin(t, [[G("l08", 10), "it walked away", "r"]]), { size: 230 })] },
-      { at: rel(t, G("l08", 13)), y: 1, move: "rise", slot: 1, look: "mono" },
-    ]) },
+  // THE MINUTE (2026-11-25): one performed, layered image per sentence; gold words build with the voice and stay;
+  // pictures dissolve and flash into each other; a title card in the breath after the hook (see kit "THE MINUTE")
+  { id: "M1", start: 0, fixed: true, seg: "l01", intent: "the date in gold over the night city; he rises big and rim-lit, his name behind his head; his messages fly out to the world", slots: { 0: "v_city", 1: "c_sbf_face", 2: "v_sparks" }, tr: "cut",
+    scene: (t) => full("M1", t, "M2", { seventh: w("l01", 2), "2022": w("l01", 5), sam: w("l01", 7), bankman: w("l01", 8), message: w("l01", 11), world: w("l01", 14) }) },
+  { id: "M2", start: 0, fixed: true, atWord: G("l03", 0), lead: 0.06, seg: "l03", intent: "four days later: his $32 billion burns, the fire becomes a building coming down: bankrupt", slots: { 0: "v_fire", 1: "v_demo" }, tr: "cut",
+    scene: (t) => full("M2", t, "M3", { four: w("l03", 0), thirty: w("l03", 4), billion: w("l03", 5), empire: w("l03", 7), bankrupt: w("l03", 9) }) },
+  { id: "M3", start: 0, fixed: true, atWord: G("l03", 10), lead: 0.06, seg: "l03", intent: "how does it vanish: the sand runs out; the word blows away", slots: { 0: "v_hourglass", 1: "v_sparks" }, tr: "cut",
+    scene: (t) => full("M3", t, "TITLE", { how: w("l03", 11), worth: w("l03", 15), vanish: w("l03", 18), less: w("l03", 20) }) },
+  { id: "TITLE", start: 0, fixed: true, atTime: () => TITLE_START, seg: "l03", intent: "the title card in the breath after the question", slots: { 0: "v_sparks" }, tr: "cut",
+    scene: (t) => full("MTitle", t, "M4", {}) },
+  { id: "M4", start: 0, fixed: true, atWord: G("l03", 24), lead: 0.1, seg: "l03", intent: "it started with one document: a man under a lamp turns a page", slots: { 0: "v_coatman" }, tr: "cut",
+    scene: (t) => beat("M4", t, "M5", { bg: 0, trim: 0.4, push: [1.05, 1.2], words: [W2([["It started with", "l03", 24]], 0.08, 0.1, 0.84, 0.06, "script"), W2([["one", "l03", 27], ["document", "l03", 28]], 0, 0.58, 1, 0.17)] }) },
+  { id: "M5", start: 0, fixed: true, atWord: G("l04", 0), lead: 0.06, seg: "l04", intent: "a leaked balance sheet: hands go through the files; 40 % of $14.6 billion", slots: { 0: "v_files", 1: "v_coins" }, tr: "cut",
+    scene: (t) => beat("M5", t, "M5b", { bg: 0, trim: 1.5, push: [1.04, 1.22], words: [W2([["A leaked", "l04", 4], ["balance sheet", "l04", 6]], 0.04, 0.08, 0.92, 0.12, "gold", { until: rw("l04", 10) - 0.1 }), W2([["40%", "l04", 10]], 0, 0.18, 1, 0.3, "gold", { until: rw("l04", 16) - 0.1 }), W2([["of $14.6 billion", "l04", 16]], 0, 0.66, 1, 0.09, "ember")] }) },
+  { id: "M5b", start: 0, fixed: true, atWord: G("l04", 21), lead: 0.06, seg: "l04", intent: "was FTT: a heap of coins glowing in the sparks, a token his own exchange made up", slots: { 0: "v_sparks", 1: "o_coins" }, tr: "cut",
+    scene: (t) => beat("M5b", t, "M6", { bg: 0, trim: 3, push: [1.1, 1.3], grade: "saturate(1.6) contrast(1.15) brightness(1.2) hue-rotate(-8deg)", hot: 0.35, hero: { slot: 1, x: 0.17, w: 0.66, at: 0, light: "rgba(255,170,60,.85)" }, words: [W2([["FTT", "l04", 22]], 0, 0.06, 1, 0.3, "gold"), W2([["a token his own exchange", "l04", 23], ["had made up", "l04", 28]], 0.06, 0.48, 0.88, 0.07, "script")] }) },
+  { id: "M6", start: 0, fixed: true, atWord: G("l05", 0), lead: 0.06, seg: "l05", intent: "his own coupons rain over a crowd that believes", slots: { 0: "v_crowd" }, tr: "cut",
+    scene: (t) => beat("M6", t, "M7", { bg: 0, trim: 0.5, push: [1.05, 1.18], rain: { kind: "coupon", n: 26, from: rw("l05", 9) - 0.3 }, words: [W2([["his own", "l05", 7], ["coupons", "l05", 9]], 0, 0.1, 1, 0.16, "gold", { until: rw("l05", 13) - 0.1 }), W2([["only worth something", "l05", 13], ["while people", "l05", 16, true], ["believe", "l05", 18]], 0, 0.12, 1, 0.12, "gold")] }) },
+  { id: "M7", start: 0, fixed: true, atWord: G("l06", 0), lead: 0.06, seg: "l06", intent: "the rival's boss, big over a crashing market: sell every FTT", slots: { 0: "v_chart_red", 1: "c_cz" }, tr: "cut",
+    scene: (t) => beat("M7", t, "M7b", { bg: 0, push: [1.1, 1.3], grade: "sepia(0.3) saturate(1.6) contrast(1.2) brightness(1.05) hue-rotate(-20deg)", hero: { slot: 1, x: 0.42, w: 0.5, at: rw("l06", 2) - 0.2, light: "rgba(255,90,40,.8)" }, words: [W2([["the boss of", "l06", 2], ["Binance", "l06", 6, true]], 0.02, 0.12, 0.42, 0.13, "gold", { until: rw("l06", 10) - 0.1, align: "left" }), W2([["sell", "l06", 10], ["every", "l06", 11, true], ["FTT", "l06", 12, true]], 0.02, 0.1, 0.42, 0.2, "ember", { align: "left" })] }) },
+  { id: "M7b", start: 0, fixed: true, atWord: G("l06", 13), lead: 0.06, seg: "l06", intent: "you can guess what happened next: a trader's hands go to his head", slots: { 0: "v_trader" }, tr: "cut",
+    scene: (t) => beat("M7b", t, "M8", { bg: 0, trim: 2.8, push: [1.12, 1.3], words: [W2([["you can probably guess", "l06", 13], ["what happened next", "l06", 17, true]], 0.06, 0.66, 0.88, 0.07, "script")] }) },
+  { id: "M8", start: 0, fixed: true, atWord: G("l07", 0), lead: 0.06, seg: "l07", intent: "customers ran; the queue outside; six billion in seventy-two hours", slots: { 0: "v_station", 1: "v_queue", 8: "o_bill_front", 9: "o_bill_back" }, tr: "cut",
+    scene: (t) => beat("M8", t, "M9", { bg: 0, trim: 2, push: [1.05, 1.2], second: { slot: 1, at: rw("l07", 2) - 0.15, trim: 0.2, push: [1.15, 1.3] }, rain: { kind: "bill", n: 30, from: rw("l07", 2) }, flashes: [rw("l07", 2) - 0.12], words: [W2([["Customers", "l07", 0], ["ran", "l07", 1]], 0, 0.3, 1, 0.2, "gold", { until: rw("l07", 2) - 0.14 }), W2([["$6 billion", "l07", 2]], 0, 0.12, 1, 0.22, "gold"), W2([["in", "l07", 9], ["72 hours", "l07", 10]], 0, 0.6, 1, 0.12, "ember")] }) },
+  { id: "M9", start: 0, fixed: true, atWord: G("l08", 0), lead: 0.06, seg: "l08", intent: "a deal agreed, the hands let go, the man walks away down the corridor", slots: { 0: "v_deal", 1: "v_corridor" }, tr: "cut",
+    scene: (t) => beat("M9", t, "I", { bg: 0, trim: 0, push: [1.02, 1.12], grade: "sepia(0.35) saturate(1.45) contrast(1.25) brightness(0.82) hue-rotate(-6deg)", hot: 0.2, second: { slot: 1, at: rw("l08", 11) - 0.1, push: [1.1, 1.24] }, flashes: [rw("l08", 11) - 0.08], words: [W2([["agreed", "l08", 1], ["to buy", "l08", 2]], 0, 0.62, 1, 0.14, "gold", { until: rw("l08", 7) - 0.1 }), W2([["one day later", "l08", 7]], 0.1, 0.1, 0.8, 0.08, "script", { until: rw("l08", 11) - 0.15 }), W2([["walked away", "l08", 11]], 0, 0.12, 1, 0.18, "gold", { until: rw("l08", 13) - 0.1 }), W2([["beyond", "l08", 18], ["saving", "l08", 19]], 0, 0.62, 1, 0.13, "ember")] }) },
   { id: "I", start: 0, atWord: G("l09", 0), seg: "l09", intent: "the man who wound down Enron, and what he wrote", slots: { 0: "p_ray_yahoo" }, tr: "cut",
     scene: (t) => J([
       { at: 0, slot: 0, trim: 0, elements: [C("Name", 0.05, 0.66, 0.42, rel(t, G("l09", 1)), { text: "John J. Ray III", role: "brought in to clean up" })] },
@@ -223,13 +230,15 @@ const SHOTS: Shot[] = [
   }
 }
 // v16: cut points are set on this narration's own words (the warp carried the v1 script's cuts to another narrator)
-if (WARP) for (const s of SHOTS) s.start = +(s.atWord !== undefined ? at(s.atWord) - (s.lead ?? 0.08) : warp(s.start)).toFixed(2);
+if (WARP) for (const s of SHOTS) s.start = +(s.atTime ? s.atTime() : s.atWord !== undefined ? at(s.atWord) - (s.lead ?? 0.08) : warp(s.start)).toFixed(2);
+for (const s of SHOTS) SHOT_AT[s.id] = () => s.start;
 // Cut timing (v23): the channel's cuts sit a median 0.10 s from a word boundary (0.06–0.21 by film) and 5–28 % fall in
 // a pause; cutting exactly on word starts gave 0.04 (too mechanical). A cut that opens a line stays in the pause before
 // it; a cut inside a line lands half-way into its word (on the stressed middle, as an editor cuts on rhythm).
 {
   const lineStarts = new Set(NEWS.map((sg) => sg.words[0]?.startS));
   for (const sh of SHOTS) {
+    if (sh.fixed) continue;
     const w = W.find((x) => x.startS >= sh.start - 0.02);
     if (!w || w.startS - sh.start > 0.6 || lineStarts.has(w.startS)) continue;
     sh.start = +(w.startS + 0.5 * Math.max(0, w.endS - w.startS)).toFixed(2);
@@ -242,6 +251,7 @@ const ATMOS: Record<string, [string, number]> = { C: ["dust", 0.45], D: ["scratc
 for (const sh of SHOTS) {
   const orig = sh.scene;
   sh.scene = (t0: number) => {
+    curT = t0;
     const sc = orig(t0) as Record<string, unknown> & { backdrop?: string; world?: { accent?: string } };
     // the world tint, except shots kept in black and white on purpose (the channel's monochrome technique)
     if (WORLD_WASH.strength > 0 && (sc.backdrop ?? "footage") === "footage" && !(sc as { wash?: unknown }).wash) sc.wash = WORLD_WASH;
@@ -286,10 +296,10 @@ for (const [i, s] of SHOTS.entries()) {
 const prof = JSON.parse(await readFile(path.join(root, "data", "audio-profile.json"), "utf8")) as { sfx: Record<string, { attackS: number }> };
 // v30: effects and beds no earlier version used
 const HITS: Array<[string, number, number]> = [
-  ["7f3697654fcda437", 5.72, -8], // shimmer: the post appears, in silence
-  ["37e39d84460b602e", at(G("l03", 9)) + 0.1, -3], // sub boom: BANKRUPT
-  ["0e43655364c93329", at(G("l06", 12)) + 0.1, -5], // impact: FTT
-  ["095f1896d50b6e6f", at(G("l07", 2)) + 0.25, -4], // thud: $6 BILLION lands
+  // the minute (2026-11-25): few and modest, on the flashes and reveals, like the channel's cold open (+6–11 dB onsets)
+  ["37e39d84460b602e", at(G("l03", 9)) + 0.05, -9], // sub boom: BANKRUPT (the flash and the shake)
+  ["0e43655364c93329", TITLE_START + 0.1, -8], // impact: the title card
+  ["095f1896d50b6e6f", at(G("l07", 2)) - 0.1, -10], // thud: the flash into the queue, $6 BILLION
   ["2ce5d1ade932f5fd", at(G("l10", 15)) + 0.3, -4], // sub boom: 25 YEARS
   ["46d52a4788d066c0", at(G("l11", 24)) + 0.1, -3], // impact: BET
 ];
@@ -299,8 +309,12 @@ for (const [id, moment, gain] of HITS) {
   sh.sfx.push({ assetId: id, atS, gainDb: gain });
 }
 const cueAt = (seg: string) => +at(G(seg, 0)).toFixed(2);
+
 const MUSIC = [
-  { assetId: "c7d84c22243cc9b8", startS: 0, endS: cueAt("l07"), gainDb: -4, mood: "tension" as const, drops: [{ startS: +(cueAt("l07") - 0.7).toFixed(2), endS: cueAt("l07") }] },
+  // the cold open (2026-11-25, watched and listened beside Ponzi): a full, driving bed from before the first word to
+  // the title card, ducked only ≈ 9.5 dB under the voice like the channel's cold opens; then the story's bed
+  { assetId: "66eb00bcb4c1c3fc", startS: 0, endS: +(TITLE_END + 0.8).toFixed(2), gainDb: 3, duckDb: -9, mood: "tension" as const, drops: [] },
+  { assetId: "c7d84c22243cc9b8", startS: +(TITLE_END - 0.4).toFixed(2), endS: cueAt("l07"), gainDb: 2, inS: 1.6, mood: "intrigue" as const, drops: [{ startS: +(cueAt("l07") - 0.7).toFixed(2), endS: cueAt("l07") }] },
   { assetId: "cfe84cbe6f131850", startS: cueAt("l07"), endS: cueAt("l10"), gainDb: -13, mood: "collapse" as const, drops: [{ startS: +(cueAt("l10") - 0.7).toFixed(2), endS: cueAt("l10") }] },
   { assetId: "ee760fba94164380", startS: cueAt("l10"), endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: +(at(G("l11", 15)) - 0.75).toFixed(2), endS: +at(G("l11", 15)).toFixed(2) }] },
 ];

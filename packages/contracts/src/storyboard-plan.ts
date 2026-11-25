@@ -13,6 +13,9 @@ export const MusicCue = z.object({
   drops: z.array(z.object({ startS: Seconds, endS: Seconds })).default([]),
   /** Where in the bed to start (s): after its quiet intro, beat-aligned to the first strong hit. */
   inS: Seconds.optional(),
+  /** How far the bed ducks under the voice (dB, ≤ 0). Default −14 (the channel's whole-film duck); its cold opens
+   *  duck less: the bed sits ≈ 9.5 dB under the voice (Ponzi, measured on its stems). */
+  duckDb: z.number().min(-30).max(0).optional(),
 });
 
 export const Storyboard = z

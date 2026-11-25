@@ -94,12 +94,18 @@ function mixGraph(m: RenderManifest, toneDb: number | null = null, stem: "all" |
       cueLabels.push(`[m${idx}]`);
       idx++;
     }
-    chains.push(cueLabels.length > 1 ? `${cueLabels.join("")}amix=inputs=${cueLabels.length}:duration=longest:normalize=0[mus]` : `${cueLabels[0]}anull[mus]`);
-    chains.push(`[vo]asplit=2[vomix][vokey]`);
-    // Duck the bed under the voice (≈ duckUnderNarrationDb of gain reduction while speaking).
-    // a real duck: the channel's bed drops ≈ 14.5 dB under the voice and swells between lines (Reference sound.json)
-    const ratio = Math.min(20, Math.max(2, Math.abs(music[0]!.duckUnderNarrationDb ?? -14) / 1.2));
-    chains.push(`[mus][vokey]sidechaincompress=threshold=0.02:ratio=${ratio}:attack=15:release=350:makeup=1[ducked]`);
+    // Duck the bed under the voice, each cue by its own depth (the channel ducks ≈ 14.5 dB over a film, less in a cold
+    // open): every cue gets its own sidechain from the voice, then the ducked cues are mixed.
+    chains.push(`[vo]asplit=${cueLabels.length + 1}[vomix]${cueLabels.map((_, k) => `[vokey${k}]`).join("")}`);
+    const ducked = cueLabels.map((lab, k) => {
+      // the whole-film duck (−14) keeps its calibrated ratio; a shallower duck is the ratio that takes about that many
+      // dB off a bed while the voice sits ~16.5 dB over the sidechain threshold (a cold open's ≈ 9.5 dB gap)
+      const d = Math.abs(music[k]!.duckUnderNarrationDb ?? -14);
+      const ratio = d >= 14 ? Math.min(20, d / 1.2) : Math.max(1.2, 1 / (1 - Math.min(0.9, d / 16.5)));
+      chains.push(`${lab}[vokey${k}]sidechaincompress=threshold=0.02:ratio=${ratio.toFixed(2)}:attack=15:release=350:makeup=1[dk${k}]`);
+      return `[dk${k}]`;
+    });
+    chains.push(ducked.length > 1 ? `${ducked.join("")}amix=inputs=${ducked.length}:duration=longest:normalize=0[ducked]` : `${ducked[0]}anull[ducked]`);
     mixIns.push("[vomix]", "[ducked]");
   } else mixIns.push("[vo]");
   for (const s of sfx) {
