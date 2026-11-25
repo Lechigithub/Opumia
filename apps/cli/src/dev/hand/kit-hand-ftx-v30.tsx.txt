@@ -25,7 +25,9 @@ const Phrase: React.FC<P> = (p) => {
   const lines: typeof words[] = [[]];
   for (const w of words) { if (w.text === "|") lines.push([]); else lines.at(-1)!.push(w); }
   const first = Math.min(...words.filter((w) => w.text !== "|").map((w) => w.from));
-  const k = interpolate(f, [first - 4, first + 14], [0, 1], { ...clamp, easing: out });
+  // the phrase leaves (a slow fade and drift) after its hold, so a long panel does not carry words the whole time
+  const gone = p.until !== undefined ? interpolate(f, [Number(p.until), Number(p.until) + 12], [1, 0], clamp) : 1;
+  const k = interpolate(f, [first - 4, first + 14], [0, 1], { ...clamp, easing: out }) * gone;
   const longest = Math.max(...lines.map((l) => l.reduce((a, w) => a + w.text.length + 1, 0)));
   const size = Number(p.size ?? Math.min(W * 0.22, (W * 0.98) / (longest * 0.36)));
   const al = String(p.align ?? "center");
@@ -35,7 +37,8 @@ const Phrase: React.FC<P> = (p) => {
       const lit = interpolate(f, [w.from - 2, w.from + 6], [0, 1], clamp);
       const hot = w.c === "r" ? CORAL : CREAM;
       const col = w.c ? (lit > 0.5 ? hot : CREAM) : CREAM; const dim = 0.82 + 0.18 * lit;
-      return <span key={j} style={{ fontFamily: serif ? SERIF : SLAB, fontWeight: serif ? 400 : 900, fontSize: serif ? size * 0.8 : size, textTransform: serif ? "none" : "uppercase", letterSpacing: serif ? 0 : size * 0.005, color: col, opacity: dim, textShadow: serif ? "0 6px 30px rgba(0,0,0,.85)" : depth(w.c === "r" && lit > 0.5 ? "#8a2112" : FELT_DK, 5, size * 0.012) }}>{w.text}</span>;
+      const b = p.build ? interpolate(f, [w.from - 3, w.from + 7], [0, 1], { ...clamp, easing: out }) : 1;
+      return <span key={j} style={{ display: "inline-block", transform: p.build ? `translateY(${(1 - b) * size * 0.4}px) scale(${0.9 + 0.1 * b})` : undefined, ...(p.build ? { filter: b < 0.99 ? `blur(${(1 - b) * 6}px)` : undefined } : {}), fontFamily: serif ? SERIF : SLAB, fontWeight: serif ? 400 : 900, fontSize: serif ? size * 0.8 : size, textTransform: serif ? "none" : "uppercase", letterSpacing: serif ? 0 : size * 0.005, color: col, opacity: dim * (p.build ? interpolate(f, [w.from - 3, w.from + 5], [0, 1], clamp) : 1), textShadow: serif ? "0 6px 30px rgba(0,0,0,.85)" : depth(w.c === "r" && lit > 0.5 ? "#8a2112" : FELT_DK, 5, size * 0.012) }}>{w.text}</span>;
     })}</div>)}
   </div>;
 };

@@ -67,6 +67,13 @@ const MEDIA: Record<string, M> = {
   v_city: PB("267744", "Pixabay"), v_aerial: ST("33637800", "Pexels"), v_phone_rg: ST("32246883", "Pexels"), v_phone_man: ST("8212368", "Pexels"),
   v_cards: ST("14925749", "Pexels"), v_dominoes_woman: ST("8102759", "Pexels"), v_dominoes: PB("28659", "Pixabay"), v_beach: PB("4623", "Pixabay"),
   v_sandcastle: ST("18048476", "Pexels"), v_chips: ST("7607942", "Pexels"), v_chart_red: ST("38736271", "Pexels"), v_chart_purple: ST("38711953", "Pexels"),
+  c_sbf: { ...YT("v30_sbf_gma", "0Hxf4Vf54PI", "FTX founder Sam Bankman-Fried denies 'improper use' of customer funds | GMA", "Good Morning America", 48.8, "Sam Bankman-Fried (cut-out of a press frame)"), file: "downloads/cut/v30sbf.png", kind: "image" },
+  s_sbf: { ...YT("v30_sbf_gma", "0Hxf4Vf54PI", "FTX founder Sam Bankman-Fried denies 'improper use' of customer funds | GMA", "Good Morning America", 48.8, "Sam Bankman-Fried (press frame)"), file: "downloads/cut/v30sbf_src.jpg", kind: "image" },
+  c_cz: { ...YT("v30_cz_cnbc", "gN3jW4fhD70", "Twitter has huge value but has not been monetized well, says Binance CEO Changpeng Zhao", "CNBC Television", 20, "Changpeng Zhao (cut-out of a press frame)"), file: "downloads/cut/v30cz.png", kind: "image" },
+  s_court: { ...YT("v30_court_gma", "9N7WO24aoT8", "Sam Bankman-Fried reacts to 25-year prison sentence for financial fraud", "Good Morning America", 33.5, "Sam Bankman-Fried arriving at court (press frame)"), file: "downloads/cut/v30court_src.jpg", kind: "image" },
+  s_phone: { file: "downloads/stills/v30_phone.jpg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/32246883/" },
+  o_dollars: { file: "downloads/library/dollar_stack.png", kind: "image", origin: "library", provider: "library", license: "CC BY 2.0", credit: "\"Money - Flickr - AMagill.jpg\" by Andrew Magill from Boulder, USA, CC BY 2.0, via Wikimedia Commons", url: "https://commons.wikimedia.org/wiki/File:Money_-_Flickr_-_AMagill.jpg" },
+  c_chips: { file: "downloads/cut/v30chips.png", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/7607942/" },
   v_drives: ST("7140928", "Pexels"), v_boxes: ST("4553296", "Pexels"), v_garage: ST("32078346", "Pexels"), v_lock: ST("35999369", "Pexels"),
   p_nassau: YT("v30_nassau", "weQm-4QgOrw", "Bankman-Fried Arrives at Court in Nassau, Bahamas", "Bloomberg Television", 15, "Sam Bankman-Fried under police escort, Nassau (press)"),
   p_court_gma: YT("v30_court_gma", "9N7WO24aoT8", "Sam Bankman-Fried reacts to 25-year prison sentence for financial fraud", "Good Morning America", 29.5, "Sam Bankman-Fried arriving at court (press)"),
@@ -115,22 +122,21 @@ const fin = (g = 0.35, v = 0.55, leak = 0) => ({ grain: g, vignette: v, leak });
 // v30 "The bet" (2026-11-24), designed from nothing: new pictures (none used by an earlier version), new kit, new plan.
 // Eleven continuous scenes: inside each, one camera travels through its pictures (a journey) and never cuts; the
 // channel changes picture by moving 76 % of the time and cuts a median 8.7 times a minute.
-type Stop = { at: number; x?: number; y?: number; depth?: number; ry?: number; rz?: number; size?: number; slot?: number; trim?: number; look?: string; stage?: boolean; frame?: string; elements?: unknown[] };
+type Stop = { at: number; move?: string; fore?: unknown[]; dof?: number; drift?: [number, number, number, number]; world?: unknown; blendSlot?: number; x?: number; y?: number; depth?: number; ry?: number; rz?: number; size?: number; slot?: number; trim?: number; look?: string; stage?: boolean; frame?: string; elements?: unknown[] };
 // Panels sit next to each other (spacing just over one frame), so a flight always shows the picture it leaves and the
 // one it reaches, never an empty table: the written coordinates give only the direction of each move.
 const chain = (stops: Stop[]) => {
   let px = 0, py = 0, pd = 0;
   return stops.map((s, i) => {
     if (i > 0) {
-      const prev = stops[i - 1]!;
-      const dx = Math.sign((s.x ?? 0) - (prev.x ?? 0)), dy = Math.sign((s.y ?? 0) - (prev.y ?? 0));
-      px += dx * 1.06; py += dy * 1.06; pd = Math.max(-0.25, Math.min(0.25, (s.depth ?? 0) - (prev.depth ?? 0))) + pd * 0.5;
+      const mv = (s as { move?: string }).move ?? "slide";
+      if (mv === "push") pd += 2.6; // straight on, through the last picture into this one
+      else if (mv === "rise") { py -= 1.06; pd += 0.15; }
+      else { const prev = stops[i - 1]!; const dx = Math.sign((s.x ?? 0) - (prev.x ?? 0)) || 1, dy = Math.sign((s.y ?? 0) - (prev.y ?? 0)); px += dx * (mv === "whip" ? 1.12 : 1.06); py += dy * 1.06; }
     }
     return { ...s, x: px, y: py, depth: pd, ry: Math.max(-12, Math.min(12, s.ry ?? 0)) };
   });
 };
-// Never rushed (owner): the camera leaves a panel only after its last word has been up READ_HOLD s; the next panel's
-// arrival moves later if it must (its first words light while it approaches, it is already in view).
 const READ_HOLD = 1.1;
 const lastWordS = (s: Stop) => Math.max(0, ...((s.elements ?? []) as Array<{ at?: number; props?: { words?: Array<{ from: number; text: string }> } }>).flatMap((e) => [e.at ?? 0, ...(e.props?.words ?? []).filter((w) => w.text !== "|").map((w) => w.from / FPS)]));
 const unrush = (stops: Stop[], travel: number) => { const outS = stops.map((s) => ({ ...s })); for (let i = 1; i < outS.length; i++) { const prev = outS[i - 1]!; const need = lastWordS(prev) + READ_HOLD + travel; if (outS[i]!.at < need) outS[i]!.at = +need.toFixed(2); } return outS; };
@@ -138,65 +144,71 @@ const J = (stops: Stop[], o: { travel?: number; push?: number } = {}) => ({ back
 const ph = (x: number, y: number, w: number, words: unknown, extra: Record<string, unknown> = {}) => ({ type: "component", name: "Phrase", x, y, w, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words, ...extra } });
 const C = (name: string, x: number, y: number, w: number, at: number, props: Record<string, unknown>) => ({ type: "component", name, x, y, w, at, z: 0.8, rot: 0, enter: "fade", props });
 const SHOTS: Shot[] = [
-  { id: "A", start: 0, seg: "l01", intent: "the night of the post: from the city down to him, to his phone, to the post itself", slots: { 0: "v_city", 1: "p_sbf_gma", 2: "v_phone_rg" }, tr: "cut",
+  { id: "A", start: 0, seg: "l01", intent: "the night of the post: down into the city, through it to him (cut out, his name behind him), across to his phone and the post", slots: { 0: "v_city", 1: "c_sbf", 2: "v_phone_rg", 3: "v_aerial" }, tr: "cut",
     scene: (t) => J([
       { at: 0, slot: 0, look: "contrast", elements: [C("Chip", 0.05, 0.07, 0.2, rel(t, G("l01", 2)), { text: "7 Nov|2022" })] },
-      { at: rel(t, G("l01", 7)) - 0.15, x: 1.3, y: 0.25, depth: 0.6, ry: -18, slot: 1, trim: 0.2, elements: [C("Name", 0.05, 0.62, 0.5, rel(t, G("l01", 7)) + 0.2, { text: "Sam Bankman-Fried", role: "founder of FTX" })] },
-      { at: 5.45 - t, x: 2.5, y: -0.1, depth: 0.2, ry: 10, slot: 2, trim: 0.5, look: "warm", elements: [C("Post", 0.2, 0.12, 0.6, 5.6 - t, { name: "SBF", handle: "@SBF_FTX · 7 Nov 2022", lines: ["A competitor is trying to go after us", "with false rumors.", "FTX is fine. Assets are fine."], mark: 2 })] },
-    ], { travel: 1.1 }) },
+      { at: rel(t, G("l01", 7)) - 0.15, move: "push", slot: 3, look: "duotone", dof: 0.7, elements: [ph(0.03, 0.12, 0.94, kin(t, [[G("l01", 7), "Sam"], ["|", ""], [G("l01", 8), "Bankman-Fried"]]), { size: 300, build: true })], fore: [{ type: "cutout", slot: 1, x: 0.42, y: 0.16, w: 0.62, z: 0.9, rot: 0, at: 0, enter: "settle", shadow: true }] },
+      { at: 5.45 - t, x: 1, move: "slide", slot: 2, trim: 0.5, look: "warm", elements: [C("Post", 0.2, 0.12, 0.6, 5.6 - t, { name: "SBF", handle: "@SBF_FTX · 7 Nov 2022", lines: ["A competitor is trying to go after us", "with false rumors.", "FTX is fine. Assets are fine."], mark: 2 })] },
+    ]) },
   { id: "B", start: 0, atWord: G("l03", 0), lead: 0.12, seg: "l03", intent: "four days later: the empire was a house of cards, and it fell", slots: { 0: "v_cards", 1: "v_dominoes" }, tr: "film",
     scene: (t) => J([
-      { at: 0, slot: 0, trim: 3, look: "warm", elements: [ph(0.04, 0.06, 0.5, kin(t, [[G("l03", 0), "Four days"], ["|", ""], [G("l03", 2), "later"]]), { align: "left", size: 150 }), C("Figure", 0.5, 0.58, 0.46, rel(t, G("l03", 4)), { text: "$32 BILLION", label: "his empire" })] },
-      { at: rel(t, G("l03", 9)) - 0.25, x: 0.2, y: 1.25, depth: 0.5, rz: 4, slot: 1, trim: 1.4, look: "contrast", frame: "print", elements: [ph(0.1, 0.12, 0.8, kin(t, [[G("l03", 9), "Bankrupt", "r"]]), { size: 260 })] },
-    ], { travel: 0.9 }) },
-  { id: "C", start: 0, atWord: G("l03", 10), seg: "l03", intent: "how does it vanish: a castle of sand, the tide, then the film's title", slots: { 0: "v_sandcastle", 1: "v_beach" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 0, trim: 6, look: "warm", elements: [ph(0.06, 0.08, 0.88, kin(t, [[G("l03", 11), "How does a company"], ["|", ""], [G("l03", 15), "worth that much"], [G("l03", 18), "vanish", "r"]]), { size: 120 })] },
-      { at: rel(t, G("l03", 19)), x: -1.2, y: 0.1, depth: 1.0, ry: 12, slot: 1, trim: 4, look: "contrast", elements: [ph(0.06, 0.3, 0.88, kin(t, [[G("l03", 19), "in less than"], ["|", ""], [G("l03", 22), "a week?", "r"]]), { size: 200 })] },
-    ], { travel: 1.2 }) },
-  { id: "D", start: 0, atWord: G("l04", 0), seg: "l04", intent: "the leak: a week earlier, his trading firm's balance sheet, mostly his own token", slots: { 0: "v_drives", 1: "v_chips", 2: "v_chart_red" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 0, look: "cool", elements: [ph(0.05, 0.1, 0.6, kin(t, [[G("l04", 0), "A week earlier"], ["|", ""], [G("l04", 4), "a leak", "r"]]), { align: "left", size: 140 })] },
-      { at: rel(t, G("l04", 5)), x: 0.1, y: -1.2, depth: 0.3, stage: true, elements: [C("Ledger", 0.2, 0.12, 0.6, 0, { title: "Alameda Research · balance sheet", rot: -2, rows: [{ a: "Total assets", b: "$14.6B", mark: true, from: fr(t, G("l04", 16)) }, { a: "FTT, the token FTX made", b: "40%", mark: true, from: fr(t, G("l04", 10)) }] })] },
-      { at: rel(t, G("l04", 20)), x: 1.3, y: -1.0, depth: 0.7, ry: -20, slot: 1, trim: 2, look: "warm", elements: [C("Stacks", 0.52, 0.2, 0.42, 0, { share: 0.4, labelA: "FTT", labelB: "the rest" })] },
-      { at: rel(t, G("l04", 23)), x: 2.4, y: -0.6, depth: 0.1, ry: 10, slot: 2, trim: 3, elements: [ph(0.06, 0.62, 0.88, kin(t, [[G("l04", 23), "a token his own exchange"], ["|", ""], [G("l04", 28), "had made up", "r"]]), { size: 110 })] },
+      { at: 0, slot: 0, trim: 3, look: "warm", drift: [0, 0, 0.07, 0.2], elements: [ph(0.04, 0.06, 0.5, kin(t, [[G("l03", 0), "Four"], [G("l03", 1), "days"], ["|", ""], [G("l03", 2), "later"]]), { align: "left", size: 160, build: true }), C("Figure", 0.5, 0.58, 0.46, rel(t, G("l03", 4)), { text: "$32 BILLION", label: "his empire" })] },
+      { at: rel(t, G("l03", 9)) - 0.25, x: 1, move: "whip", slot: 1, trim: 1.4, look: "contrast", frame: "print", rz: 3, elements: [ph(0.1, 0.12, 0.8, kin(t, [[G("l03", 9), "Bankrupt", "r"]]), { size: 280 })] },
     ]) },
-  { id: "E", start: 0, atWord: G("l05", 0), seg: "l05", intent: "his own coupons, worth something only while people believe", slots: { 0: "v_phone_man" }, tr: "cut",
+  { id: "C", start: 0, atWord: G("l03", 10), seg: "l03", intent: "how does it vanish: a castle of sand, then the tide that takes them", slots: { 0: "v_sandcastle", 1: "v_beach" }, tr: "cut",
     scene: (t) => J([
-      { at: 0, stage: true, elements: [C("Coupon", 0.22, 0.2, 0.56, 0.1, { text: "FTT", small: "issued by FTX", stub: "FTX", rot: -6 }), ph(0.1, 0.72, 0.8, kin(t, [[G("l05", 3), "the money was"], [G("l05", 7), "his own coupons", "r"]]), { size: 110 })] },
-      { at: rel(t, G("l05", 10)) + 0.2, x: 0.9, y: 0.9, depth: 0.5, rz: -3, slot: 0, trim: 1, look: "warm", elements: [ph(0.45, 0.2, 0.52, kin(t, [[G("l05", 13), "only worth"], ["|", ""], [G("l05", 15), "something while"], ["|", ""], [G("l05", 17), "people"], [G("l05", 18), "believe", "r"]]), { align: "left", size: 120 })] },
+      { at: 0, slot: 0, trim: 6, look: "warm", drift: [0.02, 0, 0.06, -0.3], elements: [ph(0.06, 0.1, 0.88, kin(t, [[G("l03", 11), "How does a company"], ["|", ""], [G("l03", 15), "worth that much"], [G("l03", 18), "vanish?", "r"]]), { size: 130, until: fr(t, G("l03", 18)) + 50 })] },
+      { at: rel(t, G("l03", 19)), y: 1, move: "rise", slot: 1, trim: 4, look: "faded", drift: [0.03, 0, 0.03, 0] },
     ]) },
-  { id: "F", start: 0, atWord: G("l06", 0), seg: "l06", intent: "the rival's boss says he will sell, and the dominoes are set", slots: { 0: "p_cz_cnbc", 1: "v_chart_purple", 2: "v_dominoes_woman" }, tr: "cut",
+  { id: "D", start: 0, atWord: G("l04", 0), seg: "l04", intent: "the leak: from the machines into the balance sheet itself, cash laid beside it on the table", slots: { 0: "v_drives", 1: "o_dollars" }, tr: "cut",
     scene: (t) => J([
-      { at: 0, slot: 0, trim: 0, elements: [C("Name", 0.05, 0.66, 0.42, rel(t, G("l06", 6)), { text: "Changpeng Zhao", role: "the boss of Binance" })] },
-      { at: rel(t, G("l06", 9)), x: 1.1, y: 0.2, depth: 0.6, ry: -24, slot: 1, trim: 2, look: "contrast", elements: [ph(0.06, 0.3, 0.88, kin(t, [[G("l06", 10), "sell every"], [G("l06", 12), "FTT", "r"]]), { size: 200 })] },
-      { at: rel(t, G("l06", 16)), x: 2.0, y: 1.0, depth: 0.0, slot: 2, trim: 0.5, look: "faded" },
+      { at: 0, slot: 0, look: "cool", drift: [0, 0, 0.09, 0.2] },
+      { at: rel(t, G("l04", 5)), move: "push", stage: true, drift: [0.015, 0, 0.05, 0.3], fore: [{ type: "cutout", slot: 1, x: 0.7, y: 0.62, w: 0.3, z: 0.9, rot: -12, at: 0.3, enter: "settle", shadow: true }], elements: [C("Ledger", 0.06, 0.08, 0.58, 0, { title: "Alameda Research · balance sheet", rot: -2, rows: [{ a: "Total assets", b: "$14.6B", mark: true, from: fr(t, G("l04", 16)) }, { a: "FTT, the token FTX made", b: "40%", mark: true, from: fr(t, G("l04", 10)) }] })] },
     ]) },
-  { id: "G", start: 0, atWord: G("l07", 0), seg: "l07", intent: "customers ran: six billion walked out in seventy-two hours", slots: { 0: "v_boxes", 1: "v_aerial" }, tr: "film",
+  { id: "D2", start: 0, atWord: G("l04", 21), lead: 0.1, seg: "l04", intent: "his own chips stacked over a market of his own making (cut-out over a duotone chart)", slots: { 0: "c_chips", 1: "v_chart_red" }, tr: "cut",
     scene: (t) => J([
-      { at: 0, slot: 0, look: "warm", elements: [ph(0.06, 0.1, 0.6, kin(t, [[G("l07", 0), "Customers"], ["|", ""], [G("l07", 1), "ran", "r"]]), { align: "left", size: 170 })] },
-      { at: rel(t, G("l07", 2)), x: -0.1, y: 1.1, depth: 0.4, slot: 1, look: "cool", elements: [C("Figure", 0.1, 0.1, 0.8, rel(t, G("l07", 2)), { text: "$6 BILLION", label: "walked out of FTX", fill: "red" }), C("Figure", 0.25, 0.56, 0.5, rel(t, G("l07", 10)), { text: "IN 72 HOURS" })] },
-    ], { travel: 1.0 }) },
-  { id: "H", start: 0, atWord: G("l08", 0), seg: "l08", intent: "Binance said yes, then shut the door; beyond saving", slots: { 0: "v_garage", 1: "v_lock" }, tr: "cut",
+      { at: 0, slot: 1, trim: 3, look: "contrast", dof: 0.45, drift: [-0.01, 0, 0.07, 0.3], elements: [ph(0.08, 0.08, 0.6, kin(t, [[G("l04", 24), "a token his own"], ["|", ""], [G("l04", 26), "exchange made up", "r"]]), { align: "left", size: 120, build: true })], fore: [{ type: "cutout", slot: 0, x: 0.12, y: 0.4, w: 0.86, z: 0.9, rot: 0, at: 0, enter: "slide_up", shadow: true }] },
+    ]) },
+  { id: "E", start: 0, atWord: G("l05", 0), seg: "l05", intent: "his own coupons over the house of cards they built; worth something only while people believe", slots: { 0: "v_phone_man", 2: "c_chips" }, tr: "cut",
     scene: (t) => J([
-      { at: 0, slot: 0, trim: 2, look: "contrast", elements: [ph(0.06, 0.08, 0.88, kin(t, [[G("l08", 0), "Binance agreed to buy"]]), { size: 110 }), ph(0.06, 0.7, 0.88, kin(t, [[G("l08", 7), "one day later"], [G("l08", 10), "it walked away", "r"]]), { size: 110 })] },
-      { at: rel(t, G("l08", 13)), x: 0.6, y: -1.1, depth: 0.5, rz: 3, slot: 1, look: "cool", elements: [C("Said", 0.08, 0.55, 0.84, 0, { words: kin(t, [[G("l08", 13), "Whatever it had found"], ["|", ""], [G("l08", 17), "was beyond"], [G("l08", 19), "saving.", "r"]]), size: 120, align: "left" })] },
+      { at: 0, stage: true, drift: [0.02, 0, 0.05, 0.6], fore: [{ type: "cutout", slot: 2, x: 0.58, y: 0.5, w: 0.44, z: 0.9, rot: 0, at: 0.2, enter: "slide_up", shadow: true }], elements: [C("Coupon", 0.08, 0.14, 0.5, 0.1, { text: "FTT", small: "issued by FTX", stub: "FTX", rot: -6 }), ph(0.06, 0.74, 0.6, kin(t, [[G("l05", 3), "the money was"], [G("l05", 7), "his own coupons", "r"]]), { size: 110 })] },
+      { at: rel(t, G("l05", 10)) + 0.4, move: "push", slot: 0, trim: 1, look: "bright", drift: [-0.03, 0, 0.05, 0] },
+    ]) },
+  { id: "F", start: 0, atWord: G("l06", 0), seg: "l06", intent: "the rival's boss, cut out against a falling market in duotone; sell every FTT; the dominoes are set", slots: { 0: "c_cz", 1: "v_chart_purple", 2: "v_dominoes_woman" }, tr: "cut",
+    scene: (t) => J([
+      { at: 0, slot: 1, look: "duotone", dof: 0.5, drift: [0.01, 0, 0.05, 0.2], elements: [ph(0.1, 0.2, 0.55, kin(t, [[G("l06", 6), "Changpeng"], ["|", ""], [G("l06", 6), "Zhao"]]), { align: "left", size: 210 }), C("Said", 0.1, 0.66, 0.5, 0, { words: [{ text: "the boss of Binance", from: fr(t, G("l06", 2)) }], size: 70 })], fore: [{ type: "cutout", slot: 0, x: 0.5, y: 0.12, w: 0.48, z: 0.9, rot: 0, at: 0, enter: "slide_left", shadow: true }] },
+      { at: rel(t, G("l06", 9)), x: 1, move: "whip", slot: 1, trim: 2, look: "contrast", elements: [ph(0.06, 0.3, 0.88, kin(t, [[G("l06", 10), "sell"], [G("l06", 11), "every"], [G("l06", 12), "FTT", "r"]]), { size: 220, build: true })] },
+      { at: rel(t, G("l06", 16)), x: 1, y: 1, move: "rise", slot: 2, trim: 0.5, look: "faded" },
+    ]) },
+  { id: "G", start: 0, atWord: G("l07", 0), seg: "l07", intent: "customers ran: the money floats out of the boxes; six billion in seventy-two hours", slots: { 0: "v_boxes", 1: "v_aerial", 2: "o_dollars" }, tr: "film",
+    scene: (t) => ({ ...J([
+      { at: 0, slot: 0, look: "warm", drift: [0.04, 0, 0.05, 0] },
+      { at: rel(t, G("l07", 2)), move: "push", slot: 1, look: "cool", elements: [C("Figure", 0.1, 0.1, 0.8, rel(t, G("l07", 2)), { text: "$6 BILLION", label: "walked out of FTX", fill: "red" }), C("Figure", 0.25, 0.56, 0.5, rel(t, G("l07", 10)), { text: "IN 72 HOURS" })] },
+    ]) }) },
+  { id: "H", start: 0, atWord: G("l08", 0), seg: "l08", intent: "Binance said yes, then shut the door; the lock turns", slots: { 0: "v_garage", 1: "v_lock" }, tr: "cut",
+    scene: (t) => J([
+      { at: 0, slot: 0, trim: 2, look: "bright", drift: [0, 0, 0.06, 0], elements: [ph(0.1, 0.08, 0.8, kin(t, [[G("l08", 7), "one day later"]]), { size: 90 }), ph(0.04, 0.6, 0.92, kin(t, [[G("l08", 10), "it walked away", "r"]]), { size: 230 })] },
+      { at: rel(t, G("l08", 13)), y: 1, move: "rise", slot: 1, look: "mono" },
     ]) },
   { id: "I", start: 0, atWord: G("l09", 0), seg: "l09", intent: "the man who wound down Enron, and what he wrote", slots: { 0: "p_ray_yahoo" }, tr: "cut",
     scene: (t) => J([
       { at: 0, slot: 0, trim: 0, elements: [C("Name", 0.05, 0.66, 0.42, rel(t, G("l09", 1)), { text: "John J. Ray III", role: "brought in to clean up" })] },
-      { at: rel(t, G("l09", 8)), x: 1.2, y: -0.2, depth: 0.6, ry: -16, stage: true, elements: [ph(0.08, 0.22, 0.84, kin(t, [[G("l09", 8), "He had wound down"], ["|", ""], [G("l09", 11), "Enron", "r"]]), { size: 190 })] },
-      { at: rel(t, G("l09", 12)) + 0.3, x: 2.3, y: 0.4, depth: 0.2, slot: 0, trim: 3.5, look: "mono", elements: [C("Said", 0.06, 0.2, 0.62, 0, { words: kin(t, [[G("l09", 17), "“Never"], [G("l09", 18), "in my career"], ["|", ""], [G("l09", 19), "have I seen such a"], ["|", ""], [G("l09", 22), "complete failure…”", "r"]]), size: 110, by: "John J. Ray III, in court", byFrom: fr(t, G("l09", 23)) + 6 })] },
+      { at: rel(t, G("l09", 8)), x: 1, move: "slide", ry: -10, stage: true, elements: [ph(0.1, 0.12, 0.8, kin(t, [[G("l09", 8), "He had wound down"]]), { size: 100 }), ph(0.05, 0.3, 0.9, kin(t, [[G("l09", 11), "Enron", "r"]]), { size: 460 })] },
+      { at: rel(t, G("l09", 12)) + 0.3, move: "push", slot: 0, trim: 3.5, look: "mono", elements: [C("Said", 0.06, 0.2, 0.62, 0, { words: kin(t, [[G("l09", 17), "“Never"], [G("l09", 18), "in my career"], ["|", ""], [G("l09", 19), "have I seen such a"], ["|", ""], [G("l09", 22), "complete failure…”", "r"]]), size: 110, by: "John J. Ray III", byFrom: fr(t, G("l09", 23)) + 6 })] },
     ]) },
-  { id: "Jd", start: 0, atWord: G("l10", 0), lead: 0.1, seg: "l10", intent: "March 2024: before Judge Kaplan; twenty-five years for eight billion", slots: { 0: "p_court_gma" }, tr: "film",
+  { id: "Jd", start: 0, atWord: G("l10", 0), lead: 0.1, seg: "l10", intent: "March 2024: he arrives before Judge Kaplan", slots: { 0: "p_court_gma" }, tr: "film",
     scene: (t) => J([
-      { at: 0, slot: 0, trim: 1, elements: [C("Chip", 0.74, 0.06, 0.2, rel(t, G("l10", 2)), { text: "28 Mar|2024" }), ph(0.05, 0.7, 0.7, kin(t, [[G("l10", 7), "stood before"], [G("l10", 9), "Judge Kaplan", "r"]]), { align: "left", size: 120 })] },
-      { at: rel(t, G("l10", 15)) - 0.25, x: 0.3, y: 1.2, depth: 0.6, stage: true, elements: [C("Figure", 0.15, 0.1, 0.7, rel(t, G("l10", 15)), { text: "25 YEARS", label: "sentenced to" }), C("Figure", 0.2, 0.52, 0.6, rel(t, G("l10", 19)), { text: "$8 BILLION", label: "for stealing", fill: "red" })] },
+      { at: 0, slot: 0, trim: 1, drift: [0.02, 0, 0.06, 0], elements: [C("Chip", 0.74, 0.06, 0.2, rel(t, G("l10", 2)), { text: "28 Mar|2024" })] },
+      { at: rel(t, G("l10", 6)), move: "push", slot: 0, trim: 3.5, look: "mono", drift: [0, 0, 0.08, 0] },
     ]) },
-  { id: "K", start: 0, atWord: G("l11", 0), seg: "l11", intent: "he knew it would not be fine; a very bad bet, that he would never be caught — escorted by police in Nassau", slots: { 0: "v_phone_man", 2: "p_nassau" }, tr: "cut",
+  { id: "J2", start: 0, atWord: G("l10", 14), lead: 0.15, seg: "l10", intent: "twenty-five years for eight billion: the chips that were his customers' money", slots: { 0: "v_chips" }, tr: "cut",
     scene: (t) => J([
-      { at: 0, slot: 0, trim: 6, look: "bright", elements: [C("Said", 0.06, 0.1, 0.6, 0, { words: kin(t, [[G("l11", 0), "Soon after that tweet,"], ["|", ""], [G("l11", 10), "FTX would"], [G("l11", 12), "not", "r"], [G("l11", 13), "be fine."]]), size: 110, align: "left" })] },
-      { at: rel(t, G("l11", 20)), x: -2.0, y: -0.4, depth: 0.0, slot: 2, trim: 0.5, look: "contrast", elements: [ph(0.05, 0.56, 0.9, kin(t, [[G("l11", 21), "a very bad"], [G("l11", 24), "bet", "r"], ["|", ""], [G("l11", 25), "that he would never"], [G("l11", 29), "get caught", "r"]]), { size: 130 })] },
+      { at: 0, slot: 0, trim: 8, look: "duotone", dof: 0.8, drift: [0, 0, 0.07, 0.3], elements: [C("Figure", 0.15, 0.1, 0.7, rel(t, G("l10", 15)), { text: "25 YEARS", label: "sentenced to" }), C("Figure", 0.2, 0.52, 0.6, rel(t, G("l10", 19)), { text: "$8 BILLION", label: "for stealing", fill: "red" })] }
+    ]) },
+  { id: "K", start: 0, atWord: G("l11", 0), seg: "l11", intent: "his week as a filmstrip; it would not be fine; a very bad bet — escorted by police in Nassau", slots: { 0: "s_sbf", 1: "s_phone", 2: "p_nassau", 3: "s_court" }, tr: "cut",
+    scene: (t) => J([
+      { at: 0, world: { kind: "filmstrip", slot: 0, slots: [1, 3], color: "primary", accent: "accent" }, drift: [0, 0, 0.015, 0], elements: [C("Said", 0.12, 0.1, 0.8, 0, { words: kin(t, [[G("l11", 10), "FTX would"], [G("l11", 12), "not", "r"], [G("l11", 13), "be fine."]]), size: 140, align: "left" })] },
+      { at: rel(t, G("l11", 20)), x: 1, move: "whip", slot: 2, trim: 0.5, look: "mono", elements: [ph(0.04, 0.36, 0.92, kin(t, [[G("l11", 21), "a very bad"], [G("l11", 24), "bet", "r"]]), { size: 300 }), ph(0.1, 0.74, 0.8, kin(t, [[G("l11", 25), "that he would never"], [G("l11", 29), "get caught", "r"]]), { size: 110 })] },
     ]) },
 ];
 
@@ -228,7 +240,7 @@ if (WARP) for (const s of SHOTS) s.start = +(s.atWord !== undefined ? at(s.atWor
 SHOTS.sort((a, b) => a.start - b.start);
 // v30: no world tint (each journey panel carries its own look); sparse atmospheres.
 const WORLD_WASH = { color: "primarySoft" as const, strength: 0.0, mode: "tint" as const };
-const ATMOS: Record<string, [string, number]> = { A: ["dust", 0.35], C: ["dust", 0.4], H: ["smoke", 0.35], K: ["dust", 0.4] };
+const ATMOS: Record<string, [string, number]> = { A: ["leak", 0.25], B: ["dust", 0.4], C: ["dust", 0.45], D: ["scratches", 0.35], F: ["smoke", 0.45], H: ["smoke", 0.4], I: ["scratches", 0.4], J2: ["dust", 0.4], G: ["money", 0.4], Jd: ["scratches", 0.35], K: ["burn", 0.45] };
 for (const sh of SHOTS) {
   const orig = sh.scene;
   sh.scene = (t0: number) => {

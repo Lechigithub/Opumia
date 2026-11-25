@@ -139,27 +139,49 @@ if (existsSync(path.join(job, "story-kinds.json"))) {
   m.sceneShare = pr.share.scene;
   m.viewerShare = pr.viewerShare;
 }
+
+// A journey scene (one continuous camera through several panels) is read as its panels: each panel is the shot the
+// viewer sees, with the same fields a flat scene has (its picture as footage or a built stage/world, its look as a
+// wash, its words and cut-outs as elements, its defocus as depth of field), timed from its arrival to the next one's.
+type Flat = { shotId: string; backdrop?: string; world?: { kind?: string }; wash?: { color?: string; strength?: number; mode?: string }; fx?: { dof?: number }; finish?: { grain?: number }; atmos?: { kind?: string }; elements: Array<{ name?: string; type?: string; props?: { words?: Array<{ c?: string; from?: number }>; align?: string; font?: string; build?: boolean } }>; t0: number; t1: number };
+function flatten(scenes: Array<Record<string, any>>, shots: Array<{ id: string; startS: number; endS: number }>): Flat[] {
+  const out: Flat[] = [];
+  for (const sc of scenes) {
+    const sh = shots.find((x) => x.id === sc.shotId);
+    if (!sh) continue;
+    if (sc.backdrop !== "journey" || !sc.journey) { out.push({ ...(sc as Flat), t0: sh.startS, t1: sh.endS }); continue; }
+    const st = sc.journey.stops as Array<Record<string, any>>;
+    st.forEach((p, i) => {
+      const t0 = sh.startS + (i === 0 ? 0 : p.at - 0.5), t1 = i + 1 < st.length ? sh.startS + st[i + 1]!.at - 0.5 : sh.endS;
+      const look = p.look as string;
+      const wash = look === "mono" ? { color: "black", strength: 0.85, mode: "duotone" } : look === "duotone" ? { color: "primary", strength: 0.75, mode: "duotone" } : undefined;
+      out.push({ shotId: `${sc.shotId}.${i}`, backdrop: p.world ? "world" : p.stage ? "stage" : "footage", world: p.world, wash, fx: p.dof ? { dof: p.dof } : undefined, finish: sc.finish, atmos: sc.atmos, elements: [...(p.elements ?? []), ...(p.fore ?? [])], t0, t1 });
+    });
+  }
+  return out;
+}
+
 // the channel's staples (techniques in >= 20 % of its stretches, data/technique-inventory) the film's plan uses
 if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "storyboard.json"))) {
-  type El = { name?: string; type?: string; props?: { words?: Array<{ c?: string }>; align?: string } };
+  type El = { name?: string; type?: string; props?: { words?: Array<{ c?: string }>; align?: string; font?: string; build?: boolean } };
   type Sc = { backdrop?: string; world?: { kind?: string }; wash?: { color?: string; strength?: number; mode?: string }; fx?: { dof?: number }; finish?: { grain?: number }; atmos?: { kind?: string }; elements: El[] };
-  const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Sc[] }).scenes;
-  const sb = JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { durationS?: number; shots: Array<{ startS: number; endS: number }>; music: Array<{ drops?: unknown[] }> };
+  const sb = JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { durationS?: number; shots: Array<{ id: string; startS: number; endS: number }>; music: Array<{ drops?: unknown[] }> };
+  const sc = flatten((JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<Record<string, any>> }).scenes, sb.shots) as unknown as Sc[];
   const els = sc.flatMap((x) => x.elements);
   const has: Record<string, boolean> = {
     filmstrip_grid_layout: sc.some((x) => x.world?.kind === "filmstrip" || x.world?.kind === "contact_grid"),
-    text_on_label_shape: els.some((e) => e.name === "Label"),
+    text_on_label_shape: els.some((e) => ["Label", "Name", "Chip"].includes(e.name ?? "")), // words on a shape: a tag, a name bar, a chip
     monochrome_high_contrast_grade: sc.some((x) => x.wash?.mode === "duotone" && ["black", "surface", "textMuted", "paper"].includes(x.wash.color ?? "") && (x.wash.strength ?? 0) >= 0.55), // any monochrome tone (warm black-and-white counts)
     duotone_color_tint: sc.some((x) => (x.wash?.mode === "duotone" && !["black", "surface", "textMuted", "paper"].includes(x.wash.color ?? "")) || x.world?.kind === "duotone"),
-    word_by_word_build: els.some((e) => e.name === "Kinetic"),
+    word_by_word_build: els.some((e) => e.name === "Kinetic" || Boolean(e.props?.build)), // words that land one by one
     keyword_colour_highlight: els.some((e) => (e.props?.words ?? []).some((w) => w.c === "y" || w.c === "r")),
-    centered_caps_title: els.some((e) => e.name === "Kinetic" && (e.props?.align ?? "center") === "center"),
+    centered_caps_title: els.some((e) => ["Kinetic", "Phrase", "Figure"].includes(e.name ?? "") && (e.props?.align ?? "center") === "center" && e.props?.font !== "serif"),
     depth_of_field_blur: sc.some((x) => (x.fx?.dof ?? 0) > 0),
     film_grain_dust_scratches: sc.some((x) => (x.finish?.grain ?? 0) > 0 || x.atmos?.kind === "dust"),
     music_cue_change: sb.music.length > 1,
     music_drop_out: sb.music.some((c) => (c.drops ?? []).length > 0),
     b_roll_reenactment_clip: sc.some((x) => (x.backdrop ?? "footage") === "footage"),
-    long_hold_slow_cuts: sb.shots.some((x) => x.endS - x.startS >= 4),
+    long_hold_slow_cuts: sc.some((x) => (x as unknown as Flat).t1 - (x as unknown as Flat).t0 >= 4),
     // a hard cut that resets the palette: mean colour of a 32×18 frame 0.15 s before and after a cut differs by > 70
     hard_cut_style_shift: (() => { const rgb = (t: number) => { const b = execFileSync("ffmpeg", ["-v", "error", "-ss", Math.max(0, t).toFixed(2), "-i", path.resolve(film), "-frames:v", "1", "-vf", "scale=32:18", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]); const n = b.length / 3; let r = 0, g = 0, bl = 0; for (let i = 0; i < n; i++) { r += b[3 * i]!; g += b[3 * i + 1]!; bl += b[3 * i + 2]!; } return [r / n, g / n, bl / n]; }; return sb.shots.slice(1).some((x) => { const a = rgb(x.startS - 0.15), c = rgb(x.startS + 0.15); return Math.hypot(a[0]! - c[0]!, a[1]! - c[1]!, a[2]! - c[2]!) > 70; }); })(),
     // a stretch carried by the music alone: 10 s with no sound effect
@@ -207,17 +229,13 @@ if (existsSync(path.join(job, "resolution.json")) && existsSync(path.join(job, "
   for (const s of sbq) { const mm = media.find((x) => x.shotId === s.id && x.role === "primary" && x.kind === "video"); if (!mm || !existsSync(mm.localPath)) continue; const c = await measureCraft(mm.localPath, (s.trimInS ?? 0) + 0.5).catch(() => null); if (!c) continue; n++; if (c.sharpTop < qf.sharpTop!.p10 || c.contrast < qf.contrast!.p10) below++; }
   if (n) m.footageBelowFloor = +(below / n).toFixed(3);
 }
-// designed share of screen time: shots whose picture is built (a world or the kit's stage), not footage
+// designed share of screen time: what the viewer sees is built (a world or the kit's stage), not footage; clean share: shots (journey panels counted as shots) left as footage with nothing on them
 if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "storyboard.json"))) {
-  const scd = new Map((JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<{ shotId: string; backdrop?: string }> }).scenes.map((x) => [x.shotId, x.backdrop ?? "footage"]));
   const shd = (JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ id: string; startS: number; endS: number }> }).shots;
-  const tot = shd.reduce((a, x) => a + x.endS - x.startS, 0);
-  m.designedShare = +(shd.filter((x) => scd.get(x.id) !== "footage").reduce((a, x) => a + x.endS - x.startS, 0) / tot).toFixed(3);
-}
-// share of shots left as clean footage (nothing on them): the channel leaves 19–75 % per film (42 % typical)
-if (existsSync(path.join(job, "scenes.json"))) {
-  const sc = (JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<{ backdrop?: string; elements: unknown[] }> }).scenes;
-  m.cleanShare = +(sc.filter((x) => (x.backdrop ?? "footage") === "footage" && !x.elements.length).length / sc.length).toFixed(3);
+  const fl = flatten((JSON.parse(await readFile(path.join(job, "scenes.json"), "utf8")) as { scenes: Array<Record<string, any>> }).scenes, shd);
+  const tot = fl.reduce((a, x) => a + x.t1 - x.t0, 0);
+  m.designedShare = +(fl.filter((x) => (x.backdrop ?? "footage") !== "footage").reduce((a, x) => a + x.t1 - x.t0, 0) / tot).toFixed(3);
+  m.cleanShare = +(fl.filter((x) => (x.backdrop ?? "footage") === "footage" && !x.elements.length).length / fl.length).toFixed(3);
 }
 // Each measure keeps the best level it has reached in any version (owner, 2026-11-24: "only freeze the better part"):
 // a candidate is compared with those bests, not with one frozen film. --lock-best <label> records a candidate's better

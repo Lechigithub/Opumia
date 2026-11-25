@@ -100,15 +100,27 @@ export const JourneyStop = z.object({
   size: z.number().min(0.3).max(1.6).default(1),
   /** a real picture or clip (slot), with where a clip starts */
   slot: z.number().int().min(0).optional(), trim: z.number().min(0).optional(),
-  look: z.enum(["natural", "mono", "contrast", "cool", "warm", "faded", "bright"]).default("natural"),
+  look: z.enum(["natural", "mono", "contrast", "cool", "warm", "faded", "bright", "duotone"]).default("natural"),
   /** or a world made of real pictures, or the film's stage */
   world: SceneWorld.optional(), stage: z.boolean().optional(),
   /** a white or dark border around the panel (a print), and a shadow under it */
   frame: z.enum(["none", "print", "edge"]).default("none"),
   elements: z.array(SceneElement).max(6).default([]),
+  /** how the camera reaches this panel: slide to a neighbour, push through the last picture into this one, whip
+   *  (fast, motion-blurred) or rise */
+  move: z.enum(["slide", "push", "whip", "rise"]).default("slide"),
+  /** a layer in front of the panel at its own depth (cut-outs, words): it moves against the picture (parallax), and
+   *  words on the panel sit between the picture and this layer (text behind the subject) */
+  fore: z.array(SceneElement).max(4).optional(), foreDepth: z.number().min(0).max(0.5).optional(),
+  /** a second picture double-exposed over the first (screen blend) */
+  blendSlot: z.number().int().min(0).optional(), blendTrim: z.number().min(0).optional(),
+  /** the picture defocused behind its sharp layer in front (0–1) */
+  dof: z.number().min(0).max(1).optional(),
+  /** how the camera keeps moving while it holds: [x, y, z per second, roll degrees per second] */
+  drift: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
 });
 export const SceneJourney = z.object({
-  stops: z.array(JourneyStop).min(2).max(8),
+  stops: z.array(JourneyStop).min(1).max(8),
   /** longest flight between two panels (s); the camera leaves late and arrives on time */
   travel: z.number().min(0.4).max(3).default(1.1),
   /** how far the camera keeps drifting into a panel while it holds (share of its size per second) */
