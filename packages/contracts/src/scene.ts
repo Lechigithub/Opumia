@@ -84,10 +84,44 @@ export const SceneFinish = z.object({ grain: z.number().min(0).max(1).default(0)
 export const ATMOS_KINDS = ["smoke", "embers", "dust", "scratches", "burn", "sprocket", "leak", "money", "snow", "confetti", "bokeh"] as const;
 export const SceneAtmos = z.object({ kind: z.enum(ATMOS_KINDS), opacity: z.number().min(0.1).max(1).default(0.6) });
 
+/** A continuous camera journey (owner, 2026-11-24: "the reference holds and moves continuously from scene to scene with
+ *  no cut"; measured: the channel changes picture by moving, not cutting, 76 % of the time against our 42 %): real
+ *  pictures and clips placed as panels in a 3D space, the camera flying from one to the next (with perspective, so
+ *  panels at other depths pass at other speeds) and drifting while it holds; each panel carries its own words, which
+ *  travel with it. */
+export const JourneyStop = z.object({
+  /** seconds after the scene starts when the camera has arrived at this panel */
+  at: z.number().min(0),
+  /** where the panel sits, in frame widths / heights; depth in frame widths (positive = farther away) */
+  x: z.number().default(0), y: z.number().default(0), depth: z.number().default(0),
+  /** the panel's turn (degrees): the camera turns with it, so travelling to a turned panel is an arc */
+  ry: z.number().min(-75).max(75).default(0), rz: z.number().min(-30).max(30).default(0),
+  /** the panel's size against the frame (1 = fills it when the camera arrives) */
+  size: z.number().min(0.3).max(1.6).default(1),
+  /** a real picture or clip (slot), with where a clip starts */
+  slot: z.number().int().min(0).optional(), trim: z.number().min(0).optional(),
+  look: z.enum(["natural", "mono", "contrast", "cool", "warm", "faded", "bright"]).default("natural"),
+  /** or a world made of real pictures, or the film's stage */
+  world: SceneWorld.optional(), stage: z.boolean().optional(),
+  /** a white or dark border around the panel (a print), and a shadow under it */
+  frame: z.enum(["none", "print", "edge"]).default("none"),
+  elements: z.array(SceneElement).max(6).default([]),
+});
+export const SceneJourney = z.object({
+  stops: z.array(JourneyStop).min(2).max(8),
+  /** longest flight between two panels (s); the camera leaves late and arrives on time */
+  travel: z.number().min(0.4).max(3).default(1.1),
+  /** how far the camera keeps drifting into a panel while it holds (share of its size per second) */
+  push: z.number().min(0).max(0.12).default(0.035),
+  /** the ground everything floats over */
+  ground: z.enum(["stage", "black", "world"]).default("black"),
+});
+
 export const SceneSpec = z.object({
   shotId: z.string(),
   /** What sits behind the elements: the shot's own footage (sharp, dimmed), or the kit's own stage. */
-  backdrop: z.enum(["footage", "stage", "world"]).default("footage"),
+  backdrop: z.enum(["footage", "stage", "world", "journey"]).default("footage"),
+  journey: SceneJourney.optional(),
   /** backdrop "world": which world, made of which real pictures. */
   world: SceneWorld.optional(),
   finish: SceneFinish.optional(),

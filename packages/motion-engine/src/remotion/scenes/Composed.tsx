@@ -3,6 +3,7 @@ import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, u
 import { FILM } from "@film";
 import { PALETTE, pick, vary } from "../types";
 import { Card3D, Prop3D, Text3D } from "./Three";
+import { JourneyScene, type JourneySpec } from "./Journey";
 import { Finish, gradeFilter, World, type FinishSpec, type WorldSpec , RetouchFilter, retouchCss, type RetouchSpec } from "./Worlds";
 
 /**
@@ -42,7 +43,7 @@ type El =
   | (Box & { type: "component"; name: string; props?: Record<string, unknown>; h?: number });
 
 export interface ComposedProps {
-  spec: { backdrop?: "footage" | "stage" | "world"; world?: WorldSpec; finish?: FinishSpec; wash?: { color: Token; strength: number; mode: "tint" | "duotone" }; camera: { fromScale: number; toScale: number; fromX: number; toX: number; fromY: number; toY: number }; elements: El[] };
+  spec: { backdrop?: "footage" | "stage" | "world" | "journey"; world?: WorldSpec; finish?: FinishSpec; wash?: { color: Token; strength: number; mode: "tint" | "duotone" }; camera: { fromScale: number; toScale: number; fromX: number; toX: number; fromY: number; toY: number }; elements: El[] };
   slots: Record<string, string>;
   accent?: string;
 }
@@ -103,7 +104,7 @@ function useEnter(at: number, enter: Enter) {
   }
 }
 
-const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drift: number }> = ({ el, i, slots, drift }) => {
+export const Element: React.FC<{ el: El; i: number; slots: Record<string, string>; drift: number }> = ({ el, i, slots, drift }) => {
   const { width, height, fps } = useVideoConfig();
   const f = useCurrentFrame();
   const at = el.at ?? 0;
@@ -367,6 +368,7 @@ export const ComposedScene: React.FC<ComposedProps> = ({ spec, slots }) => {
         </>
       ) : null}
       {bd === "stage" ? <KitStage /> : null}
+      {bd === "journey" && (spec as { journey?: JourneySpec }).journey ? <JourneyScene journey={(spec as unknown as { journey: JourneySpec }).journey} slots={slots} /> : null}
       {bd === "world" && spec.world ? <AbsoluteFill style={dofPx > 0 ? { filter: `blur(${dofPx}px)` } : undefined}><World world={spec.world} slots={slots} /></AbsoluteFill> : bd === "world" ? <KitStage /> : null}
       <AbsoluteFill style={{ transform: `scale(${1 + (scale - 1) * 0.3})`, transformOrigin: `${fx * 100}% ${fy * 100}%` }}>
         <div style={{ position: "absolute", inset: 0, width, height, ...(fxs?.twotone ? { filter: "sepia(0.35) saturate(1.3) hue-rotate(-10deg)" } : {}) }}>
