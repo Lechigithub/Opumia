@@ -68,7 +68,7 @@ const MEDIA: Record<string, M> = {
   phone_still: { file: "downloads/stills/phone_typing.jpg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/6414098/" },
   crash_still: { file: "downloads/stills/crash_chart.jpg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/38859052/" },
   hourglass: { file: "downloads/library/hourglass.png", kind: "image", origin: "library", provider: "library", license: "CC BY-SA 3.0", credit: "\"Wooden hourglass 3.jpg\" by User:S Sepp, CC BY-SA 3.0, via Wikimedia Commons", url: "https://commons.wikimedia.org/wiki/File:Wooden_hourglass_3.jpg" },
-  coins: { file: "downloads/library/coins_pile.png", kind: "image", origin: "library", provider: "library", license: "CC BY-SA 2.0", credit: "\"Medieval coin haord (pile of coins)\" by Birmingham Museums Trust, Angie Bolton, CC BY-SA 2.0, via Wikimedia Commons", url: "https://commons.wikimedia.org/" },
+  coinpile: { file: "downloads/library/coins_pile.png", kind: "image", origin: "library", provider: "library", license: "CC BY-SA 2.0", credit: "\"Medieval coin haord (pile of coins)\" by Birmingham Museums Trust, Angie Bolton, CC BY-SA 2.0, via Wikimedia Commons", url: "https://commons.wikimedia.org/" },
   btc_still: { file: "downloads/stills/btc.jpg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/4406964/" },
   money_still: { file: "downloads/stills/money_pile_soft.jpg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/6266286/" },
   crowd: ST("5695519", "Pexels"), bin: ST("7668957", "Pexels"), phone2: ST("6414098", "Pexels"), phone3: ST("6279142", "Pexels"),
@@ -103,7 +103,7 @@ const fin = (g = 0.35, v = 0.55, leak = 0) => ({ grain: g, vignette: v, leak });
 
 const SHOTS: Shot[] = [
   { id: "S01", start: 0, seg: "l01", intent: "a message sent at night", slots: { 1: "phone_still" }, tr: "cut",
-    scene: (t) => ({ backdrop: "world", world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accent" }, dim: 0.1, atmos: { kind: "dust", opacity: 0.6 }, camera: cam(1.0, 1.4), finish: fin(0.4, 0.7, 0.3), atmos: { kind: "dust", opacity: 0.6 },
+    scene: (t) => ({ backdrop: "world", world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accent" }, dim: 0.1, atmos: { kind: "dust", opacity: 0.6 }, camera: cam(1.0, 1.4), finish: fin(0.4, 0.7, 0.3),
       elements: [{ type: "component", name: "Kinetic", x: 0.1, y: 0.36, w: 0.8, at: 0, z: 0.7, rot: 0, enter: "fade", props: { words: kin(t, [[G("l01", 2), "NOVEMBER", "w"], [G("l01", 2), "7", "y"], ["|", ""], [G("l01", 5), "2022", "y"]]), size: 190 } }] }) },
   { id: "S02", start: 2.9, seg: "l01", intent: "Sam Bankman-Fried", slots: { 0: "cut_sbf", 1: "sbf_cnbc_still" }, tr: "film",
     scene: (t) => ({ backdrop: "world", atmos: { kind: "leak", opacity: 0.6 }, world: { kind: "mono_accent", slot: 1, color: "primary", accent: "accent" }, dim: 0.15, camera: cam(1.0, 1.16), finish: fin(0.35, 0.6, 0.2),
@@ -151,7 +151,7 @@ const SHOTS: Shot[] = [
         { type: "photo", slot: 0, x: 0.25, y: 0.12, w: 0.5, z: 0.6, rot: 0, at: 0, enter: "slide_down", grade: "natural" },
         { type: "component", name: "Counter", x: 0.1, y: 0.34, w: 0.8, at: rel(t, G("l04", 16)), z: 0.8, rot: 0, enter: "fade", props: { prefix: "$", to: 14.6, decimals: 1, suffix: " BILLION", frames: 20, label: "in assets" } },
       ] }) },
-  { id: "S10", start: 23.7, seg: "l04", intent: "40% was FTT",  slots: { 0: "coins", 1: "btc_still" }, tr: "flash",
+  { id: "S10", start: 23.7, seg: "l04", intent: "40% was FTT",  slots: { 0: "coinpile", 1: "btc_still" }, tr: "flash",
     scene: (t) => ({ backdrop: "world", world: { kind: "duotone", slot: 1, color: "primary", accent: "accent" }, dim: 0.35, camera: cam(1.0, 1.16), finish: fin(0.35, 0.6),
       elements: [{ type: "cutout", slot: 0, x: 0.5, y: 0.42, w: 0.46, z: 0.5, rot: 0, at: 0, enter: "settle", shadow: true },
         { type: "component", name: "Donut", x: 0.08, y: 0.12, w: 0.36, at: 0, z: 0.7, rot: 0, enter: "fade", props: { share: 0.4, label: "FTT", from: 1, frames: 14 } }] }) },

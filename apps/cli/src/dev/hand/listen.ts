@@ -7,8 +7,8 @@ import { transcribe } from "@opumia/senses";
 for (const f of process.argv.slice(2)) {
   const r = await transcribe(f, { dataDir: path.join(process.cwd(), "data") });
   const w = r.words;
-  const dur = w.at(-1)!.endS - w[0]!.startS;
-  const gaps = w.slice(1).map((x, i) => x.startS - w[i]!.endS);
+  const dur = w.at(-1)!.end - w[0]!.start;
+  const gaps = w.slice(1).map((x, i) => x.start - w[i]!.end);
   const o = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", f, "-af", "ebur128=metadata=1,ametadata=print:key=lavfi.r128.M", "-f", "null", "-"], { encoding: "utf8" }).stderr;
   const M = [...o.matchAll(/lavfi\.r128\.M=(-?[\d.]+)/g)].map((m) => Number(m[1])).filter((_, i) => i % 5 === 0);
   const sorted = [...M].filter((x) => x > -70).sort((a, b) => a - b);
