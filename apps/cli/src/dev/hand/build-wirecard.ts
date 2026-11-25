@@ -25,7 +25,8 @@ const PB = (id: string, credit: string): M => ({ file: `downloads/stock/pixabay_
 const stockCredit = JSON.parse(await readFile(path.join(job, "downloads", "stock.json"), "utf8")) as Record<string, { credit?: string }>;
 const cr = (k: string) => stockCredit[k]?.credit ?? (k.startsWith("pexels") ? "Pexels" : "Pixabay");
 const MEDIA: Record<string, M> = {
-  card: PX("11158789", cr("pexels_11158789")), munich: PX("19023114", cr("pexels_19023114")), tower: PB("361362", cr("pixabay_361362")),
+  card: PX("5240825", cr("pexels_5240825")), manila2: PX("19666015", cr("pexels_19666015")),
+  note: { file: "downloads/stock/pexels_52551.jpeg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Photo by Pixabay on Pexels", url: "https://www.pexels.com/photo/52551/" }, munich: PX("19023114", cr("pexels_19023114")), tower: PB("361362", cr("pixabay_361362")),
   board: PX("3191576", cr("pexels_3191576")), frankfurt: PX("27604521", cr("pexels_27604521")), confetti: PX("31540263", cr("pexels_31540263")),
   press: PX("30183300", cr("pexels_30183300")), police: PX("7714378", cr("pexels_7714378")), gavel: PB("162047", cr("pixabay_162047")),
   papers: PX("7732805", cr("pexels_7732805")), lens: PX("6929604", cr("pexels_6929604")), manila: PX("39617781", cr("pexels_39617781")), safe: PX("39060937", cr("pexels_39060937")),
@@ -40,7 +41,7 @@ type Beat = { id: string; seg: string; k: number; lead?: number; intent: string;
 const wd = (r: (s: string, k: number) => number, parts: Array<[string, string, number, boolean?]>, x: number, y: number, w: number, size: number, o: Record<string, unknown> = {}) => ({ words: parts.map(([text, seg, k, br]) => ({ text, at: r(seg, k), ...(br ? { br } : {}) })), x, y, w, size, ...o });
 const BEATS: Beat[] = [
   { id: "B1", seg: "w01", k: 0, lead: 0, intent: "a card taps a terminal; the wet night streets of Munich race past", slots: { 0: "card", 1: "munich" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.55], pan: [0.05, -0.05], grade: "saturate(0.7) contrast(1.5) brightness(0.45) hue-rotate(10deg)" }, { slot: 1, at: r("w01", 3) - 0.1, push: [1.1, 1.5], pan: [-0.08, 0.08] }], whipOut: true,
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.55], pan: [0.05, -0.05], grade: "saturate(0.85) contrast(1.55) brightness(0.5) hue-rotate(4deg)" }, { slot: 1, at: r("w01", 3) - 0.1, push: [1.1, 1.5], pan: [-0.08, 0.08] }], whipOut: true,
       words: [wd(r, [["September", "w01", 1], ["2018", "w01", 2]], 0.05, 0.1, 0.9, 0.13, { slam: true, until: r("w01", 8) - 0.15 }), wd(r, [["a suburb of", "w01", 8], ["Munich", "w01", 10]], 0.05, 0.62, 0.9, 0.09, { style: "label" })] }) },
   { id: "B2", seg: "w01", k: 11, lead: 0.05, intent: "the glass headquarters in Aschheim, rushing at us: almost nobody thought it possible", slots: { 0: "hq" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.05, 1.6], pan: [0.06, -0.02], rot: [-3, 2] }], data: { n: 30, from: 0 }, whipIn: true,
@@ -49,7 +50,7 @@ const BEATS: Beat[] = [
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.2, 1.6], pan: [0.06, -0.06] }], data: { n: 30, from: 0, speed: 0.016 }, inF: 6, whipOut: true,
       shove: { out: "COMMERZBANK", inn: "WIRECARD", at: r("w02", 9), y: 0.3, size: 0.21 },
       words: [wd(r, [["1 of the 30", "w02", 3], ["founding members", "w02", 7]], 0.05, 0.66, 0.9, 0.07, { style: "label", until: r("w02", 9) - 0.1 }), wd(r, [["out of the", "w02", 9], ["DAX", "w02", 12]], 0.05, 0.64, 0.9, 0.08, { style: "label" })] }) },
-  { id: "B4", seg: "w03", k: 0, lead: 0.05, intent: "the Frankfurt skyline flying in; €24 billion counting; more than Deutsche Bank; confetti for a tech champion", slots: { 0: "frankfurt", 1: "confetti" },
+  { id: "B4", seg: "w03", k: 0, lead: 0.05, intent: "the Frankfurt skyline flying in; €24 billion counting; more than Deutsche Bank; confetti for a tech champion", slots: { 0: "frankfurt", 1: "confetti", 8: "note" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.0, 1.5], pan: [0.03, -0.03] }, { slot: 1, at: r("w03", 16) - 0.1, push: [1.1, 1.35], pan: [-0.03, 0.03] }], money: { n: 30, from: r("w03", 4) - 0.2, speed: 0.012 }, whipIn: true,
       counter: { to: 24, at: r("w03", 4), dur: 0.9, prefix: "€", suffix: " BILLION", x: 0, y: 0.16, size: 0.18 },
       words: [wd(r, [["more than", "w03", 7], ["Deutsche Bank", "w03", 9]], 0.05, 0.6, 0.9, 0.08, { style: "label", until: r("w03", 16) - 0.15 }), wd(r, [["tech", "w03", 16], ["champion", "w03", 17]], 0, 0.6, 1, 0.16, { slam: true, enter: "spin" })] }) },
@@ -57,13 +58,13 @@ const BEATS: Beat[] = [
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.45], pan: [0.08, -0.08], grade: "saturate(0.8) contrast(1.5) brightness(0.55) hue-rotate(10deg)" }, { slot: 1, at: r("w04", 15) - 0.1, push: [1.15, 1.7], pan: [0.1, -0.1], grade: "saturate(0.8) contrast(1.4) brightness(0.8) hue-rotate(8deg)" }], whipOut: true,
       words: [wd(r, [["Financial Times", "w04", 6]], 0.05, 0.1, 0.9, 0.08, { style: "label", until: r("w04", 10) - 0.1 }), wd(r, [["where was", "w04", 10], ["the money?", "w04", 12]], 0, 0.3, 1, 0.17, { slam: true, until: r("w04", 15) - 0.15 }), wd(r, [["Germany didn't go", "w04", 15], ["after the company", "w04", 18, true]], 0.05, 0.56, 0.9, 0.1, { red: true, style: "red" })] }) },
   { id: "B6", seg: "w05", k: 0, lead: 0.05, intent: "a gavel; police light: bets banned, the reporter investigated", slots: { 0: "gavel", 1: "police" },
-    props: (t, r) => ({ red: true, plates: [{ slot: 0, push: [1.1, 1.4] }, { slot: 1, at: r("w05", 6) - 0.1, push: [1.2, 1.6], pan: [0.1, -0.1] }], strobe: [r("w05", 6), 99], whipIn: true, outF: 4,
+    props: (t, r) => ({ red: true, lowkey: true, plates: [{ slot: 0, push: [1.1, 1.4] }, { slot: 1, at: r("w05", 6) - 0.1, push: [1.2, 1.6], pan: [0.1, -0.1] }], strobe: [r("w05", 6), 99], whipIn: true, outF: 4,
       words: [wd(r, [["bets banned", "w05", 2]], 0, 0.14, 1, 0.2, { style: "red", slam: true, until: r("w05", 8) - 0.15 }), wd(r, [["the reporter", "w05", 10], ["investigated", "w05", 9, true]], 0, 0.5, 1, 0.13, { style: "red", slam: true })] }) },
-  { id: "B7", seg: "w06", k: 0, lead: 0.05, intent: "auditors tearing through the paperwork; a magnifier over the figures: €1.9 billion; Manila from the air", slots: { 0: "papers", 1: "lens", 2: "manila" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.6], pan: [-0.1, 0.1], rot: [-4, 3] }, { slot: 1, at: r("w06", 9) - 0.1, push: [1.2, 1.7], pan: [0.08, -0.08] }, { slot: 2, at: r("w06", 19) - 0.1, push: [1.1, 1.6], pan: [0.1, -0.1] }], inF: 6, whipOut: true,
+  { id: "B7", seg: "w06", k: 0, lead: 0.05, intent: "auditors tearing through the paperwork; a magnifier over the figures: €1.9 billion; Manila from the air", slots: { 0: "papers", 1: "lens", 2: "manila2" },
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.6], pan: [-0.1, 0.1], rot: [-4, 3], grade: "saturate(0.9) contrast(1.5) brightness(0.55) hue-rotate(6deg)" }, { slot: 1, at: r("w06", 9) - 0.1, push: [1.2, 1.7], pan: [0.08, -0.08], grade: "saturate(0.9) contrast(1.5) brightness(0.5) blur(5px)" }, { slot: 2, at: r("w06", 19) - 0.1, trim: 2, push: [1.1, 1.6], pan: [0.1, -0.1] }], inF: 6, whipOut: true,
       words: [wd(r, [["June", "w06", 2], ["2020", "w06", 3]], 0.05, 0.1, 0.9, 0.09, { style: "label", until: r("w06", 9) - 0.1 }), wd(r, [["€1.9", "w06", 9], ["billion", "w06", 12]], 0, 0.3, 1, 0.24, { slam: true, until: r("w06", 21) - 0.15 }), wd(r, [["two banks in", "w06", 21], ["the Philippines", "w06", 24]], 0.05, 0.6, 0.9, 0.11, {})] }) },
   { id: "B8", seg: "w07", k: 0, lead: 0.05, intent: "a safe opened on nothing: both banks said they had nothing to do with Wirecard", slots: { 0: "safe" },
-    props: (t, r) => ({ red: true, plates: [{ slot: 0, trim: 1, push: [1.2, 1.55], pan: [0.05, -0.05] }], whipIn: true,
+    props: (t, r) => ({ red: true, lowkey: true, plates: [{ slot: 0, trim: 1, push: [1.2, 1.55], pan: [0.05, -0.05] }], whipIn: true,
       words: [wd(r, [["nothing", "w07", 5]], 0, 0.3, 1, 0.3, { style: "red", slam: true }), wd(r, [["to do with Wirecard", "w07", 6]], 0.05, 0.68, 0.9, 0.08, { style: "label" })] }) },
   { id: "B9", seg: "w08", k: 0, lead: 0.05, intent: "handcuffs, police light: the chief executive arrested", slots: { 0: "cuffs", 1: "police" },
     props: (t, r) => ({ red: true, plates: [{ slot: 0, push: [1.15, 1.5], pan: [-0.05, 0.05] }], strobe: [0, 99], inF: 5, whipOut: true,
@@ -71,11 +72,11 @@ const BEATS: Beat[] = [
   { id: "B10", seg: "w08", k: 8, lead: 0.05, intent: "the chart falling off a cliff: the first DAX company ever to go bust", slots: { 0: "crash" },
     props: (t, r) => ({ red: true, plates: [{ slot: 0, push: [1.2, 1.7], pan: [0.08, -0.08], rot: [-4, 3] }], data: { n: 50, from: 0, speed: 0.02 }, whipIn: true, whipOut: true,
       words: [wd(r, [["the first", "w08", 10], ["DAX company", "w08", 12]], 0.05, 0.12, 0.9, 0.1, { style: "label", until: r("w08", 16) - 0.1 }), wd(r, [["ever to", "w08", 14], ["go bust", "w08", 16]], 0, 0.36, 1, 0.24, { style: "red", slam: true })] }) },
-  { id: "B11", seg: "w08", k: 18, lead: 0.05, intent: "Marsalek's Munich villa; a private jet rolling; a counting machine spitting notes: paid in cash", slots: { 0: "villa", 1: "jet", 2: "counter" },
+  { id: "B11", seg: "w08", k: 18, lead: 0.05, intent: "Marsalek's Munich villa; a private jet rolling; a counting machine spitting notes: paid in cash", slots: { 0: "villa", 1: "jet", 2: "counter", 8: "note" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.6], pan: [0.05, -0.05] }, { slot: 1, at: r("w08", 27) - 0.1, trim: 6, push: [1.1, 1.45], pan: [-0.06, 0.06] }, { slot: 2, at: r("w08", 33) - 0.1, push: [1.2, 1.5] }], money: { n: 32, from: r("w08", 33) - 0.2, speed: 0.016 }, whipIn: true, outF: 4,
       words: [wd(r, [["chief operating officer", "w08", 20]], 0.05, 0.1, 0.9, 0.07, { style: "label", until: r("w08", 23) - 0.1 }), wd(r, [["Jan", "w08", 23], ["Marsalek", "w08", 24]], 0, 0.36, 1, 0.22, { slam: true, enter: "spin", until: r("w08", 27) - 0.15 }), wd(r, [["private jet", "w08", 29], ["to Minsk", "w08", 31]], 0, 0.14, 1, 0.14, { slam: true, until: r("w08", 33) - 0.15 }), wd(r, [["paid in cash", "w08", 33]], 0, 0.4, 1, 0.2, { slam: true })] }) },
   { id: "B12", seg: "w09", k: 0, lead: 0.05, intent: "a note burning: a €24 billion company built on money that was never there", slots: { 0: "euros", 7: "fire" },
-    props: (t, r) => ({ red: true, lightTrim: 3, lightFilter: "saturate(1.25)", lightOpacity: 0.75, plates: [{ slot: 0, push: [1.15, 1.6], pan: [0.03, -0.03], grade: "saturate(0.9) contrast(1.35) brightness(0.62)" }], inF: 7,
+    props: (t, r) => ({ red: true, lowkey: true, lightTrim: 3, lightFilter: "saturate(1.25)", lightOpacity: 0.75, plates: [{ slot: 0, push: [1.15, 1.6], pan: [0.03, -0.03], grade: "saturate(0.9) contrast(1.35) brightness(0.62)" }], inF: 7,
       words: [wd(r, [["€24 billion", "w09", 6]], 0.05, 0.12, 0.9, 0.11, { until: r("w09", 15) - 0.1 }), wd(r, [["money that was", "w09", 15], ["never there", "w09", 18, true]], 0, 0.36, 1, 0.17, { style: "red", slam: true })] }) },
 ];
 const TITLE_AT = +(timed.durationS + 0.25).toFixed(2), TITLE_LEN = 2.8;
