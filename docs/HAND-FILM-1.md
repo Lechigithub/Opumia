@@ -569,3 +569,62 @@ The owner asked for everything learned to be taught to the agents and the platfo
   (big and sharp; props serve it) and posts fused into the world.
 - **Not proven:** no agent film has been produced with any of this (that needs the API). The smoke test renders a
   journey and a craft composite offline.
+
+### Watched and listened: Ponzi against ours, the first minute (2026-11-25)
+Owner: "you judge the pass by watching and listening to the films and the reference." `dev/hand/watch.ts` shows a
+stretch at 12 frames a second (2 s a sheet), or 6 a second for an overview. It also shows a spectrogram and waveform of
+the sound, the spoken words with their times, sharp sound onsets, hard cuts and loudness every quarter second. The
+same function runs on ours and on the reference. Before this I judged from 1–3 stills per shot and from averages.
+Watched this way, the differences are plain.
+
+**Picture**
+1. **One visual idea per sentence, built as a layered composite**, and the line's key words set huge. The words are
+   60–95 % of the frame wide, a bold condensed face in a yellow-to-orange gradient with glow. They build word by word on
+   the voice, often behind the subject's head, and stay until the next idea:
+   - SUCCESSFUL / BUSINESS INVESTMENTS;
+   - MILLIONS OF DOLLARS;
+   - "Take their money" in a script face;
+   - THE WHOLE THING WAS AN OUTRAGEOUS / SCAM;
+   - THOUSANDS OF INNOCENT / PEOPLE;
+   - THE PONZI SCHEME;
+   - UNTOLD TRUTH.
+
+   Ours: few words, smaller, and the middle carries documents and labels instead.
+2. **Actors performing the line** (stock): a man fanning cash; a crowd raising hands; a hand passing money; a man
+   staring through the notes he holds; a ghoul laughing in fire; a man with arms out under falling money; a man with his
+   face in his hands in smoke; a man in a chair facing a storm. Ours: stock with almost no action (a beach with
+   sandcastles, servers, a hand on chips, a man on a phone).
+3. **Pictures turn into each other.**
+   - A watch face becomes a window that dissolves to a banknote, then a face, then equations.
+   - The subject rises out of the watch.
+   - The flag rises behind a held subject.
+   - Fire burns in behind a face.
+   - A white flash every ~3–10 s carries the change.
+   - Only 4 hard cuts between 12 and 60 s.
+
+   Ours: hard cuts and slides between separate pictures.
+4. **Bright, warm and full.** Gold and orange with bloom. Every frame is filled edge to edge. The subject is 50–80 %
+   of the frame height; there is always a background texture, the subject, particles in front and the words.
+   Ours: dark brown and felt green, empty black areas, small subjects.
+5. **The cold open ends on a quiet title card** ("CHARLES PONZI" on black) after about 40 s of montage.
+
+**Sound**
+1. **A continuous music bed under the whole opening**, starting before the voice, with a strong low end that never
+   stops. In the cold open the bed sits about 9.5 dB under the voice (the whole film: 17 dB). Measured from Ponzi's own
+   stems: voice −18, bed −28 under speech, the bed never below −45. Ours: about 20 dB under, a thin pad that is ducked
+   hard.
+2. **The voice almost never stops**: speech on 97 % of the cold open. Ours pauses, with a 1.8 s near-silent hole at
+   4.75–6.0 s; our loudness swings between −13 and −35 LUFS, theirs between −14 and −21.
+3. **Hits are modest** (+6–11 dB bright onsets) and land on the flashes and reveals. A rhythmic build of pulses every
+   0.37 s leads into the title card. Ours: +13–26 dB hits that jump out of a thin mix.
+
+**Why the passes before missed this:**
+- Still frames show composition, not how a picture becomes the next one.
+- Loudness averages and hit counts don't show a bed that is missing between words.
+
+**Consequence:** the v30 direction is not how the channel builds an opening. That is the dark felt-green kit, journeys
+between separate panels, and documents explained on cards. The minute has to be rebuilt as a bright, full,
+word-led montage of performed pictures under a continuous bed.
+
+**First mix pass:** the opening bed raised 8 dB; the hole improved only from −31 to −28 LUFS. The bed track itself
+(a thin pad) has to change.

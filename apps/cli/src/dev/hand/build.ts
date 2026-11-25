@@ -300,7 +300,7 @@ for (const [id, moment, gain] of HITS) {
 }
 const cueAt = (seg: string) => +at(G(seg, 0)).toFixed(2);
 const MUSIC = [
-  { assetId: "c7d84c22243cc9b8", startS: 0, endS: cueAt("l07"), gainDb: -12, mood: "tension" as const, drops: [{ startS: +(cueAt("l07") - 0.7).toFixed(2), endS: cueAt("l07") }] },
+  { assetId: "c7d84c22243cc9b8", startS: 0, endS: cueAt("l07"), gainDb: -4, mood: "tension" as const, drops: [{ startS: +(cueAt("l07") - 0.7).toFixed(2), endS: cueAt("l07") }] },
   { assetId: "cfe84cbe6f131850", startS: cueAt("l07"), endS: cueAt("l10"), gainDb: -13, mood: "collapse" as const, drops: [{ startS: +(cueAt("l10") - 0.7).toFixed(2), endS: cueAt("l10") }] },
   { assetId: "ee760fba94164380", startS: cueAt("l10"), endS: dur, gainDb: -12, mood: "resolve" as const, drops: [{ startS: +(at(G("l11", 15)) - 0.75).toFixed(2), endS: +at(G("l11", 15)).toFixed(2) }] },
 ];
@@ -341,6 +341,12 @@ if (process.argv.includes("--stretch")) {
   await masterAudio(manifest, master);
   await muxFinal(silent, master, path.join(job, "film_16x9.mp4"));
   console.log("rendered", path.join(job, "film_16x9.mp4"), `(seconds ${a}–${b} re-rendered)`);
+} else if (process.argv.includes("--mix")) {
+  // sound only: remaster and mux onto the last silent render (mix passes in seconds)
+  const silent = path.join(job, "video_silent.mp4"), master = path.join(job, "master.wav");
+  await masterAudio(manifest, master);
+  await muxFinal(silent, master, path.join(job, "film_16x9.mp4"));
+  console.log("remixed", path.join(job, "film_16x9.mp4"));
 } else if (process.argv.includes("--render")) {
   const silent = path.join(job, "video_silent.mp4"), master = path.join(job, "master.wav");
   await renderVideo({ manifest, look, design, publicDir: pub, out: silent, log: console.log });
