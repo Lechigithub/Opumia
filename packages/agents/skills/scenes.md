@@ -194,25 +194,33 @@ on lines held at least 1.5 s.
 - A phrase arrives whole and stays. The spoken word lights up inside it; it does not pop in on its own.
 - `words_rushed` sends back any stretch that flashes words.
 
-**Build the scenes that matter by hand.** For the opening, every payoff, and any scene the measures keep sending back,
-use `write_composite`. It writes one layered React component for that scene alone, built from the shared craft tools
-(`@craft`) and the film's own kit (`@film`). The v32 opening is the model.
-- **Layers:**
-  - moving real footage underneath, graded;
-  - the subject's face double-exposed faint in its lights (`DoubleExposure`);
-  - spoken words as thick carved 3D type flying in from depth and turning (`Slab3D`);
-  - the subject cut out big and rim-lit by the scene's own light (`HeroCutout`);
-  - their name wrapping round them, behind the head and in front of the shoulder (`WrapAround`);
-  - real objects tumbling in depth, behind and in front of the subject (`DepthRain` with `TwoSided` banknotes);
-  - flares on the hits (`Flare`);
-  - one grade over all of it.
-- **Transitions between beats made of the picture:**
-  - a whip (`Whip` out, then in);
-  - a push into a device (`Phone`);
-  - glass cracking, then shattering into falling shards that reveal the next world (`Cracks`, `Shatter`);
-  - a shake on the impact (`shake`).
-- Every layer moves on the narration's word times.
-- Use your film's own colours and type, never another film's. The tools are techniques, not a look.
+**Build the scenes that matter by hand, from this film's world.** For the opening, every payoff, and any scene the
+measures keep sending back, use `write_composite`. It writes one layered React component for that scene alone, from the
+plain building blocks (`@craft`: camera paths, depth, masks, physics, 3D, blur, light, time) and the film's own kit
+(`@film`).
+- **Start from the world bible** (`design/film/WORLD.md`): the story's era, brand, places, objects and materials. The
+  channel dresses every film in its subject's own visual language:
+  - Red Bull looks like Red Bull's events;
+  - Silk Road like a darknet terminal;
+  - DeLorean like 1970s Kodak film;
+  - Ponzi like 1920s newspapers and banknotes.
+
+  Real examples and how each differs: `data/world-profile/magnates-media/worlds.md`.
+- **Invent this film's devices from its own things:**
+  - how this story's money, power, secrecy or collapse is shown;
+  - how its words arrive;
+  - how one picture becomes the next.
+
+  A device another of our films used is on cooldown like a picture. Nothing is taken from an earlier film's kit, and no
+  earlier hand film is a model.
+- **What every film shares is the channel's grammar,** measured, not a look:
+  - pictures change mostly by moving, not by hard cuts (≈ 92 % in a cold open);
+  - the frame keeps moving;
+  - words held until read (≈ 2.5 s);
+  - the named subject big and sharp;
+  - low-key light;
+  - few words per frame.
+- Every layer moves on the narration's word times. One grade over the scene, the film's own.
 
 **The hero is big and sharp, and the props serve the hero.** In a payoff the subject covers 30–60 % of the frame and is
 sharp. In v32 the founder stood small and soft among falling banknotes, and it read as a photo pasted among props. If
@@ -236,36 +244,19 @@ floating card still reads as an interface.
 and on any scene you built by hand. Your stretch sits on top and a real stretch at the same place in a film below it,
 both measured. Fix what the real one does that yours does not.
 
-## The cold open, as the channel builds it (hand film v34, 2026-11-25)
+## The cold open: the channel's grammar (measured), never one film's look
 
-Watched at 12 frames a second beside Ponzi, then rebuilt. The owner froze it as the best version so far.
+Measured on the channel's cold opens (Ponzi watched at 12 frames a second; motion, cut and text bands over 37 films):
+- **One idea per sentence, one moving picture for it,** filling the frame, never still.
+- **The key words of the line are on screen and held until read.** How they look is the film's own: the channel's
+  films set them as yellow script (Ponzi), torn-paper handwriting (1MDB), red collage caps (Eiffel Tower), terminal
+  chevrons (Silk Road), brand event titles (Red Bull).
+- **Pictures change by moving** (a push, a wipe made of the picture, light, a move through the frame): about 5 hard
+  cuts in a minute while the picture changes every 3–5 s. Which move is this film's choice.
+- **Light:** deep shadows (≈ 13 % of frames dark), highlights saturated.
+- **Motion:** the channel's frames change about 1.6× more than our best hand film (17 vs 10.3). More layers moving,
+  pictures growing out of each other.
 
-- **Every sentence gets one performed shot, filling the frame,** graded warm and bright with its own bloom, always
-  pushing in (`GradedPlate`). A second picture can dissolve in on a word (the fire becomes the falling building on
-  "bankrupt").
-- **The line's KEY words are set huge,** 60–95 % of the frame wide, in the film's display face with a gradient fill and
-  a glow. They build word by word on the voice and stay until the next idea (`BuildWords`):
-  - $32 BILLION, then BANKRUPT;
-  - ONE DOCUMENT;
-  - 40 %;
-  - SELL EVERY FTT;
-  - WALKED AWAY.
-
-  A second phrase in a script face carries the rest of the line ("four days later", "in less than a week?").
-  Nearly every shot of a cold open carries words. Clean footage belongs to the body of the film.
-- **Pictures change through a light flash** (`FlashCut`, white-gold, about 7 frames), not a hard cut.
-- **Light and particles:** the frame's own light (`LightWash`), and sparks, embers or money in depth over the
-  picture (`LightLayer`, `DepthRain`).
-- **A face of the named subject** is a big, rim-lit cut-out (`HeroCutout`), with their name behind the head
-  (`WrapAround`).
-- **Known gaps against the channel,** to close next:
-  - **Motion:** the channel's frames change about 3× more per frame. Money rushes at the camera, layers fly in,
-    letters spin in.
-  - **Grade:** the channel's gold sits against deep shadows (13 % of the frame dark); ours ran orange everywhere (3 %).
-  - **Layers:** more of them, and more pictures growing out of each other inside the frame.
-- **v35:**
-  - **Entrances:** words fly in from depth (`BuildWords enter: "fly"`), and a name or the hardest word spins in letter
-    by letter (`enter: "spin"`).
-  - **Plates never sit still:** they push harder and turn slowly (`GradedPlate rot`).
-  - **Changes by moving:** wrap a built shot in `ZoomThrough`, so its neighbour arrives or leaves through a push and a
-    blur, not a cut.
+The FTX hand films (v34, v35) and Wirecard (v1–v3) made their own choices: glowing gradient key words, white-gold
+flashes, money in depth, number rain. Those are THEIR world. They are kept in those films' kits as examples of one
+film's devices, and are never a default for another film.

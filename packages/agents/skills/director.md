@@ -61,8 +61,9 @@ Give every moment its own picture, and never one stock shot for five moments.
   Search for the action: "man covering face with hands", "crowd cheering hands raised", "people rushing through
   doors".
 - **Never a stand-in face under a line that names a real person.** Use their own press picture.
-- **The images change by light, not by cuts.** A white-gold flash every few seconds, a picture dissolving into the next
-  inside the frame. The channel's first minute had five hard cuts.
+- **The images change by moving, not by cuts.** The channel's first minute had five hard cuts while its picture
+  changed every 3–5 s. How each change moves (light, a push, a wipe made of the picture, a dissolve inside the frame)
+  is this film's own choice, from its world bible.
 - **The cold open ends on the title card.** For a film long enough for chapters, the narration gets a 2 s breath after
   the hook, and the kit's chapter role draws the title there (`TimedScript.titleCard`). Plan no important picture
   under it.

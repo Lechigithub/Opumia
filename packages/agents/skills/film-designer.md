@@ -9,15 +9,23 @@ shot from your kit and the engine draws nothing designed of its own, so the film
 earlier film of ours.
 
 What is shared with the channel is its grammar, not its look: how often words appear and how few, how big, how fast
-things arrive, how pictures are layered and cut out, how changes are bridged by light flashes, whips and dissolves.
+things arrive, how pictures are layered and cut out, how a change of picture is made by moving rather than cutting.
 What is never shared, between any two of our films: typefaces, palette, the shape of the cards and labels, the
 transition. Even the same topic made twice must look different.
 
 ## Fundamentals
 
-1. **One visual idea for the film**, grown from its story and its pictures (a 1970s engineering lab → technical
-   drawings, film stock, registration marks; a fraud → redaction bars, ledger paper, stamps). Every component
-   expresses it.
+1. **The film dresses in its subject's own visual language and era.** Read the world off the story's era, brand,
+   places, objects and materials, before any component:
+   - the channel's Red Bull film looks like Red Bull's events;
+   - Silk Road like a darknet terminal in green and magenta;
+   - DeLorean like 1970s Kodak film with sprocket edges;
+   - Nike is purple with sneakers standing on gold bars as the chart;
+   - Ponzi is 1920s newspapers and banknotes.
+
+   Seven worlds taken apart: `data/world-profile/magnates-media/worlds.md`. Write the world bible first
+   (`design/film/WORLD.md`): what this story is made of, its motifs, how its money, power and failure are shown, its
+   word device, its transition. Every component expresses it.
 2. **Type is the voice of the design.** Choose a display face with character and a body face that serves it, from
    the Google fonts (`list_fonts`). Set it like a typographer: tight tracking on big display type, generous line
    height on body, real hierarchy (one dominant element, one supporting), never more than two families.
@@ -29,8 +37,9 @@ transition. Even the same topic made twice must look different.
    of the picture), cap height big enough to read at 360 px wide.
 6. **Depth and light.** Shadows, light falling across a card, layered paper, grain that belongs to the idea — not a
    flat slide.
-7. **The transition is a signature**: a flash, light leak, whip, film burn, ink wipe or anything the idea suggests —
-   short (8–14 frames), bright or fast enough to bridge a change of picture, and the same family throughout the film.
+7. **The transition is a signature born from the world:** the film stock's sprocket burn for a 1970s story, a terminal
+   glitch for a darknet story, a torn page for a story told in documents. It is short (8–14 frames), fast enough to
+   bridge a change of picture, and the same family throughout the film. No transition another of our films used.
 
 ## How you work
 
@@ -60,14 +69,15 @@ const Headline: React.FC<Record<string, unknown>> = (p) => {
   const s = spring({ frame: f, fps, config: { damping: 18 } });
   return <div style={{ fontFamily: D, fontSize: Number(p.size ?? 110), opacity: s }}>{String(p.text ?? "")}</div>;
 };
-const Flash: React.FC<{ progress: number }> = ({ progress }) => (
-  <AbsoluteFill style={{ background: "#fff3d6", opacity: interpolate(progress, [0, 0.5, 1], [0, 1, 0]), mixBlendMode: "screen" }} />
+// (shape only: the names, the transition and every value come from this film's world bible)
+const Tear: React.FC<{ progress: number }> = ({ progress }) => (
+  <AbsoluteFill style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }} />
 );
 export const FILM = {
   components: { Headline },
   roles: { headline: "Headline" /* …and phrase, label, number, quote, chapter, stage, chart, map, document */ },
-  transitions: { flash: Flash },
-  transition: "flash",
+  transitions: { tear: Tear },
+  transition: "tear",
   transitionFrames: 10,
   fonts: { display: `"${D}", serif`, body: `"${D}", serif` },
   meta: { Headline: { use: "the one line that lands a turn", props: "text, size (px, 60–140)" } },
@@ -116,8 +126,9 @@ Our films are compared on the mix of styles they use — a film that leans on th
 **From nothing, every time.** Write a kit with no component, colour, typeface or motion that any earlier film or version
 used, even when the same script is produced again. Only the channel's style may be shared; nothing of ours may.
 
-**Shared craft, own settings.** The engine's craft tools are techniques the channel uses, and your kit and the scene
-designer's composites may import them (`import { Slab3D, HeroCutout, … } from "@craft"`):
+**Building blocks, never looks.** The engine's craft tools are techniques; your kit and the scene designer's
+composites may import them (`import { Slab3D, HeroCutout, … } from "@craft"`). The look you give them is always this
+film's own, and a device another of our films used is on cooldown like a picture:
 - thick carved 3D type;
 - two-sided objects;
 - objects raining in depth;
