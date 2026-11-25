@@ -204,7 +204,7 @@ if (existsSync(path.join(job, "resolution.json")) && existsSync(path.join(job, "
   const sbq = (JSON.parse(await readFile(path.join(job, "storyboard.json"), "utf8")) as { shots: Array<{ id: string; trimInS?: number }> }).shots;
   const media = (JSON.parse(await readFile(path.join(job, "resolution.json"), "utf8")) as { media: Array<{ shotId: string; role: string; kind: string; localPath: string }> }).media;
   let n = 0, below = 0;
-  for (const s of sbq) { const mm = media.find((x) => x.shotId === s.id && x.role === "primary" && x.kind === "video"); if (!mm || !existsSync(mm.localPath)) continue; n++; const c = await measureCraft(mm.localPath, (s.trimInS ?? 0) + 0.5); if (c.sharpTop < qf.sharpTop!.p10 || c.contrast < qf.contrast!.p10) below++; }
+  for (const s of sbq) { const mm = media.find((x) => x.shotId === s.id && x.role === "primary" && x.kind === "video"); if (!mm || !existsSync(mm.localPath)) continue; const c = await measureCraft(mm.localPath, (s.trimInS ?? 0) + 0.5).catch(() => null); if (!c) continue; n++; if (c.sharpTop < qf.sharpTop!.p10 || c.contrast < qf.contrast!.p10) below++; }
   if (n) m.footageBelowFloor = +(below / n).toFixed(3);
 }
 // designed share of screen time: shots whose picture is built (a world or the kit's stage), not footage
