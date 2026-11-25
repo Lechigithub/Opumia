@@ -162,9 +162,10 @@ export const shake = (f: number, at: number, len = 10, amp = 30) => (f >= at && 
  * The line's key words, huge, building WORD BY WORD on the voice: each word arrives on its own time out of a blur, a
  * little large, settles and keeps growing slowly; the block leaves together at `until` (s). Fills are the film's own
  * (a CSS gradient clipped to the letters); a glow filter and fonts are the film's too. The longest line is fitted to
- * its box, so nothing runs off the frame. Channel: the typical word stays up ≈ 2.5 s.
+ * its box, so nothing runs off the frame. Channel: the typical word stays up ≈ 2.5 s. A word marked `c` takes the
+ * `hi` fill: the key word of a line picked out in the film's warning colour (a channel staple).
  */
-export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?: boolean }>; x: number; y: number; w: number; size: number; fontFamily: string; fill: string; glow?: string; until?: number; align?: "left" | "center" | "right"; tilt?: number; caps?: boolean; charEm?: number; enter?: "rise" | "fly" | "spin" }> = (p) => {
+export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?: boolean; c?: "r" | "y" }>; x: number; y: number; w: number; size: number; fontFamily: string; fill: string; /** fill of the key words (`c`), the channel's one word picked out in colour */ hi?: string; glow?: string; until?: number; align?: "left" | "center" | "right"; tilt?: number; caps?: boolean; charEm?: number; enter?: "rise" | "fly" | "spin" }> = (p) => {
   const f = useCurrentFrame(); const { width: W, height: H, fps } = useVideoConfig();
   if (!p.words.length) return null;
   const first = Math.min(...p.words.map((w) => w.at));
@@ -178,7 +179,7 @@ export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?
   const size = Math.min(p.size, (p.w * W * 0.96) / Math.max(1, est));
   return <div style={{ position: "absolute", left: W * p.x, top: H * p.y, width: W * p.w, display: "flex", flexDirection: "column", alignItems: p.align === "left" ? "flex-start" : p.align === "right" ? "flex-end" : "center", transform: `scale(${grow}) rotate(${p.tilt ?? 0}deg)`, opacity: gone, filter: `${p.glow ?? ""}${gone < 1 ? ` blur(${(1 - gone) * 14}px)` : ""}` || undefined }}>
     {lines.map((l, i) => <div key={i} style={{ display: "flex", gap: size * 0.12, whiteSpace: "nowrap", lineHeight: 0.92 }}>{l.map((w, j) => {
-      const letterStyle: React.CSSProperties = { display: "inline-block", whiteSpace: "nowrap", fontFamily: p.fontFamily, fontSize: size, textTransform: p.caps === false ? "none" : "uppercase", backgroundImage: p.fill, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" };
+      const letterStyle: React.CSSProperties = { display: "inline-block", whiteSpace: "nowrap", fontFamily: p.fontFamily, fontSize: size, textTransform: p.caps === false ? "none" : "uppercase", backgroundImage: w.c && p.hi ? p.hi : p.fill, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" };
       if (p.enter === "spin") {
         // letters turn in one after another (the channel's title letters spinning in)
         return <span key={j} style={{ display: "inline-block", whiteSpace: "nowrap", perspective: size * 4, padding: `0 ${size * 0.02}px` }}>{[...w.text].map((ch, c) => { const kc = interpolate(f, [w.at * fps - 3 + c * 1.6, w.at * fps + 8 + c * 1.6], [0, 1], { ...clamp, easing: EASE_OUT }); return <span key={c} style={{ ...letterStyle, opacity: kc, transform: `rotateY(${(1 - kc) * 95}deg) scale(${1.4 - 0.4 * kc})`, filter: kc < 0.99 ? `blur(${(1 - kc) * 8}px)` : undefined }}>{ch === " " ? "\u00a0" : ch}</span>; })}</span>;
