@@ -7,7 +7,8 @@ import path from "node:path";
 const job = path.resolve(process.argv[2] ?? "out/hand-ftx");
 const dl = path.join(job, "downloads", "commons");
 await mkdir(dl, { recursive: true });
-const FILES = [
+// COMMONS_FILES="File:A.jpg;File:B.jpg" picks another film's files (default: the FTX film's)
+const FILES = process.env.COMMONS_FILES ? process.env.COMMONS_FILES.split(";") : [
   "File:MIT Bitcoin Expo 2022 - Sam Bankman.png", "File:Sam Bankman-Fried.png", "File:Sam Bankman-Fried (cropped).png",
   "File:Changpeng Zhao (2018).jpg", "File:Changpeng Zhao in 2022.jpg", "File:CZ at Vietnam NFT Summit.jpg",
   "File:Logo of Enron Corporation (1997).svg", "File:Enron Code of Ethics cover.jpg",

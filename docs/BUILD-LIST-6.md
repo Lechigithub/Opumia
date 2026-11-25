@@ -53,7 +53,8 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   from measured token use, and the owner's yes.
 
 ### B. Measures the platform is missing (local, no model)
-- ◑ B1 **Picture-to-line fit** (measured 2026-11-25, `apps/cli/src/dev/world/`: words blurred out first, because the
+- ◑ B1 (gate tool: `apps/cli/src/dev/world/world_check.py`, one frame a second, steady to ±0.005; our 11 films in its memory)
+   **Picture-to-line fit** (measured 2026-11-25, `apps/cli/src/dev/world/`: words blurred out first, because the
   unmasked fit rewards writing the line on screen; channel p10 0.614 / median 0.659; Wirecard v3 0.564 and WeWork 0.509
   below it, FTX v35 0.638 inside; still to wire into the gates) (SigLIP 2 picture + text towers): the rank of a shot's own line among its film's lines;
   channel band from 16k real shots; our films scored the same way. Gate `line_fit`; replaces the first-pass Haiku
@@ -134,7 +135,7 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 - ☐ E4 **The hand builds follow the same order** (Wirecard v4).
 
 ### F. Motion, scenes, words (still short of the channel)
-- ☐ F1 **Motion:** ours 10.3 against the channel's 17. Find what makes the channel's frames move: camera on
+- ◐ F1 **Motion** (the blocker for world-first films, measured on Wirecard v4: real stills move 4.1 against the channel's 17): ours 10.3 against the channel's 17. Find what makes the channel's frames move: camera on
   composites, parallax planes, push-throughs, subject motion. Measure it per technique on the reference; build the
   missing blocks (2.5D parallax from cut-outs, camera paths through layered scenes).
 - ☐ F2 **Changes made by moving:** ours 0.83 against the channel's 0.92. Footage shots need moving entries and exits
@@ -171,7 +172,15 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 - ☐ K3 **Reliability suite, cloud run and long-form:** after the proof (long-form last, owner).
 
 ### L. The proof film
-- ☐ L1 **Wirecard v4, world-first:** world bible from its own inventory, real subjects, devices written new, every
+- ◐ L1 **Wirecard v4, world-first** (built 2026-11-25, `build-wirecard-v4.ts`, kit `kit-hand-wirecard-v4.tsx.txt`).
+  - **Result:** no earlier film of ours is too close (FTX's word look is gone), the real subjects are in (Braun,
+    McCrum, the Marsalek wanted poster, Wirecard's HQ, BPI Manila, the Frankfurt Bull and Bear, a real terminal and
+    receipt printer), and the cuts are at Ponzi's 5.3 a minute.
+  - **Not there yet:** line fit 0.565 (channel ≥ 0.614), colourfulness 30 (31–46), motion 4.1 (v3 10.3, channel 17),
+    dark frames 2 % (13 %), taste 4.7 (6.1). Real subjects are mostly stills; v3's motion came from stock video and
+    number rain, the template itself. Next: F1, the building blocks that make real stills move (cut-out parallax
+    planes, camera paths through layers).
+  - **Brief:** world bible from its own inventory, real subjects, devices written new, every
   shot line-fit scored, device rates in band.
 - ☐ L2 **A second, independent build of the same script** (v4b), designed without looking at v4.
 - ☐ L3 **Both pass everything at once:**
