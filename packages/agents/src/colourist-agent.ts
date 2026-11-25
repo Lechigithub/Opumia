@@ -109,6 +109,10 @@ export async function colouristAgent(o: ColouristOptions): Promise<{ design: Fil
       const lim = Math.max(band.tintedShare.median * 1.5, 0.12); // build list 4, item 15: tighter (film 3 shipped red and blue washed footage at 17 %)
       if (share > lim) outside.push(`${Math.round(share * 100)} % of shots carried by one colour (the channel's typical film ${Math.round(band.tintedShare.median * 100)} %, most ${Math.round(band.tintedShare.max * 100)} %)`);
     }
+    // v35 (hand film, 2026-11-25): the channel keeps some shots low-key — 15 % of its frames (median of 37 films) are
+    // darker than luma 0.12 (night, a lamp in a dark room, a man alone); a film lit evenly bright reads as stock
+    const darkShare = r2(ms.filter((m) => m.luma < 0.12).length / Math.max(1, ms.length));
+    if (ms.length >= 8 && darkShare < 0.05) outside.push(`no low-key shots (${Math.round(darkShare * 100)} % of shots darker than luma 0.12; the channel ≈ 15 %): take one shot in seven whose line is dark or private down with set_shot dim 0.5–0.6`);
     return { luma, colourfulness, tinted, tintedShare: share, outside };
   };
   const before = summary();

@@ -96,3 +96,10 @@ never split it and never cut inside it. Between scenes, prefer a transition made
 through, a shatter the scene designer built) to a plain cut when the beat changes. Measured on every watched stretch:
 the share of changes made by moving, and how long words stay up. Never cut away from words before they have been up
 about 1.5 s.
+
+## Cut rate in a cold open (hand film v35, 2026-11-25)
+
+Ponzi's first minute has about 5 hard cuts. Its picture still changes every 3–5 s, through a white-gold flash, a
+zoom-through (one shot pushes forward into a blur and the next arrives out of it: `ZoomThrough` in the craft tools),
+or a picture dissolving into the next inside the frame. Use those in a cold open. A plain hard cut belongs to a hard
+beat change, such as the turn into the title card.

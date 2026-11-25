@@ -37,3 +37,20 @@ Everything you watch comes with a MEASURED block from the same detectors that ju
 - **voice:** a seam is a join you can hear.
 - **trained taste:** the stretch's score against the channel's real median.
 Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.
+
+## The grade the channel holds (hand film v35, 2026-11-25; measured against Ponzi's first minute)
+
+v34's minute was bright and orange everywhere. v35 matched the channel by doing three things:
+- **The whole frame a little less saturated than its parts.** The gold type and warm pictures stay warm, but the frame
+  as a whole sits near the channel's saturation (Ponzi's first minute: 0.51; colourfulness ≈ 48). Our 0.62 / 69 read as
+  orange.
+- **Deep shadows, not lifted ones.** More contrast, lower blacks, a heavier vignette. Bloom only lifts the highlights.
+- **Some shots kept low-key.** About 15 % of the channel's frames are darker than luma 0.12: a lamp in a dark room, a
+  man alone at night, a title on black. With no low-key shots the film reads as evenly lit stock. Take about one shot
+  in seven whose line is dark or private down with `set_shot` (dim 0.5–0.6). Your report now flags a film with none.
+
+Results:
+- **No frame carried by one colour:** 0.32 → 0.10, inside the channel's 0.02–0.23.
+- **Brightness at the channel's:** luma 0.32 against Ponzi's 0.34.
+- **What it cost:** a crowd that had been warm went grey and flat. Keep the golds saturated where they belong (fire,
+  money, light), and take saturation out of the rest.

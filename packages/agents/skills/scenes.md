@@ -263,3 +263,9 @@ Watched at 12 frames a second beside Ponzi, then rebuilt. The owner froze it as 
     letters spin in.
   - **Grade:** the channel's gold sits against deep shadows (13 % of the frame dark); ours ran orange everywhere (3 %).
   - **Layers:** more of them, and more pictures growing out of each other inside the frame.
+- **v35:**
+  - **Entrances:** words fly in from depth (`BuildWords enter: "fly"`), and a name or the hardest word spins in letter
+    by letter (`enter: "spin"`).
+  - **Plates never sit still:** they push harder and turn slowly (`GradedPlate rot`).
+  - **Changes by moving:** wrap a built shot in `ZoomThrough`, so its neighbour arrives or leaves through a push and a
+    blur, not a cut.

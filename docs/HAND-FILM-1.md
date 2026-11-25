@@ -662,3 +662,31 @@ word-led montage of performed pictures under a continuous bed.
     36 % of speech; v34 passes at 10.7 dB, 1 %);
   - **skills:** sound, director, scenes, sourcing, film-designer.
 - **Next gaps:** motion (3× less than the channel), the grade (oversaturated, too few darks), layers.
+
+### v35: the grade and cut rate (frozen on the owner's order, 2026-11-25)
+- **What changed:**
+  - the whole beat a little less saturated than its parts;
+  - deeper shadows;
+  - two low-key beats (the man under the lamp, the trader);
+  - words flying in from depth and the name spinning in letter by letter;
+  - plates pushing harder and turning;
+  - zoom-throughs in place of some flashes.
+- **Ponzi → v35 (v34):**
+
+  | | Ponzi | v35 | v34 |
+  |---|---|---|---|
+  | luma | 0.34 | 0.32 | 0.37 |
+  | saturation | 0.51 | 0.53 | 0.62 |
+  | dark frames | 13 % | 13 % | 3 % |
+  | colourfulness | 48 | 58 | 69 |
+  | cuts / min | 5.2 | 5.2 | 3.1 |
+  | motion | 17 | 6.7 | 5.6 |
+  | changes by moving | 92 % | 55 % | 63 % |
+  | taste | — | 5.8 | 5.8 |
+- **Ratchet:** one colour 0.32 → 0.10 and the cut rate in band, both v34 gaps now closed, no new gap. The other accepted
+  gaps are carried.
+- **Taught to the platform:**
+  - the colourist flags a film with no low-key shots (the channel: ≈ 15 % of frames darker than luma 0.12);
+  - colourist, editor and scene skills;
+  - craft: `ZoomThrough`, `BuildWords` fly / spin entrances, `GradedPlate` turn.
+- **Still open:** motion, ≈ 2.5× short of the channel.
