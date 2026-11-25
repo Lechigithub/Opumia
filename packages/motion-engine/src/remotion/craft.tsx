@@ -164,7 +164,7 @@ export const shake = (f: number, at: number, len = 10, amp = 30) => (f >= at && 
  * (a CSS gradient clipped to the letters); a glow filter and fonts are the film's too. The longest line is fitted to
  * its box, so nothing runs off the frame. Channel: the typical word stays up ≈ 2.5 s.
  */
-export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?: boolean }>; x: number; y: number; w: number; size: number; fontFamily: string; fill: string; glow?: string; until?: number; align?: "left" | "center" | "right"; tilt?: number; caps?: boolean; charEm?: number }> = (p) => {
+export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?: boolean }>; x: number; y: number; w: number; size: number; fontFamily: string; fill: string; glow?: string; until?: number; align?: "left" | "center" | "right"; tilt?: number; caps?: boolean; charEm?: number; enter?: "rise" | "fly" | "spin" }> = (p) => {
   const f = useCurrentFrame(); const { width: W, height: H, fps } = useVideoConfig();
   if (!p.words.length) return null;
   const first = Math.min(...p.words.map((w) => w.at));
@@ -178,15 +178,21 @@ export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?
   const size = Math.min(p.size, (p.w * W * 0.96) / Math.max(1, est));
   return <div style={{ position: "absolute", left: W * p.x, top: H * p.y, width: W * p.w, display: "flex", flexDirection: "column", alignItems: p.align === "left" ? "flex-start" : p.align === "right" ? "flex-end" : "center", transform: `scale(${grow}) rotate(${p.tilt ?? 0}deg)`, opacity: gone, filter: `${p.glow ?? ""}${gone < 1 ? ` blur(${(1 - gone) * 14}px)` : ""}` || undefined }}>
     {lines.map((l, i) => <div key={i} style={{ display: "flex", gap: size * 0.12, whiteSpace: "nowrap", lineHeight: 0.92 }}>{l.map((w, j) => {
-      const k = interpolate(f, [w.at * fps - 3, w.at * fps + 6], [0, 1], { ...clamp, easing: EASE_OUT });
-      return <span key={j} style={{ display: "inline-block", whiteSpace: "nowrap", fontFamily: p.fontFamily, fontSize: size, textTransform: p.caps === false ? "none" : "uppercase", backgroundImage: p.fill, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent", opacity: k, transform: `translateY(${(1 - k) * size * 0.25}px) scale(${1.25 - 0.25 * k})`, filter: k < 0.99 ? `blur(${(1 - k) * 12}px)` : undefined, padding: `0 ${size * 0.02}px` }}>{w.text}</span>;
+      const letterStyle: React.CSSProperties = { display: "inline-block", whiteSpace: "nowrap", fontFamily: p.fontFamily, fontSize: size, textTransform: p.caps === false ? "none" : "uppercase", backgroundImage: p.fill, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" };
+      if (p.enter === "spin") {
+        // letters turn in one after another (the channel's title letters spinning in)
+        return <span key={j} style={{ display: "inline-block", whiteSpace: "nowrap", perspective: size * 4, padding: `0 ${size * 0.02}px` }}>{[...w.text].map((ch, c) => { const kc = interpolate(f, [w.at * fps - 3 + c * 1.6, w.at * fps + 8 + c * 1.6], [0, 1], { ...clamp, easing: EASE_OUT }); return <span key={c} style={{ ...letterStyle, opacity: kc, transform: `rotateY(${(1 - kc) * 95}deg) scale(${1.4 - 0.4 * kc})`, filter: kc < 0.99 ? `blur(${(1 - kc) * 8}px)` : undefined }}>{ch === " " ? "\u00a0" : ch}</span>; })}</span>;
+      }
+      const k = interpolate(f, [w.at * fps - (p.enter === "fly" ? 5 : 3), w.at * fps + (p.enter === "fly" ? 7 : 6)], [0, 1], { ...clamp, easing: EASE_OUT });
+      const tr = p.enter === "fly" ? `scale(${2.8 - 1.8 * k}) translateY(${(1 - k) * -size * 0.4}px)` : `translateY(${(1 - k) * size * 0.25}px) scale(${1.25 - 0.25 * k})`;
+      return <span key={j} style={{ ...letterStyle, opacity: Math.min(1, k * 1.4), transform: tr, filter: k < 0.99 ? `blur(${(1 - k) * (p.enter === "fly" ? 20 : 12)}px)` : undefined, padding: `0 ${size * 0.02}px` }}>{w.text}</span>;
     })}</div>)}
   </div>;
 };
 
 /** A performed clip (or photo) filling the frame under the film's grade, with its own bloom, pushing in the whole time;
  *  `from` (s) starts a clip later in the shot (a second picture dissolving in). */
-export const GradedPlate: React.FC<{ src?: string; trim?: number; from?: number; push?: [number, number]; pan?: [number, number]; len: number; bloom?: number; grade: string; blend?: React.CSSProperties["mixBlendMode"]; opacity?: number }> = (p) => {
+export const GradedPlate: React.FC<{ src?: string; trim?: number; from?: number; push?: [number, number]; pan?: [number, number]; rot?: [number, number]; len: number; bloom?: number; grade: string; blend?: React.CSSProperties["mixBlendMode"]; opacity?: number }> = (p) => {
   const f = useCurrentFrame(); const { fps } = useVideoConfig();
   if (!p.src) return null;
   const k = interpolate(f, [0, Math.max(1, p.len * fps)], [0, 1], clamp);
@@ -194,7 +200,8 @@ export const GradedPlate: React.FC<{ src?: string; trim?: number; from?: number;
   const style: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" };
   const isV = /\.(mp4|mov|webm)$/i.test(p.src);
   const pic = (filter: string) => isV ? <Sequence from={Math.round((p.from ?? 0) * fps)} layout="none"><OffthreadVideo src={src(p.src!)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={{ ...style, filter }} /></Sequence> : <Img src={src(p.src!)} style={{ ...style, filter }} />;
-  return <AbsoluteFill style={{ transform: `scale(${a + (b - a) * k}) translateX(${(x0 + (x1 - x0) * k) * 100}%)`, mixBlendMode: p.blend ?? "normal", opacity: p.opacity ?? 1 }}>
+  const [r0, r1] = p.rot ?? [0, 0];
+  return <AbsoluteFill style={{ transform: `scale(${a + (b - a) * k}) translateX(${(x0 + (x1 - x0) * k) * 100}%) rotate(${r0 + (r1 - r0) * k}deg)`, mixBlendMode: p.blend ?? "normal", opacity: p.opacity ?? 1 }}>
     {pic(p.grade)}
     {p.bloom ? <AbsoluteFill style={{ mixBlendMode: "screen", opacity: p.bloom }}>{pic(`${p.grade} blur(22px) brightness(1.35)`)}</AbsoluteFill> : null}
   </AbsoluteFill>;
@@ -220,6 +227,18 @@ export const LightWash: React.FC<{ wash: string; washOpacity?: number; hot: stri
 /** Light filmed on black (sparks, embers, dust in a beam) laid over by its light. */
 export const LightLayer: React.FC<{ src?: string; opacity?: number; trim?: number; filter?: string }> = ({ src: s, opacity = 0.5, trim = 0, filter }) => { const { fps } = useVideoConfig(); return s ? <AbsoluteFill style={{ mixBlendMode: "screen", opacity }}><OffthreadVideo src={src(s)} muted startFrom={Math.round(trim * fps)} style={{ width: "100%", height: "100%", objectFit: "cover", ...(filter ? { filter } : {}) }} /></AbsoluteFill> : null; };
 
+
+/** A zoom-through between two built shots: the shot arrives out of a blurred, enlarged frame (inF frames) and leaves
+ *  into one (outF frames), so the picture changes by moving, not by a cut. Wrap a whole shot in it. */
+export const ZoomThrough: React.FC<{ len: number; inF?: number; outF?: number; children: React.ReactNode }> = ({ len, inF = 8, outF = 6, children }) => {
+  const f = useCurrentFrame(); const { fps } = useVideoConfig();
+  const end = len * fps;
+  const ki = inF > 0 ? interpolate(f, [0, inF], [1, 0], { ...clamp, easing: Easing.out(Easing.cubic) }) : 0;
+  const ko = outF > 0 ? interpolate(f, [end - outF, end], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) }) : 0;
+  const k = Math.max(ki, ko);
+  return <AbsoluteFill style={{ transform: `scale(${1 + 0.45 * ki + 0.5 * ko})`, filter: k > 0.02 ? `blur(${k * 9}px) brightness(${1 + 0.25 * k})` : undefined }}>{children}</AbsoluteFill>;
+};
+
 /** What the tools are for, as the agents see it (the art director's and scene designer's brief). */
 export const CRAFT_TOOLS: Record<string, string> = {
   Slab3D: "spoken words as thick carved 3D type that flies in from depth and turns (inside perspective); colours and font are yours",
@@ -241,4 +260,5 @@ export const CRAFT_TOOLS: Record<string, string> = {
   FlashCut: "a light flash carrying one picture into the next (in at the start, out at the end, short flashes inside the shot)",
   LightWash: "the frame's own light: a soft-light wash in your colour, a hot centre, edges burned down",
   LightLayer: "sparks, embers or dust filmed on black, screened over the picture",
+  ZoomThrough: "wrap a built shot: it arrives out of a blurred enlarged frame and leaves into one — a picture change by moving, not a cut",
 };

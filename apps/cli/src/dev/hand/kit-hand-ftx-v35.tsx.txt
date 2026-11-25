@@ -358,21 +358,29 @@ const ANTONIO = antonioF("normal", { weights: ["700"], subsets: ["latin"] }).fon
 const GOLD = "linear-gradient(180deg, #fff7c2 0%, #ffd83d 30%, #ffa61f 68%, #ff6a12 100%)";
 const EMBER = "linear-gradient(180deg, #ffd9a0 0%, #ff7a2a 45%, #e8240f 100%)";
 const GLOW = "drop-shadow(0 0 14px rgba(255,150,30,.85)) drop-shadow(0 0 40px rgba(255,90,10,.45)) drop-shadow(0 8px 10px rgba(0,0,0,.65))";
-const WARMG = "sepia(0.32) saturate(1.55) contrast(1.16) brightness(1.0) hue-rotate(-6deg)";
+const WARMG = "sepia(0.2) saturate(1.18) contrast(1.32) brightness(0.93) hue-rotate(-4deg)"; // v35: less orange, deeper shadows (channel: colourfulness ≈ 48, 13 % dark)
 type Wd = { text: string; at: number; br?: boolean };
 
-import { BuildWords, GradedPlate, FlashCut, LightWash, LightLayer } from "@craft";
+import { BuildWords, GradedPlate, FlashCut, LightWash, LightLayer, ZoomThrough } from "@craft";
 /** This film's settings of the shared craft tools (v35: the minute's techniques now live in the engine as @craft). */
-const Words: React.FC<{ words: Wd[]; x: number; y: number; w: number; size: number; until?: number; style?: string; align?: string; tilt?: number }> = (p) => {
+const Words: React.FC<{ words: Wd[]; x: number; y: number; w: number; size: number; until?: number; style?: string; align?: string; tilt?: number; enter?: "rise" | "fly" | "spin" }> = (p) => {
   const script = p.style === "script";
   const fill = script ? "linear-gradient(180deg, #fffbe0 0%, #ffe24a 60%, #ffb21c 100%)" : p.style === "ember" ? EMBER : p.style === "plain" ? "linear-gradient(#fff, #fff)" : GOLD;
-  return <BuildWords words={p.words} x={p.x} y={p.y} w={p.w} size={script ? p.size * 0.75 : p.size} fontFamily={script ? KAUSHAN : BEBAS} fill={fill} glow={GLOW} caps={!script} charEm={script ? 0.48 : 0.41} {...(p.until !== undefined ? { until: p.until } : {})} {...(p.align ? { align: p.align as "left" } : {})} {...(p.tilt ? { tilt: p.tilt } : {})} />;
+  return <BuildWords words={p.words} x={p.x} y={p.y} w={p.w} size={script ? p.size * 0.75 : p.size} fontFamily={script ? KAUSHAN : BEBAS} fill={fill} glow={GLOW} caps={!script} charEm={script ? 0.48 : 0.41} enter={p.enter ?? (script ? "rise" : p.style === "ember" ? "spin" : "fly")} {...(p.until !== undefined ? { until: p.until } : {})} {...(p.align ? { align: p.align as "left" } : {})} {...(p.tilt ? { tilt: p.tilt } : {})} />;
 };
-const Plate: React.FC<{ src?: string; trim?: number; from?: number; push?: [number, number]; pan?: [number, number]; len: number; bloom?: number; grade?: string }> = (p) => <GradedPlate {...p} grade={p.grade ?? WARMG} />;
-const Light: React.FC<{ hot?: number; cx?: number; cy?: number }> = ({ hot = 0.35, cx = 50, cy = 45 }) => <LightWash wash="#ff8a1e" hot={`rgba(255,214,140,${hot})`} cx={cx} cy={cy} edge="rgba(25,8,0,.7)" />;
+const Plate: React.FC<{ src?: string; trim?: number; from?: number; push?: [number, number]; pan?: [number, number]; len: number; bloom?: number; grade?: string }> = (p) => { const f = p.push ?? [1.06, 1.3]; return <GradedPlate {...p} push={[f[0], f[0] + (f[1] - f[0]) * 2.0]} rot={[-2.2, 2.2]} grade={p.grade ?? WARMG} />; };
+const Light: React.FC<{ hot?: number; cx?: number; cy?: number }> = ({ hot = 0.35, cx = 50, cy = 45 }) => <LightWash wash="#ff8a1e" washOpacity={0.22} hot={`rgba(255,214,140,${hot})`} cx={cx} cy={cy} edge="rgba(8,3,0,.88)" />;
 const Flash: React.FC<{ len: number; inF?: number; outF?: number; at?: number[] }> = (p) => <FlashCut {...p} colour="radial-gradient(ellipse at 50% 50%, #fffdf2 0%, #ffe9b0 60%, #ffc26a 100%)" />;
 const Sparks: React.FC<{ src?: string; op?: number; trim?: number }> = ({ src, op = 0.5, trim = 0 }) => <LightLayer {...(src ? { src } : {})} opacity={op} trim={trim} filter="saturate(1.4) hue-rotate(-10deg)" />;
 
+/** v35: a shot whose neighbour changes by moving arrives and/or leaves through a zoom (no flash on that side). */
+const Zoomed: React.FC<{ p: P; children: React.ReactNode }> = ({ p, children }) => {
+  // v35b: one grade over the whole beat — a little less saturated than the parts; low-key beats sit dark like the
+  // channel's (13 % of its first minute is frames darker than luma 0.12)
+  const look = <AbsoluteFill style={{ filter: p.lowkey ? "saturate(0.82) brightness(0.55) contrast(1.3)" : "saturate(0.84)" }}>{children}</AbsoluteFill>;
+  return p.zin || p.zout ? <ZoomThrough len={Number(p.len)} inF={p.zin ? 14 : 0} outF={p.zout ? 11 : 0}>{look}</ZoomThrough> : look;
+};
+const fl = (p: P, inF: number, outF: number) => ({ inF: p.zin ? 0 : inF, outF: p.zout ? 0 : outF });
 const S = (p: P, k: number) => (p.slots ?? {})[String(k)] as string | undefined;
 const T = (p: P) => (p.t ?? {}) as Record<string, number>;
 
@@ -382,7 +390,7 @@ const M1: React.FC<P> = (p) => {
   const notes = interpolate(f, [t.message * fps - 4, len * fps], [0, 1], clamp);
   const lines = ["A competitor is trying to go after us", "FTX is fine.", "Assets are fine.", "We don't invest client assets."];
   return <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
-    <Plate src={S(p, 0)} len={len} push={[1.15, 1.32]} pan={[0.02, -0.02]} bloom={0.45} grade="sepia(0.45) saturate(1.7) contrast(1.18) brightness(1.1) hue-rotate(-10deg)" />
+    <Plate src={S(p, 0)} len={len} push={[1.15, 1.32]} pan={[0.02, -0.02]} bloom={0.45} grade="sepia(0.28) saturate(1.25) contrast(1.32) brightness(1.0) hue-rotate(-8deg)" />
     <Sparks src={S(p, 2)} op={0.4} trim={1} />
     <Light hot={0.4} cx={62} cy={40} />
     <Words words={[{ text: "7 November", at: t.seventh }, { text: "2022", at: t["2022"], br: true }]} x={0.02} y={0.1} w={0.5} size={W * 0.105} until={t.sam - 0.15} align="left" tilt={-2} />
@@ -395,26 +403,26 @@ const M1: React.FC<P> = (p) => {
 };
 
 // ── 2 · "Four days later, his $32 billion empire was bankrupt."  (fire becomes the falling building)
-const M2: React.FC<P> = (p) => {
+const M2In: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const { width: W, fps } = useVideoConfig(); const t = T(p); const len = Number(p.len);
   const bk = t.bankrupt * fps;
   const demo = interpolate(f, [bk - 18, bk + 6], [0, 1], clamp);
   const sk = shake(f, Math.round(bk), 12, 28);
   const stamp = interpolate(f, [bk, bk + 6], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
   return <AbsoluteFill style={{ background: "#000", overflow: "hidden", transform: `translate(${sk}px, ${sk * 0.5}px)` }}>
-    <Plate src={S(p, 0)} trim={5} len={len} push={[1.08, 1.3]} bloom={0.55} grade="saturate(1.4) contrast(1.15) brightness(1.15)" />
+    <Plate src={S(p, 0)} trim={5} len={len} push={[1.08, 1.3]} bloom={0.45} grade="saturate(1.15) contrast(1.3) brightness(1.0)" />
     {demo > 0 ? <AbsoluteFill style={{ opacity: demo }}><Plate src={S(p, 1)} trim={3.2} from={Math.max(0, t.bankrupt - 0.8)} len={len} push={[1.25, 1.45]} bloom={0.35} grade="sepia(0.5) saturate(1.5) contrast(1.25) brightness(1.1) hue-rotate(-12deg)" /></AbsoluteFill> : null}
     <Light hot={0.3} />
     <Words words={[{ text: "Four days later", at: t.four }]} x={0.1} y={0.08} w={0.8} size={W * 0.06} style="script" until={t.thirty - 0.1} />
     <Words words={[{ text: "$32", at: t.thirty }, { text: "Billion", at: t.billion }]} x={0} y={0.2} w={1} size={W * 0.2} until={t.bankrupt - 0.05} />
     <Words words={[{ text: "Empire", at: t.empire }]} x={0} y={0.6} w={1} size={W * 0.09} style="ember" until={t.bankrupt - 0.05} />
     {stamp > 0 ? <AbsoluteFill style={{ transform: `scale(${2 - stamp}) rotate(-4deg)`, opacity: stamp }}><Words words={[{ text: "Bankrupt", at: t.bankrupt - 0.2 }]} x={0} y={0.32} w={1} size={W * 0.24} style="ember" /></AbsoluteFill> : null}
-    <Flash len={len} inF={7} outF={4} at={[t.bankrupt]} />
+    <Flash len={len} {...fl(p, 7, 4)} at={[t.bankrupt]} />
   </AbsoluteFill>;
 };
 
 // ── 3 · "So how does a company worth that much vanish in less than a week?"  (the word VANISH blows away as dust)
-const M3: React.FC<P> = (p) => {
+const M3In: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const { width: W, fps } = useVideoConfig(); const t = T(p); const len = Number(p.len);
   const v = interpolate(f, [t.vanish * fps + 10, t.vanish * fps + 34], [0, 1], clamp);
   return <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
@@ -424,7 +432,7 @@ const M3: React.FC<P> = (p) => {
     <Words words={[{ text: "How does a company", at: t.how }, { text: "worth that much", at: t.worth, br: true }]} x={0.05} y={0.08} w={0.9} size={W * 0.07} until={t.vanish - 0.1} />
     <div style={{ position: "absolute", left: 0, right: 0, top: "34%", display: "flex", justifyContent: "center" }}>{"VANISH".split("").map((c, i) => { const k = Math.max(0, Math.min(1, v * 1.8 - i * 0.12)); const s = interpolate(f, [t.vanish * fps - 3, t.vanish * fps + 6], [0, 1], clamp); return <span key={i} style={{ fontFamily: BEBAS, fontSize: W * 0.22, backgroundImage: GOLD, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", filter: `${GLOW} blur(${k * 18}px)`, opacity: s * (1 - k), transform: `translate(${k * W * 0.25}px, ${-k * W * 0.08}px) rotate(${k * 30}deg) scale(${1.2 - 0.2 * s + k * 0.6})`, display: "inline-block" }}>{c}</span>; })}</div>
     <Words words={[{ text: "in less than a week?", at: t.less }]} x={0.1} y={0.7} w={0.8} size={W * 0.075} style="script" />
-    <Flash len={len} inF={7} outF={0} />
+    <Flash len={len} {...fl(p, 7, 0)} />
   </AbsoluteFill>;
 };
 
@@ -442,7 +450,7 @@ const MTitle: React.FC<P> = (p) => {
 };
 
 // ── a general performed beat: one or two plates (the second dissolving in on a word), a hero cut-out, words, rain
-const Beat: React.FC<P> = (p) => {
+const BeatIn: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const { width: W, height: H, fps } = useVideoConfig(); const len = Number(p.len);
   const two = p.second as { slot: number; at: number; trim?: number; push?: [number, number]; grade?: string } | undefined;
   const k2 = two ? interpolate(f, [two.at * fps - 10, two.at * fps + 4], [0, 1], clamp) : 0;
@@ -452,11 +460,17 @@ const Beat: React.FC<P> = (p) => {
     <Plate src={S(p, Number(p.bg ?? 0))} trim={Number(p.trim ?? 0)} len={len} push={(p.push as [number, number]) ?? [1.05, 1.2]} pan={(p.pan as [number, number]) ?? [0.02, -0.02]} bloom={Number(p.bloom ?? 0.36)} {...(p.grade ? { grade: String(p.grade) } : {})} />
     {two && k2 > 0 ? <AbsoluteFill style={{ opacity: k2 }}><Plate src={S(p, two.slot)} trim={two.trim ?? 0} from={Math.max(0, two.at - 0.5)} len={len} push={two.push ?? [1.1, 1.25]} bloom={0.45} {...(two.grade ? { grade: two.grade } : {})} /></AbsoluteFill> : null}
     {rain ? <AbsoluteFill style={{ perspective: W * 0.9 }}><DepthRain n={rain.n} t={f - (rain.from ?? 0) * fps} layer="far" render={(i) => rain.kind === "coupon" ? <div style={{ transform: "scale(1)" }}><Coupon text="FTT" small="issued by FTX" stub="FTX" boxW={W * 0.16} rot={0} /></div> : <TwoSided front={S(p, 8)!} back={S(p, 9)!} w={W * 0.16} />} /></AbsoluteFill> : null}
+    {S(p, 7) ? <Sparks src={S(p, 7)} op={0.45} trim={Number(p.sparkTrim ?? 2)} /> : null}
     <Light hot={Number(p.hot ?? 0.32)} />
     {hero ? <HeroCutout src={S(p, hero.slot)!} x={hero.x} w={hero.w} light={hero.light ?? "rgba(255,150,50,.75)"} core="rgba(255,225,170,.95)" fadeTop={0.1} scale={interpolate(f, [0, len * fps], [1.02, 1.09])} opacity={interpolate(f, [((hero.at ?? 0) * fps) - 8, (hero.at ?? 0) * fps + 4], [0, 1], clamp)} extraFilter="saturate(1.15) contrast(1.08)" /> : null}
     {rain ? <AbsoluteFill style={{ perspective: W * 0.9 }}><DepthRain n={rain.n} t={f - (rain.from ?? 0) * fps} layer="near" render={() => rain.kind === "coupon" ? <Coupon text="FTT" small="issued by FTX" stub="FTX" boxW={W * 0.16} rot={0} /> : <TwoSided front={S(p, 8)!} back={S(p, 9)!} w={W * 0.16} />} /></AbsoluteFill> : null}
     {((p.words ?? []) as Array<React.ComponentProps<typeof Words>>).map((w, i) => <Words key={i} {...w} size={w.size * W} />)}
-    <Flash len={len} inF={Number(p.inF ?? 7)} outF={Number(p.outF ?? 4)} at={(p.flashes as number[]) ?? []} />
+    <Flash len={len} {...fl(p, Number(p.inF ?? 7), Number(p.outF ?? 4))} at={(p.flashes as number[]) ?? []} />
   </AbsoluteFill>;
 };
-Object.assign(FILM.components as Record<string, unknown>, { M1, M2, M3, MTitle, Beat });
+Object.assign(FILM.components as Record<string, unknown>, { M1, MTitle });
+
+const M2: React.FC<P> = (p) => <Zoomed p={p}><M2In {...p} /></Zoomed>;
+const M3: React.FC<P> = (p) => <Zoomed p={p}><M3In {...p} /></Zoomed>;
+const Beat: React.FC<P> = (p) => <Zoomed p={p}><BeatIn {...p} /></Zoomed>;
+Object.assign(FILM.components as Record<string, unknown>, { M2, M3, Beat });
