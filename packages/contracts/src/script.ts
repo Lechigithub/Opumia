@@ -40,6 +40,9 @@ export const TimedScript = z
       audioPath: z.string(),
     }),
     segments: z.array(ScriptSegment).min(1),
+    /** A breath in the narration for the film's title card (hand film v34: the channel's cold open ends on its title,
+     *  in a breath after the hook); the kit's chapter role draws the title there. */
+    titleCard: z.object({ startS: Seconds, endS: Seconds }).optional(),
     durationS: Seconds,
     generatedAt: IsoDateTime,
   })

@@ -249,3 +249,28 @@ export async function templateShare(job: string | PlanFiles, others: string[]): 
   }
   return out.sort((a, b) => b.devices + b.cuts + b.pictures - (a.devices + a.cuts + a.pictures));
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// the bed under the voice (hand film v34): how far the music sits under speech, whether it falls away, dead air
+
+async function db100(file: string, fromS: number, len: number): Promise<number[]> {
+  const r = await pexec("ffmpeg", ["-v", "error", "-ss", fromS.toFixed(2), "-t", len.toFixed(2), "-i", file, "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], { encoding: "buffer", maxBuffer: 1 << 28 });
+  const b = r.stdout as Buffer, n = Math.floor(b.length / 2), w = 800, out: number[] = [];
+  for (let i = 0; i + w <= n; i += w) { let s = 0; for (let k = i; k < i + w; k += 2) { const v = b.readInt16LE(k * 2) / 32768; s += v * v; } out.push(10 * Math.log10(s / (w / 2) + 1e-10)); }
+  return out;
+}
+export interface BedGap { gapDb: number; fallsAway: number; deadAir: Array<{ atS: number; s: number }> }
+/** On the voice and bed stems of a stretch: the median distance of the bed under speech; the share of speech where the
+ *  bed falls more than 22 dB under the voice (it has gone); stretches ≥ 0.6 s where voice and bed are both near silent. */
+export async function measureBedGap(voiceStem: string, bedStem: string, fromS: number, len: number): Promise<BedGap> {
+  const [v, b] = await Promise.all([db100(voiceStem, fromS, len), db100(bedStem, fromS, len)]);
+  const n = Math.min(v.length, b.length), sp: number[] = [];
+  let away = 0, hole = 0;
+  const dead: Array<{ atS: number; s: number }> = [];
+  for (let i = 0; i < n; i++) {
+    if (v[i]! > -40) { sp.push(v[i]! - b[i]!); if (v[i]! - b[i]! > 22) away++; }
+    if (v[i]! < -45 && b[i]! < -45) hole++; else { if (hole >= 6) dead.push({ atS: r2(fromS + (i - hole) / 10), s: hole / 10 }); hole = 0; }
+  }
+  if (hole >= 6) dead.push({ atS: r2(fromS + (n - hole) / 10), s: hole / 10 });
+  return { gapDb: r2(median(sp)), fallsAway: r3(away / Math.max(1, sp.length)), deadAir: dead };
+}

@@ -62,3 +62,24 @@ Everything you watch comes with a MEASURED block from the same detectors that ju
 - **voice:** a seam is a join you can hear.
 - **trained taste:** the stretch's score against the channel's real median.
 Fix what it names in your own part of the film. Pass on what belongs to another agent, by name.
+
+## The bed under the voice (hand film v34, 2026-11-25)
+
+This was measured on the channel's own stems and confirmed by building a minute by hand beside Ponzi.
+
+- **In a cold open the music never stops.** It is a full bed with a steady low end, from before the first word to the
+  title card, sitting about 9.5 dB under the voice. The voice runs almost without a break (speech on 97 % of the cold
+  open).
+- **Over the rest of a film** the bed sits about 14–17 dB under the voice and still never drops out while he speaks.
+  The only silences are deliberate drop-outs before a reveal.
+- **Choose steady beds.** A bed whose loudness swings more than about 8 dB over its span falls away between lines.
+  The first bed of a film especially should hold steady.
+- **Skip quiet intros.** Start a bed (`inS`) after its quiet intro, so a cue change doesn't open with near silence.
+- **Hits are few and modest.** They land on the flashes and reveals, rising 6–11 dB out of a full mix, not 20 dB out of
+  a thin one. A rhythmic build of pulses can lead into the title card.
+
+**Code sets the levels after you.** It measures each bed's own loudness over its span and sets the gain so the bed lands
+at those distances (`bed-level.ts`). The cold open's cue ducks −9 dB, the rest −14 dB. It reports any unsteady bed.
+
+**The gate checks the mix.** It measures the voice and bed stems for `bed_gap` (how far under the voice, and how often
+the bed falls away) and for `dead_air` (voice and music both near silent for 0.6 s or more).

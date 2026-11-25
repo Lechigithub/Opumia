@@ -174,6 +174,11 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
     }
   }
 
+  // The title card (hand film v34): in the narration's breath after the hook, drawn by the kit's chapter role
+  if (o.script.titleCard && o.script.titleCard.endS - o.script.titleCard.startS >= 1) {
+    const a = F(o.script.titleCard.startS), b = F(o.script.titleCard.endS);
+    video.push({ id: "title_card", shotId: shots.find((x) => F(x.startS) <= a && F(x.endS) > a)?.id ?? "all", sourceKind: "designed", ref: "chapter", startFrame: a, endFrame: b, trimStartFrame: 0, zIndex: 5, blend: "normal", keyframes: [], props: { title: o.script.title, index: 0, titleCard: true } });
+  }
   // Long-form chapter openers (TitleRoll): a 2.4 s serif roll at each chapter start after the first.
   {
     let idx = 1;

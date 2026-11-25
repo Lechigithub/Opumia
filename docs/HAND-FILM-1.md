@@ -628,3 +628,37 @@ word-led montage of performed pictures under a continuous bed.
 
 **First mix pass:** the opening bed raised 8 dB; the hole improved only from −31 to −28 LUFS. The bed track itself
 (a thin pad) has to change.
+
+### v34: the minute rebuilt after watching Ponzi (frozen on the owner's order, 2026-11-25)
+- **What it is:**
+  - one performed shot per sentence (stock actors doing the line);
+  - the key words huge in gold, building word by word on the voice and staying;
+  - white-gold flashes and dissolves instead of cuts;
+  - a title card in a breath after the hook;
+  - a continuous cold-open bed ≈ 10 dB under the voice.
+- **Measured against Ponzi's first minute (Ponzi → v34; v33 for comparison):**
+
+  | | Ponzi | v34 | v33 |
+  |---|---|---|---|
+  | taste | 7.4 | 5.8 | 5.2 |
+  | mix | 0.85 | 0.78 | 0.53 |
+  | cuts / min | 5.2 | 3.1 | — |
+  | typical word up | 2.25 s | 2.0 s | — |
+  | movement per frame | 17.2 | 5.6 | — |
+  | changes by moving | 92 % | 63 % | — |
+  | colourfulness | 48 | 69 | — |
+  | dark share | 13 % | 3 % | — |
+- **Ratchet:** taste 5.13 → 5.65, staples 16/16; frozen on the owner's word with accepted gaps.
+  - The gaps: one colour 0.32, contrast, cut rate 6.2, text frames 0.82, size spread, cut-to-word, clean share 0.05.
+  - They are recorded in eval/ratchet/hand-ftx.json and the bests stay where they were.
+- **Taught to the platform** (the same day):
+  - **craft tools:** `BuildWords`, `GradedPlate`, `FlashCut`, `LightWash`, `LightLayer`; the hand kit now uses them;
+  - **engine:** music duck depth per cue (`MusicCue.duckDb`);
+  - **narration:** `shapeColdOpen` caps pauses at 0.6 s and opens a 2 s title breath after the hook in films long enough
+    for chapters (`TimedScript.titleCard`); the manifest draws the title card with the kit's chapter role;
+  - **production:** `levelBeds` sets every bed from its own measured loudness, so the cold open sits ≈ 10.5 dB and the
+    body ≈ 15 dB under the voice (within ≈ 2 dB of the levels found by hand);
+  - **gates:** preflight `bed_gap` and `dead_air`, measured on the plan's stems (v25 fails at 20 dB with the bed gone on
+    36 % of speech; v34 passes at 10.7 dB, 1 %);
+  - **skills:** sound, director, scenes, sourcing, film-designer.
+- **Next gaps:** motion (3× less than the channel), the grade (oversaturated, too few darks), layers.

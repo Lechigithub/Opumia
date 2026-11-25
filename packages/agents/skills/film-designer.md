@@ -143,3 +143,8 @@ editors sharing a whip pan. Two films setting it the same way is a template.
 
 **Make room for the scene designer's composites.** Export your fonts in `FILM.fonts` and keep your components usable
 inside a composite (sized by `boxW`), so a hand-built scene can use your type and cards.
+
+**The title card (v34).** The chapter role also draws the film's title card. It gets `titleCard: true`, the film's
+title in `title`, and lasts about 2 s in a breath after the hook. Draw it the channel's way: the title in your display
+face, gold on near black, with a subtitle and a little light (sparks or embers) coming up. Let it sit quietly; it's the
+breath between the cold open and the story.

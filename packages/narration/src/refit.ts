@@ -13,6 +13,26 @@ const run = promisify(execFile);
  * crossfade; a longer one is filled with its own room sound. Word times follow. No model and no new take.
  */
 export async function refitPauses(t: TimedScript, scale: number, outPath: string): Promise<{ script: TimedScript; before: number; after: number; pauses: number }> {
+  return retimePauses(t, ({ gap, sentenceEnd }) => (sentenceEnd ? Math.min(gap + 0.6, Math.max(0.12, gap * scale)) : null), outPath);
+}
+
+/**
+ * The channel's cold open (hand film v34, 2026-11-25; measured on its stems: speech on 97 % of the cold open, a title card
+ * in a breath after the hook): every pause between sentences longer than `capS` is cut to it (no dead air), and after
+ * the segment `breathAfterSeg` a breath of `breathS` is opened, filled with the pause's own room, for the title card.
+ * Words never move inside a line and the voice is never stretched. Returns where the breath sits.
+ */
+export async function shapeColdOpen(t: TimedScript, o: { capS?: number; breathAfterSeg?: string; breathS?: number }, outPath: string): Promise<{ script: TimedScript; pauses: number; breath: { startS: number; endS: number } | null }> {
+  const cap = o.capS ?? 0.6, breath = o.breathS ?? 2;
+  const r = await retimePauses(t, ({ gap, sentenceEnd, segEnd, segId }) => (segEnd && segId === o.breathAfterSeg ? gap + breath : sentenceEnd && gap > cap ? cap : null), outPath);
+  const seg = r.script.segments.find((sg) => sg.id === o.breathAfterSeg);
+  const next = seg ? r.script.segments[r.script.segments.indexOf(seg) + 1] : undefined;
+  return { script: r.script, pauses: r.pauses, breath: seg && next ? { startS: Math.round((seg.endS + 0.25) * 1000) / 1000, endS: Math.round(((next.words[0]?.startS ?? next.startS) - 0.1) * 1000) / 1000 } : null };
+}
+
+/** Every pause between two words gets the length `want` returns (null: leave it): cut in its middle with a crossfade,
+ *  or lengthened with its own room sound; word times follow. */
+export async function retimePauses(t: TimedScript, want: (g: { gap: number; sentenceEnd: boolean; segEnd: boolean; segId: string; k: number }) => number | null, outPath: string): Promise<{ script: TimedScript; before: number; after: number; pauses: number }> {
   const { stdout } = await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", t.voice.audioPath, "-f", "f32le", "-ac", "1", "-ar", String(SR), "-"], { encoding: "buffer", maxBuffer: 1 << 30 });
   const buf = stdout as unknown as Buffer;
   const audio = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4));
@@ -27,13 +47,22 @@ export async function refitPauses(t: TimedScript, scale: number, outPath: string
   for (let k = 0; k + 1 < flat.length; k++) {
     const a = flat[k]!, b = flat[k + 1]!;
     shifts[k] = shift;
-    const sentenceEnd = /[.?!]["”')\]]*$/.test(a.w.word) || a.si !== b.si;
+    const segEnd = a.si !== b.si;
+    const sentenceEnd = /[.?!]["”')\]]*$/.test(a.w.word) || segEnd;
     const gap = b.w.startS - a.w.endS;
-    if (!sentenceEnd || gap < 0.12) continue;
-    const want = Math.min(gap + 0.6, Math.max(0.12, gap * scale));
-    const s0 = Math.round((a.w.endS + MARGIN) * SR), s1 = Math.round((b.w.startS - MARGIN) * SR);
+    const wanted = want({ gap, sentenceEnd, segEnd, segId: t.segments[a.si]!.id, k });
+    if (wanted === null || (gap < 0.12 && wanted <= gap + 0.05)) continue;
+    const want_ = Math.max(0.12, wanted);
+    let s0 = Math.round((a.w.endS + MARGIN) * SR), s1 = Math.round((b.w.startS - MARGIN) * SR);
+    if (s1 - s0 <= 2 * XF) {
+      // a tight join that must open (a title breath): quiet room is inserted at its middle
+      const mid = Math.round(((a.w.endS + b.w.startS) / 2) * SR), add = Math.round((want_ - gap) * SR);
+      out.push(audio.subarray(cursor, mid), new Float32Array(Math.max(0, add)));
+      cursor = mid; shift += Math.max(0, add) / SR; pauses++;
+      continue;
+    }
     const body = s1 - s0;
-    const newBody = Math.max(2 * XF, Math.round((want - 2 * MARGIN) * SR));
+    const newBody = Math.max(2 * XF, Math.round((want_ - 2 * MARGIN) * SR));
     if (body <= 2 * XF || Math.abs(newBody - body) < 0.01 * SR) continue;
     pauses++;
     out.push(audio.subarray(cursor, s0));

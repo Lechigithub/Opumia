@@ -43,3 +43,7 @@ or the wrong decade. You look at what was placed, beside its line, and fix what 
   smoke or money filmed on black. These become layers in front of and behind the subject.
 - **Each moment its own picture.** One stock shot is never used for five moments. A bank-run queue for money going
   out, piles of bills for a sum, real coins for a token.
+- **Performed footage for a cold open** (v34): actors doing the line's action, found by searching the action itself
+  ("crowd cheering hands raised", "man covering face with hands", "people rushing through doors", "businessmen
+  shaking hands"). Prefer clips where the action changes during the clip (a handshake that lets go, a hand going to the
+  head).

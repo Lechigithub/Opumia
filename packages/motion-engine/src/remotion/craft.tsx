@@ -9,7 +9,7 @@
  * the way two editors share a whip pan; they must not share how it is set.
  */
 import React from "react";
-import { AbsoluteFill, Easing, Img, interpolate, staticFile, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, interpolate, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
 export const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 /** Seeded noise in [0, 1): the same (i, k) always gives the same value, so a render is deterministic. */
@@ -155,6 +155,71 @@ export const GlassSlab: React.FC<{ w: number; k: number; edge: string; glow: str
 /** A camera shake on an impact: an offset in px for frame f, from `at` for `len` frames. */
 export const shake = (f: number, at: number, len = 10, amp = 30) => (f >= at && f < at + len ? (rnd(f, 9) - 0.5) * amp * (1 - (f - at) / len) : 0);
 
+
+// ── the minute's techniques (hand film v34, 2026-11-25: built after watching the channel's first minutes at 12 fps) ──
+
+/**
+ * The line's key words, huge, building WORD BY WORD on the voice: each word arrives on its own time out of a blur, a
+ * little large, settles and keeps growing slowly; the block leaves together at `until` (s). Fills are the film's own
+ * (a CSS gradient clipped to the letters); a glow filter and fonts are the film's too. The longest line is fitted to
+ * its box, so nothing runs off the frame. Channel: the typical word stays up ≈ 2.5 s.
+ */
+export const BuildWords: React.FC<{ words: Array<{ text: string; at: number; br?: boolean }>; x: number; y: number; w: number; size: number; fontFamily: string; fill: string; glow?: string; until?: number; align?: "left" | "center" | "right"; tilt?: number; caps?: boolean; charEm?: number }> = (p) => {
+  const f = useCurrentFrame(); const { width: W, height: H, fps } = useVideoConfig();
+  if (!p.words.length) return null;
+  const first = Math.min(...p.words.map((w) => w.at));
+  const gone = p.until !== undefined ? interpolate(f, [p.until * fps, p.until * fps + 8], [1, 0], clamp) : 1;
+  if (gone <= 0 || f < first * fps - 6) return null;
+  const grow = interpolate(f, [first * fps, first * fps + 150], [1, 1.06], clamp);
+  const lines: Array<typeof p.words> = [[]];
+  for (const w of p.words) { if (w.br) lines.push([]); lines.at(-1)!.push(w); }
+  const em = p.charEm ?? 0.41;
+  const est = Math.max(...lines.map((l) => l.reduce((a, w) => a + (w.text.length + 1) * em, 0)));
+  const size = Math.min(p.size, (p.w * W * 0.96) / Math.max(1, est));
+  return <div style={{ position: "absolute", left: W * p.x, top: H * p.y, width: W * p.w, display: "flex", flexDirection: "column", alignItems: p.align === "left" ? "flex-start" : p.align === "right" ? "flex-end" : "center", transform: `scale(${grow}) rotate(${p.tilt ?? 0}deg)`, opacity: gone, filter: `${p.glow ?? ""}${gone < 1 ? ` blur(${(1 - gone) * 14}px)` : ""}` || undefined }}>
+    {lines.map((l, i) => <div key={i} style={{ display: "flex", gap: size * 0.12, whiteSpace: "nowrap", lineHeight: 0.92 }}>{l.map((w, j) => {
+      const k = interpolate(f, [w.at * fps - 3, w.at * fps + 6], [0, 1], { ...clamp, easing: EASE_OUT });
+      return <span key={j} style={{ display: "inline-block", whiteSpace: "nowrap", fontFamily: p.fontFamily, fontSize: size, textTransform: p.caps === false ? "none" : "uppercase", backgroundImage: p.fill, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent", opacity: k, transform: `translateY(${(1 - k) * size * 0.25}px) scale(${1.25 - 0.25 * k})`, filter: k < 0.99 ? `blur(${(1 - k) * 12}px)` : undefined, padding: `0 ${size * 0.02}px` }}>{w.text}</span>;
+    })}</div>)}
+  </div>;
+};
+
+/** A performed clip (or photo) filling the frame under the film's grade, with its own bloom, pushing in the whole time;
+ *  `from` (s) starts a clip later in the shot (a second picture dissolving in). */
+export const GradedPlate: React.FC<{ src?: string; trim?: number; from?: number; push?: [number, number]; pan?: [number, number]; len: number; bloom?: number; grade: string; blend?: React.CSSProperties["mixBlendMode"]; opacity?: number }> = (p) => {
+  const f = useCurrentFrame(); const { fps } = useVideoConfig();
+  if (!p.src) return null;
+  const k = interpolate(f, [0, Math.max(1, p.len * fps)], [0, 1], clamp);
+  const [a, b] = p.push ?? [1.04, 1.16], [x0, x1] = p.pan ?? [0, 0];
+  const style: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" };
+  const isV = /\.(mp4|mov|webm)$/i.test(p.src);
+  const pic = (filter: string) => isV ? <Sequence from={Math.round((p.from ?? 0) * fps)} layout="none"><OffthreadVideo src={src(p.src!)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={{ ...style, filter }} /></Sequence> : <Img src={src(p.src!)} style={{ ...style, filter }} />;
+  return <AbsoluteFill style={{ transform: `scale(${a + (b - a) * k}) translateX(${(x0 + (x1 - x0) * k) * 100}%)`, mixBlendMode: p.blend ?? "normal", opacity: p.opacity ?? 1 }}>
+    {pic(p.grade)}
+    {p.bloom ? <AbsoluteFill style={{ mixBlendMode: "screen", opacity: p.bloom }}>{pic(`${p.grade} blur(22px) brightness(1.35)`)}</AbsoluteFill> : null}
+  </AbsoluteFill>;
+};
+
+/** A light flash carrying one picture into the next: from white at the start (inF frames), to white at the end (outF),
+ *  and short flashes at `at` (s). The channel changes picture this way every few seconds in a cold open. */
+export const FlashCut: React.FC<{ len: number; inF?: number; outF?: number; at?: number[]; colour: string }> = ({ len, inF = 7, outF = 4, at = [], colour }) => {
+  const f = useCurrentFrame(); const { fps } = useVideoConfig();
+  const end = len * fps;
+  let o = Math.max(inF > 0 ? interpolate(f, [0, inF], [1, 0], clamp) : 0, outF > 0 ? interpolate(f, [end - outF, end], [0, 1], clamp) : 0);
+  for (const t of at) o = Math.max(o, interpolate(f, [t * fps - 2, t * fps, t * fps + 7], [0, 0.95, 0], clamp));
+  return o > 0.01 ? <AbsoluteFill style={{ background: colour, opacity: o }} /> : null;
+};
+
+/** The frame's own light: a soft-light wash in the film's colour, a hot centre, the edges burned down. */
+export const LightWash: React.FC<{ wash: string; washOpacity?: number; hot: string; cx?: number; cy?: number; edge: string }> = ({ wash, washOpacity = 0.38, hot, cx = 50, cy = 45, edge }) => <>
+  <AbsoluteFill style={{ background: wash, mixBlendMode: "soft-light", opacity: washOpacity }} />
+  <AbsoluteFill style={{ background: `radial-gradient(ellipse at ${cx}% ${cy}%, ${hot} 0%, rgba(0,0,0,0) 55%)`, mixBlendMode: "screen" }} />
+  <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 52%, ${edge} 100%)` }} />
+</>;
+
+/** Light filmed on black (sparks, embers, dust in a beam) laid over by its light. */
+export const LightLayer: React.FC<{ src?: string; opacity?: number; trim?: number; filter?: string }> = ({ src: s, opacity = 0.5, trim = 0, filter }) => { const { fps } = useVideoConfig(); return s ? <AbsoluteFill style={{ mixBlendMode: "screen", opacity }}><OffthreadVideo src={src(s)} muted startFrom={Math.round(trim * fps)} style={{ width: "100%", height: "100%", objectFit: "cover", ...(filter ? { filter } : {}) }} /></AbsoluteFill> : null; };
+
 /** What the tools are for, as the agents see it (the art director's and scene designer's brief). */
 export const CRAFT_TOOLS: Record<string, string> = {
   Slab3D: "spoken words as thick carved 3D type that flies in from depth and turns (inside perspective); colours and font are yours",
@@ -171,4 +236,9 @@ export const CRAFT_TOOLS: Record<string, string> = {
   Cracks: "cracks spreading from a point before a break",
   Shatter: "the frame breaks into shards that fall away and reveal the next scene beneath (a transition made of the picture)",
   shake: "camera shake offset on an impact",
+  BuildWords: "the line's key words, huge, building word by word on the voice out of a blur and staying (fitted to their box; your font, gradient fill and glow)",
+  GradedPlate: "a performed clip filling the frame under your grade with its own bloom, pushing in; `from` dissolves a second picture in later in the shot",
+  FlashCut: "a light flash carrying one picture into the next (in at the start, out at the end, short flashes inside the shot)",
+  LightWash: "the frame's own light: a soft-light wash in your colour, a hot centre, edges burned down",
+  LightLayer: "sparks, embers or dust filmed on black, screened over the picture",
 };

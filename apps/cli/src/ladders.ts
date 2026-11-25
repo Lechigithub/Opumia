@@ -246,6 +246,8 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   unique_plan_sound: SOUND,
   shared_sfx: SOUND,
   shared_music: SOUND,
+  bed_gap: SOUND,
+  dead_air: SOUND,
   sfx_variety: SOUND,
   voice_unresolved: WRITER_ONLY,
   voice_wer: WRITER_ONLY,

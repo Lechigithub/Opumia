@@ -37,7 +37,7 @@ const WORLDS = ["mono_accent", "duotone", "burst", "collage", "flat_field", "pap
 const dur = 24 + (WORLDS.length + 2) * 2.5;
 const tw = words.map((w, i) => ({ word: w, startS: +(i * (dur - 1) / words.length).toFixed(3), endS: +((i + 0.8) * (dur - 1) / words.length).toFixed(3) }));
 ff(["-f", "lavfi", "-i", `sine=frequency=220:duration=${dur}`, "-af", "volume=0.3", path.join(job, "narration.mp3")]);
-const script = TimedScript.parse({ schemaVersion: 1, id: "ts_smoke", title: "Smoke test", styleProfileId: "magnates-media", aspect: ASPECT, voice: { provider: "elevenlabs", voiceId: "x", modelId: "x", audioPath: path.join(job, "narration.mp3") }, segments: [{ id: "s01", role: "hook", text: words.join(" "), startS: 0, endS: dur - 1, words: tw }], durationS: dur, generatedAt: new Date().toISOString() });
+const script = TimedScript.parse({ schemaVersion: 1, id: "ts_smoke", title: "Smoke test", styleProfileId: "magnates-media", aspect: ASPECT, voice: { provider: "elevenlabs", voiceId: "x", modelId: "x", audioPath: path.join(job, "narration.mp3") }, segments: [{ id: "s01", role: "hook", text: words.join(" "), startS: 0, endS: dur - 1, words: tw }], titleCard: { startS: 1.2, endS: 3.0 }, durationS: dur, generatedAt: new Date().toISOString() });
 
 const kinds: Array<[string, Record<string, unknown>]> = [
   ["broll", {}], ["parallax", {}], ["chart", { type: "bar", title: "Market value", unit: "$", labels: ["1990", "2000", "2007", "2013"], values: [2e9, 3.1e10, 9.4e10, 7.2e9], highlight: 2 }],

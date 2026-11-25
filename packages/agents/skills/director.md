@@ -47,3 +47,22 @@ minute against about 30 changes made by moving. Your shot list still sets the pa
 stretches where one continuous camera moves through several pictures, so the scene designer can build them as a
 journey: a run of quick images on one idea, a list, a build-up. Say so in the shot's intent ("one move through: …").
 Give every moment its own picture, and never one stock shot for five moments.
+
+## The cold open (hand film v34, 2026-11-25: Ponzi's first minute watched at 12 frames a second)
+
+- **One performed image per sentence.** Plan a picture of PEOPLE DOING what the line says, not an object or a
+  location:
+  - a crowd raising its hands for "people believe";
+  - a man under a lamp turning a page for "one document";
+  - a trader with his head in his hands for "you can guess what happened next";
+  - a queue outside for "customers ran";
+  - a handshake that lets go for "agreed to buy… walked away".
+
+  Search for the action: "man covering face with hands", "crowd cheering hands raised", "people rushing through
+  doors".
+- **Never a stand-in face under a line that names a real person.** Use their own press picture.
+- **The images change by light, not by cuts.** A white-gold flash every few seconds, a picture dissolving into the next
+  inside the frame. The channel's first minute had five hard cuts.
+- **The cold open ends on the title card.** For a film long enough for chapters, the narration gets a 2 s breath after
+  the hook, and the kit's chapter role draws the title there (`TimedScript.titleCard`). Plan no important picture
+  under it.

@@ -235,3 +235,31 @@ floating card still reads as an interface.
 **Judge beside the channel, not alone.** Before you submit, run `compare_with_reference` on the opening, on every payoff
 and on any scene you built by hand. Your stretch sits on top and a real stretch at the same place in a film below it,
 both measured. Fix what the real one does that yours does not.
+
+## The cold open, as the channel builds it (hand film v34, 2026-11-25)
+
+Watched at 12 frames a second beside Ponzi, then rebuilt. The owner froze it as the best version so far.
+
+- **Every sentence gets one performed shot, filling the frame,** graded warm and bright with its own bloom, always
+  pushing in (`GradedPlate`). A second picture can dissolve in on a word (the fire becomes the falling building on
+  "bankrupt").
+- **The line's KEY words are set huge,** 60–95 % of the frame wide, in the film's display face with a gradient fill and
+  a glow. They build word by word on the voice and stay until the next idea (`BuildWords`):
+  - $32 BILLION, then BANKRUPT;
+  - ONE DOCUMENT;
+  - 40 %;
+  - SELL EVERY FTT;
+  - WALKED AWAY.
+
+  A second phrase in a script face carries the rest of the line ("four days later", "in less than a week?").
+  Nearly every shot of a cold open carries words. Clean footage belongs to the body of the film.
+- **Pictures change through a light flash** (`FlashCut`, white-gold, about 7 frames), not a hard cut.
+- **Light and particles:** the frame's own light (`LightWash`), and sparks, embers or money in depth over the
+  picture (`LightLayer`, `DepthRain`).
+- **A face of the named subject** is a big, rim-lit cut-out (`HeroCutout`), with their name behind the head
+  (`WrapAround`).
+- **Known gaps against the channel,** to close next:
+  - **Motion:** the channel's frames change about 3× more per frame. Money rushes at the camera, layers fly in,
+    letters spin in.
+  - **Grade:** the channel's gold sits against deep shadows (13 % of the frame dark); ours ran orange everywhere (3 %).
+  - **Layers:** more of them, and more pictures growing out of each other inside the frame.

@@ -5,8 +5,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ZodType, ZodTypeDef } from "zod";
 import { type QAReport, ChannelId, FilmDesignSystem, LicenseOverrides, ScenePlan, FactSheet, LibraryIndex, RenderManifest, ResolutionReport, ScriptDraft, Storyboard, TimedScript, type Aspect } from "@opumia/contracts";
-import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setLaterGuarantee, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, techniqueBrief, grammarBrief, ensureTechniquePresets, seeTechniqueTool, stapleGaps, stretchSheet, manifestEvents, loadInventory, techniqueCoverage, recordCoverage, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations } from "@opumia/agents";
-import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses } from "@opumia/narration";
+import { judgeLessons, recordFilm, editFilmAgent, filmScoreText, scoreFilm, showrunnerAgent, ensureQualityBand, directStoryboardAgent, type DirectorReport, designScenesAgent, ensureVisualBand, type ReferenceShot, type SceneReport, researchAgent, ensureReferenceFilms, ensureStoryBand, type StoryReport, setBudget, setStageCap, setFinishing, filmSpent, setLaterGuarantee, setCurrentStage, inFilmStage, stageSpent, lengthPlan, setFilmLength, allotments, resetAllotments, rewordForSpeech, techniqueBrief, grammarBrief, ensureTechniquePresets, seeTechniqueTool, stapleGaps, stretchSheet, manifestEvents, loadInventory, techniqueCoverage, recordCoverage, ensureDesignBand, ensurePictureBand, craftBand, emphasisOf, buildCutTimeline, BudgetError, closest, fingerprintOf, habitsOf, loadFingerprints, saveFingerprint, critiqueScenes, judgeClips, loadTaste, scoreTaste, producedJobs, markProduced, soundAgent, sourcingAgent, colouristAgent, qaAgent, type CoverageRow, isUsable, blockedRefs, badQueries, buildStylePack, chapterCount, loadMemory, recentBlueprints, recordBlueprint, researchTopic, updateMemory, usageLedger, writeScript, type FilmKitMeta, Ladders, type Problem, type Rung, resetClient, recordEscalations, analyseEscalations, levelBeds } from "@opumia/agents";
+import { ensureVoiceMeasured, recordNarrationPace, storedVoiceMeasure, ttsModel as currentTtsModel, calibrationKey, narrateDirected, readCalibration, resolveChannelVoice, writeCalibration, refitPauses, shapeColdOpen } from "@opumia/narration";
 import { resolvePaperTextures, findProp3d, materializeProp3d, resolveAtmosphere, closeBrowser, compositeScenes, makeFootageProbe, makeSceneTools, youtubeTranscript, pageTextViaBrowser, repairShots, type StockCandidate, resolveAssets, resolveAudio, replanShots } from "@opumia/resolver";
 import { buildAudioProfile } from "./audio-profile.js";
 import { loadKeys } from "./keys.js";
@@ -14,7 +14,7 @@ import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
 import { googleFonts, makeLikeness, runFilmDesigner } from "./film-kit.js";
-import { filmFlow, flowChecks, templateShareCheck } from "./flow-checks.js";
+import { bedChecks, filmFlow, flowChecks, templateShareCheck } from "./flow-checks.js";
 import { compareWithReference } from "./compare-ref.js";
 import { ensurePlucks, trackPoint, run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
@@ -22,7 +22,7 @@ import { dropPictures, preflightChecks, referenceHueDominance, type PreflightChe
 import { designChecks, mixTasteCheck, pictureChecks, previewTells, techniqueUseChecks } from "./bl5-checks.js";
 import { craftReport } from "./craft-report.js";
 import { FINISHED_LADDERS, PREFLIGHT_LADDERS, type Act } from "./ladders.js";
-import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, renderShotPreviews, renderVideo, runQA, toSrt, renderStretches } from "@opumia/motion-engine";
+import { listen, listeningText, watchClip, watchFile, type BuildManifestOptions, youtubeDescription, buildManifest, captionGroups, lookFromProfile, masterAudio, muxFinal, renderShotPreviews, renderVideo, runQA, toSrt, renderStretches, premixStems } from "@opumia/motion-engine";
 
 export const STAGES = ["research", "script", "narration", "storyboard", "resolve", "manifest", "render", "thumbnail", "qa"] as const;
 type Stage = (typeof STAGES)[number];
@@ -359,6 +359,17 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
   }
   // A miss left after the ladder is kept (the voice is never touched) and logged; it never stops the film (build list 4).
   if (timed.durationS > maxS || timed.durationS < minS) log(`  ! narration runs ${timed.durationS.toFixed(1)} s against ${minS}–${maxS} s after the voice ladder — kept at its natural pace (ladders.jsonl)`);
+  // The channel's cold open (hand film v34, measured on its stems): no dead air between lines (pauses capped at 0.6 s;
+  // speech fills ≈ 97 % of its cold open), and a film long enough for chapters gets a 2 s breath after the hook for its
+  // title card (TimedScript.titleCard, drawn by the kit's chapter role). Done once per narration.
+  if (!/narration-shaped\.mp3$/.test(timed.voice.audioPath)) {
+    const hook = [...timed.segments].reverse().find((sg) => sg.role === "hook");
+    const longForm = lengthPlan(timed.durationS).chapters > 0;
+    const sh = await shapeColdOpen(timed, { capS: 0.6, ...(longForm && hook && hook !== timed.segments.at(-1) ? { breathAfterSeg: hook.id, breathS: 2 } : {}) }, path.join(jobDir, "narration-shaped.mp3"));
+    timed = TimedScript.parse({ ...sh.script, ...(sh.breath ? { titleCard: sh.breath } : {}) });
+    await writeFile(timedPath, JSON.stringify(timed, null, 2) + "\n");
+    log(`  cold open: ${sh.pauses} pause(s) reshaped${sh.breath ? `; title breath ${sh.breath.startS}–${sh.breath.endS} s` : ""}`);
+  }
   log(`  narration ${timed.durationS.toFixed(2)} s, ${timed.segments.length} segments`);
   if (stop("narration")) return { jobDir };
 
@@ -724,7 +735,10 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     // build list 5, items 22 and 26–27: one timeline of cuts, stressed words and turns, shared with the editor
     const emphasis = await emphasisOf(jobDir).catch(() => undefined);
     const sd = await soundAgent({ techniques: [await techniqueBrief({ data: o.data, channel, owner: "sound designer", durationS: o.durationS }).catch(() => ""), await grammarBrief({ data: o.data, channel, owner: "sound designer" }).catch(() => "")].filter(Boolean).join("\n\n"), extraTools: [seeTechniqueTool({ data: o.data, channel })],  ...sopts, ...(emphasis ? { emphasis } : {}), kitRoles: Object.fromEntries(Object.entries(filmKit.roles ?? {}).map(([r, c]) => [c, r])), channel, data: o.data, resolution, listen: listenSound, ...(brief ? { brief } : {}), memoryDir: path.join(o.data, "agents", "sound") });
-    board = Storyboard.parse({ ...board, shots: sd.shots, music: sd.music });
+    // beds at the channel's distance under the voice; the cold open's bed ducks less (hand film v34, bed-level.ts)
+    const lvl = await levelBeds({ music: sd.music as never, fileOf: (id) => { const a = index.assets.find((x) => x.id === id); return a ? path.join(o.library, a.relPath) : null; }, ...(timed.titleCard ? { titleCardEndS: timed.titleCard.endS } : {}), cacheDir: path.join(o.data, ".cache") }).catch((e: Error) => (log(`  ! bed levels: ${e.message.slice(0, 100)}`), null));
+    if (lvl) log(`  beds: ${lvl.notes.join("; ")}`);
+    board = Storyboard.parse({ ...board, shots: sd.shots, music: lvl ? lvl.music : sd.music });
     await writeFile(path.join(jobDir, "storyboard.json"), JSON.stringify(board, null, 2) + "\n");
     resolution = await resolveAudio({ storyboard: board, index, libraryRoot: o.library, jobDir, resolution });
     await writeFile(path.join(jobDir, "resolution.json"), JSON.stringify(resolution, null, 2) + "\n");
@@ -1030,6 +1044,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         ...(await designChecks({ root: o.root, data: o.data, prevDir, board, scenes: scenePlan, resolution, timed, band: designBandP }).catch((e: Error) => (log(`  ! design checks failed: ${e.message.slice(0, 120)}`), []))),
         ...(await pictureChecks({ prevDir, board, scenes: scenePlan, resolution, timed, subjects, band: pictureBandP }).catch((e: Error) => (log(`  ! picture checks failed: ${e.message.slice(0, 120)}`), []))),
         ...tells,
+        ...(await (async () => { const st = await premixStems(manifest, path.join(jobDir, "watch", "preflight-stems")); return bedChecks({ stems: st, coldOpenEndS: timed.titleCard?.endS ?? Math.min(45, timed.durationS), durationS: timed.durationS, board }); })().catch((e: Error) => (log(`  ! bed checks failed: ${e.message.slice(0, 120)}`), []))),
         ...(await templateShareCheck({ root: o.root, data: o.data, jobId, board, scenes: scenePlan, resolution }).catch((e: Error) => (log(`  ! template share failed: ${e.message.slice(0, 120)}`), []))),
         ...(await techniqueUseChecks({ data: o.data, channel, prevDir, board, scenes: scenePlan, timed }).catch((e: Error) => (log(`  ! technique checks failed: ${e.message.slice(0, 120)}`), []))),
       ];
