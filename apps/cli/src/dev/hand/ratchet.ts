@@ -18,6 +18,9 @@ const fi = process.argv.indexOf("--freeze"), tag = fi > 0 ? process.argv[fi + 1]
 // --owner "<their words>": the owner approved by eye a change no measure can see yet; freezes with no regression even
 // if nothing measured improved, and records the approval
 const oi = process.argv.indexOf("--owner"), owner = oi > 0 ? process.argv[oi + 1] : null;
+// --owner-overrides: the owner ordered this freeze although some measures are below their best; the regressions are
+// recorded as accepted known gaps (the bests stay where they were, so the next version must still reach them)
+const ownerOverrides = process.argv.includes("--owner-overrides");
 const ji = process.argv.indexOf("--job"), job = ji > 0 ? path.resolve(process.argv[ji + 1]!) : path.dirname(path.resolve(film));
 const baseFile = path.join(root, "eval", "ratchet", `${name}.json`);
 
@@ -173,7 +176,7 @@ if (existsSync(path.join(job, "scenes.json")) && existsSync(path.join(job, "stor
     text_on_label_shape: els.some((e) => ["Label", "Name", "Chip"].includes(e.name ?? "")), // words on a shape: a tag, a name bar, a chip
     monochrome_high_contrast_grade: sc.some((x) => x.wash?.mode === "duotone" && ["black", "surface", "textMuted", "paper"].includes(x.wash.color ?? "") && (x.wash.strength ?? 0) >= 0.55), // any monochrome tone (warm black-and-white counts)
     duotone_color_tint: sc.some((x) => (x.wash?.mode === "duotone" && !["black", "surface", "textMuted", "paper"].includes(x.wash.color ?? "")) || x.world?.kind === "duotone"),
-    word_by_word_build: els.some((e) => e.name === "Kinetic" || Boolean(e.props?.build)), // words that land one by one
+    word_by_word_build: els.some((e) => e.name === "Kinetic" || Boolean(e.props?.build) || /^M\d$/.test(String(e.name)) || (Array.isArray(e.props?.words) && (e.props!.words as Array<{ words?: unknown[] }>).some((w) => Array.isArray(w?.words) && w.words.length > 1))), // words that land one by one (v34: the minute's Words build word by word)
     keyword_colour_highlight: els.some((e) => (e.props?.words ?? []).some((w) => w.c === "y" || w.c === "r")),
     centered_caps_title: els.some((e) => ["Kinetic", "Phrase", "Figure"].includes(e.name ?? "") && (e.props?.align ?? "center") === "center" && e.props?.font !== "serif"),
     depth_of_field_blur: sc.some((x) => (x.fx?.dof ?? 0) > 0),
@@ -264,15 +267,15 @@ if (lockLabel && !tag) {
   console.log(`LOCKED the better measures of ${lockLabel} as bests (the frozen film stays ${base?.tag})`);
 }
 if (tag) {
-  if (base && worse.length) { console.log("NOT FROZEN: a frozen level may never go down"); process.exit(2); }
+  if (base && worse.length && !(owner && ownerOverrides)) { console.log("NOT FROZEN: a frozen level may never go down"); process.exit(2); }
   if (base && !better.length && !owner) { console.log("NOT FROZEN: nothing improved"); process.exit(3); }
   const dir = path.join(job, "frozen", tag);
   await mkdir(dir, { recursive: true });
   await cp(path.resolve(film), path.join(dir, path.basename(film)));
-  for (const f of ["thumbnail.jpg", "publish-hand.json", "timed-script.json", "storyboard.json", "scenes.json", "resolution.json", "design.json", "manifest.json", "narration.mp3", "design/film/index.tsx"]) if (existsSync(path.join(job, f))) await cp(path.join(job, f), path.join(dir, f), { recursive: true });
+  for (const f of ["thumbnail.jpg", "publish-hand.json", "timed-script.json", "timed-script-marcus3.json", "narration-marcus3.mp3", "storyboard.json", "scenes.json", "resolution.json", "design.json", "manifest.json", "narration.mp3", "design/film/index.tsx"]) if (existsSync(path.join(job, f))) await cp(path.join(job, f), path.join(dir, f), { recursive: true });
   await cp(path.join(root, "apps/cli/src/dev/hand"), path.join(dir, "hand-scripts"), { recursive: true });
   await mkdir(path.dirname(baseFile), { recursive: true });
   raise();
-  await writeFile(baseFile, JSON.stringify({ name, tag, best, film: path.relative(root, path.join(dir, path.basename(film))), frozenAt: new Date().toISOString(), measures: m, ...(owner ? { ownerApproval: owner } : {}), previous: base ? { tag: base.tag, measures: base.measures } : null }, null, 2));
+  await writeFile(baseFile, JSON.stringify({ name, tag, best, film: path.relative(root, path.join(dir, path.basename(film))), frozenAt: new Date().toISOString(), measures: m, ...(owner ? { ownerApproval: owner } : {}), ...(ownerOverrides && worse.length ? { acceptedGaps: worse } : {}), previous: base ? { tag: base.tag, measures: base.measures } : null }, null, 2));
   console.log(`FROZEN ${name} at ${tag} → ${path.relative(root, dir)}; commit eval/ratchet and tag: git tag ratchet/${name}/${tag}`);
 }
