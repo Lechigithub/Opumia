@@ -135,7 +135,14 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 - ☐ E4 **The hand builds follow the same order** (Wirecard v4).
 
 ### F. Motion, scenes, words (still short of the channel)
-- ◐ F1 **Motion** (the blocker for world-first films, measured on Wirecard v4: real stills move 4.1 against the channel's 17): ours 10.3 against the channel's 17. Find what makes the channel's frames move: camera on
+- ◑ F1 **Motion** (2026-11-25). Correction: the "17" target was Ponzi, the channel's MOST-moving film of 37.
+  - **The channel's band:** frame motion p10 2.9, median 6.3, p90 10.8; moving 60–93 % of the time.
+  - **How it moves:** real stills are 1 % of its shots, held 0.4 s; actors performing the line are 32 % and b-roll
+    19 %.
+  - **Built:** `@craft` `CameraPath` and `Parallax` (real stills as depth planes, using the cut-out tool's new `box`).
+  - **Wirecard v4.2:** motion 4.8, moving 74 %, changes by moving 0.82, cuts 7.0/min, all inside the band. The
+    reenactment came from staged stock (card tap, trader, audience, typist, a man on the phone).
+  - **Was: ours 10.3 against the channel's 17. Find what makes the channel's frames move: camera on
   composites, parallax planes, push-throughs, subject motion. Measure it per technique on the reference; build the
   missing blocks (2.5D parallax from cut-outs, camera paths through layered scenes).
 - ☐ F2 **Changes made by moving:** ours 0.83 against the channel's 0.92. Footage shots need moving entries and exits
@@ -176,7 +183,10 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   - **Result:** no earlier film of ours is too close (FTX's word look is gone), the real subjects are in (Braun,
     McCrum, the Marsalek wanted poster, Wirecard's HQ, BPI Manila, the Frankfurt Bull and Bear, a real terminal and
     receipt printer), and the cuts are at Ponzi's 5.3 a minute.
-  - **Not there yet:** line fit 0.565 (channel ≥ 0.614), colourfulness 30 (31–46), motion 4.1 (v3 10.3, channel 17),
+  - **v4.2 (2026-11-25, F1):** too close to nothing (one generic paperwork shot had pushed it to WeWork's 0.702 >
+    0.698; replaced by the real receipt printer). Line fit 0.601 (p10 0.614), motion in band, colourfulness 30.7,
+    taste 4.6, mix 0.75: the gaps left are line fit, taste, colour and mix.
+  - **v4.1, not there yet:** line fit 0.565 (channel ≥ 0.614), colourfulness 30 (31–46), motion 4.1 (v3 10.3, channel 17),
     dark frames 2 % (13 %), taste 4.7 (6.1). Real subjects are mostly stills; v3's motion came from stock video and
     number rain, the template itself. Next: F1, the building blocks that make real stills move (cut-out parallax
     planes, camera paths through layers).

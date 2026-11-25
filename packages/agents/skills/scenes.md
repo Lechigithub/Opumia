@@ -251,11 +251,13 @@ Measured on the channel's cold opens (Ponzi watched at 12 frames a second; motio
 - **The key words of the line are on screen and held until read.** How they look is the film's own: the channel's
   films set them as yellow script (Ponzi), torn-paper handwriting (1MDB), red collage caps (Eiffel Tower), terminal
   chevrons (Silk Road), brand event titles (Red Bull).
-- **Pictures change by moving** (a push, a wipe made of the picture, light, a move through the frame): about 5 hard
-  cuts in a minute while the picture changes every 3–5 s. Which move is this film's choice.
+- **Pictures change mostly by moving** (a push, a wipe made of the picture, light, a move through the frame); hard cuts
+  3–21 a minute across the channel (median 8.7). Which move is this film's choice.
 - **Light:** deep shadows (≈ 13 % of frames dark), highlights saturated.
-- **Motion:** the channel's frames change about 1.6× more than our best hand film (17 vs 10.3). More layers moving,
-  pictures growing out of each other.
+- **Motion, measured across all 37 films** (not one): frame motion p10 2.9, median 6.3, p90 10.8 (Ponzi is the
+  channel's most-moving film at 17.4, an extreme, not the target); changes made by moving median 0.76; moving 82 % of
+  the time. Real stills are 1 % of its shots and held 0.4 s; half its shots are actors performing the line (32 %) and
+  b-roll (19 %). A still that must stay up moves as depth planes (`Parallax`, `CameraPath`).
 
 The FTX hand films (v34, v35) and Wirecard (v1–v3) made their own choices: glowing gradient key words, white-gold
 flashes, money in depth, number rain. Those are THEIR world. They are kept in those films' kits as examples of one

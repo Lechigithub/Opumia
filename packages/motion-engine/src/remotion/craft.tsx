@@ -241,7 +241,45 @@ export const ZoomThrough: React.FC<{ len: number; inF?: number; outF?: number; c
 };
 
 /** What the tools are for, as the agents see it (the art director's and scene designer's brief). */
+/** Camera keyframes over time (s): scale, x/y (fractions of the frame), rotation (deg). Eased between keys. A plain
+ *  building block (build list 6, F1): the look of what it moves through is the film's own. */
+export type CamKey = { t: number; s?: number; x?: number; y?: number; r?: number };
+export function camAt(keys: CamKey[], t: number): Required<Omit<CamKey, "t">> {
+  const ks = [...keys].sort((a, b) => a.t - b.t);
+  const v = (k: CamKey) => ({ s: k.s ?? 1, x: k.x ?? 0, y: k.y ?? 0, r: k.r ?? 0 });
+  if (!ks.length) return { s: 1, x: 0, y: 0, r: 0 };
+  if (t <= ks[0]!.t) return v(ks[0]!);
+  for (let i = 1; i < ks.length; i++) if (t <= ks[i]!.t) {
+    const a = v(ks[i - 1]!), b = v(ks[i]!), u = EASE_IN_OUT((t - ks[i - 1]!.t) / Math.max(1e-3, ks[i]!.t - ks[i - 1]!.t));
+    return { s: a.s + (b.s - a.s) * u, x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, r: a.r + (b.r - a.r) * u };
+  }
+  return v(ks[ks.length - 1]!);
+}
+export const CameraPath: React.FC<{ keys: CamKey[]; depth?: number; origin?: [number, number]; children: React.ReactNode }> = ({ keys, depth = 1, origin = [0.5, 0.5], children }) => {
+  const f = useCurrentFrame(); const { fps, width: W, height: H } = useVideoConfig();
+  const c = camAt(keys, f / fps);
+  return <AbsoluteFill style={{ transformOrigin: `${origin[0] * 100}% ${origin[1] * 100}%`, transform: `translate(${c.x * W * depth}px, ${c.y * H * depth}px) scale(${1 + (c.s - 1) * depth}) rotate(${c.r * depth}deg)` }}>{children}</AbsoluteFill>;
+};
+
+/** A real still made to move like a filmed shot: the photo split into depth planes (its background, softened, and the
+ *  subject cut out at the place it stood — `box` from the cut-out tool), each plane following the same camera path at its
+ *  own depth, so the subject travels against its background. Plain block: grade, colour and type stay the film's. */
+export const Parallax: React.FC<{ bg: string; cut?: string; box?: [number, number, number, number]; aspect: number; keys: CamKey[]; near?: number; far?: number; bgFilter?: string; cutFilter?: string; extra?: React.ReactNode }> = (p) => {
+  const { width: W, height: H } = useVideoConfig();
+  // the photo fitted to cover the frame (with room to travel)
+  const fw = Math.max(W, H * p.aspect) * 1.08, fh = fw / p.aspect;
+  const plane = (child: React.ReactNode, depth: number, key: string) => <CameraPath key={key} keys={p.keys} depth={depth}><div style={{ position: "absolute", left: (W - fw) / 2, top: (H - fh) / 2, width: fw, height: fh }}>{child}</div></CameraPath>;
+  const b = p.box ?? [0, 0, 1, 1];
+  return <AbsoluteFill style={{ overflow: "hidden" }}>
+    {plane(<Img src={src(p.bg)} style={{ width: "100%", height: "100%", objectFit: "fill", filter: p.bgFilter ?? "blur(3px) brightness(0.82)", transform: "scale(1.04)" }} />, p.far ?? 0.55, "bg")}
+    {p.extra ? plane(p.extra, ((p.far ?? 0.55) + (p.near ?? 1.35)) / 2, "mid") : null}
+    {p.cut ? plane(<Img src={src(p.cut)} style={{ position: "absolute", left: `${b[0] * 100}%`, top: `${b[1] * 100}%`, width: `${b[2] * 100}%`, height: `${b[3] * 100}%`, filter: p.cutFilter ?? "drop-shadow(0 18px 30px rgba(0,0,0,.55))" }} />, p.near ?? 1.35, "cut") : null}
+  </AbsoluteFill>;
+};
+
 export const CRAFT_TOOLS: Record<string, string> = {
+  CameraPath: "a camera move through keyframes (scale, x, y, rotation at times), eased; wraps anything; depth scales how far a layer travels",
+  Parallax: "a real still made to move like a filmed shot: its background softened and its subject cut out where it stood (box from the cut-out tool), each plane on the same camera path at its own depth",
   Slab3D: "spoken words as thick carved 3D type that flies in from depth and turns (inside perspective); colours and font are yours",
   TwoSided: "a real flat object with two photographed faces (banknote front/back, a card) that tumbles and shows its back",
   DepthRain: "many objects falling and tumbling in real depth, in a far pass behind the subject and a near pass in front of it; fall collapses them",

@@ -6,6 +6,7 @@
 // No glow, no gradient fill, nothing raining.
 import React from "react";
 import { AbsoluteFill, Easing, Img, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Parallax } from "@craft";
 import { loadFont as courierF } from "@remotion/google-fonts/CourierPrime";
 import { loadFont as vtF } from "@remotion/google-fonts/VT323";
 import { loadFont as oldF } from "@remotion/google-fonts/OldStandardTT";
@@ -156,6 +157,7 @@ const Beat: React.FC<P> = (p) => {
         <Plate s={S(p, pl.slot)} trim={pl.trim} from={Math.max(0, from - 0.3)} len={len - from + 0.3} push={pl.push} pan={pl.pan} tilt={pl.tilt} grade={pl.grade} box={pl.box} crop={pl.crop} />
       </AbsoluteFill>;
     })}
+    {p.parallax ? <Parallax bg={S(p, p.parallax.bg)!} cut={S(p, p.parallax.cut)} box={p.parallax.box} aspect={Number(p.parallax.aspect)} keys={p.parallax.keys} near={p.parallax.near} far={p.parallax.far} bgFilter={p.parallax.bgFilter} cutFilter={p.parallax.cutFilter} /> : null}
     {p.pink ? <Pink k={interpolate(f, [Number(p.pink.from ?? 0) * fps, Number(p.pink.from ?? 0) * fps + 10], [0, 1], clamp)} /> : null}
     {p.lowkey ? <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 30%, rgba(0,0,0,.72) 100%)" }} /> : null}
     {((p.lcd ?? []) as P[]).map((l, i) => <LCD key={i} states={l.states} box={l.box} rot={l.rot} skew={l.skew} />)}

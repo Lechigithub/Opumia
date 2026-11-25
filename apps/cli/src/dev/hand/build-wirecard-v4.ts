@@ -26,6 +26,10 @@ const at = (line: string, k: number) => W[G(line, k)]!.startS;
 type M = { file: string; kind: "video" | "image"; origin: ResolvedMedia["origin"]; provider: ResolvedMedia["provider"]; license: string; credit: string; url: string };
 const W3 = "out/hand-wirecard/downloads";
 const stockCredit = JSON.parse(await readFile(path.join(root, W3, "stock.json"), "utf8")) as Record<string, { credit?: string }>;
+const W4 = "out/hand-wirecard-v4/downloads";
+const stock4 = JSON.parse(await readFile(path.join(root, W4, "stock.json"), "utf8")) as Record<string, { credit?: string }>;
+const PX4 = (id: string): M => ({ file: `${W4}/stock/pexels_${id}.mp4`, kind: "video", origin: "stock", provider: "pexels", license: "Pexels License", credit: stock4[`pexels_${id}`]?.credit ?? "Pexels", url: `https://www.pexels.com/video/${id}/` });
+const CUT = (f: string): M => ({ file: `${W4}/cut/${f}`, kind: "image", origin: "archival", provider: "commons", license: "derived cut-out of the picture beside it", credit: "cut-out (local, BiRefNet) of the picture it was cut from", url: "" });
 const PX = (id: string): M => ({ file: `${W3}/stock/pexels_${id}.mp4`, kind: "video", origin: "stock", provider: "pexels", license: "Pexels License", credit: stockCredit[`pexels_${id}`]?.credit ?? "Pexels", url: `https://www.pexels.com/video/${id}/` });
 const commonsMeta = JSON.parse(await readFile(path.join(root, W3, "commons.json"), "utf8")) as Array<{ title: string; file?: string; licence?: string; license?: string; credit?: string; author?: string; url?: string }>;
 const CM = (title: string, file: string, kind: "video" | "image" = "image"): M => { const m = commonsMeta.find((x) => x.title === title) ?? ({} as never); return { file: `${W3}/commons/${file}`, kind, origin: "archival", provider: "commons", license: String(m.licence ?? m.license ?? "see Commons"), credit: String(m.credit ?? `${title.replace(/^File:/, "")}, via Wikimedia Commons`), url: String(m.url ?? `https://commons.wikimedia.org/wiki/${encodeURIComponent(title)}`) }; };
@@ -44,6 +48,9 @@ const MEDIA: Record<string, M> = {
   mccrum: PRESS("mccrum_clean.mp4", "https://www.youtube.com/watch?v=u-8-QbDpqqw", "Financial Times (excerpt, fair use)"),
   poster: PRESS("marsalek_poster.mp4", "https://www.youtube.com/watch?v=3-yauD_IZHw", "euronews / Polizeipräsidium München wanted notice (excerpt, fair use)"),
   cuffs: PX("7714092"), jet: PX("1650628"), counter: PX("6266288"), euros: PX("33402648"),
+  // v4.2: performed reenactment (the channel's staged actors, ≈ 32 % of its shots) and moving real stills
+  tap: PX4("6540557"), trader: PX4("7578646"), stage: PX4("35451425"), typing: PX4("13375774"), auditor: PX4("8298011"), phone: PX4("8134512"),
+  hqcut: CUT("hq_cut.png"), bullcut: CUT("bullbear_cut.png"),
 };
 
 // ---- beats: each starts on its word; `len` runs to the next beat ----
@@ -54,45 +61,54 @@ const ln = (text: string, at: number, o: Partial<L> = {}): L => ({ text, at, ...
 const rule = (at: number): L => ({ text: "", at, rule: true });
 const CLEAN = () => ({});
 const GRADE = { cool: "saturate(1.12) contrast(1.24) brightness(0.86)", night: "saturate(1.15) contrast(1.3) brightness(0.66)", paper: "saturate(0.9) contrast(1.15) brightness(0.95)" }; // v4.1: full colour (v4 measured colourfulness 18 against the channel's 31–46)
+const PAR = (bg: number, cut: number, box: number[], aspect: number, keys: Array<Record<string, number>>, o: Record<string, unknown> = {}) => ({ bg, cut, box, aspect, keys, ...o });
 const BEATS: Beat[] = [
-  { id: "V1", seg: "w01", k: 0, lead: 0, intent: "a real receipt printer printing: the film is printed on the company's own receipts", slots: { 0: "printer" },
-    props: (t, r) => ({ plates: [{ slot: 0, trim: 1, push: [1.15, 1.45], pan: [0.02, -0.02], grade: GRADE.night }], lowkey: true, tearOut: true,
-      receipts: [{ x: 0.5, w: 0.42, tilt: -3, lines: [ln("SEPTEMBER 2018", r("w01", 1), { bold: true, size: 1.3 }), rule(r("w01", 3)), ln("PAYMENTS", r("w01", 4)), ln("MUNICH", r("w01", 10), { align: "right" })] }] }) },
-  { id: "V2", seg: "w01", k: 8, lead: 0.1, intent: "Wirecard's own headquarters in Aschheim, outside Munich", slots: { 0: "hq" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.06, 1.63], tilt: [-1.5, 1.5], pan: [0.04, -0.04], grade: GRADE.cool }], tearOut: true,
+  // v4.2 (F1): the channel's mix — actors performing the line and b-roll ≈ half the shots, real subjects moving (press
+  // video, stills split into parallax planes) or brief, the world's own objects (receipts, the terminal, the pink paper) on top.
+  { id: "V1", seg: "w01", k: 0, lead: 0, intent: "a card tapped on a terminal (staged); the receipt prints September 2018", slots: { 0: "tap" },
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 1, push: [1.1, 1.45], pan: [0.03, -0.03], tilt: [-1.5, 1.5], grade: GRADE.night }], tearOut: true,
+      receipts: [{ x: 0.52, w: 0.42, tilt: -3, lines: [ln("SEPTEMBER 2018", r("w01", 1), { bold: true, size: 1.3 }), rule(r("w01", 3)), ln("PAYMENTS", r("w01", 4)), ln("MUNICH", r("w01", 10), { align: "right" })] }] }) },
+  { id: "V2", seg: "w01", k: 8, lead: 0.1, intent: "Wirecard's own headquarters in Aschheim, the building cut out and travelling against its sky", slots: { 0: "hq", 1: "hqcut" },
+    props: (t, r) => ({ parallax: PAR(0, 1, [0, 0.0793, 0.9133, 0.9023], 1.5, [{ t: 0, s: 1.06, x: 0.03, r: -1 }, { t: 2.2, s: 1.34, x: -0.03, r: 1 }], { bgFilter: GRADE.cool + " blur(2px)", cutFilter: GRADE.cool + " drop-shadow(0 20px 30px rgba(0,0,0,.5))" }), tearOut: true,
       labels: [{ text: "ASCHHEIM", sub: "OUTSIDE MUNICH", at: r("w01", 8) + 0.1, x: 0.06, y: 0.72, size: 0.034 }] }) },
   { id: "V3", seg: "w01", k: 12, lead: 0.1, intent: "a real card terminal; its own screen reads PROCESSING, then POSSIBLE", slots: { 0: "terminal" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1, 1], pan: [0, 0], grade: GRADE.cool }], cam: [1.0, 1.9], camAt: [0.45, 0.14], tearOut: true,
       lcd: [{ box: [0.258, 0.061, 0.375, 0.155], states: [{ text: "PROCESSING", at: r("w01", 12) }, { text: "POSSIBLE", at: r("w01", 17) }] }] }) },
-  { id: "V4", seg: "w02", k: 0, lead: 0.05, intent: "the Frankfurt exchange's bull and bear; the DAX list prints: Commerzbank struck out, Wirecard in", slots: { 0: "bullbear" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.08, 1.07], tilt: [-1.5, 1.5], pan: [0.05, -0.06], grade: GRADE.cool }], tearOut: true,
+  { id: "V4", seg: "w02", k: 0, lead: 0.05, intent: "a trader watching his screens (staged); the DAX list prints, Commerzbank struck out", slots: { 0: "trader" },
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 1, push: [1.12, 1.4], pan: [-0.03, 0.03], grade: GRADE.cool }], tearOut: true,
       receipts: [{ x: 0.52, w: 0.42, tilt: -2.5, lines: [ln("DAX 30", r("w02", 0) + 0.1, { bold: true, size: 1.4 }), rule(r("w02", 1)), ln("COMMERZBANK", r("w02", 2), { strike: r("w02", 9) }), ln("FOUNDING MEMBER", r("w02", 7), { size: 0.7 }), ln("+ WIRECARD", r("w02", 9), { bold: true, size: 1.2 })] }] }) },
+  { id: "V4b", seg: "w02", k: 11, lead: 0.1, intent: "the Frankfurt exchange's bull and bear, cut out and travelling: out of Germany's DAX", slots: { 0: "bullbear", 1: "bullcut" },
+    props: (t, r) => ({ parallax: PAR(0, 1, [0.0568, 0.262, 0.9299, 0.6485], 1.504, [{ t: 0, s: 1.08, x: -0.03, r: 0.8 }, { t: 1.8, s: 1.32, x: 0.03, r: -0.8 }], { near: 1.12, far: 0.9, bgFilter: GRADE.cool + " blur(18px) brightness(0.55)", cutFilter: GRADE.cool + " drop-shadow(0 20px 30px rgba(0,0,0,.6))" }), tearOut: true }) },
   { id: "V5", seg: "w03", k: 0, lead: 0.05, intent: "Wirecard's glass offices; its market value prints as a total: €24 billion, more than Deutsche Bank", slots: { 0: "hq2" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.08, 1.72], tilt: [-1.5, 1.5], pan: [-0.04, 0.04], grade: GRADE.cool }], tearOut: true,
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.08, 1.72], pan: [-0.05, 0.05], tilt: [-1.5, 1.5], grade: GRADE.cool }], tearOut: true,
       receipts: [{ x: 0.06, w: 0.44, tilt: 2, lines: [ln("MARKET VALUE", r("w03", 2)), ln("€24,000,000,000", r("w03", 4), { bold: true, size: 1.25 }), rule(r("w03", 7)), ln("> DEUTSCHE BANK", r("w03", 9), { bold: true })] }] }) },
+  { id: "V5b", seg: "w03", k: 11, lead: 0.1, intent: "a speaker before an audience holding up their phone lights (staged): Germany finally had", slots: { 0: "stage" },
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 3, push: [1.1, 1.35], pan: [0.03, -0.03], grade: GRADE.night }], tearOut: true }) },
   { id: "V6", seg: "w03", k: 15, lead: 0.1, intent: "Markus Braun himself, the turtleneck, the tech champion (Reuters)", slots: { 0: "braun" },
-    props: (t, r) => ({ plates: [{ slot: 0, trim: 0.4, push: [1.12, 1.32], pan: [0.02, -0.02], grade: GRADE.cool }], tearOut: true,
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 0.4, push: [1.12, 1.4], pan: [0.02, -0.02], grade: GRADE.cool }], tearOut: true,
       labels: [{ text: "MARKUS BRAUN", sub: "CHIEF EXECUTIVE", at: r("w03", 16), x: 0.06, y: 0.74, size: 0.036 }] }) },
-  { id: "V7", seg: "w04", k: 0, lead: 0.05, intent: "the FT reporter Dan McCrum on the FT's own pink: where is the money?", slots: { 0: "mccrum" },
+  { id: "V7a", seg: "w04", k: 0, lead: 0.05, intent: "someone typing in the dark (staged): a reporter kept asking", slots: { 0: "typing" },
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 4, push: [1.1, 1.4], pan: [0.03, -0.03], grade: "saturate(1.1) contrast(1.25) brightness(1.15)" }], tearOut: true }) },
+  { id: "V7", seg: "w04", k: 5, lead: 0.1, intent: "the FT reporter Dan McCrum on the FT's own pink: where is the money?", slots: { 0: "mccrum" },
     props: (t, r) => ({ plates: [{ slot: 0, trim: 0.3, push: [1.1, 1.3], pan: [-0.12, -0.14], grade: GRADE.paper }], pink: { from: 0 }, tearOut: true,
-      labels: [{ text: "DAN McCRUM", sub: "FINANCIAL TIMES", at: r("w04", 3), x: 0.05, y: 0.08, size: 0.03, until: r("w04", 10) - 0.2 }],
+      labels: [{ text: "DAN McCRUM", sub: "FINANCIAL TIMES", at: r("w04", 6), x: 0.05, y: 0.08, size: 0.03, until: r("w04", 10) - 0.2 }],
       columns: [{ kicker: "Financial Times", x: 0.55, y: 0.32, w: 0.4, size: 0.052, head: [{ text: "Where is", at: r("w04", 10) }, { text: "the money?", at: r("w04", 12) }] }] }) },
   { id: "V8", seg: "w04", k: 15, lead: 0.1, intent: "on the pink paper, set as a headline: Germany didn't go after the company", slots: { 0: "hq" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.3, 1.5], pan: [0.06, 0.02], grade: GRADE.paper + " blur(6px)" }], pink: { from: 0 }, tearOut: true, cam: [1.0, 1.2], camAt: [0.2, 0.4],
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.3, 1.6], pan: [0.06, 0.02], grade: GRADE.paper + " blur(6px)" }], pink: { from: 0 }, tearOut: true, cam: [1.0, 1.2], camAt: [0.2, 0.4],
       columns: [{ x: 0.1, y: 0.3, w: 0.8, size: 0.07, head: [{ text: "Germany didn't go", at: r("w04", 15) }, { text: "after the company", at: r("w04", 18) }] }] }) },
-  { id: "V9", seg: "w05", k: 0, lead: 0.05, intent: "the pink paper again: the regulator bans bets against the stock; INVESTIGATED stamped on the reporter", slots: {},
+  { id: "V9", seg: "w05", k: 0, lead: 0.05, intent: "the pink paper again: the regulator bans bets against the stock; prosecutors investigate the reporter", slots: {},
     props: (t, r) => ({ pink: { from: 0 }, plates: [], tearOut: true, cam: [1.0, 1.22], camAt: [0.3, 0.3],
       columns: [{ kicker: "The regulator", x: 0.08, y: 0.16, w: 0.84, size: 0.085, head: [{ text: "Bets against the stock", at: r("w05", 2) }, { text: "banned", at: r("w05", 6) }] }, { x: 0.08, y: 0.6, w: 0.84, size: 0.05, head: [{ text: "Prosecutors investigated", at: r("w05", 8) }, { text: "the reporter", at: r("w05", 10) }] }],
       stamps: [{ text: "DAN McCRUM", at: r("w05", 11), x: 0.7, y: 0.84, size: 0.042, rot: -7 }] }) },
-  { id: "V10", seg: "w06", k: 0, lead: 0.05, intent: "the audit: a receipt prints June 2020 and a balance of €1.9 billion held in the Philippines", slots: { 0: "slip" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.45], pan: [0.03, -0.03], grade: GRADE.night + " blur(3px)" }], lowkey: true, tearOut: true,
-      receipts: [{ x: 0.28, w: 0.44, tilt: -1.5, lines: [ln("AUDIT", r("w06", 4), { bold: true, size: 1.3 }), ln("JUNE 2020", r("w06", 2)), rule(r("w06", 8)), ln("BALANCE", r("w06", 9)), ln("€1,900,000,000", r("w06", 12), { bold: true, size: 1.25 }), ln("2 BANKS, PHILIPPINES", r("w06", 21), { size: 0.75 })] }] }) },
-  { id: "V11", seg: "w06", k: 19, lead: 0.1, intent: "the Bank of the Philippine Islands' own building in Manila", slots: { 0: "bpi" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.06, 1.06], tilt: [-1.5, 1.5], pan: [0.05, -0.05], grade: GRADE.cool }], tearOut: true,
+  { id: "V10", seg: "w06", k: 0, lead: 0.05, intent: "a real receipt printer printing (Commons); its receipt prints the audit and €1.9 billion", slots: { 0: "printer" },
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 1, push: [1.15, 1.5], pan: [0.03, -0.03], tilt: [-1.5, 1.5], grade: GRADE.night }], tearOut: true,
+      receipts: [{ x: 0.5, w: 0.44, tilt: -1.5, lines: [ln("AUDIT", r("w06", 4), { bold: true, size: 1.3 }), ln("JUNE 2020", r("w06", 2)), rule(r("w06", 8)), ln("BALANCE", r("w06", 9)), ln("€1,900,000,000", r("w06", 12), { bold: true, size: 1.25 }), ln("2 BANKS, PHILIPPINES", r("w06", 21), { size: 0.75 })] }] }) },
+  { id: "V11", seg: "w06", k: 22, lead: 0.1, intent: "the Bank of the Philippine Islands' own building in Manila", slots: { 0: "bpi" },
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.06, 1.7], pan: [0.06, -0.06], tilt: [-1.5, 1.5], grade: GRADE.cool }], tearOut: true,
       labels: [{ text: "MANILA", at: r("w06", 25), x: 0.06, y: 0.76, size: 0.034 }] }) },
-  { id: "V12", seg: "w07", k: 0, lead: 0.05, intent: "Makati's banking street at night; a terminal screen searches, then reads NOTHING", slots: { 0: "makati" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.4], pan: [-0.03, 0.03], grade: GRADE.night + " blur(14px)" }], lowkey: true, tearOut: true,
-      lcd: [{ box: [0.27, 0.36, 0.46, 0.24], states: [{ text: "SEARCHING", at: r("w07", 0) }, { text: "NOTHING", at: r("w07", 5), sub: "TO DO WITH WIRECARD" }] }] }) },
+  { id: "V12", seg: "w07", k: 0, lead: 0.05, intent: "a man on the phone rubbing his eyes (staged); the terminal's screen: NOTHING to do with Wirecard", slots: { 0: "phone" },
+    props: (t, r) => ({ plates: [{ slot: 0, trim: 2, push: [1.1, 1.35], pan: [-0.03, 0.03], grade: GRADE.night }], lowkey: true, tearOut: true,
+      lcd: [{ box: [0.5, 0.58, 0.42, 0.22], states: [{ text: "SEARCHING", at: r("w07", 0) }, { text: "NOTHING", at: r("w07", 5), sub: "TO DO WITH WIRECARD" }] }] }) },
   { id: "V13", seg: "w08", k: 0, lead: 0.05, intent: "handcuffs closing, black and white, nothing on them: the chief executive arrested", slots: {}, footage: { key: "cuffs", push: [1.15, 1.55], pan: [0.42, 0.58], wash: { color: "surface", strength: 0.8, mode: "duotone" } }, props: CLEAN },
   { id: "V14", seg: "w08", k: 8, lead: 0.05, intent: "the bull and the bear in Frankfurt, the camera on the bear; the receipt prints the first DAX company ever to go bust", slots: { 0: "bullbear2" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.7], pan: [0.12, 0.18], grade: GRADE.cool }], tearOut: true,
@@ -100,7 +116,7 @@ const BEATS: Beat[] = [
   { id: "V15", seg: "w08", k: 18, lead: 0.05, intent: "the real wanted poster of Jan Marsalek (Munich police, via euronews)", slots: { 0: "poster" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.0, 1.18], pan: [0, 0], grade: GRADE.paper, box: [0.34, 0.03, 0.32, 0.94] }], lowkey: false, tearOut: true,
       labels: [{ text: "JAN MARSALEK", sub: "CHIEF OPERATING OFFICER", at: r("w08", 23), x: 0.68, y: 0.62, size: 0.03 }] }) },
-  { id: "V16", seg: "w08", k: 27, lead: 0.1, intent: "a private jet rolling out, nothing on it: boarded a private jet to Minsk", slots: {}, footage: { key: "jet", trim: 6, push: [1.08, 1.07], tilt: [-1.5, 1.5], pan: [0.62, 0.38] }, props: CLEAN },
+  { id: "V16", seg: "w08", k: 27, lead: 0.1, intent: "a private jet rolling out, nothing on it: boarded a private jet to Minsk", slots: {}, footage: { key: "jet", trim: 6, push: [1.08, 1.5], pan: [0.62, 0.38] }, props: CLEAN },
   { id: "V17", seg: "w08", k: 33, lead: 0.05, intent: "a counting machine spitting notes; the receipt prints PAID IN CASH", slots: { 0: "counter" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.2, 1.5], pan: [0.03, -0.03], grade: GRADE.cool }], tearOut: true,
       receipts: [{ x: 0.54, w: 0.38, tilt: -2, lines: [ln("PAID IN", r("w08", 33), { size: 1.3 }), ln("CASH", r("w08", 36), { bold: true, size: 2.2 })] }] }) },

@@ -43,6 +43,9 @@ export interface Cutout {
   coverage: number;
   /** Share of mask pixels that are decisively subject or background (crisp edges → high). */
   confidence: number;
+  /** Where the cut-out sat in the source picture, in fractions (x, y, w, h): lets a parallax plane line up with its
+   *  own background (build list 6, F1). */
+  box?: [number, number, number, number];
 }
 
 /** Cut the subject out of a photo → transparent PNG cropped to the subject. */
@@ -93,5 +96,5 @@ export async function removeBackground(input: string, outPng: string, dataDir: s
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
-  return { path: outPng, width: cw, height: ch, coverage: Math.round(coverage * 1000) / 1000, confidence: Math.round((decisive / n) * 1000) / 1000 };
+  return { path: outPng, width: cw, height: ch, coverage: Math.round(coverage * 1000) / 1000, confidence: Math.round((decisive / n) * 1000) / 1000, box: [cx0 / w, cy0 / h, cw / w, ch / h].map((v) => Math.round(v * 10000) / 10000) as [number, number, number, number] };
 }
