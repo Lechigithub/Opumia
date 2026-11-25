@@ -1,13 +1,13 @@
 // Hand-made film, shot by shot (session-designed, no model): storyboard, resolution (real media copied into public/),
 // scenes, design tokens → manifest → previews (and, with --render, the film).
 //   OPUMIA_NO_CLAUDE=1 npx tsx apps/cli/src/dev/hand/build.ts out/hand-ftx [--only S05,S06] [--render]
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { FilmDesignSystem, LibraryIndex, ResolutionReport, ScenePlan, Storyboard, TimedScript, type ResolvedMedia, type SceneSpec } from "@opumia/contracts";
 const LOWKEY = Number(process.env.LOWKEY ?? 0.22);
-import { buildManifest, renderShotPreviews, renderVideo, masterAudio, muxFinal } from "@opumia/motion-engine";
+import { buildManifest, renderShotPreviews, renderStretches, renderVideo, masterAudio, muxFinal } from "@opumia/motion-engine";
 import { resolveAtmosphere, resolveAudio } from "@opumia/resolver";
 
 const root = process.cwd();
@@ -74,6 +74,10 @@ const MEDIA: Record<string, M> = {
   s_phone: { file: "downloads/stills/v30_phone.jpg", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/32246883/" },
   o_dollars: { file: "downloads/library/dollar_stack.png", kind: "image", origin: "library", provider: "library", license: "CC BY 2.0", credit: "\"Money - Flickr - AMagill.jpg\" by Andrew Magill from Boulder, USA, CC BY 2.0, via Wikimedia Commons", url: "https://commons.wikimedia.org/wiki/File:Money_-_Flickr_-_AMagill.jpg" },
   c_chips: { file: "downloads/cut/v30chips.png", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/video/7607942/" },
+  v_sparks: ST("29936066", "Pexels"),
+  c_sbf_suit: { ...YT("v30_court_gma", "9N7WO24aoT8", "Sam Bankman-Fried reacts to 25-year prison sentence for financial fraud", "Good Morning America", 33.9, "Sam Bankman-Fried (cut-out of a press frame, sharpened)"), file: "downloads/cut/v31sbf_suit_sharp.png", kind: "image" },
+  o_bill_front: { file: "downloads/cut/v30bill_front_flat.png", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/photo/14820441/" },
+  o_bill_back: { file: "downloads/cut/v30bill_back_flat.png", kind: "image", origin: "stock", provider: "pexels", license: "Pexels License", credit: "Pexels", url: "https://www.pexels.com/photo/14820443/" },
   v_drives: ST("7140928", "Pexels"), v_boxes: ST("4553296", "Pexels"), v_garage: ST("32078346", "Pexels"), v_lock: ST("35999369", "Pexels"),
   p_nassau: YT("v30_nassau", "weQm-4QgOrw", "Bankman-Fried Arrives at Court in Nassau, Bahamas", "Bloomberg Television", 15, "Sam Bankman-Fried under police escort, Nassau (press)"),
   p_court_gma: YT("v30_court_gma", "9N7WO24aoT8", "Sam Bankman-Fried reacts to 25-year prison sentence for financial fraud", "Good Morning America", 29.5, "Sam Bankman-Fried arriving at court (press)"),
@@ -144,17 +148,9 @@ const J = (stops: Stop[], o: { travel?: number; push?: number } = {}) => ({ back
 const ph = (x: number, y: number, w: number, words: unknown, extra: Record<string, unknown> = {}) => ({ type: "component", name: "Phrase", x, y, w, at: 0, z: 0.8, rot: 0, enter: "fade", props: { words, ...extra } });
 const C = (name: string, x: number, y: number, w: number, at: number, props: Record<string, unknown>) => ({ type: "component", name, x, y, w, at, z: 0.8, rot: 0, enter: "fade", props });
 const SHOTS: Shot[] = [
-  { id: "A", start: 0, seg: "l01", intent: "the night of the post: down into the city, through it to him (cut out, his name behind him), across to his phone and the post", slots: { 0: "v_city", 1: "c_sbf", 2: "v_phone_rg", 3: "v_aerial" }, tr: "cut",
-    scene: (t) => J([
-      { at: 0, slot: 0, look: "contrast", elements: [C("Chip", 0.05, 0.07, 0.2, rel(t, G("l01", 2)), { text: "7 Nov|2022" })] },
-      { at: rel(t, G("l01", 7)) - 0.15, move: "push", slot: 3, look: "duotone", dof: 0.7, elements: [ph(0.03, 0.12, 0.94, kin(t, [[G("l01", 7), "Sam"], ["|", ""], [G("l01", 8), "Bankman-Fried"]]), { size: 300, build: true })], fore: [{ type: "cutout", slot: 1, x: 0.42, y: 0.16, w: 0.62, z: 0.9, rot: 0, at: 0, enter: "settle", shadow: true }] },
-      { at: 5.45 - t, x: 1, move: "slide", slot: 2, trim: 0.5, look: "warm", elements: [C("Post", 0.2, 0.12, 0.6, 5.6 - t, { name: "SBF", handle: "@SBF_FTX · 7 Nov 2022", lines: ["A competitor is trying to go after us", "with false rumors.", "FTX is fine. Assets are fine."], mark: 2 })] },
-    ]) },
-  { id: "B", start: 0, atWord: G("l03", 0), lead: 0.12, seg: "l03", intent: "four days later: the empire was a house of cards, and it fell", slots: { 0: "v_cards", 1: "v_dominoes" }, tr: "film",
-    scene: (t) => J([
-      { at: 0, slot: 0, trim: 3, look: "warm", drift: [0, 0, 0.07, 0.2], elements: [ph(0.04, 0.06, 0.5, kin(t, [[G("l03", 0), "Four"], [G("l03", 1), "days"], ["|", ""], [G("l03", 2), "later"]]), { align: "left", size: 160, build: true }), C("Figure", 0.5, 0.58, 0.46, rel(t, G("l03", 4)), { text: "$32 BILLION", label: "his empire" })] },
-      { at: rel(t, G("l03", 9)) - 0.25, x: 1, move: "whip", slot: 1, trim: 1.4, look: "contrast", frame: "print", rz: 3, elements: [ph(0.1, 0.12, 0.8, kin(t, [[G("l03", 9), "Bankrupt", "r"]]), { size: 280 })] },
-    ]) },
+  // v31: the first ten seconds built by hand as one layered composite (the kit's Opening), not panels
+  { id: "OPEN", start: 0, seg: "l01", intent: "the date flies through the night city; he rises out of its light with his name swinging in behind him and his messages floating out; into his phone and his post, in silence; the glass cracks; four days later his $32 billion tumbles as banknotes until it is bankrupt", slots: { 0: "v_city", 1: "c_sbf_suit", 2: "v_sparks", 3: "o_bill_front", 4: "o_bill_back" }, tr: "cut",
+    scene: (t) => ({ backdrop: "stage", dim: 0, camera: cam(1, 1), finish: fin(0.3, 0.2), elements: [C("Opening", 0, 0, 1, 0, { t: { seventh: at(G("l01", 2)) - t, "2022": at(G("l01", 5)) - t, sam: at(G("l01", 7)) - t, bankman: at(G("l01", 8)) - t, message: at(G("l01", 11)) - t, world: at(G("l01", 14)) - t, post: 5.68 - t, four: at(G("l03", 0)) - t, "thirty-two": at(G("l03", 4)) - t, bankrupt: at(G("l03", 9)) - t }, end: at(G("l03", 10)) - 0.1 - t }) as never] }) },
   { id: "C", start: 0, atWord: G("l03", 10), seg: "l03", intent: "how does it vanish: a castle of sand, then the tide that takes them", slots: { 0: "v_sandcastle", 1: "v_beach" }, tr: "cut",
     scene: (t) => J([
       { at: 0, slot: 0, trim: 6, look: "warm", drift: [0.02, 0, 0.06, -0.3], elements: [ph(0.06, 0.1, 0.88, kin(t, [[G("l03", 11), "How does a company"], ["|", ""], [G("l03", 15), "worth that much"], [G("l03", 18), "vanish?", "r"]]), { size: 130, until: fr(t, G("l03", 18)) + 50 })] },
@@ -240,7 +236,7 @@ if (WARP) for (const s of SHOTS) s.start = +(s.atWord !== undefined ? at(s.atWor
 SHOTS.sort((a, b) => a.start - b.start);
 // v30: no world tint (each journey panel carries its own look); sparse atmospheres.
 const WORLD_WASH = { color: "primarySoft" as const, strength: 0.0, mode: "tint" as const };
-const ATMOS: Record<string, [string, number]> = { A: ["leak", 0.25], B: ["dust", 0.4], C: ["dust", 0.45], D: ["scratches", 0.35], F: ["smoke", 0.45], H: ["smoke", 0.4], I: ["scratches", 0.4], J2: ["dust", 0.4], G: ["money", 0.4], Jd: ["scratches", 0.35], K: ["burn", 0.45] };
+const ATMOS: Record<string, [string, number]> = { C: ["dust", 0.45], D: ["scratches", 0.35], F: ["smoke", 0.45], H: ["smoke", 0.4], I: ["scratches", 0.4], J2: ["dust", 0.4], G: ["money", 0.4], Jd: ["scratches", 0.35], K: ["burn", 0.45] };
 for (const sh of SHOTS) {
   const orig = sh.scene;
   sh.scene = (t0: number) => {
@@ -334,7 +330,16 @@ const manifest = await buildManifest({ storyboard: board, script: timed, resolut
 await writeFile(path.join(job, "manifest.json"), JSON.stringify(manifest, null, 2));
 if (process.argv.includes("--manifest-only")) process.exit(0);
 const look = { accent: "#ff5b3a", saturate: 1.05, contrast: 1.08, vignette: 0.55, grain: 0.25 };
-if (process.argv.includes("--render")) {
+if (process.argv.includes("--stretch")) {
+  // re-render only seconds a–b and splice them frame-exact into the last silent render (fast iteration on one stretch)
+  const [a, b] = process.argv[process.argv.indexOf("--stretch") + 1]!.split("-").map(Number) as [number, number];
+  const silent = path.join(job, "video_silent.mp4"), next = path.join(job, "video_silent.next.mp4"), master = path.join(job, "master.wav");
+  await renderStretches({ manifest, look, design, publicDir: pub, previous: silent, out: next, ranges: [[Math.round(a * FPS), Math.round(b * FPS)]], log: console.log });
+  await rename(next, silent);
+  await masterAudio(manifest, master);
+  await muxFinal(silent, master, path.join(job, "film_16x9.mp4"));
+  console.log("rendered", path.join(job, "film_16x9.mp4"), `(seconds ${a}–${b} re-rendered)`);
+} else if (process.argv.includes("--render")) {
   const silent = path.join(job, "video_silent.mp4"), master = path.join(job, "master.wav");
   await renderVideo({ manifest, look, design, publicDir: pub, out: silent, log: console.log });
   await masterAudio(manifest, master);

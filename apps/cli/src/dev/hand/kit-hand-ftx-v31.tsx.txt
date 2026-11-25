@@ -1,0 +1,358 @@
+// Kit for "FTX" v30, art direction "The bet" (2026-11-24), written from nothing: no component, colour, typeface or
+// motion of an earlier film or version. An empire built like a house of cards on belief, which the narration ends by
+// calling a bet. Felt green and cream like a card table, chip coral for what is lost; one heavy extra-condensed
+// typeface (Sofia Sans Extra Condensed 900) carved with depth like the channel's slabs, and one display serif (DM Serif
+// Display) for what people said. Words arrive as whole phrases and stay (owner: "never rushed, so viewers can actually
+// read the word"); the spoken word lights up inside its phrase instead of popping in on its own.
+import React from "react";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { loadFont as sofia } from "@remotion/google-fonts/SofiaSansExtraCondensed";
+import { loadFont as dmserif } from "@remotion/google-fonts/DMSerifDisplay";
+const SLAB = sofia("normal", { weights: ["900"], subsets: ["latin"] }).fontFamily;
+const SERIF = dmserif("normal", { weights: ["400"], subsets: ["latin"] }).fontFamily;
+const FELT = "#0f3d2e", FELT_DK = "#06221a", CREAM = "#f6ecd6", CORAL = "#ff5b3a", INK = "#13110e";
+type P = Record<string, any>;
+const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+const out = Easing.bezier(0.16, 1, 0.3, 1);
+const useW = (p: P) => { const { width } = useVideoConfig(); return Number(p.boxW ?? width); };
+/** carved depth: a stack of offset shadows (the channel's slab type has thickness), then a soft drop */
+const depth = (c: string, n: number, px: number) => Array.from({ length: n }, (_, i) => `${(i + 1) * px * 0.5}px ${(i + 1) * px}px 0 ${c}`).join(", ") + `, ${n * px}px ${n * px * 2}px ${n * px * 3}px rgba(0,0,0,.55)`;
+
+/** A whole phrase arrives as one block (a slow rise out of a soft blur) and stays; each word brightens when it is said. */
+const Phrase: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const words: Array<{ text: string; from: number; c?: string }> = p.words ?? [];
+  const lines: typeof words[] = [[]];
+  for (const w of words) { if (w.text === "|") lines.push([]); else lines.at(-1)!.push(w); }
+  const first = Math.min(...words.filter((w) => w.text !== "|").map((w) => w.from));
+  // the phrase leaves (a slow fade and drift) after its hold, so a long panel does not carry words the whole time
+  const gone = p.until !== undefined ? interpolate(f, [Number(p.until), Number(p.until) + 12], [1, 0], clamp) : 1;
+  const k = interpolate(f, [first - 4, first + 14], [0, 1], { ...clamp, easing: out }) * gone;
+  const longest = Math.max(...lines.map((l) => l.reduce((a, w) => a + w.text.length + 1, 0)));
+  const size = Number(p.size ?? Math.min(W * 0.22, (W * 0.98) / (longest * 0.36)));
+  const al = String(p.align ?? "center");
+  const serif = p.font === "serif";
+  return <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: al === "left" ? "flex-start" : al === "right" ? "flex-end" : "center", opacity: k, transform: `translateY(${(1 - k) * size * 0.5}px)`, filter: k < 0.99 ? `blur(${(1 - k) * 10}px)` : undefined }}>
+    {lines.map((l, i) => <div key={i} style={{ display: "flex", gap: size * (serif ? 0.24 : 0.16), flexWrap: "wrap", justifyContent: al === "left" ? "flex-start" : "center", lineHeight: serif ? 1.1 : 0.92 }}>{l.map((w, j) => {
+      const lit = interpolate(f, [w.from - 2, w.from + 6], [0, 1], clamp);
+      const hot = w.c === "r" ? CORAL : CREAM;
+      const col = w.c ? (lit > 0.5 ? hot : CREAM) : CREAM; const dim = 0.82 + 0.18 * lit;
+      const b = p.build ? interpolate(f, [w.from - 3, w.from + 7], [0, 1], { ...clamp, easing: out }) : 1;
+      return <span key={j} style={{ display: "inline-block", transform: p.build ? `translateY(${(1 - b) * size * 0.4}px) scale(${0.9 + 0.1 * b})` : undefined, ...(p.build ? { filter: b < 0.99 ? `blur(${(1 - b) * 6}px)` : undefined } : {}), fontFamily: serif ? SERIF : SLAB, fontWeight: serif ? 400 : 900, fontSize: serif ? size * 0.8 : size, textTransform: serif ? "none" : "uppercase", letterSpacing: serif ? 0 : size * 0.005, color: col, opacity: dim * (p.build ? interpolate(f, [w.from - 3, w.from + 5], [0, 1], clamp) : 1), textShadow: serif ? "0 6px 30px rgba(0,0,0,.85)" : depth(w.c === "r" && lit > 0.5 ? "#8a2112" : FELT_DK, 5, size * 0.012) }}>{w.text}</span>;
+    })}</div>)}
+  </div>;
+};
+
+/** A figure set like a chip value: the whole number at once, carved deep, its label in serif above. Never ticks through
+ *  numbers nobody said. */
+const Figure: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const text = String(p.text ?? "");
+  const size = Number(p.size ?? Math.min(W * 0.5, (W * 0.98) / (text.length * 0.42)));
+  const k = interpolate(f, [0, 16], [0, 1], { ...clamp, easing: out });
+  const c = p.fill === "red" ? CORAL : CREAM;
+  return <div style={{ width: "100%", textAlign: "center" }}>
+    {p.label ? <div style={{ fontFamily: SERIF, fontSize: size * 0.17, color: CREAM, opacity: interpolate(f, [6, 18], [0, 1], clamp), textShadow: "0 4px 18px rgba(0,0,0,.9)" }}>{String(p.label)}</div> : null}
+    <div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: size, lineHeight: 0.9, color: c, opacity: k, transform: `scale(${1.25 - 0.25 * k})`, filter: k < 0.99 ? `blur(${(1 - k) * 8}px)` : undefined, textShadow: depth(p.fill === "red" ? "#7d1d0f" : "#3c3426", 7, size * 0.008) }}>{text}</div>
+  </div>;
+};
+
+/** What a person said, in the display serif, with who said it. */
+const Said: React.FC<P> = (p) => <div style={{ width: "100%" }}>
+  <Phrase {...p} font="serif" align={p.align ?? "left"} />
+  {p.by ? <SaidBy by={String(p.by)} from={Number(p.byFrom ?? 18)} size={Number(p.size ?? 120)} /> : null}
+</div>;
+const SaidBy: React.FC<{ by: string; from: number; size: number }> = ({ by, from, size }) => { const f = useCurrentFrame(); return <div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: size * 0.26, letterSpacing: size * 0.02, color: CORAL, marginTop: size * 0.2, opacity: interpolate(f, [from, from + 10], [0, 1], clamp), textTransform: "uppercase" }}>{by}</div>; };
+
+/** A name on a cream bar that slides out from behind its first letter; the role in serif under it. */
+const Name: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const name = String(p.text ?? "");
+  const size = Number(p.size ?? (W * 0.95) / (name.length * 0.4));
+  const k = interpolate(f, [0, 14], [0, 1], { ...clamp, easing: out });
+  return <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
+    <div style={{ background: CREAM, padding: `${size * 0.04}px ${size * 0.14}px`, clipPath: `inset(0 ${(1 - k) * 100}% 0 0)`, boxShadow: `${size * 0.05}px ${size * 0.06}px 0 ${CORAL}` }}>
+      <div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: size, lineHeight: 1, color: INK, textTransform: "uppercase" }}>{name}</div>
+    </div>
+    {p.role ? <div style={{ fontFamily: SERIF, fontSize: size * 0.32, color: CREAM, marginTop: size * 0.1, opacity: interpolate(f, [10, 22], [0, 1], clamp), textShadow: "0 4px 18px rgba(0,0,0,.9)" }}>{String(p.role)}</div> : null}
+  </div>;
+};
+
+/** A date or place as a casino chip rolling in: a coral disc with cream edge notches and the words round its face. */
+const Chip: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const k = interpolate(f, [0, 18], [0, 1], { ...clamp, easing: out });
+  const lines = String(p.text ?? "").split("|");
+  return <div style={{ width: W, height: W, transform: `translateX(${(1 - k) * -W * 1.4}px) rotate(${(1 - k) * -300}deg)`, position: "relative" }}>
+    <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `repeating-conic-gradient(${CREAM} 0 9deg, ${CORAL} 9deg 36deg)`, boxShadow: `0 ${W * 0.05}px ${W * 0.12}px rgba(0,0,0,.6)` }} />
+    <div style={{ position: "absolute", inset: W * 0.1, borderRadius: "50%", background: CORAL, border: `${W * 0.015}px dashed ${CREAM}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      {lines.map((l, i) => <div key={i} style={{ fontFamily: SLAB, fontWeight: 900, fontSize: W * (i === 0 ? 0.2 : 0.12), lineHeight: 0.95, color: CREAM, textTransform: "uppercase" }}>{l}</div>)}
+    </div>
+  </div>;
+};
+
+/** His post, set by the kit from his own words (not a screenshot): a dark card with the handle and the lines. */
+const Post: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const lines: string[] = p.lines ?? [];
+  const k = interpolate(f, [0, 14], [0, 1], { ...clamp, easing: out });
+  const fs = W * 0.078;
+  return <div style={{ width: W, background: "#101312", borderRadius: W * 0.03, padding: W * 0.05, boxShadow: `0 ${W * 0.04}px ${W * 0.1}px rgba(0,0,0,.7)`, opacity: k, transform: `translateY(${(1 - k) * 60}px)` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: fs * 0.5, marginBottom: fs * 0.6 }}>
+      <div style={{ width: fs * 1.6, height: fs * 1.6, borderRadius: "50%", background: CORAL }} />
+      <div><div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: fs * 0.9, color: CREAM }}>{String(p.name ?? "")}</div><div style={{ fontFamily: SERIF, fontSize: fs * 0.6, color: "rgba(246,236,214,.6)" }}>{String(p.handle ?? "")}</div></div>
+    </div>
+    {lines.map((l, i) => { const a = interpolate(f, [3 + i * 4, 9 + i * 4], [0, 1], clamp); return <div key={i} style={{ fontFamily: SERIF, fontSize: fs, lineHeight: 1.25, color: CREAM, opacity: a, background: i >= Number(p.mark ?? 99) ? `linear-gradient(90deg, ${CORAL}55 ${a * 100}%, transparent ${a * 100}%)` : undefined }}>{l}</div>; })}
+  </div>;
+};
+
+/** The leaked balance sheet, drawn from its verified lines (not a screenshot): a cream ledger, a row struck coral. */
+const Ledger: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const rows: Array<{ a: string; b: string; mark?: boolean; from?: number }> = p.rows ?? [];
+  const fs = W * 0.068;
+  return <div style={{ width: W, background: CREAM, padding: W * 0.05, boxShadow: `0 ${W * 0.03}px ${W * 0.08}px rgba(0,0,0,.6)`, transform: `rotate(${p.rot ?? -2}deg)` }}>
+    <div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: fs * 1.6, color: INK, textTransform: "uppercase", borderBottom: `${fs * 0.12}px solid ${INK}`, paddingBottom: fs * 0.3, marginBottom: fs * 0.4 }}>{String(p.title ?? "")}</div>
+    {rows.map((r, i) => { const m = r.mark ? interpolate(f, [r.from ?? 20, (r.from ?? 20) + 12], [0, 1], clamp) : 0; return <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: SERIF, fontSize: fs, color: INK, padding: `${fs * 0.25}px ${fs * 0.2}px`, borderBottom: `1px solid ${INK}33`, background: `linear-gradient(90deg, ${CORAL}aa ${m * 100}%, transparent ${m * 100}%)` }}><span>{r.a}</span><span style={{ fontFamily: SLAB, fontWeight: 900 }}>{r.b}</span></div>; })}
+  </div>;
+};
+
+/** A share as two stacks of chips: the part in coral, the rest cream, growing to their heights. */
+const Stacks: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const share = Number(p.share ?? 0.4);
+  const n = 20, cw = W * 0.34, ch = W * 0.04;
+  const stack = (count: number, color: string, delay: number) => Array.from({ length: count }, (_, i) => { const a = interpolate(f, [delay + i * 0.8, delay + i * 0.8 + 6], [0, 1], clamp); return <div key={i} style={{ width: cw, height: ch, borderRadius: "50%", background: color, border: `${ch * 0.18}px dashed ${color === CORAL ? CREAM : CORAL}`, marginTop: -ch * 0.45, opacity: a, transform: `translateY(${(1 - a) * -80}px)`, boxShadow: "0 4px 8px rgba(0,0,0,.4)" }} />; }).reverse();
+  return <div style={{ width: W, display: "flex", justifyContent: "space-around", alignItems: "flex-end" }}>
+    {[[Math.round(n * share), CORAL, String(p.labelA ?? "")], [n - Math.round(n * share), CREAM, String(p.labelB ?? "")]].map(([c, col, lab], k) => <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: W * 0.12, color: col as string, textShadow: depth(FELT_DK, 4, W * 0.002), marginBottom: W * 0.03 }}>{lab}</div>
+      {stack(c as number, col as string, k * 8)}
+    </div>)}
+  </div>;
+};
+
+/** A coupon: perforated cream ticket with a coral stub, the words printed on it. */
+const Coupon: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const W = useW(p);
+  const k = interpolate(f, [0, 16], [0, 1], { ...clamp, easing: out });
+  return <div style={{ width: W, height: W * 0.42, display: "flex", transform: `rotate(${(p.rot ?? -6) + (1 - k) * 20}deg) scale(${0.8 + 0.2 * k})`, opacity: k, filter: "drop-shadow(0 20px 30px rgba(0,0,0,.6))" }}>
+    <div style={{ flex: 3, background: CREAM, display: "flex", flexDirection: "column", justifyContent: "center", paddingLeft: W * 0.06, borderRight: `${W * 0.008}px dashed ${INK}` }}>
+      <div style={{ fontFamily: SERIF, fontSize: W * 0.05, color: INK }}>{String(p.small ?? "")}</div>
+      <div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: W * 0.17, lineHeight: 0.9, color: INK, textTransform: "uppercase" }}>{String(p.text ?? "")}</div>
+    </div>
+    <div style={{ flex: 1, background: CORAL, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: W * 0.1, color: CREAM, transform: "rotate(-90deg)" }}>{String(p.stub ?? "")}</div></div>
+  </div>;
+};
+
+/** The table: green felt with its weave and a pool of light. */
+const Stage: React.FC<P> = () => {
+  const f = useCurrentFrame(); const { width: W } = useVideoConfig();
+  return <AbsoluteFill style={{ background: `radial-gradient(ellipse at ${50 + Math.sin(f / 90) * 6}% 42%, #1d6b4f 0%, ${FELT} 45%, ${FELT_DK} 100%)` }}>
+    <AbsoluteFill style={{ opacity: 0.18, backgroundImage: `repeating-linear-gradient(45deg, rgba(0,0,0,.5) 0 1px, transparent 1px ${W / 400}px), repeating-linear-gradient(-45deg, rgba(255,255,255,.25) 0 1px, transparent 1px ${W / 380}px)` }} />
+  </AbsoluteFill>;
+};
+const Chapter: React.FC<P> = (p) => <AbsoluteFill><Stage /><AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}><Phrase words={[{ text: String(p.title ?? ""), from: 0 }]} /></AbsoluteFill></AbsoluteFill>;
+const Plain: React.FC<P> = (p) => <AbsoluteFill><Stage /><div style={{ position: "absolute", left: "10%", top: "12%", fontFamily: SLAB, fontWeight: 900, fontSize: 90, color: CREAM }}>{String(p.title ?? p.headline ?? "")}</div></AbsoluteFill>;
+
+/** The cut, when there is one: a cream card swept across the frame like a dealt card. */
+const Deal: React.FC<{ progress: number }> = ({ progress }) => {
+  const x = interpolate(progress, [0, 1], [-130, 130]);
+  return <AbsoluteFill style={{ pointerEvents: "none" }}><div style={{ position: "absolute", top: "-20%", bottom: "-20%", width: "60%", left: `${x}%`, transform: "rotate(12deg)", background: `linear-gradient(90deg, transparent, ${CREAM}cc 40%, ${CREAM}cc 60%, transparent)`, opacity: Math.sin(progress * Math.PI) }} /></AbsoluteFill>;
+};
+
+export const FILM = {
+  components: { Phrase, Figure, Said, Name, Chip, Post, Ledger, Stacks, Coupon, Stage, Chapter, Chart: Plain, MapC: Plain, Doc: Plain, Headline: Phrase, Number: Figure },
+  roles: { headline: "Phrase", phrase: "Phrase", label: "Chip", number: "Figure", quote: "Said", chapter: "Chapter", stage: "Stage", chart: "Chart", map: "MapC", document: "Ledger" },
+  transitions: { deal: Deal }, transition: "deal", transitionFrames: 10,
+  fonts: { display: `"${SLAB}", sans-serif`, body: `"${SERIF}", serif` },
+  meta: {
+    Phrase: { use: "a whole phrase arriving at once and staying; the spoken word lights inside it", props: "words[{text,from,c:r}], '|' breaks, size, align, font:serif" },
+    Figure: { use: "a spoken figure, whole, carved", props: "text, label, fill:red, size" },
+    Said: { use: "what a person said", props: "words, by, byFrom, size" }, Name: { use: "a name on a cream bar", props: "text, role, size" },
+    Chip: { use: "a date or place on a rolling chip", props: "text ('|' second line)" }, Post: { use: "his post set from his words", props: "name, handle, lines, mark" },
+    Ledger: { use: "a document drawn from verified lines", props: "title, rows[{a,b,mark,from}], rot" }, Stacks: { use: "a share as chip stacks", props: "share, labelA, labelB" },
+    Coupon: { use: "a coupon", props: "text, small, stub, rot" }, Stage: { use: "felt table", props: "" },
+  },
+};
+
+// ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// OPENING (v31, the first ten seconds, built by hand like a motion-graphics project, not from panels): one continuous
+// composite in four beats, every layer animated, one grade over all of it. Pictures: the night city (Pixabay), Sam
+// Bankman-Fried cut out of a GMA frame (press), sparks filmed on black and a hundred-dollar bill photographed front and
+// back (Pexels), all real; the phone, the cards and the type are drawn by this kit.
+// ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+import { Img as RImg, OffthreadVideo, Sequence as RSeq, staticFile as sf } from "remotion";
+
+const rnd = (i: number, k: number) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const ease = Easing.bezier(0.16, 1, 0.3, 1);
+const inOut = Easing.bezier(0.65, 0, 0.35, 1);
+
+/** Type with thickness: the face plus a stack of darker slices behind it in real 3D, so it can turn and fly. */
+const Slab3D: React.FC<{ text: string; size: number; face?: string; side?: string; depthPx?: number; serif?: boolean; spacing?: number }> = ({ text, size, face = CREAM, side = "#8a2112", depthPx, serif, spacing = 0 }) => {
+  const d = depthPx ?? size * 0.12, n = 14;
+  const base: React.CSSProperties = { position: "absolute", left: 0, top: 0, whiteSpace: "nowrap", fontFamily: serif ? SERIF : SLAB, fontWeight: serif ? 400 : 900, fontSize: size, lineHeight: 1, textTransform: serif ? "none" : "uppercase", letterSpacing: spacing };
+  return <div style={{ position: "relative", transformStyle: "preserve-3d", width: "max-content", height: size }}>
+    {Array.from({ length: n }, (_, i) => <div key={i} style={{ ...base, color: side, transform: `translateZ(${-d * (i + 1) / n}px)`, filter: `brightness(${1 - i / (n * 1.6)})` }}>{text}</div>)}
+    <div style={{ ...base, position: "relative", color: face, backgroundImage: `linear-gradient(180deg, #fffaf0 0%, ${face} 45%, #d8c49a 100%)`, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", filter: "drop-shadow(0 0 18px rgba(255,180,120,.35))" }}>{text}</div>
+  </div>;
+};
+
+/** A hundred-dollar bill with two faces, tumbling. */
+const Bill: React.FC<{ front: string; back: string; w: number }> = ({ front, back, w }) => <div style={{ position: "absolute", width: w, height: w * 0.43, transformStyle: "preserve-3d" }}>
+  <RImg src={sf(front)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", backfaceVisibility: "hidden" }} />
+  <RImg src={sf(back)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} />
+</div>;
+
+/** The kit's phone: glass, bezel, a lit screen holding whatever is put in it. */
+const Phone: React.FC<{ w: number; children?: React.ReactNode; glow?: number }> = ({ w, children, glow = 1 }) => <div style={{ width: w, height: w * 2.05, borderRadius: w * 0.14, background: "linear-gradient(145deg, #3a3a3a, #0b0b0b 40%, #1d1d1d)", padding: w * 0.035, boxShadow: `0 ${w * 0.1}px ${w * 0.3}px rgba(0,0,0,.8), 0 0 ${w * 0.25 * glow}px rgba(255,140,90,${0.35 * glow})`, position: "relative" }}>
+  <div style={{ width: "100%", height: "100%", borderRadius: w * 0.11, overflow: "hidden", background: "#0d0f0e", position: "relative" }}>{children}
+    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(120deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 35%)", pointerEvents: "none" }} />
+  </div>
+  <div style={{ position: "absolute", top: w * 0.06, left: "50%", width: w * 0.28, height: w * 0.05, marginLeft: -w * 0.14, borderRadius: w, background: "#000" }} />
+</div>;
+
+/** A small notification card floating in depth (a message going out to the world). */
+const Note: React.FC<{ w: number; line: string }> = ({ w, line }) => <div style={{ width: w, padding: w * 0.06, borderRadius: w * 0.06, background: "rgba(16,19,18,.92)", border: "1px solid rgba(246,236,214,.25)", display: "flex", gap: w * 0.05, alignItems: "center", boxShadow: "0 20px 50px rgba(0,0,0,.6)" }}>
+  <div style={{ width: w * 0.14, height: w * 0.14, borderRadius: "50%", background: CORAL, flex: "none" }} />
+  <div><div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: w * 0.075, color: CREAM }}>SBF <span style={{ fontFamily: SERIF, fontWeight: 400, opacity: .6 }}>@SBF_FTX</span></div><div style={{ fontFamily: SERIF, fontSize: w * 0.07, color: CREAM }}>{line}</div></div>
+</div>;
+
+const Opening: React.FC<P> = (p) => {
+  const f = useCurrentFrame(); const { width: W, height: H, fps } = useVideoConfig();
+  const sl = p.slots ?? {}; const s: Record<string, string> = { city: sl["0"], sbf: sl["1"], sparks: sl["2"], billFront: sl["3"], billBack: sl["4"] }; const T = p.t ?? {};
+  const fr = (sec: number) => Math.round(sec * fps);
+  const at = (k: string, d = 0) => fr((T[k] ?? 0) + d);
+  const B2 = at("sam", -0.3), B3 = at("post"), B4 = at("four", -0.06), END = fr(Number(p.end ?? 11.6));
+  const persp = W * 1.0;
+  // one grade over the whole opening: warm highlights, deep green-black shadows, a breathing vignette
+  const grade = <>
+    <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 45%, rgba(4,14,10,.85) 100%)", pointerEvents: "none" }} />
+    <AbsoluteFill style={{ background: "#ff8a3d", mixBlendMode: "soft-light", opacity: 0.22, pointerEvents: "none" }} />
+  </>;
+  const flash = (f0: number, len = 8, color = "#fff6e6") => { const k = interpolate(f, [f0 - 2, f0, f0 + len], [0, 1, 0], clamp); return k > 0 ? <AbsoluteFill style={{ background: color, opacity: k, pointerEvents: "none" }} /> : null; };
+  const sparks = (op: number, from = 0) => <AbsoluteFill style={{ mixBlendMode: "screen", opacity: op, pointerEvents: "none" }}><RSeq from={from} layout="none"><OffthreadVideo src={sf(s.sparks)} muted startFrom={fr(2)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></RSeq></AbsoluteFill>;
+
+  // ── beat 1: the date flies through the night city ──
+  const beat1 = (() => {
+    const k = interpolate(f, [0, B2 + 10], [0, 1], { ...clamp, easing: inOut });
+    const camS = 1.08 + 0.35 * k, camR = -4 + 6 * k;
+    const d7 = interpolate(f, [at("seventh", -0.25), at("seventh", 0.5)], [0, 1], { ...clamp, easing: ease });
+    const dY = interpolate(f, [at("2022", -0.2), at("2022", 0.45)], [0, 1], { ...clamp, easing: ease });
+    const pass = interpolate(f, [B2 - 14, B2 + 4], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
+    return <AbsoluteFill style={{ opacity: interpolate(f, [B2, B2 + 8], [1, 0], clamp) }}>
+      <AbsoluteFill style={{ transform: `scale(${camS}) rotate(${camR}deg)`, filter: "saturate(1.35) contrast(1.15) brightness(0.9) sepia(0.15)" }}>
+        <OffthreadVideo src={sf(s.city)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </AbsoluteFill>
+      {sparks(0.45)}
+      <AbsoluteFill style={{ perspective: persp, perspectiveOrigin: "50% 45%" }}>
+        <div style={{ position: "absolute", left: W * 0.5, top: H * 0.22, transformStyle: "preserve-3d", transform: `translate3d(-50%, 0, ${-1800 * (1 - d7) + 260 * k + 1400 * pass}px) rotateY(${55 * (1 - d7) - 22 * k - 18 * pass}deg) rotateX(${8 * (1 - d7) + 4 * k}deg)`, opacity: Math.min(1, d7 * 2) * (1 - pass * 0.6), filter: pass > 0.05 ? `blur(${pass * 14}px)` : undefined }}>
+          <Slab3D text="7 November" size={W * 0.16} />
+        </div>
+        <div style={{ position: "absolute", left: W * 0.5, top: H * 0.54, transformStyle: "preserve-3d", transform: `translate3d(-50%, 0, ${-1200 * (1 - dY) + 200 * k + 1600 * pass}px) rotateY(${-40 * (1 - dY) + 16 * k + 14 * pass}deg)`, opacity: Math.min(1, dY * 2) * (1 - pass * 0.6), filter: pass > 0.05 ? `blur(${pass * 14}px)` : undefined }}>
+          <Slab3D text="2022" size={W * 0.15} face={CORAL} side="#5c160b" />
+        </div>
+      </AbsoluteFill>
+    </AbsoluteFill>;
+  })();
+
+  // ── beat 2: he rises out of the city's light, his name swings in behind him, his messages float out ──
+  const beat2 = (() => {
+    if (f < B2 - 2 || f > B3 + 6) return null;
+    const k = interpolate(f, [B2, B3], [0, 1], clamp);
+    const rise = interpolate(f, [B2, B2 + 16], [0, 1], { ...clamp, easing: ease });
+    const nm = interpolate(f, [at("bankman", -0.15), at("bankman", 0.55)], [0, 1], { ...clamp, easing: ease });
+    const out = interpolate(f, [at("message", -0.1), B3], [0, 1], { ...clamp, easing: Easing.in(Easing.quad) });
+    const phone = interpolate(f, [at("world", -0.55), B3], [0, 1], { ...clamp, easing: inOut });
+    const lines = ["A competitor is trying to go after us", "FTX is fine.", "Assets are fine.", "with false rumors.", "We don't invest client assets.", "FTX is fine. Assets are fine."];
+    return <AbsoluteFill style={{ opacity: interpolate(f, [B2 - 2, B2 + 6], [0, 1], clamp) }}>
+      <AbsoluteFill style={{ transform: `scale(${1.5 + 0.1 * k})`, filter: "blur(18px) saturate(1.4) brightness(0.55) sepia(0.2)" }}>
+        <OffthreadVideo src={sf(s.city)} muted startFrom={fr(3)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </AbsoluteFill>
+      <AbsoluteFill style={{ perspective: persp, perspectiveOrigin: "50% 40%" }}>
+        {/* messages floating out toward the camera, in depth */}
+        {lines.map((l, i) => { const z = -900 + 1500 * ((out + i * 0.12) % 1.0001) * Math.min(1, out * 3); const x = (i % 2 ? 1 : -1) * W * (0.26 + rnd(i, 1) * 0.16), y = (rnd(i, 2) - 0.55) * H * 0.75; return out > 0 ? <div key={i} style={{ position: "absolute", left: W / 2 + x, top: H / 2 + y, transform: `translate3d(-50%, -50%, ${z}px) rotateY(${(rnd(i, 3) - 0.5) * 40}deg)`, opacity: Math.min(1, out * 4) * (z > 500 ? Math.max(0, 1 - (z - 500) / 300) : 1) }}><Note w={W * 0.3} line={l} /></div> : null; })}
+        {/* his name, thick, swinging in behind him */}
+        <div style={{ position: "absolute", left: W * 0.5, top: H * 0.18, transformStyle: "preserve-3d", transform: `translate3d(-50%, 0, ${-600 * (1 - nm) - 200}px) rotateY(${70 * (1 - nm) + 6 * k}deg)`, opacity: Math.min(1, nm * 2) * (1 - phone) }}>
+          <Slab3D text="Bankman-Fried" size={W * 0.17} />
+        </div>
+      </AbsoluteFill>
+      {/* Sam Bankman-Fried, cut out, rising into the light with a coral rim */}
+      <div style={{ position: "absolute", left: W * 0.335, bottom: -H * 0.02, width: W * 0.33, transform: `translateY(${(1 - rise) * H * 0.3}px) scale(${1 + 0.06 * k})`, transformOrigin: "50% 100%", opacity: rise * (1 - Math.max(0, phone - 0.6) * 2.5), filter: "drop-shadow(0 0 22px rgba(255,91,58,.55)) drop-shadow(0 30px 40px rgba(0,0,0,.7)) saturate(1.15) contrast(1.08)" }}>
+        <RImg src={sf(s.sbf)} style={{ width: "100%" }} />
+      </div>
+      <AbsoluteFill style={{ background: "linear-gradient(0deg, rgba(4,14,10,.9) 0%, rgba(4,14,10,0) 25%)" }} />
+      {sparks(0.35, B2)}
+      {/* the phone swings in; the camera goes into its screen */}
+      {phone > 0 ? <AbsoluteFill style={{ perspective: persp }}><div style={{ position: "absolute", left: W * (0.5 + 0.3 * (1 - phone)), top: H * 0.5, transformStyle: "preserve-3d", transform: `translate3d(-50%, -50%, ${-300 + 1150 * phone * phone}px) rotateY(${-45 * (1 - phone)}deg) rotateZ(${-10 * (1 - phone)}deg)` }}><Phone w={W * 0.16} glow={1 + phone}><div style={{ position: "absolute", left: "6%", top: "22%", width: "88%" }}><Post name="SBF" handle="@SBF_FTX" lines={["A competitor is trying to go after us", "with false rumors.", "FTX is fine. Assets are fine."]} mark={9} boxW={W * 0.16 * 0.88} /></div></Phone></div></AbsoluteFill> : null}
+    </AbsoluteFill>;
+  })();
+
+  // ── beat 3: inside the screen, his post, in silence ──
+  const beat3 = (() => {
+    if (f < B3 - 4 || f > B4 + 2) return null;
+    const k = interpolate(f, [B3, B4], [0, 1], clamp);
+    const crack = interpolate(f, [B4 - 7, B4 - 1], [0, 1], clamp);
+    return <AbsoluteFill style={{ background: "#050807" }}>
+      <AbsoluteFill style={{ transform: `scale(${1.6 + 0.08 * k})`, filter: "blur(22px) saturate(1.4) brightness(0.45) sepia(0.25)" }}>
+        <OffthreadVideo src={sf(s.city)} muted startFrom={fr(6)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </AbsoluteFill>
+      {sparks(0.3, B3)}
+      <AbsoluteFill style={{ perspective: persp * 1.1 }}>
+        <div style={{ position: "absolute", left: W * 0.5, top: H * 0.5, transformStyle: "preserve-3d", transform: `translate3d(-50%, -50%, ${60 + 120 * k}px) rotateY(${-16 + 20 * k}deg) rotateX(${6 - 4 * k}deg)` }}>
+          {/* the slab's thickness and its glow */}
+          {[6, 4, 2].map((d) => <div key={d} style={{ position: "absolute", inset: 0, transform: `translateZ(${-d * 4}px)`, background: "rgba(255,120,80,.18)", borderRadius: W * 0.02 }} />)}
+          <div style={{ position: "relative", width: W * 0.6, borderRadius: W * 0.02, overflow: "hidden", boxShadow: `0 0 ${W * 0.06}px rgba(255,120,80,.45), 0 ${W * 0.03}px ${W * 0.08}px rgba(0,0,0,.9)` }}>
+            <RSeq from={B3 - 6} layout="none"><Post name="SBF" handle="@SBF_FTX · 7 Nov 2022" lines={["A competitor is trying to go after us", "with false rumors.", "FTX is fine. Assets are fine."]} mark={2} boxW={W * 0.6} /></RSeq>
+            <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${110 + 40 * k}deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.14) 45%, rgba(255,255,255,0) 60%)` }} />
+          </div>
+        </div>
+      </AbsoluteFill>
+      {crack > 0 ? <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>{Array.from({ length: 11 }, (_, i) => { const a = (i / 11) * Math.PI * 2 + rnd(i, 5); const r1 = W * (0.25 + rnd(i, 6) * 0.5) * crack; const cx = W * 0.58, cy = H * 0.66; return <polyline key={i} points={`${cx},${cy} ${cx + Math.cos(a) * r1 * 0.45 + rnd(i, 7) * 30},${cy + Math.sin(a) * r1 * 0.45} ${cx + Math.cos(a + 0.12) * r1},${cy + Math.sin(a + 0.12) * r1}`} fill="none" stroke="rgba(255,255,255,.85)" strokeWidth={2.5} />; })}</svg> : null}
+    </AbsoluteFill>;
+  })();
+
+  // ── beat 4: four days later — the money world, $32 billion, then bankrupt ──
+  const beat4 = (() => {
+    if (f < B4 - 1) return null;
+    const bk = at("bankrupt", -0.04);
+    const g = interpolate(f, [B4, END], [0, 1], clamp);
+    const fig = interpolate(f, [at("thirty-two", -0.1), at("thirty-two", 0.6)], [0, 1], { ...clamp, easing: ease });
+    const lbl = interpolate(f, [B4, B4 + 12], [0, 1], { ...clamp, easing: ease });
+    const fall = interpolate(f, [bk, bk + 22], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
+    const shake = f >= bk && f < bk + 10 ? (rnd(f, 9) - 0.5) * 30 : 0;
+    const red = interpolate(f, [bk, bk + 3, bk + 30], [0, 0.55, 0.25], clamp);
+    const stamp = interpolate(f, [bk + 2, bk + 8], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
+    const N = 60;
+    return <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 45%, #3b1f0e 0%, #120905 55%, #050302 100%)", transform: `translate(${shake}px, ${shake * 0.6}px)` }}>
+      {sparks(0.6, B4)}
+      <AbsoluteFill style={{ perspective: persp * 0.9, perspectiveOrigin: "50% 40%" }}>
+        {/* banknotes tumbling in depth: each one spins on its own axes; after "bankrupt" they drop away */}
+        {Array.from({ length: N }, (_, i) => {
+          const z = -1600 + rnd(i, 1) * 2000, x = (rnd(i, 2) - 0.5) * W * 2.2, sp = 0.5 + rnd(i, 3);
+          const y = ((rnd(i, 4) * 1.6 + (f - B4) * 0.0045 * sp) % 1.6 - 0.35) * H * 1.6 + fall * H * 1.8 * sp;
+          const rx = (f - B4) * (2 + rnd(i, 5) * 5), ry = (f - B4) * (3 + rnd(i, 6) * 6) + rnd(i, 7) * 360, rz = rnd(i, 8) * 360 + (f - B4) * 1.5;
+          return <div key={i} style={{ position: "absolute", left: W / 2 + x, top: y - H * 0.3, transformStyle: "preserve-3d", transform: `translate3d(-50%, -50%, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`, filter: z < -1000 ? "blur(3px) brightness(0.6)" : z > 200 ? "blur(2px)" : undefined }}><Bill front={s.billFront} back={s.billBack} w={W * 0.19} /></div>;
+        })}
+        {/* the figure, carved, swinging in and leaning back; on "bankrupt" it tips and falls */}
+        <div style={{ position: "absolute", left: W * 0.5, top: H * 0.34, transformStyle: "preserve-3d", transform: `translate3d(-50%, ${fall * H * 0.9}px, ${-900 * (1 - fig) + 160 * g}px) rotateY(${-60 * (1 - fig) + 24 * g - 10}deg) rotateX(${14 + fall * 70}deg) rotateZ(${fall * -14}deg)`, opacity: Math.min(1, fig * 2) }}>
+          <Slab3D text="$32 Billion" size={W * 0.16} />
+        </div>
+      </AbsoluteFill>
+      <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.38, textAlign: "center", fontFamily: SERIF, fontSize: W * 0.08, color: CREAM, opacity: lbl * interpolate(f, [at("thirty-two", -0.35), at("thirty-two", -0.05)], [1, 0], clamp), transform: `scale(${1 + 0.08 * g})`, textShadow: "0 6px 30px rgba(0,0,0,.95)" }}>Four days later…</div>
+      <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.24, textAlign: "center", fontFamily: SERIF, fontSize: W * 0.035, color: CREAM, opacity: interpolate(f, [at("thirty-two", 0), at("thirty-two", 0.3)], [0, 1], clamp) * (1 - fall), textShadow: "0 4px 20px rgba(0,0,0,.9)" }}>his empire</div>
+      {red > 0 ? <AbsoluteFill style={{ background: CORAL, mixBlendMode: "multiply", opacity: red }} /> : null}
+      {stamp > 0 ? <div style={{ position: "absolute", left: W * 0.5, top: H * 0.4, transform: `translate(-50%, -50%) scale(${2.2 - 1.2 * stamp}) rotate(-6deg)`, opacity: stamp }}><div style={{ background: CORAL, padding: `${W * 0.008}px ${W * 0.03}px`, boxShadow: "0 30px 80px rgba(0,0,0,.7)" }}><div style={{ fontFamily: SLAB, fontWeight: 900, fontSize: W * 0.13, color: CREAM, lineHeight: 1, textTransform: "uppercase" }}>Bankrupt</div></div></div> : null}
+    </AbsoluteFill>;
+  })();
+
+  return <AbsoluteFill style={{ width: W, height: H, background: "#000", overflow: "hidden" }}>
+    {f < B2 + 10 ? beat1 : null}
+    {beat2}
+    {beat3}
+    {beat4}
+    {grade}
+    {flash(B2, 6, "rgba(255,200,150,1)")}
+    {flash(B4, 9)}
+  </AbsoluteFill>;
+};
+(FILM.components as Record<string, unknown>).Opening = Opening;
