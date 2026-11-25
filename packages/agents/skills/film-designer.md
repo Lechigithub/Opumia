@@ -110,3 +110,36 @@ Each already varies per film, but the strongest films draw their own: export `st
 component per world kind or frame name the film leans on (e.g. `styles.burst`, `styles.polaroid`). A world component
 gets { slots, src, t (0–1 over the shot), base, accent, width, height }; a frame gets { src, width, height, children }.
 Our films are compared on the mix of styles they use — a film that leans on the same mix as an earlier one is sent back.
+
+## What the hand-built film taught (FTX, v24–v32, 2026-11-25)
+
+**From nothing, every time.** Write a kit with no component, colour, typeface or motion that any earlier film or version
+used, even when the same script is produced again. Only the channel's style may be shared; nothing of ours may.
+
+**Shared craft, own settings.** The engine's craft tools are techniques the channel uses, and your kit and the scene
+designer's composites may import them (`import { Slab3D, HeroCutout, … } from "@craft"`):
+- thick carved 3D type;
+- two-sided objects;
+- objects raining in depth;
+- the rim-lit hero cut-out;
+- words wrapping round the subject;
+- double exposure;
+- whip;
+- flare;
+- phone;
+- glass slab;
+- cracks and shatter;
+- shake.
+
+Every colour, typeface, placement and moment you give them is this film's own. Two films sharing `Slab3D` is like two
+editors sharing a whip pan. Two films setting it the same way is a template.
+
+**Type the channel's way.**
+- Type has thickness: carved, with depth.
+- A phrase arrives as one block, slowly rising out of a soft blur, and stays. The spoken word lights up inside it, and
+  nothing pops in word by word.
+- A phrase leaves on its own, gently, after its hold.
+- Sizes vary from shot to shot; the channel's type is not one size.
+
+**Make room for the scene designer's composites.** Export your fonts in `FILM.fonts` and keep your components usable
+inside a composite (sized by `boxW`), so a hand-built scene can use your type and cards.

@@ -34,3 +34,12 @@ or the wrong decade. You look at what was placed, beside its line, and fix what 
 2. `look_at` the weak picks (fit 6 or less) and every shot whose line names a subject.
 3. For each problem: `find_picture` with better words (name the subject for real footage), or `drop_picture`.
 4. `submit_sourcing` with what you changed and what is still missing.
+
+## Pictures for scenes built by hand (hand film, 2026-11-25)
+
+- **A hero cut-out needs a sharp source.** A cut-out from a soft frame reads as pasted. Prefer a broadcast close-up of
+  the subject over a wide or soft frame, even when the soft one shows more of them.
+- **Real objects for depth layers:** a flat object photographed front and back (a banknote, a card), and sparks,
+  smoke or money filmed on black. These become layers in front of and behind the subject.
+- **Each moment its own picture.** One stock shot is never used for five moments. A bank-run queue for money going
+  out, piles of bills for a sum, real coins for a token.

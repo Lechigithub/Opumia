@@ -11,7 +11,7 @@
     "lib": ["ES2022", "DOM"],
     "types": [],
     "baseUrl": ".",
-    "paths": { "@film": ["./film/stub.tsx"] }
+    "paths": { "@film": ["./film/stub.tsx"], "@craft": ["./craft.tsx"], "@composites": ["./film/composites-stub.tsx"] }
   },
   "include": ["./**/*.ts", "./**/*.tsx"]
 }

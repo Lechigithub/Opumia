@@ -1,5 +1,5 @@
 import { ASPECT_DIMENSIONS, RenderManifest, type ResolutionReport, type ResolvedMedia, type Storyboard, type TimedScript } from "@opumia/contracts";
-import { PLATFORM_FPS } from "@opumia/contracts";
+import { FOOTAGE_SLOT, PLATFORM_FPS } from "@opumia/contracts";
 import { captionGroups } from "./captions.js";
 import { cameraAt } from "./motion.js";
 import { projectMap, type MapPoint } from "./map.js";
@@ -119,7 +119,9 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
         const have = new Set(media.filter((m) => m.role === "layer").map((m) => m.slot ?? 0));
         const wd = (spec as { world?: { kind: string; slot?: number; slots?: number[] } }).world;
         const worldFix = wd && wd.slot !== undefined && !have.has(wd.slot) ? { ...wd, kind: wd.kind === "collage" && (wd.slots ?? []).some((x) => have.has(x)) ? "collage" : "flat_field", slot: (wd.slots ?? []).find((x) => have.has(x)), slots: (wd.slots ?? []).filter((x) => have.has(x)) } : null;
-        const elements = spec.elements.filter((el) => !("slot" in el) || typeof (el as { slot?: unknown }).slot !== "number" || have.has((el as { slot: number }).slot)).map((el) => {
+        const primaryM = media.find((m) => m.role === "primary");
+        if (primaryM) have.add(FOOTAGE_SLOT);
+        const syncEl = (el: Record<string, unknown>) => {
           const pr = el.props as Record<string, unknown> | undefined;
           if (el.type !== "component" || !pr?.sync) return el;
           const shown = String(pr.text ?? "").split(/\s+/).filter(Boolean);
@@ -128,10 +130,15 @@ export async function buildManifest(o: BuildManifestOptions): Promise<RenderMani
           const elStart = start + F(Number(el.at ?? 0));
           const words = shown.map((text, j) => ({ text, from: at >= 0 ? Math.max(0, F(pool[at + j]!.startS) - elStart) : Math.round(j * fps * 0.22) }));
           return { ...el, props: { ...pr, words } };
-        });
+        };
+        const fits = (el: Record<string, unknown>) => !("slot" in el) || typeof (el as { slot?: unknown }).slot !== "number" || have.has((el as { slot: number }).slot);
+        const elements = spec.elements.filter(fits).map(syncEl);
+        // a journey's panels carry their own words (synced the same way) and may show the shot's own footage
+        const jr = (spec as { journey?: { stops: Array<Record<string, unknown> & { elements?: Array<Record<string, unknown>>; fore?: Array<Record<string, unknown>>; slot?: number }> } }).journey;
+        const journey = jr ? { ...jr, stops: jr.stops.filter((st) => st.slot === undefined || have.has(st.slot) || st.world || st.stage).map((st) => ({ ...st, elements: (st.elements ?? []).filter(fits).map(syncEl), ...(st.fore ? { fore: st.fore.filter(fits).map(syncEl) } : {}) })) } : null;
         // never a black frame: a footage scene whose footage is gone falls back to the kit's stage (build list 4)
         const noFootage = ((spec as { backdrop?: string }).backdrop ?? "footage") === "footage" && !media.some((m) => m.role === "primary");
-        props = { spec: { ...spec, ...(noFootage ? { backdrop: "stage" } : {}), ...(worldFix ? { world: worldFix } : {}), elements }, slots: Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])) };
+        props = { spec: { ...spec, ...(noFootage ? { backdrop: "stage" } : {}), ...(worldFix ? { world: worldFix } : {}), ...(journey ? { journey } : {}), elements }, slots: { ...Object.fromEntries(media.filter((m) => m.role === "layer").map((m) => [String(m.slot ?? 0), m.publicPath])), ...(primaryM ? { [String(FOOTAGE_SLOT)]: primaryM.publicPath } : {}) } };
       }
       if (s.factIds?.length) props.factIds = s.factIds;
       const win: [number, number] = [s.startS - 1.5, s.endS + 1.0];

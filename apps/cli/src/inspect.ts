@@ -11,7 +11,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { loadTaste, scoreTaste } from "@opumia/agents";
+import { ensureFlowBand, flowText, loadTaste, measureMotion, measureTextHold, scoreTaste } from "@opumia/agents";
 import type { ChannelId } from "@opumia/contracts";
 import { measureJumps, measureLegibility, measureSeams, run, textBoxesOf } from "@opumia/senses";
 
@@ -66,5 +66,9 @@ export async function inspectStretch(o: {
     `- voice: ${seams.length ? `${seams.length} seam(s) — ${seams.slice(0, 5).map((x) => `${x.atS} s ${x.kind}`).join(", ")}` : "no seam heard"}`,
     `- trained taste: ${taste ?? "?"}/10${realTaste !== null ? ` (the channel's real shots: median ${realTaste})` : ""}`,
   ];
+  // the hand film's measures: does the picture change by moving, does the frame keep moving, do words stay up
+  const fb = await ensureFlowBand({ root: o.root, data: o.data, reference: path.join(o.root, "Reference"), channel: o.channel }).catch(() => null);
+  const ft = flowText(await measureMotion(file, { len }).catch(() => null), await measureTextHold(file, { root: o.root, data: o.data, len }).catch(() => null), fb);
+  if (ft) lines.push(ft);
   return { findings, text: lines.join("\n") };
 }

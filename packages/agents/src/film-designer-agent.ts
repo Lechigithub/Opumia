@@ -14,7 +14,7 @@
  *           role in KIT_ROLES, the phrase synced to the voice) and the drawing of charts, maps and documents
  *  memory   <memoryDir>/<channel>.md, owner-notes.md; data/film-kits.json (what produced films used: fonts, palette,
  *           concept — a new kit may not repeat their typefaces)
- *  safety   the kit may import only react, remotion and @remotion/google-fonts/<Font>; no network, no file system,
+ *  safety   the kit may import only react, remotion, @craft and @remotion/google-fonts/<Font>; no network, no file system,
  *           no eval; pictures only through the shot's slots. Checked before it is written.
  */
 import { existsSync } from "node:fs";
@@ -83,17 +83,20 @@ const hueGap = (a: string, b: string) => {
 const tail = (t: string, n: number) => t.split(/\r?\n/).filter((l) => l.trim()).slice(-n).join("\n");
 
 /** What a kit may contain: checked before it is written (the kit runs inside the render's browser). */
-export function checkKitCode(code: string, fonts: Set<string>): string[] {
+export function checkKitCode(code: string, fonts: Set<string>, o: { composite?: boolean } = {}): string[] {
   const issues: string[] = [];
   for (const m of code.matchAll(/^\s*import\s+[^'"]*from\s+["']([^"']+)["']/gm)) {
     const mod = m[1]!;
     const font = /^@remotion\/google-fonts\/(.+)$/.exec(mod)?.[1];
-    if (mod === "react" || mod === "remotion") continue;
+    // "@craft": the channel's techniques as shared engine tools (hand film v31–v32); a scene composite may also use
+    // the film's own kit ("@film")
+    if (mod === "react" || mod === "remotion" || mod === "@craft" || (o.composite && mod === "@film")) continue;
     if (font) { if (!fonts.has(font)) issues.push(`unknown font "${font}" (use list_fonts)`); continue; }
-    issues.push(`import "${mod}" is not allowed (only react, remotion and @remotion/google-fonts/<Font>)`);
+    issues.push(`import "${mod}" is not allowed (only react, remotion, @craft${o.composite ? ", @film" : ""} and @remotion/google-fonts/<Font>)`);
   }
   if (/\brequire\s*\(|\bimport\s*\(|\beval\s*\(|new\s+Function|\bfetch\s*\(|XMLHttpRequest|WebSocket|\bprocess\.|document\.cookie|localStorage|window\.location|https?:\/\//.test(code)) issues.push("no network, eval, dynamic import, process or URLs in a kit — pictures come only through the shot's slots (staticFile(slots[...]))");
-  if (!/export\s+const\s+FILM\b/.test(code)) issues.push("the kit must `export const FILM = { components, transitions, transition, transitionFrames, fonts, meta }`");
+  if (!o.composite && !/export\s+const\s+FILM\b/.test(code)) issues.push("the kit must `export const FILM = { components, transitions, transition, transitionFrames, fonts, meta }`");
+  if (o.composite && !/export\s+default\b/.test(code)) issues.push("a composite must `export default` its component");
   if (code.length > 60_000) issues.push("the kit is too long (keep it under 60 kB)");
   return issues;
 }
@@ -157,7 +160,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
     },
     {
       name: "write_kit",
-      description: "Write (or rewrite) the whole kit: one TSX module that `export const FILM = { components: {…}, roles: { headline: \"Name\", phrase: \"Name\", … every role }, transitions: {…}, transition: \"name\", transitionFrames: 8–14, fonts: { display, body }, meta: { Name: { use, props } } }`. roles maps each role (the engine draws chapter cards, stages, charts, maps and documents through it) to one of the components. Components are React function components using useCurrentFrame/spring/interpolate from remotion; each gets its own props plus `slots` (picture slot → staticFile path), `boxW`, `boxH`. Load fonts with `import { loadFont } from \"@remotion/google-fonts/<Font>\"; const { fontFamily } = loadFont();`. A transition receives `progress` 0→1 (the cut at 0.5) and draws over the whole frame (AbsoluteFill). Checked for safety before it is written.",
+      description: "Write (or rewrite) the whole kit: one TSX module that `export const FILM = { components: {…}, roles: { headline: \"Name\", phrase: \"Name\", … every role }, transitions: {…}, transition: \"name\", transitionFrames: 8–14, fonts: { display, body }, meta: { Name: { use, props } } }`. roles maps each role (the engine draws chapter cards, stages, charts, maps and documents through it) to one of the components. Components are React function components using useCurrentFrame/spring/interpolate from remotion; each gets its own props plus `slots` (picture slot → staticFile path), `boxW`, `boxH`. Load fonts with `import { loadFont } from \"@remotion/google-fonts/<Font>\"; const { fontFamily } = loadFont();`. The channel's techniques are shared engine tools you may import from \"@craft\" (Slab3D carved 3D type, TwoSided, DepthRain, HeroCutout, rimLight, WrapAround, DoubleExposure, Whip, Flare, Phone, GlassSlab, Cracks, Shatter, shake, rnd, ramp) — give them this film's own colours and type. A transition receives `progress` 0→1 (the cut at 0.5) and draws over the whole frame (AbsoluteFill). Checked for safety before it is written.",
       schema: z.object({ code: z.string() }),
       run: (async (i: { code: string }) => {
         const issues = checkKitCode(i.code, fontSet);

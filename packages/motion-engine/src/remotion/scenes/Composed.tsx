@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FILM } from "@film";
+import { COMPOSITES } from "@composites";
 import { PALETTE, pick, vary } from "../types";
 import { Card3D, Prop3D, Text3D } from "./Three";
 import { JourneyScene, type JourneySpec } from "./Journey";
@@ -117,7 +118,7 @@ export const Element: React.FC<{ el: El; i: number; slots: Record<string, string
   const w = el.w * width;
 
   if (el.type === "component") {
-    const C = FILM.components[el.name];
+    const C = (FILM.components as Record<string, React.FC<Record<string, unknown>>>)[el.name] ?? COMPOSITES[el.name];
     if (!C) return null;
     const boxH = el.h ? el.h * height : undefined;
     return (

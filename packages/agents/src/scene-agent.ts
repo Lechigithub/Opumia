@@ -11,7 +11,8 @@ import { checkTechniqueUses } from "./technique-grammar.js";
  */
 import type { FilmKitMeta } from "./scene-designer.js";
 import { readMemory } from "./lessons.js";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { checkKitCode } from "./film-designer-agent.js";
 import path from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import { ScenePlan, type FilmDesignSystem, type ResolutionReport, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
@@ -74,6 +75,12 @@ export interface SceneAgentOptions {
   /** Revision (sent back by the showrunner or the gate): start from this plan and redesign only these shots. */
   previous?: ScenePlan;
   revise?: Array<{ shotId: string; note: string }>;
+  /** Hand film method (v31–v32): the scene designer writes a bespoke layered composite for a scene into the film's kit
+   *  folder (design/film/composites/), from the shared craft tools (@craft) and the film's kit (@film). */
+  composites?: { kitDir: string; fonts: Set<string> };
+  /** Our stretch beside a real stretch of the channel at the same place in a film, with both measured (motion: cuts vs
+   *  moves; how long words stay up). */
+  compare?: (plan: ScenePlan, fromS: number, toS: number) => Promise<{ sheet: string; text: string }>;
   /** Build list 5, items 10–14: the channel's design band (data/design-profile) and where to measure (OCR, SigLIP). */
   designBand?: { band: DesignBand; root: string; data: string };
   log?: (s: string) => void;
@@ -261,7 +268,47 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     return { ok: issues.length === 0, report: issues.length ? `${header}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header}\n\nPASSES.` };
   };
 
+
+  const compositeTools: AgentTool[] = o.composites ? [{
+    name: "write_composite",
+    description: "Build ONE scene by hand as a bespoke layered composite (the method that made the hand film's opening read like the channel): a React component written for this scene alone, every layer animated on the narration's word times, under one grade. It may import react, remotion, @remotion/google-fonts/<Font>, \"@film\" (the film's kit: FILM.fonts, FILM.components) and \"@craft\" (shared craft tools: Slab3D carved 3D type, TwoSided objects, DepthRain objects in depth, HeroCutout big rim-lit subject, rimLight, WrapAround words round the subject, DoubleExposure, Whip, Flare, Phone, GlassSlab, Cracks, Shatter, shake, rnd, ramp). Pictures come only through props.slots[\"<slot>\"] (staticFile path; slot \"90\" is the shot's own footage); read word times from props you pass. `export default` the component. Then place it with design_scenes as one component element at x 0, y 0, w 1, h 1, and look at it with play_shot and compare_with_reference. Use your own colours and type from the film's kit — never another film's.",
+    schema: z.object({ name: z.string().regex(/^[A-Z][A-Za-z0-9]{2,40}$/).describe("PascalCase, unique in this film"), shotId: z.string(), use: z.string().describe("one line: what the composite shows"), props: z.string().describe("its props (besides slots): names and what they hold, e.g. t: word times in seconds"), code: z.string() }),
+    run: (async (i: { name: string; shotId: string; use: string; props: string; code: string }) => {
+      if (!shots.some((s) => s.id === i.shotId)) return `no shot ${i.shotId}`;
+      if (o.kit.components[i.name] && !(o.kit.components[i.name] as { composite?: boolean }).composite) return `${i.name} is already a kit component: choose another name`;
+      const issues = checkKitCode(i.code, o.composites!.fonts, { composite: true });
+      if (issues.length) return `NOT WRITTEN:\n- ${issues.join("\n- ")}`;
+      const ts = await import("typescript");
+      const tr = ts.transpileModule(i.code, { reportDiagnostics: true, compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } });
+      const diag = (tr.diagnostics ?? []).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).slice(0, 5);
+      if (diag.length) return `NOT WRITTEN — syntax:\n${diag.join("\n")}`;
+      const dir = path.join(o.composites!.kitDir, "composites");
+      await mkdir(dir, { recursive: true });
+      const file = path.join(dir, `${i.name}.tsx`);
+      await writeFile(`${file}.tmp`, i.code); await rename(`${file}.tmp`, file);
+      const metaFile = path.join(o.composites!.kitDir, "composites.json");
+      const meta = JSON.parse(await readFile(metaFile, "utf8").catch(() => "{}")) as Record<string, { use: string; props: string; shotId: string }>;
+      meta[i.name] = { use: i.use, props: i.props, shotId: i.shotId };
+      await writeFile(metaFile, JSON.stringify(meta, null, 1) + "\n");
+      const names = Object.keys(meta).sort();
+      const index = `// generated by write_composite: the scene designer's per-scene composites\n${names.map((n, k) => `import C${k} from "./composites/${n}";`).join("\n")}\nexport const COMPOSITES: Record<string, any> = { ${names.map((n, k) => `${n}: C${k}`).join(", ")} };\n`;
+      await writeFile(path.join(o.composites!.kitDir, "composites.tsx"), index);
+      (o.kit.components as Record<string, { use: string; props: string; composite?: boolean }>)[i.name] = { use: i.use, props: i.props, composite: true };
+      return `written ${i.name} (${i.code.length} characters). Place it in ${i.shotId} with design_scenes (component "${i.name}", x 0, y 0, w 1, h 1, its props in propsJson), then play_shot and compare_with_reference.`;
+    }) as AgentTool["run"],
+  }] : [];
+  const compareTools: AgentTool[] = o.compare ? [{
+    name: "compare_with_reference",
+    description: "Your stretch (top row) beside a real stretch of the channel at the same place in a film (bottom row), same length, both measured: hard cuts against changes made by moving, how much the frame moves, how long words stay up. Judge what the real one does that yours does not — layers, depth, how big the subject is, how words arrive and stay, how one picture becomes the next — and fix that.",
+    schema: z.object({ fromS: z.number(), toS: z.number() }),
+    run: (async (i: { fromS: number; toS: number }) => {
+      const r = await o.compare!(plan, Math.max(0, i.fromS), Math.min(i.toS, i.fromS + 15)).catch((e: Error) => ({ sheet: "", text: `could not compare: ${e.message.slice(0, 160)}` }));
+      return r.sheet ? [{ type: "text" as const, text: r.text }, await img(r.sheet)] : r.text;
+    }) as AgentTool["run"],
+  }] : [];
   const tools: AgentTool[] = [
+    ...compositeTools,
+    ...compareTools,
     {
       name: "view_reference_shots",
       description: `See real shots of the channel (frames with what was on screen and the line spoken). kind is one of the channel's own labels or part of one, e.g. "none" (clean footage), "text_over_footage", "title_card", "cutout", "logo", "document", "number", "chart", "kinetic", "quote", "collage" — or "any" for a spread. Up to 6 frames per call.`,

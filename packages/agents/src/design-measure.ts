@@ -86,7 +86,7 @@ export async function labelDesign(files: string[], o: { data?: string } = {}): P
 
 // ---- text area: OCR boxes (macOS Vision, tools/ocr/ocr.swift, compiled once into data/.cache/ocr/)
 
-async function ocrBinary(root: string, data: string): Promise<string | null> {
+export async function ocrBinary(root: string, data: string): Promise<string | null> {
   const bin = path.join(data, ".cache", "ocr", "ocr");
   if (existsSync(bin)) return bin;
   const src = path.join(root, "tools", "ocr", "ocr.swift");

@@ -5,6 +5,7 @@ export const QACheckId = z.enum([
   "no_ai_video", // every video layer traces to library/stock/archival/designed
   "viewer", // B10: the viewer QA agent watched the finished film start to end
   "story_band", // build list 4: the script was narrated outside the channel's story band (logged, never a stop)
+  "flow", // hand film (2026-11-25): moving not cutting, never still, words held until read — on the finished film
   "preflight_unresolved", // build list 4: rendered with preflight checks the ladders could not fix (logged, never a stop)
   "final_cut", // build list 2 step 7: an independent judge, blind, finished film against real channel stretches
   "license_coverage", // every non-designed layer has a licence + credit when required

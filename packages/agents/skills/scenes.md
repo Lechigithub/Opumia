@@ -161,3 +161,75 @@ More of the channel's vocabulary, all available:
 - entrances `settle`, `glitch`, `swoop`; text3d `material` chrome or gold;
 - `fx`: scanlines (neon / CRT type), grid (a ruler over a picture), cursor (a UI click), twotone; finish `halftone`;
 - `atmos`: also snow, confetti, bokeh.
+
+## What the hand-built film taught (FTX, v24–v32, 2026-11-25)
+
+The owner judged our films a slideshow until one opening was built by hand the way the channel builds its scenes. Do
+the same. Each point below was measured or judged by the owner. It is not anyone's taste.
+
+**Zero template share.** Design every scene of every film from nothing. That includes a second production of the same
+script and the same voice. Never reuse an earlier film's device at the same moment, its cut points, its pictures or its
+layout. The `template_share` check compares your plan with every earlier film of ours and sends back the shots that
+repeat one.
+
+**The camera never stops, and pictures turn into each other.** On the channel, about three picture changes in four are
+made by moving, not by cutting (MagnatesMedia: median 76 %, cuts 8.7 a minute; we were at 42 %). Its frame is moving
+82 % of the time.
+- Use `backdrop: "journey"` for any stretch that would otherwise be a run of short cuts: one camera through 2–6 panels
+  of real pictures.
+- Vary how it reaches each panel:
+  - **slide** to a neighbour;
+  - **push** *through* the picture into the next one behind it;
+  - **whip** on a change of beat;
+  - **rise**.
+- Put a cut-out of the subject in `fore`, so the words on the panel sit between the picture and the subject. That is
+  the channel's text behind the subject, with parallax.
+- Give a panel black and white, duotone, a double exposure (`blendSlot`) or a defocused picture behind its sharp subject
+  (`dof`).
+
+**Words stay until they are read.** On the channel the typical word stays up 2.5 s, and three quarters of word-time is
+on lines held at least 1.5 s.
+- Put fewer words on screen and hold each phrase.
+- The camera leaves a panel only after its last word has been up 1.1 s. A journey is retimed for you if you rush it.
+- A phrase arrives whole and stays. The spoken word lights up inside it; it does not pop in on its own.
+- `words_rushed` sends back any stretch that flashes words.
+
+**Build the scenes that matter by hand.** For the opening, every payoff, and any scene the measures keep sending back,
+use `write_composite`. It writes one layered React component for that scene alone, built from the shared craft tools
+(`@craft`) and the film's own kit (`@film`). The v32 opening is the model.
+- **Layers:**
+  - moving real footage underneath, graded;
+  - the subject's face double-exposed faint in its lights (`DoubleExposure`);
+  - spoken words as thick carved 3D type flying in from depth and turning (`Slab3D`);
+  - the subject cut out big and rim-lit by the scene's own light (`HeroCutout`);
+  - their name wrapping round them, behind the head and in front of the shoulder (`WrapAround`);
+  - real objects tumbling in depth, behind and in front of the subject (`DepthRain` with `TwoSided` banknotes);
+  - flares on the hits (`Flare`);
+  - one grade over all of it.
+- **Transitions between beats made of the picture:**
+  - a whip (`Whip` out, then in);
+  - a push into a device (`Phone`);
+  - glass cracking, then shattering into falling shards that reveal the next world (`Cracks`, `Shatter`);
+  - a shake on the impact (`shake`).
+- Every layer moves on the narration's word times.
+- Use your film's own colours and type, never another film's. The tools are techniques, not a look.
+
+**The hero is big and sharp, and the props serve the hero.** In a payoff the subject covers 30–60 % of the frame and is
+sharp. In v32 the founder stood small and soft among falling banknotes, and it read as a photo pasted among props. If
+the only picture of the subject is soft, get a sharper one with `find_picture` before building the scene around it.
+
+**Fuse a document or a post into the world.** Don't float it as a card on glass. Put it on a device in a hand, light the
+subject's face with the screen, or make it a physical object in the scene. Even with glass, reflection and depth, a
+floating card still reads as an interface.
+
+**Older lessons from the hand film, still true:**
+- **Keep footage moving.** Every footage shot travels: a real push plus a pan.
+- **Dim lightly.** Never dim footage under type by more than 0.3; the channel is not dark.
+- **Never put documents and figures on a near-black stage.** Set them over real footage, defocused.
+- **Each moment gets its own picture.** One stock shot is never used for five moments.
+- **Split long holds.** Show the card, then punch in on the highlighted line.
+- **Type keeps drifting after it lands.**
+
+**Judge beside the channel, not alone.** Before you submit, run `compare_with_reference` on the opening, on every payoff
+and on any scene you built by hand. Your stretch sits on top and a real stretch at the same place in a film below it,
+both measured. Fix what the real one does that yours does not.

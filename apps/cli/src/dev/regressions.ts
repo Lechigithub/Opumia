@@ -56,6 +56,22 @@ const cases: Case[] = [
   { id: "bl5-packaging", defect: "Nokia: a topic-sentence title, a wordless thumbnail whose fire says 'exploding phone'", run: async () => script("package-bl5-test.ts", "--offline") },
   { id: "film3-faults", defect: "film 3: the limit reset on resume, no reserve, ladders re-bought a failed art director, a render refused, \"$1,100\" patents, lone-word cards", run: async () => (await film3Test()).length === 0 },
   { id: "ladder-escalates", defect: "build list 3: a failing check must climb its ladder one rung a round, stop when fixed, and be logged", run: async () => (await ladderTest()).length === 0 },
+  { id: "hand-transfer", defect: "hand film (2026-11-25): a slideshow — cuts instead of moves, words rushed, a template shared with the earlier film; composites may use @craft and @film but not the network", run: async () => {
+    const { measureMotion, templateShare, journeyStops } = await import("@opumia/agents");
+    // the hand film's motion as the Python measure read it (softShare 0.797, cuts 8.33/min)
+    const v = existsSync("out/hand-ftx/film_16x9.mp4") ? await measureMotion("out/hand-ftx/film_16x9.mp4", { len: 120 }) : null;
+    const motionOk = !v || (Math.abs(v.softShare - 0.797) < 0.05 && Math.abs(v.cutsPerMin - 8.33) < 1.5);
+    // a plan against itself shares everything; the read hold moves a rushed panel later
+    const plan = { board: { shots: [{ id: "a", startS: 0, endS: 3 }, { id: "b", startS: 3, endS: 6 }, { id: "c", startS: 6, endS: 9 }] }, scenes: { scenes: [{ shotId: "a", backdrop: "world", world: { kind: "duotone" }, elements: [{ name: "Phrase" }] }, { shotId: "b", backdrop: "footage", elements: [] }, { shotId: "c", backdrop: "journey", elements: [] }] }, resolution: { media: [{ shotId: "a", role: "primary", sourceUrl: "u1" }] } };
+    const dir = mkdtempSync(path.join(tmpdir(), "tpl-"));
+    writeFileSync(path.join(dir, "storyboard.json"), JSON.stringify(plan.board)); writeFileSync(path.join(dir, "scenes.json"), JSON.stringify(plan.scenes)); writeFileSync(path.join(dir, "resolution.json"), JSON.stringify(plan.resolution));
+    const t = (await templateShare(plan as never, [dir]))[0];
+    const shared = Boolean(t && t.pictures > 0 && t.shots.length >= 1);
+    const j = journeyStops([{ at: 0, move: "slide", elements: [{ type: "component", at: 0.2, props: { words: [{ text: "four days later", from: 24 }] } } as never] }, { at: 0.6, move: "push", elements: [] }], 8);
+    const held = j.stops[1]!.at >= 1 + 1.1 + 1.0 - 0.01 && j.stops[1]!.depth > 2;
+    const kit = checkKitCode(`import { Slab3D } from "@craft";\nimport { FILM } from "@film";\nexport default function X() { return null; }`, new Set(), { composite: true }).length === 0 && checkKitCode(`import { FILM } from "@film";\nexport const FILM2 = 1;`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport default 1;`, new Set(), { composite: true }).length > 0;
+    return motionOk && shared && held && kit;
+  } },
   { id: "kit-safety", defect: "a film kit may not reach the network or the file system", run: async () => checkKitCode(`import fs from "fs";\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`import React from "react";\nexport const FILM = { components: {} };`, new Set()).length === 0 },
 ];
 let failed = 0;

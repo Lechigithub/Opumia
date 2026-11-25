@@ -88,3 +88,11 @@ Fix what it names in your own part of the film. Pass on what belongs to another 
 - A cut back to the same picture is a stutter unless BOTH the framing changes (`reframe`: a punch-in on part of the
   frame, or another moment of the clip) AND a transition bridges it (`set_transition`: whip, light leak, the film's
   own transition). `submit_cut` refuses any stutter.
+
+## Moves, not cuts (hand film, 2026-11-25)
+
+On the channel about three picture changes in four happen without a cut. A journey scene is one continuous camera:
+never split it and never cut inside it. Between scenes, prefer a transition made of the picture (a whip, a push
+through, a shatter the scene designer built) to a plain cut when the beat changes. Measured on every watched stretch:
+the share of changes made by moving, and how long words stay up. Never cut away from words before they have been up
+about 1.5 s.

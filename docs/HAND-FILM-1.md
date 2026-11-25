@@ -513,3 +513,59 @@ and ours, ignoring the channel's corner logo. The band is the first 80 s of all 
     into one staged image.
   - The cut-outs of CZ still look pasted on.
   - The type is still mostly the same caps.
+
+### v28–v32: designed from nothing, continuous camera, the opening built by hand (2026-11-24/25)
+- **Owner:**
+  - "Every film designed from scratch, zero template share." v29 and v30 still read as the earlier film's template.
+  - "The reference moves continuously from scene to scene … words never feel rushed."
+  - v30b "still looks like a slideshow".
+- **v29 "Night exchange", v30 "The bet":** each was designed from nothing, with new pictures, press sources, kit,
+  palette, type, music and effects.
+  - `likeness.py` measures each version against every earlier version: pictures, devices, cuts and frames, as excess
+    over chance.
+  - v30 against every frozen version: pictures 0, devices 0, frames 0, cuts about 0.17.
+- **Journey engine** (`Journey.tsx`, v30–v30b): real pictures as panels in 3D, a camera that never stops, and flights
+  that push through, whip and rise with motion blur over a blurred echo of the picture.
+  - Panels carry a fore layer (text behind the subject), duotone, double exposure and depth of field.
+  - The camera leaves a panel only after its words were readable (`READ_HOLD` 1.1 s).
+- **New measures:**
+  - `motion-band.py`: the channel makes 76 % of its picture changes by moving, ours 42 % before journeys and 80 %
+    after.
+  - `text-hold.py`: the channel's typical word stays up 2.5 s; ours 2.75 s.
+- **v31–v32, the first 11.6 s built by hand** as one layered composite in four beats. Ponzi was beside it at every pass.
+  - Carved 3D type through the night city, with the subject's face double-exposed in its lights.
+  - A whip into a sharp, rim-lit broadcast cut-out, his head breaking through "BANKMAN-FRIED".
+  - A push into the phone; his post on a glass slab, his face reflected in it.
+  - The glass cracks and shatters into the money world: two-sided banknotes tumbling in depth around "$32 BILLION",
+    then BANKRUPT with a shake.
+  - Owner's verdict asked, then passed over for the platform transfer. My own verdict: beats 2–3 read as the channel;
+    the payoff's hero is small and soft, and the post still reads as a card.
+
+### Transferred to the platform (2026-11-25)
+The owner asked for everything learned to be taught to the agents and the platform before any more hand work.
+- **Craft tools in the engine** (`motion-engine/src/remotion/craft.tsx`, imported as `@craft` by any kit or composite):
+  `Slab3D`, `TwoSided`, `DepthRain`, `HeroCutout`, `rimLight`, `WrapAround`, `DoubleExposure`, `Whip`, `Flare`,
+  `Phone`, `GlassSlab`, `Cracks`, `Shatter`, `shake`.
+  - Techniques only: every colour and font is the caller's.
+  - The hand film's own opening was rebuilt on them (kit v33). Frame SSIM against v32: median 0.985, p10 0.975.
+- **Journeys for the scene designer** (`scene-designer.ts`: `backdrop: "journey"`, `journeyStops`): the agent designs
+  2–6 panels with move, look, depth of field, double exposure, words on the panel and a cut-out in front.
+  - Layout and read-hold timing are enforced in code.
+  - Panel words are synced to the voice, and the shot's own footage can be a panel (`FOOTAGE_SLOT`).
+- **Composites for the scene designer** (`write_composite`): one bespoke layered component per scene, checked like a
+  kit. It goes to `design/film/composites/` and is bundled as `@composites`; Composed.tsx falls back to it.
+- **Judged beside the channel** (`compare_with_reference`, `compare-ref.ts`): our stretch above a real stretch at the
+  same place in a film, both measured.
+- **Measures in TypeScript** (`agents/flow-measure.ts`): motion, word hold and template share. They give the same
+  numbers as the Python scripts on the hand film, and the band is built from the reference when missing.
+- **Gates:**
+  - preflight `cuts_not_moves`, `too_still` and `words_rushed` on the judge's preview stretches;
+  - `template_share` against every produced film;
+  - each climbs a ladder (`FLOW`, `TEMPLATE`): the scene designer, then a scene built by hand, then the art director;
+  - QA `flow` on the finished film;
+  - every watched stretch's report now carries the motion and word-hold lines.
+- **Capabilities:** `craft_tools`, `composite` and `journey` were added to `CAPABILITIES`.
+- **Skills:** scenes, film-designer, director, editor and sourcing carry the lessons, including the payoff's hero
+  (big and sharp; props serve it) and posts fused into the world.
+- **Not proven:** no agent film has been produced with any of this (that needs the API). The smoke test renders a
+  journey and a craft composite offline.

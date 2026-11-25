@@ -447,6 +447,16 @@ Owner: gaps must not wait for the owner to notice them. `agents/technique-invent
   variants (intro card, hand-drawn arrow, handwritten). Missing tools went from 8 to 4 (one is the channel's own logo
   bug, never copied).
 
+## Hand film lessons in the platform (2026-11-25, `docs/HAND-FILM-1.md`)
+
+The FTX film was built by hand (v24–v33) until its opening read like the channel; what it taught is now the agents'.
+- **Zero template share** (owner): every film is designed from nothing, even a second production of the same script. `agents/flow-measure.ts:templateShare` compares a plan with every produced film (devices at the same moment, cut timing, pictures — excess over chance); preflight `template_share` (blocker).
+- **Moves, not cuts:** the channel makes ~76 % of its picture changes by moving (cuts 8.7/min) and its frame moves 82 % of the time. The scene designer can design a scene as a **journey** (`backdrop: "journey"`, 2–6 panels: slide / push through / whip / rise, a cut-out in front of the words, duotone, double exposure, depth of field; `scene-designer.ts:journeyStops` lays it out and holds each panel until its words were read).
+- **Words held until read:** the channel's typical word stays up 2.5 s (`measureTextHold`, on-device OCR).
+- **Scenes built by hand:** `write_composite` lets the scene designer write one layered component per scene (`design/film/composites/`, bundled as `@composites`), from the shared **craft tools** (`motion-engine/src/remotion/craft.tsx`, `@craft`: carved 3D type, two-sided objects, objects raining in depth, the big rim-lit hero cut-out, words wrapping round the subject, double exposure, whip, flare, phone, glass slab, cracks and shatter, shake — techniques only; colours and type are the film's) and the film's kit. `compare_with_reference` shows a stretch above a real one at the same place in a film, both measured.
+- **Gates:** preflight `cuts_not_moves`, `too_still`, `words_rushed` on the judge's preview stretches, ladders `FLOW` / `TEMPLATE` (scene designer → a composite → the art director); QA `flow` on the finished film. Bands: `data/quality-profile/<channel>-motion-band.json`, `-text-hold-band.json` (built from the reference when missing).
+- **Not yet proven on an agent film** (needs the API).
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

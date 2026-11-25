@@ -166,6 +166,19 @@ const STUTTER = [
 const WRITER_ONLY = [rung("the writer rewords the lines", "writer", 0.6, async (ps, a) => (a.rewrite(`The narration failed after its retakes: ${ps.map(said).join("; ")}. Reword the lines that cannot be said cleanly.`) ? "rewrite requested" : null))];
 
 /** Check id → its ladder. Checks with no ladder here are measured and reported only. */
+/** The hand film's measures (2026-11-25): moving not cutting, the frame never still, words held until read, nothing shared
+ *  with an earlier film. First the scene designer with the measure named; then a scene built by hand as a bespoke
+ *  composite; then the art director's missing component. */
+const FLOW = [
+  rung("the scene designer, told what was measured", "scene designer", 0.3, sceneNote("measured outside the channel's band — fix it (a journey through the pictures instead of cuts, a camera that keeps drifting, fewer words each held until read):")),
+  rung("a scene built by hand as one layered composite", "scene designer", 0.4, sceneNote("build this scene by hand with write_composite (one layered composite from the @craft tools and the film's kit: layers at their own depths, a transition made of the picture, words held until read), then compare_with_reference —")),
+  SCENE[3]!,
+];
+const TEMPLATE = [
+  rung("the scene designer redesigns the shared shots from nothing", "scene designer", 0.3, sceneNote("this shot repeats an earlier film of ours (same device at the same moment, same cut timing or same picture) — design it from nothing: another device, another picture, other cut points:")),
+  rung("a scene built by hand as one layered composite", "scene designer", 0.4, sceneNote("build this scene by hand with write_composite, nothing like any earlier film —")),
+  SCENE[3]!,
+];
 export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   repeat_in_film: PICTURE,
   shared_pictures: PICTURE,
@@ -180,6 +193,10 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   bare_backdrop_run: NO_PICTURE,
   picture_less_scenes: NO_PICTURE,
   dead_frames: SCENE,
+  cuts_not_moves: FLOW,
+  too_still: FLOW,
+  words_rushed: FLOW,
+  template_share: TEMPLATE,
   scene_defects: SCENE,
   unreadable_text: SCENE,
   film_taste: SCENE,

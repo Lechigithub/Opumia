@@ -89,6 +89,8 @@ export const SceneAtmos = z.object({ kind: z.enum(ATMOS_KINDS), opacity: z.numbe
  *  pictures and clips placed as panels in a 3D space, the camera flying from one to the next (with perspective, so
  *  panels at other depths pass at other speeds) and drifting while it holds; each panel carries its own words, which
  *  travel with it. */
+/** The picture slot that stands for the shot's own footage inside a journey (its other panels are layer slots). */
+export const FOOTAGE_SLOT = 90;
 export const JourneyStop = z.object({
   /** seconds after the scene starts when the camera has arrived at this panel */
   at: z.number().min(0),

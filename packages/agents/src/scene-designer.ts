@@ -1,7 +1,7 @@
 import type { Preset } from "./technique-grammar.js";
 import { readFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
-import { ScenePlan, WORLD_KINDS, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
+import { FOOTAGE_SLOT, ScenePlan, WORLD_KINDS, type ResolutionReport, type SceneElement, type SceneSpec, type Storyboard, type StoryboardShot, type TimedScript } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { MODELS, plain, ROLE_MODEL, structured } from "./llm.js";
 
@@ -51,6 +51,17 @@ const WorldDraft = z.object({
   color: z.enum(TOKENS).describe("the world's main colour — change it with the idea, do not reuse one colour for every shot"),
   accent: z.enum(TOKENS),
 });
+/** A panel of a continuous journey (hand film v30b–v32): the camera holds on it, drifting, then flies to the next. */
+const StopDraft = z.object({
+  slot: z.number().describe("the real picture or clip of this panel: a picture slot, or -1 for the shot's own footage"),
+  at: z.number().describe("seconds after the shot starts when the camera has arrived (the first panel 0). The camera leaves a panel only after its words have been up long enough to read — later stops are moved later if needed"),
+  move: z.enum(["slide", "push", "whip", "rise"]).describe("how the camera reaches this panel: slide to a neighbour, push THROUGH the last picture into this one, whip (fast, motion-blurred, a beat change), rise. Vary them"),
+  look: z.enum(["natural", "mono", "contrast", "cool", "warm", "faded", "bright", "duotone"]),
+  dof: z.number().describe("0–1: the panel's picture defocused behind a sharp cut-out in front of it; 0 for none"),
+  blendSlot: z.number().describe("a second picture double-exposed over this one (screen), or -1"),
+  elements: z.array(El).describe("words and pictures ON the panel (they travel with it)"),
+  fore: z.array(El).describe("a layer IN FRONT of the panel at its own depth — a cut-out of the subject, so words on the panel sit between the picture and the subject (parallax, text behind the subject); [] for none"),
+});
 const FinishDraft = z.object({ grain: z.number().describe("0..1 film grain"), vignette: z.number().describe("0..1"), leak: z.number().describe("0..1 light leak sweeping across (sparingly)"), halftone: z.number().describe("0..1 a halftone / grunge print-dot texture; 0 for most") });
 const Plan = z.object({
   scenes: z.array(
@@ -58,7 +69,8 @@ const Plan = z.object({
       shotId: z.string(),
       idea: z.string().describe("one line: what the viewer sees and why it fits the line"),
       techniques: z.array(z.string()).describe("the channel's techniques this shot uses, by id from your brief (see_technique shows how the channel uses each) — their recipes are applied for you; your own fields refine them"),
-      backdrop: z.enum(["footage", "world"]).describe("the shot's own footage, or a WORLD built from real pictures (shots without footage, or where a treated picture carries the line better)"),
+      backdrop: z.enum(["footage", "world", "journey"]).describe("the shot's own footage, a WORLD built from real pictures (shots without footage, or where a treated picture carries the line better), or a JOURNEY: one continuous camera travelling through 2–6 panels of real pictures with no cut (the channel changes picture by moving three times in four)"),
+      journey: z.object({ stops: z.array(StopDraft).max(6) }).describe("backdrop journey: its panels in order (2–6); { stops: [] } otherwise"),
       world: WorldDraft,
       finish: FinishDraft.describe("the treatment over the whole shot; the channel's frames almost all carry one (grain, vignette, a leak)"),
       drift: z.object({ slot: z.number().describe("a picture slot holding a cut-out object (banknotes, coins, papers, leaves) — add one with add_library_object; -1 for none"), mode: z.enum(["fall", "float"]) }).describe("a falling or floating layer of that object over the shot (the channel's falling banknotes, drifting objects)"),
@@ -154,8 +166,9 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     const numsOk = (s: string) => (s.match(/\d[\d.,]*/g) ?? []).every((n) => around.includes(n.replace(/[.,]$/, "")));
     const wordsOk = (v: string) => { const ws = norm(v).split(" ").filter((x) => x.length > 2); return !ws.length || ws.filter((x) => said.has(x)).length / ws.length >= 0.7; };
     const dur = sh.endS - sh.startS;
+    const convert = (list: Array<z.infer<typeof El>>): SceneElement[] => {
     const els: SceneElement[] = [];
-    for (const e of d.elements) {
+    for (const e of list) {
       const box = { x: clamp(e.x, 0, 0.95), y: clamp(e.y, 0, 0.95), w: clamp(e.w, 0.03, 1), rot: clamp(e.rot, -12, 12), z: clamp(e.z, 0, 1), at: clamp(e.at, 0, Math.max(0, dur - 0.4)), enter: e.enter , ...(e.exit && e.exit !== "none" ? { exit: e.exit } : {}), ...(e.pinX >= 0 && e.pinY >= 0 && hasFootage ? { track: { x: clamp(e.pinX, 0, 1), y: clamp(e.pinY, 0, 1) } } : {}) };
       if (e.type === "photo" || e.type === "cutout" || e.type === "card3d") {
         if (!slots.has(e.slot)) { dropped++; continue; }
@@ -201,6 +214,9 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
       if (phraseRole && e.component === phraseRole) props.sync = true;
       els.push({ type: "component", ...box, ...(e.h > 0 ? { h: clamp(e.h, 0.05, 1) } : {}), name: e.component, props });
     }
+    return els;
+    };
+    const els = convert(d.elements);
     fitLayout(els, portrait);
     // Name guard: a real name on screen over footage that is not verified press of that person → the kit's stage.
     const onScreen = els.flatMap((e) => (e.type === "component" ? Object.values(e.props).filter((v): v is string => typeof v === "string") : [])).join(" ").toLowerCase();
@@ -208,6 +224,22 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     const verified = (sn: string) => primaryM?.origin === "press" && (primaryM.depicts ?? "").toLowerCase().includes(sn);
     const unsafeFace = named.length > 0 && hasFootage && !named.every(verified);
     if (unsafeFace) nameGuarded++;
+    // A journey: one camera through 2–6 panels, never a cut inside the shot (hand film v30b–v32)
+    if (d.backdrop === "journey" && (d.journey?.stops.length ?? 0) >= 2) {
+      const usable = (x: number) => slots.has(x) || (x === -1 && hasFootage && !unsafeFace);
+      const drafts = d.journey!.stops.filter((st) => usable(st.slot)).slice(0, 6);
+      if (drafts.length >= 2) {
+        const stops = drafts.map((st, k) => {
+          const pe = convert(st.elements), fe = convert(st.fore);
+          fitLayout(pe, portrait);
+          return { at: k === 0 ? 0 : clamp(st.at, 0.6, Math.max(0.6, dur - 0.8)), slot: st.slot === -1 ? FOOTAGE_SLOT : st.slot, move: st.move, look: st.look, frame: "none" as const, elements: pe.slice(0, 6), ...(fe.length ? { fore: fe.slice(0, 4) } : {}), ...(st.dof > 0 ? { dof: clamp(st.dof, 0, 1) } : {}), ...(st.blendSlot >= 0 && slots.has(st.blendSlot) ? { blendSlot: st.blendSlot } : {}) };
+        });
+        const journey = journeyStops(stops, dur);
+        specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), ...((d as { techniques?: string[] }).techniques?.length ? { techniques: (d as { techniques: string[] }).techniques.slice(0, 6) } : {}), backdrop: "journey", journey, finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), dim: 0, camera: { fromScale: 1, toScale: 1, fromX: 0.5, toX: 0.5, fromY: 0.5, toY: 0.5 }, elements: [] } as unknown as SceneSpec);
+        continue;
+      }
+      refusals.push(`${sh.id}: journey needs two panels with real pictures — designed as a single scene instead`);
+    }
     // Clean footage: moving video that plays with nothing on it (never a still, never a shot without footage).
     if (d.clean && primaryM?.kind === "video" && !unsafeFace) {
       specs.push({ shotId: sh.id, idea: d.idea.slice(0, 200), ...((d as { techniques?: string[] }).techniques?.length ? { techniques: (d as { techniques: string[] }).techniques.slice(0, 6) } : {}), backdrop: "footage", finish: finishOf(d.finish), ...(d.atmos && d.atmos !== "none" ? { atmos: { kind: d.atmos, opacity: 0.6 } } : {}), ...(d.drift && d.drift.slot >= 0 && slots.has(d.drift.slot) ? { drift: { slot: d.drift.slot, mode: d.drift.mode, count: d.drift.mode === "fall" ? 14 : 8 } } : {}), ...(d.fx && (d.fx.glitch || d.fx.dof > 0 || d.fx.rack || d.fx.scanlines || d.fx.grid || d.fx.cursorX >= 0 || d.fx.twotone) ? { fx: { ...(d.fx.glitch ? { glitch: true } : {}), ...(d.fx.dof > 0 ? { dof: clamp(d.fx.dof, 0, 1) } : {}), ...(d.fx.rack ? { rack: true } : {}), ...(d.fx.scanlines ? { scanlines: true } : {}), ...(d.fx.grid ? { grid: true } : {}), ...(d.fx.cursorX >= 0 ? { cursor: { x: clamp(d.fx.cursorX, 0.05, 0.95), y: clamp(d.fx.cursorY, 0.05, 0.95) } } : {}), ...(d.fx.twotone ? { twotone: true } : {}) } } : {}), dim: 0.1, camera: { fromScale: 1.02, toScale: 1.12, fromX: 0.5, toX: clamp(d.camera.toX, 0.42, 0.58), fromY: 0.5, toY: clamp(d.camera.toY, 0.42, 0.58) }, elements: [] });
@@ -466,4 +498,38 @@ export function applyPresets(d: Record<string, any>, ps: Preset[]): void {
     const first = els[0];
     if (first && p.enter !== "none" && (!first.enter || first.enter === "fade")) first.enter = p.enter;
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Journeys (hand film v30b–v32)
+
+/** Seconds the camera stays after a panel's last word has arrived, before it leaves (owner: "never rushed, so viewers
+ *  can actually see what the word says clearly"; the channel's words stay up a median 2.5 s). */
+export const READ_HOLD = 1.1;
+type DraftStop = { at: number; slot?: number; move: "slide" | "push" | "whip" | "rise"; elements: SceneElement[]; fore?: SceneElement[] } & Record<string, unknown>;
+/**
+ * Lays a journey's panels out and times it:
+ *  - panels sit next to each other (just over a frame apart), so a flight always shows the picture it leaves and the
+ *    one it reaches, never an empty table; a push sets the next panel straight behind (through the last picture), a
+ *    rise above it;
+ *  - the camera leaves a panel only after its last word has been up READ_HOLD s (later panels move later);
+ *  - panels that no longer fit in the shot are dropped.
+ */
+export function journeyStops(stops: DraftStop[], durS: number, travel = 1.0) {
+  const lastWord = (s: DraftStop) => Math.max(0, ...[...s.elements, ...(s.fore ?? [])].flatMap((e) => [Number((e as { at?: number }).at ?? 0), ...(((e as { props?: { words?: Array<{ from: number; text: string }> } }).props?.words ?? []).filter((w) => w.text !== "|").map((w) => w.from / 24))]));
+  const out: Array<DraftStop & { x: number; y: number; depth: number; ry: number; rz: number; size: number }> = [];
+  let px = 0, py = 0, pd = 0, dir = 1;
+  for (const [k, s] of stops.entries()) {
+    let at = s.at;
+    if (k > 0) {
+      const prev = out[k - 1]!;
+      at = Math.max(at, +(prev.at + lastWord(prev) + READ_HOLD + travel).toFixed(2), prev.at + 1.2);
+      if (at > durS - 0.6) break;
+      if (s.move === "push") pd += 2.6;
+      else if (s.move === "rise") { py -= 1.06; pd += 0.15; }
+      else { px += dir * (s.move === "whip" ? 1.12 : 1.06); if (k % 3 === 2) dir = -dir; }
+    }
+    out.push({ ...s, at, x: px, y: py, depth: pd, ry: 0, rz: 0, size: 1 });
+  }
+  return { stops: out, travel, push: 0.035, ground: "black" as const };
 }

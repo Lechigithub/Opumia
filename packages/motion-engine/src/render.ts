@@ -13,6 +13,9 @@ const run = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.join(here, "remotion", "index.tsx");
 const FILM_STUB = path.join(here, "remotion", "film", "stub.tsx");
+const COMPOSITES_STUB = path.join(here, "remotion", "film", "composites-stub.tsx");
+/** The channel's craft as shared tools (techniques, never a look): kits and composites import them as "@craft". */
+const CRAFT = path.join(here, "remotion", "craft.tsx");
 
 export interface Look {
   accent: string;
@@ -37,13 +40,16 @@ async function serveUrl(publicDir: string, log: (s: string) => void, fresh = fal
   // without one, the empty stub is.
   const jobFilm = path.join(path.dirname(publicDir), "design", "film", "index.tsx");
   const film = existsSync(jobFilm) ? jobFilm : FILM_STUB;
+  // the scene designer's per-scene composites (hand film method: one bespoke layered component per scene)
+  const jobComp = path.join(path.dirname(publicDir), "design", "film", "composites.tsx");
+  const composites = existsSync(jobComp) ? jobComp : COMPOSITES_STUB;
   log(`  render: bundling Remotion project${film === jobFilm ? " with the film's own design kit" : ""}…`);
   const url = await bundle({
     entryPoint: ENTRY,
     publicDir,
     onProgress: () => {},
     // the kit lives in the job folder: it resolves react, remotion and the Google fonts from the engine's own packages
-    webpackOverride: (cfg) => ({ ...cfg, resolve: { ...(cfg.resolve ?? {}), modules: [...((cfg.resolve?.modules as string[]) ?? ["node_modules"]), path.join(here, "..", "node_modules"), path.join(here, "..", "..", "..", "node_modules")], alias: { ...((cfg.resolve?.alias as Record<string, string>) ?? {}), "@film": film } } }),
+    webpackOverride: (cfg) => ({ ...cfg, resolve: { ...(cfg.resolve ?? {}), modules: [...((cfg.resolve?.modules as string[]) ?? ["node_modules"]), path.join(here, "..", "node_modules"), path.join(here, "..", "..", "..", "node_modules")], alias: { ...((cfg.resolve?.alias as Record<string, string>) ?? {}), "@film": film, "@craft": CRAFT, "@composites": composites } } }),
   });
   bundles.set(publicDir, url);
   return url;
