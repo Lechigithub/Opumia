@@ -154,7 +154,7 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 ### G. Sound
 - ☐ G1 **Each film's music and sound world** from its story (beds on cooldown; effects chosen for the story's objects
   where the channel does that — measure first, `HIT_CLASS` rule re-checked on the reference).
-- ☐ G2 **Mix:** ours 0.79 against real films' 0.844 on the ears measure; find which part of the mix (bed spectrum,
+- ◐ G2 **Mix** (Wirecard v4.3: 0.79; a sound event early in the cold open was worth +0.04; the rest is still unknown, measure on stems): ours 0.79 against real films' 0.844 on the ears measure; find which part of the mix (bed spectrum,
   voice chain, hits, room tone) carries the gap, measured on stems.
 - ☐ G3 **Bed choice measured:** a bed that lowers the mix score is refused (Wirecard: "emergent" 0.70 vs "discovery"
   0.79).
@@ -183,6 +183,16 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   - **Result:** no earlier film of ours is too close (FTX's word look is gone), the real subjects are in (Braun,
     McCrum, the Marsalek wanted poster, Wirecard's HQ, BPI Manila, the Frankfurt Bull and Bear, a real terminal and
     receipt printer), and the cuts are at Ponzi's 5.3 a minute.
+  - **v4.3 (2026-11-25):**
+    - **Line fit 0.623:** passes the channel's p10 0.614. The weak beats were rebuilt around what the line names: the
+      real Frankfurt trading floor, the Reichstag for "Germany", the BaFin building for the regulator, Wirecard's HQ
+      for "never there".
+    - **Colourfulness 31.0:** in band.
+    - **Too close:** to no earlier film.
+    - **Motion:** in band.
+    - **Mix 0.79:** v3's best. An early thud in the cold open (+0.04); the world's paper and register sounds changed
+      nothing; the gap to 0.844 is G2.
+    - **Taste 4.6:** above the channel's p10 4.4, below its median 6.1.
   - **v4.2 (2026-11-25, F1):** too close to nothing (one generic paperwork shot had pushed it to WeWork's 0.702 >
     0.698; replaced by the real receipt printer). Line fit 0.601 (p10 0.614), motion in band, colourfulness 30.7,
     taste 4.6, mix 0.75: the gaps left are line fit, taste, colour and mix.

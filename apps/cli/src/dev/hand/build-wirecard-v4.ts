@@ -51,6 +51,8 @@ const MEDIA: Record<string, M> = {
   // v4.2: performed reenactment (the channel's staged actors, ≈ 32 % of its shots) and moving real stills
   tap: PX4("6540557"), trader: PX4("7578646"), stage: PX4("35451425"), typing: PX4("13375774"), auditor: PX4("8298011"), phone: PX4("8134512"),
   hqcut: CUT("hq_cut.png"), bullcut: CUT("bullbear_cut.png"),
+  floor: CM("File:Dirk Müller Börsenmakler.jpg", "Dirk_M_ller_B_rsenmakler.jpg"), bafin: CM("File:Bafin Frankfurt.jpg", "Bafin_Frankfurt.jpg"),
+  reichstag: CM("File:Reichstag building Berlin view from west before sunset.jpg", "Reichstag_building_Berlin_view_from_west_before_sunset.jpg"),
 };
 
 // ---- beats: each starts on its word; `len` runs to the next beat ----
@@ -60,7 +62,7 @@ type L = { text: string; at: number; size?: number; bold?: boolean; strike?: num
 const ln = (text: string, at: number, o: Partial<L> = {}): L => ({ text, at, ...o });
 const rule = (at: number): L => ({ text: "", at, rule: true });
 const CLEAN = () => ({});
-const GRADE = { cool: "saturate(1.12) contrast(1.24) brightness(0.86)", night: "saturate(1.15) contrast(1.3) brightness(0.66)", paper: "saturate(0.9) contrast(1.15) brightness(0.95)" }; // v4.1: full colour (v4 measured colourfulness 18 against the channel's 31–46)
+const GRADE = { cool: "saturate(1.22) contrast(1.24) brightness(0.86)", night: "saturate(1.25) contrast(1.3) brightness(0.66)", paper: "saturate(0.9) contrast(1.15) brightness(0.95)" }; // v4.1: full colour (v4 measured colourfulness 18 against the channel's 31–46)
 const PAR = (bg: number, cut: number, box: number[], aspect: number, keys: Array<Record<string, number>>, o: Record<string, unknown> = {}) => ({ bg, cut, box, aspect, keys, ...o });
 const BEATS: Beat[] = [
   // v4.2 (F1): the channel's mix — actors performing the line and b-roll ≈ half the shots, real subjects moving (press
@@ -71,9 +73,8 @@ const BEATS: Beat[] = [
   { id: "V2", seg: "w01", k: 8, lead: 0.1, intent: "Wirecard's own headquarters in Aschheim, the building cut out and travelling against its sky", slots: { 0: "hq", 1: "hqcut" },
     props: (t, r) => ({ parallax: PAR(0, 1, [0, 0.0793, 0.9133, 0.9023], 1.5, [{ t: 0, s: 1.06, x: 0.03, r: -1 }, { t: 2.2, s: 1.34, x: -0.03, r: 1 }], { bgFilter: GRADE.cool + " blur(2px)", cutFilter: GRADE.cool + " drop-shadow(0 20px 30px rgba(0,0,0,.5))" }), tearOut: true,
       labels: [{ text: "ASCHHEIM", sub: "OUTSIDE MUNICH", at: r("w01", 8) + 0.1, x: 0.06, y: 0.72, size: 0.034 }] }) },
-  { id: "V3", seg: "w01", k: 12, lead: 0.1, intent: "a real card terminal; its own screen reads PROCESSING, then POSSIBLE", slots: { 0: "terminal" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1, 1], pan: [0, 0], grade: GRADE.cool }], cam: [1.0, 1.9], camAt: [0.45, 0.14], tearOut: true,
-      lcd: [{ box: [0.258, 0.061, 0.375, 0.155], states: [{ text: "PROCESSING", at: r("w01", 12) }, { text: "POSSIBLE", at: r("w01", 17) }] }] }) },
+  { id: "V3", seg: "w01", k: 12, lead: 0.1, intent: "the real Frankfurt trading floor under its DAX boards: something almost nobody thought possible", slots: { 0: "floor" },
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.05, 1.55], pan: [0.04, -0.04], tilt: [-1, 1], grade: GRADE.cool }], tearOut: true }) },
   { id: "V4", seg: "w02", k: 0, lead: 0.05, intent: "a trader watching his screens (staged); the DAX list prints, Commerzbank struck out", slots: { 0: "trader" },
     props: (t, r) => ({ plates: [{ slot: 0, trim: 1, push: [1.12, 1.4], pan: [-0.03, 0.03], grade: GRADE.cool }], tearOut: true,
       receipts: [{ x: 0.52, w: 0.42, tilt: -2.5, lines: [ln("DAX 30", r("w02", 0) + 0.1, { bold: true, size: 1.4 }), rule(r("w02", 1)), ln("COMMERZBANK", r("w02", 2), { strike: r("w02", 9) }), ln("FOUNDING MEMBER", r("w02", 7), { size: 0.7 }), ln("+ WIRECARD", r("w02", 9), { bold: true, size: 1.2 })] }] }) },
@@ -93,11 +94,11 @@ const BEATS: Beat[] = [
     props: (t, r) => ({ plates: [{ slot: 0, trim: 0.3, push: [1.1, 1.3], pan: [-0.12, -0.14], grade: GRADE.paper }], pink: { from: 0 }, tearOut: true,
       labels: [{ text: "DAN McCRUM", sub: "FINANCIAL TIMES", at: r("w04", 6), x: 0.05, y: 0.08, size: 0.03, until: r("w04", 10) - 0.2 }],
       columns: [{ kicker: "Financial Times", x: 0.55, y: 0.32, w: 0.4, size: 0.052, head: [{ text: "Where is", at: r("w04", 10) }, { text: "the money?", at: r("w04", 12) }] }] }) },
-  { id: "V8", seg: "w04", k: 15, lead: 0.1, intent: "on the pink paper, set as a headline: Germany didn't go after the company", slots: { 0: "hq" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.3, 1.6], pan: [0.06, 0.02], grade: GRADE.paper + " blur(6px)" }], pink: { from: 0 }, tearOut: true, cam: [1.0, 1.2], camAt: [0.2, 0.4],
+  { id: "V8", seg: "w04", k: 15, lead: 0.1, intent: "the Reichstag on the FT's pink, set as a headline: Germany didn't go after the company", slots: { 0: "reichstag" },
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.08, 1.45], pan: [0.03, -0.03], grade: GRADE.paper }], pink: { from: 0 }, tearOut: true, cam: [1.0, 1.2], camAt: [0.2, 0.4],
       columns: [{ x: 0.1, y: 0.3, w: 0.8, size: 0.07, head: [{ text: "Germany didn't go", at: r("w04", 15) }, { text: "after the company", at: r("w04", 18) }] }] }) },
-  { id: "V9", seg: "w05", k: 0, lead: 0.05, intent: "the pink paper again: the regulator bans bets against the stock; prosecutors investigate the reporter", slots: {},
-    props: (t, r) => ({ pink: { from: 0 }, plates: [], tearOut: true, cam: [1.0, 1.22], camAt: [0.3, 0.3],
+  { id: "V9", seg: "w05", k: 0, lead: 0.05, intent: "the regulator's own building (BaFin) on the pink: bets against the stock banned; prosecutors investigate the reporter", slots: { 0: "bafin" },
+    props: (t, r) => ({ pink: { from: 0 }, plates: [{ slot: 0, push: [1.08, 1.5], pan: [-0.04, 0.04], grade: GRADE.paper }], tearOut: true,
       columns: [{ kicker: "The regulator", x: 0.08, y: 0.16, w: 0.84, size: 0.085, head: [{ text: "Bets against the stock", at: r("w05", 2) }, { text: "banned", at: r("w05", 6) }] }, { x: 0.08, y: 0.6, w: 0.84, size: 0.05, head: [{ text: "Prosecutors investigated", at: r("w05", 8) }, { text: "the reporter", at: r("w05", 10) }] }],
       stamps: [{ text: "DAN McCRUM", at: r("w05", 11), x: 0.7, y: 0.84, size: 0.042, rot: -7 }] }) },
   { id: "V10", seg: "w06", k: 0, lead: 0.05, intent: "a real receipt printer printing (Commons); its receipt prints the audit and €1.9 billion", slots: { 0: "printer" },
@@ -120,8 +121,8 @@ const BEATS: Beat[] = [
   { id: "V17", seg: "w08", k: 33, lead: 0.05, intent: "a counting machine spitting notes; the receipt prints PAID IN CASH", slots: { 0: "counter" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.2, 1.5], pan: [0.03, -0.03], grade: GRADE.cool }], tearOut: true,
       receipts: [{ x: 0.54, w: 0.38, tilt: -2, lines: [ln("PAID IN", r("w08", 33), { size: 1.3 }), ln("CASH", r("w08", 36), { bold: true, size: 2.2 })] }] }) },
-  { id: "V18", seg: "w09", k: 0, lead: 0.05, intent: "real euro notes under the last receipt: €24 billion totalled, then struck through: money that was never there", slots: { 0: "euros" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.5], pan: [0.04, -0.04], tilt: [-2, 2], grade: GRADE.night }], lowkey: true,
+  { id: "V18", seg: "w09", k: 0, lead: 0.05, intent: "real euro notes, then Wirecard's own headquarters at dusk under the last receipt: money that was never there", slots: { 0: "euros", 1: "hq2" },
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.5], pan: [0.04, -0.04], tilt: [-2, 2], grade: GRADE.night }, { slot: 1, at: r("w09", 13) - 0.1, push: [1.1, 1.5], pan: [-0.03, 0.03], grade: "saturate(0.9) contrast(1.3) brightness(0.5) hue-rotate(-8deg)" }], lowkey: true,
       receipts: [{ x: 0.27, w: 0.46, tilt: -1, lines: [ln("COMPANY VALUE", r("w09", 4)), ln("€24,000,000,000", r("w09", 6), { bold: true, size: 1.25, strike: r("w09", 18) }), rule(r("w09", 13)), ln("MONEY THAT WAS", r("w09", 15)), ln("NEVER THERE", r("w09", 18), { bold: true, size: 1.35 })] }] }) },
 ];
 const TITLE_AT = +(timed.durationS + 0.25).toFixed(2), TITLE_LEN = 2.8;
@@ -165,6 +166,9 @@ const HITS: Array<[string, number, number]> = [
   ["56beec7833560f0f", at("w08", 16) + 0.1, -10], // go bust
   ["8c00d5c5698ec474", TITLE_AT + 0.1, -9], // the title
 ];
+// v4.3: a thud as the headquarters arrives — an early sound event in the cold open (mix 0.75 → 0.79 on the ears
+// measure; a whoosh did the same, a thud is the channel's own family; the world's paper and register sounds changed nothing)
+HITS.push(["095f1896d50b6e6f", starts[1]! + 0.05, -14]);
 for (const [id, moment, gain] of HITS) {
   const atS = Math.max(0, +(moment - (prof.sfx[id]?.attackS ?? 0)).toFixed(3));
   (shots.find((x) => atS >= x.startS && atS < x.endS) ?? shots.at(-1)!).sfx.push({ assetId: id, atS, gainDb: gain });
