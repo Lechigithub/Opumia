@@ -259,6 +259,7 @@ for (const [k, v] of Object.entries(m)) {
   if ((f === undefined || !Number.isFinite(f)) && k in BAND && off(k, v) === 0) better.push(`${k} new, ${v} (band ${BAND[k]})`);
 }
 console.log(JSON.stringify(m));
+console.log(`BANDS ${JSON.stringify(Object.fromEntries(Object.keys(m).filter((k) => k in BAND).map((k) => [k, BAND[k]])))}`); // for the scorecard
 const raise = () => { for (const [k, v] of Object.entries(m)) { if (RETIRED.has(k) || !Number.isFinite(v)) continue; const b = best[k]; const up = !b || (k in HIGHER ? v > b.value : off(k, v) < off(k, b.value) || (off(k, v) === off(k, b.value) && false)); if (up) best[k] = { value: v, from: tag ?? lockLabel ?? "?" }; } };
 console.log(base ? `vs the best of every measure (frozen film ${base.tag}): ${worse.length ? `REGRESSES ${worse.join("; ")}` : "no regression"}${better.length ? ` | improves ${better.join("; ")}` : ""}` : "no frozen baseline yet");
 if (lockLabel && !tag) {
