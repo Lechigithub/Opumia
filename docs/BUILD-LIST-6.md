@@ -186,9 +186,29 @@ concept is among the frame's five best matches.
 Pixels are not the gap: our frames are sharper and more contrasty than the channel's (frame-craft). The cold open is
 carried by BIG BOLD key words over cinematic, archival or performed footage with a film look; the world's device sets
 the words' style, never their size or weight.
-- ☐ T1 Key words big and heavy, every film, in its own face (type band: bigText ≥ 0.09, heavy ≥ 0.54, stroke ≥ 0.126).
-- ☐ T2 A film look: the channel's frames read as film, not clean digital.
-- ☐ T3 Performed and archival footage over buildings and screens; a building in daylight only briefly.
+**What the trained taste rewards** (`dev/world/taste-words.py`, the channel's 17,660 shots).
+- It rises with: a cinematic film still (r +0.32), a celebrity portrait (+0.31), a movie scene with actors (+0.29), a
+  famous person (+0.20), a historical painting, a film poster.
+- It falls with: a chart (−0.49), a computer screen (−0.42), text on a plain background (−0.41), a map, an office
+  building exterior (−0.40), a phone screen, a stock photo of a building, a document.
+- The head marks down the channel's own designed shots too, so it is a biased judge of design. But for pictures the
+  direction is clear: people and cinema.
+
+**Raw source against the same picture in the film:**
+- Our grade and film look raise the channel head on every shot.
+- Our overlays lower the pro head: the terminal screen over a face took it from 0.55 to 0.33.
+- Raw stock and press clips score 4.0–6.0 before we touch them; the channel's 6.1 median comes largely from
+  feature-film clips (forbidden to us). **Next lever: score every candidate clip with taste before choosing it** (as
+  the bed head ranks music), and keep overlays to the channel's third of shots.
+
+**Wirecard v4.9 (2026-11-25):**
+- Cinematic staged clips (the reporter at his corkboard, investigators at night, a half-lit face), thermal-print
+  collages of the two banks, Braun on stage (a second Reuters source), big heavy key words, a film look.
+- Taste 4.78 → 4.88; scorecard 31–32 of 37; line fit 0.623; too close to nothing.
+
+- ◑ T1 Key words big and heavy (Wirecard v4.7: heavy type and stroke in band; big text at the edge), every film, in its own face (type band: bigText ≥ 0.09, heavy ≥ 0.54, stroke ≥ 0.126).
+- ◑ T2 A film look (v4.7–4.8: the channel head rises on every shot): the channel's frames read as film, not clean digital.
+- ◑ T3 Performed and archival footage over buildings and screens (v4.8–4.9; taste-ranked sources next); a building in daylight only briefly.
 - ☐ T4 The concept check as a gate, with the channel's shares as the band.
 
 ### G. Sound
