@@ -166,9 +166,15 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 - ☐ F4 **Clean footage** at the channel's share (≈ 42 %, 19–75 % per film).
 
 ### G. Sound
-- ☐ G1 **Each film's music and sound world** from its story (beds on cooldown; effects chosen for the story's objects
+- ◑ G1 **Each film's music and sound world** (measured 2026-11-25: the channel's hits are thud 57 % / boom 27 % / click and
+  pluck 10 % / object sounds ≈ 3 %, so a film's sound world is its own beds and cue shape, not object noises; beds
+  already on cooldown; written into the sound skill) from its story (beds on cooldown; effects chosen for the story's objects
   where the channel does that — measure first, `HIT_CLASS` rule re-checked on the reference).
-- ◐ G2 **Mix** (Wirecard v4.3: 0.79; a sound event early in the cold open was worth +0.04; the rest is still unknown, measure on stems): ours 0.79 against real films' 0.844 on the ears measure; find which part of the mix (bed spectrum,
+- ◐ G2 **Mix** (2026-11-25: two measures disagree. The channel's stems (demucs) put the bed 15.8 dB under the voice in
+  its first 70 s (p10 8.9, p90 21.7; whole films 19.1), not the 9.5 dB taken from Ponzi. v4's clean stems read 7.8 dB.
+  But the ears head scores a lower bed WORSE: 0.79 → 0.72 at −4 dB, 0.64 at −8 dB, possibly learned from our old
+  thin beds. A fair test separates our finished mix with the same demucs (not installed; needs the owner's OK to
+  download). Speech-over-pause measuring fails on ours: 3 pauses ≥ 0.3 s in 65 s. Earlier: Wirecard v4.3: 0.79; a sound event early in the cold open was worth +0.04; the rest is still unknown, measure on stems): ours 0.79 against real films' 0.844 on the ears measure; find which part of the mix (bed spectrum,
   voice chain, hits, room tone) carries the gap, measured on stems.
 - ☐ G3 **Bed choice measured:** a bed that lowers the mix score is refused (Wirecard: "emergent" 0.70 vs "discovery"
   0.79).

@@ -83,3 +83,17 @@ at those distances (`bed-level.ts`). The cold open's cue ducks −9 dB, the rest
 
 **The gate checks the mix.** It measures the voice and bed stems for `bed_gap` (how far under the voice, and how often
 the bed falls away) and for `dead_air` (voice and music both near silent for 0.6 s or more).
+
+
+## The film's own sound world (measured on the channel, build list 6)
+
+- **Hits are designed sounds, not the story's objects.** Of the channel's hits on and inside shots: thud/hit ≈ 57 %,
+  boom/impact ≈ 27 %, clicks and plucks ≈ 10 %, object sounds (typing, paper, coins, chimes) about 3 %. A film's own
+  sound world is its own music and the shape of its cues (drop-outs on ≈ 9 % of shots, cue changes on ≈ 5.5 %), not
+  printer or till noises on every beat. Use an object sound once, where the story's object is the point.
+- **Beds are on cooldown across films** (`data/asset-usage.json`): a second production of the same script gets its
+  own music.
+- **The bed under the voice is not settled.** The channel's own stems (demucs) put it 8.9–21.7 dB under the voice in
+  its first 70 s (median 15.8). Our ears measure prefers it louder (≈ 8 dB under). Those disagree until our mixes are
+  separated by the same model. Until then keep the leveller's setting and do not push the bed down on one measure
+  alone.
