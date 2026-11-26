@@ -104,6 +104,21 @@ export function checkKitCode(code: string, fonts: Set<string>, o: { composite?: 
 /** The finished-look effects a kit imports from the shared craft library (build list 6). Plain building blocks —
  *  camera paths, depth planes, easing, randomness — carry no look and are free to share. */
 export const PLAIN_BLOCKS = new Set(["CameraPath", "Parallax", "camAt", "rnd", "clamp", "EASE", "EASE_OUT", "EASE_IN", "EASE_IN_OUT", "ramp", "shake", "shardsOf", "CRAFT_TOOLS"]);
+/** The film's signature object (Wirecard v7.2: the card terminal, APPROVED then DECLINED) — one real thing from THIS story
+ *  that returns two or three times. Never one an earlier film used, never a generic money symbol. */
+const OBJ_STOP = new Set(["the", "a", "an", "of", "its", "his", "her", "their", "with", "and", "that", "this", "from", "real", "one", "which", "who", "whose", "returns", "return", "times", "twice", "three", "two", "then", "when", "film", "story", "company", "object"]);
+export const GENERIC_OBJECTS = ["coin", "coins", "banknote", "banknotes", "money", "cash", "dollar", "dollars", "briefcase", "gavel", "handcuffs", "safe", "vault", "magnifying", "question mark", "chess", "hourglass", "crown", "trophy", "padlock"];
+export function objectWords(s: string): string[] {
+  const head = s.toLowerCase().split(/[—–:;,.(]/)[0] ?? "";
+  return [...new Set(head.split(/[^a-zà-ÿ0-9]+/).filter((w) => w.length >= 3 && !OBJ_STOP.has(w)).map((w) => w.replace(/(ies)$/, "y").replace(/([^s])s$/, "$1")))];
+}
+/** True when two signature objects name the same thing (half or more of the shorter one's words shared). */
+export function sameObject(a: string, b: string): boolean {
+  const A = objectWords(a), B = new Set(objectWords(b));
+  if (!A.length || !B.size) return false;
+  const shared = A.filter((w) => B.has(w)).length;
+  return shared / Math.min(A.length, B.size) >= 0.5;
+}
 export const DEVICE_SHARE_MAX = 0.44; // the channel's p90 of technique families shared by two of its films: at most this share of a kit's own effects may come from one earlier film
 export function kitDevices(code: string): string[] {
   const names = [...code.matchAll(/import\s*\{([^}]*)\}\s*from\s*["']@craft["']/g)].flatMap((m) => m[1]!.split(",").map((x) => x.trim().split(/\s+as\s+/)[0]!.trim()).filter(Boolean));
@@ -117,6 +132,8 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const made = await producedJobs(o.data);
   const earlier = await readFile(path.join(o.data, "film-kits.json"), "utf8").then((t) => (JSON.parse(t) as Array<{ job: string; fonts: string[]; palette: string[]; tokens?: { primary: string; accent: string; surface: string }; concept: string; transition: string }>).filter((k) => made.has(k.job) && k.job !== o.job), () => []);
   const usedFonts = new Set(earlier.flatMap((k) => k.fonts));
+  const earlierObjects = earlier.map((k) => ({ job: k.job, object: String((k as { signatureObject?: string }).signatureObject ?? "") })).filter((x) => x.object);
+  let signature = "";
   // build list 6 (B2/B4): effects and transitions are on cooldown like typefaces — a film's world never borrows another's
   const earlierDevices = earlier.map((k) => ({ job: k.job, devices: new Set(((k as { devices?: string[] }).devices ?? []).map((d) => d.toLowerCase())), transition: String(k.transition ?? "").toLowerCase() }));
   let code: string | null = existsSync(kitFile) && !o.change?.fresh ? await readFile(kitFile, "utf8") : null;
@@ -185,14 +202,21 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         palette: z.string().min(20),
         realSubjectsFirst: z.string().min(40).describe("which real pictures to show first: portraits, logos, buildings, documents, news"),
         unlikeEarlier: z.string().min(30).describe("how this world differs from our earlier films' worlds (listed in your brief)"),
+        signatureObject: z.string().min(12).describe("THE one real object from this story's own inventory that returns two or three times with its meaning changing (Wirecard: the card terminal — APPROVED at the start, DECLINED at the end). A thing this story owns, not a generic symbol (coins, money rain, a briefcase, a gavel); never one an earlier film used (listed in your brief). Built with @craft SignatureObject from a real photo."),
       }),
       run: (async (i: Record<string, string>) => {
+        const so = i.signatureObject ?? "";
+        const clash = earlierObjects.find((e) => sameObject(so, e.object));
+        if (clash) return `NOT WRITTEN — the signature object "${objectWords(so).join(" ")}" is ${clash.job}'s ("${clash.object.slice(0, 80)}"). Choose another thing THIS story owns (its inventory), one no earlier film used.`;
+        const generic = GENERIC_OBJECTS.filter((g) => objectWords(so).includes(g.replace(/s$/, "")) || objectWords(so).join(" ").includes(g));
+        if (generic.length) return `NOT WRITTEN — "${generic[0]}" is a generic symbol every money film could use. The signature object must be a thing this story owns (from your inventory: its product, its document, its place).`;
+        signature = so;
         const md = `# World bible\n\n${Object.entries(i).map(([k, v]) => `## ${k}\n${v.trim()}`).join("\n\n")}\n`;
         await mkdir(o.kitDir, { recursive: true });
         await writeFile(`${worldFile}.tmp`, md);
         await rename(`${worldFile}.tmp`, worldFile);
         world = md;
-        return `World written. Earlier films' concepts to stay unlike: ${earlier.map((k) => `${k.job}: ${String(k.concept).slice(0, 90)}`).join(" | ") || "(none)"}. Now write the kit from this world.`;
+        return `World written (signature object: ${objectWords(signature).join(" ")}). Earlier films' signature objects: ${earlierObjects.map((e) => `${e.job}: ${objectWords(e.object).join(" ")}`).join(" | ") || "(none)"}. Earlier films' concepts to stay unlike: ${earlier.map((k) => `${k.job}: ${String(k.concept).slice(0, 90)}`).join(" | ") || "(none)"}. Now write the kit from this world.`;
       }) as AgentTool["run"],
     },
     {
@@ -308,7 +332,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, roles, components, fonts: kitFonts(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null }, null, 1) + "\n");
         await o.onDesign(designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: i.concept, fonts: kitFontStacks(), tokens: tokens! }).design);
         const pal = await o.palette().catch(() => [] as string[]);
-        const rec = { job: o.job, devices: kitDevices(code ?? ""), fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", at: new Date().toISOString() };
+        const rec = { job: o.job, devices: kitDevices(code ?? ""), fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", ...(signature || world ? { signatureObject: signature || (/## signatureObject\n([^\n]+)/.exec(world ?? "")?.[1] ?? "") } : {}), at: new Date().toISOString() };
         const f = path.join(o.data, "film-kits.json");
         const all = await readFile(f, "utf8").then((t) => JSON.parse(t) as unknown[], () => []);
         await writeFile(`${f}.tmp`, JSON.stringify([...all.filter((x) => (x as { job: string }).job !== o.job), rec], null, 1) + "\n");

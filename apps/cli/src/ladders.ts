@@ -203,6 +203,7 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   paper_and_cards: SCENE,
   text_share: SCENE,
   boxed_words: SCENE,
+  opening_too_close: SCENE,
   one_type_size: SCENE,
   type_case: SCENE,
   words_everywhere: SCENE,

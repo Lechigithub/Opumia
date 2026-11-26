@@ -173,3 +173,10 @@ gone; one tall industrial face for the words, a mono face for places, an LED fac
   gate measures size spread, capitals and boxed words on the film (tools/world/type_check.py).
 - A box, card or label is a role used for names and sources only — never the default way a line appears.
 - One grade per act, applied to the footage; the words above it.
+
+## The signature object (Wirecard v7.2, 2026-11-26)
+`write_world` now asks for the film's signature object: one real thing from THIS story's inventory that returns two
+or three times with its meaning changing (Wirecard: the payment terminal — APPROVED, then DECLINED). It is refused if
+an earlier film used the same object or if it is a generic money symbol (coins, cash, a briefcase, a gavel, a vault);
+it is recorded in data/film-kits.json so the next film cannot take it. It is built with @craft `SignatureObject` from a
+real photograph, in this film's colours and type.

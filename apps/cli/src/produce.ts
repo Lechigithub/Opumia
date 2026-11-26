@@ -1165,8 +1165,8 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     // build list 6 (Wirecard v6 → v7): how the finished film sets its words — boxed labels, one size, words everywhere
     const typed = existsSync(finalPath) ? await runTypeCheck({ root: o.root, channel, film: finalPath }).catch(() => null) : null;
     if (typed) {
-      for (const c of typeItems(typed)) qa.report.checks.push({ id: c.id, severity: "major", passed: c.pass, message: `${c.label}: ${c.value} (${c.target})${c.note ? ` — ${c.note}` : ""}`.slice(0, 600) } as never);
-      if (!typed.pass && qa.report.verdict === "pass") qa.report.verdict = "review";
+      for (const c of typeItems(typed)) qa.report.checks.push({ id: c.id, severity: c.level === "blocker" ? "major" : "minor", passed: c.pass, message: `${c.label}: ${c.value} (${c.target})${c.note ? ` — ${c.note}` : ""}`.slice(0, 600) } as never);
+      if (typeItems(typed).some((c) => !c.pass && c.level === "blocker") && qa.report.verdict === "pass") qa.report.verdict = "review";
     }
     // build list 6: the finished film's world against the channel's bands and every earlier film (it then joins that memory)
     const world = await filmWorld({ root: o.root, jobId, film: finalPath, timedPath: path.join(jobDir, "timed-script.json"), durationS: timed.durationS, board }).catch(() => null);

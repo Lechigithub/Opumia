@@ -343,6 +343,98 @@ export const LightSweep: React.FC<{ from?: number; to?: number; len: number; dar
   return <AbsoluteFill style={{ background: `linear-gradient(105deg, rgba(0,0,0,${dark}) ${x - 30}%, rgba(255,255,255,${light}) ${x}%, rgba(0,0,0,${dark}) ${x + 30}%)` }} />;
 };
 
+// ---- from Wirecard v7.1–v7.2 (2026-11-26): what the channel lays over its footage. A menu, never a recipe: each film
+//      uses what its own story calls for (see packages/agents/skills/scenes.md "The channel's menu").
+
+/** The subject arriving out of a broken signal: RGB split, jitter and tear lines settling into the picture over `len`
+ *  seconds. For a shock or the first sight of a person — not a default opening. */
+export const GlitchIn: React.FC<{ len?: number; from?: number; children: React.ReactNode }> = ({ len = 0.8, from = 0, children }) => {
+  const { fps } = useVideoConfig(); const t = useCurrentFrame() / fps - from;
+  const g = interpolate(t, [0, len], [1, 0], { ...clamp, easing: EASE_OUT });
+  if (t < 0 || g <= 0.01) return <>{children}</>;
+  const f = Math.floor(t * fps), j = (k: number) => (rnd(f, k) - 0.5) * 2;
+  return <AbsoluteFill>
+    <AbsoluteFill style={{ transform: `translateX(${j(1) * 40 * g}px)` }}>{children}</AbsoluteFill>
+    <AbsoluteFill style={{ mixBlendMode: "screen", opacity: 0.7 * g, transform: `translateX(${18 * g + j(2) * 20 * g}px)`, filter: "sepia(1) saturate(6) hue-rotate(-50deg)" }}>{children}</AbsoluteFill>
+    <AbsoluteFill style={{ mixBlendMode: "screen", opacity: 0.7 * g, transform: `translateX(${-18 * g + j(3) * 20 * g}px)`, filter: "sepia(1) saturate(6) hue-rotate(170deg)" }}>{children}</AbsoluteFill>
+    {[0, 1, 2, 3].map((k) => <div key={k} style={{ position: "absolute", left: 0, right: 0, top: `${rnd(f, 10 + k) * 100}%`, height: `${2 + rnd(f, 20 + k) * 6}%`, background: "rgba(255,255,255,.12)", opacity: g, transform: `translateX(${j(4 + k) * 80}px)` }} />)}
+  </AbsoluteFill>;
+};
+
+/** A real article (a screenshot of the cited source, never retyped) laid into the shot as a lit print, a marker sweeping
+ *  the words that prove the line, its source and date under it. The claim shown, not only said. */
+export const PressHeadline: React.FC<{ src: string; at: number; x: number; y: number; w: number; rot?: number; mark?: { x: number; y: number; w: number; h: number; at: number }; markColor: string; source: string; sourceFont: string; sourceColor: string }> = (p) => {
+  const { fps } = useVideoConfig(); const t = useCurrentFrame() / fps;
+  const k = interpolate(t, [p.at, p.at + 0.45], [0, 1], { ...clamp, easing: EASE_OUT });
+  const gl = interpolate(t, [p.at, p.at + 0.25], [1, 0], clamp);
+  const mk = p.mark ? interpolate(t, [p.mark.at, p.mark.at + 0.5], [0, 1], { ...clamp, easing: EASE_OUT }) : 0;
+  if (k <= 0) return null;
+  return <div style={{ position: "absolute", left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${p.w * 100}%`, transform: `translate(-50%, -50%) rotate(${p.rot ?? -2}deg) scale(${0.94 + 0.06 * k}) translateX(${(rnd(Math.floor(t * fps), 3) - 0.5) * 60 * gl}px)`, opacity: k, boxShadow: "0 40px 80px rgba(0,0,0,.75)" }}>
+    <Img src={src(p.src)} style={{ width: "100%", display: "block" }} />
+    {p.mark ? <div style={{ position: "absolute", left: `${p.mark.x * 100}%`, top: `${p.mark.y * 100}%`, width: `${p.mark.w * mk * 100}%`, height: `${p.mark.h * 100}%`, background: p.markColor, opacity: 0.4, mixBlendMode: "multiply" }} /> : null}
+    <div style={{ position: "absolute", left: 0, bottom: -46, fontFamily: p.sourceFont, fontWeight: 600, fontSize: 24, letterSpacing: "0.24em", color: p.sourceColor }}>{p.source}</div>
+  </div>;
+};
+
+/** The film's signature object: one real object from THIS story (cut out), lit on a dark ground, with a surface whose
+ *  content the scene controls (a terminal's screen, a phone, a ticket board, a stamp's face) — it returns two or three
+ *  times and its meaning changes. `screen` is the surface quad in fractions of the cut-out (centre, size, rotation). */
+export const SignatureObject: React.FC<{ src: string; aspect: number; w: number; screen?: { cx: number; cy: number; w: number; h: number; rot: number }; text?: string; textAt?: number; dieAt?: number; color: string; font: string; size?: number; keys?: CamKey[]; ground?: string; blink?: boolean }> = (p) => {
+  const { fps, width: W } = useVideoConfig(); const t = useCurrentFrame() / fps;
+  const c = camAt(p.keys ?? [{ t: 0, s: 1 }, { t: 3, s: 1.1 }], t);
+  const on = interpolate(t, [p.textAt ?? 0.15, (p.textAt ?? 0.15) + 0.12], [0, 1], clamp) * (p.dieAt !== undefined ? interpolate(t, [p.dieAt, p.dieAt + 0.08, p.dieAt + 0.16, p.dieAt + 0.5], [1, 0.3, 0.8, 0], clamp) : 1);
+  const bl = p.blink ? (Math.floor(t * 3) % 2 ? 1 : 0.55) : 1;
+  const w = p.w * W, h = w / p.aspect;
+  return <AbsoluteFill style={{ background: p.ground ?? "radial-gradient(ellipse at 55% 45%, #1a2433 0%, #07090d 60%, #020305 100%)" }}>
+    <AbsoluteFill style={{ transform: `translate(${c.x}%, ${c.y}%) scale(${c.s}) rotate(${c.r}deg)` }}>
+      <div style={{ position: "absolute", left: "50%", top: "50%", width: w, height: h, transform: "translate(-50%, -50%)" }}>
+        <Img src={src(p.src)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: "brightness(0.8) contrast(1.15) drop-shadow(0 50px 60px rgba(0,0,0,.85))" }} />
+        {p.screen && p.text ? <div style={{ position: "absolute", left: `${p.screen.cx * 100}%`, top: `${p.screen.cy * 100}%`, width: `${p.screen.w * 100}%`, height: `${p.screen.h * 100}%`, transform: `translate(-50%, -50%) rotate(${p.screen.rot}deg)`, boxShadow: `0 0 ${60 * on}px ${p.color}`, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6 }}>
+          <span style={{ fontFamily: p.font, fontWeight: 900, fontSize: p.size ?? 40, letterSpacing: "0.04em", color: p.color, opacity: on * bl, textShadow: `0 0 14px ${p.color}, 0 0 34px ${p.color}` }}>{p.text}</span>
+        </div> : null}
+      </div>
+    </AbsoluteFill>
+  </AbsoluteFill>;
+};
+
+/** One figure carried across several shots on its own layer (put it above the shots, in film time): it arrives, rides
+ *  along (`path`: where it sits and how big, over time), and at `breakAt` falls apart letter by letter — the money that
+ *  was never there. Your font, colour and glow. */
+export const TravellingFigure: React.FC<{ text: string; at: number; path: Array<{ t: number; x: number; y: number; size: number }>; breakAt?: number; font: string; color: string; glow: string }> = (p) => {
+  const { fps } = useVideoConfig(); const t = useCurrentFrame() / fps;
+  const k = interpolate(t, [p.at, p.at + 0.45], [0, 1], { ...clamp, easing: EASE_OUT });
+  if (k <= 0) return null;
+  const pt = (key: "x" | "y" | "size") => { const ps = p.path; if (t <= ps[0]!.t) return ps[0]![key]; for (let i = 0; i < ps.length - 1; i++) if (t <= ps[i + 1]!.t) return interpolate(t, [ps[i]!.t, ps[i + 1]!.t], [ps[i]![key], ps[i + 1]![key]], { ...clamp, easing: EASE_IN_OUT }); return ps[ps.length - 1]![key]; };
+  const br = p.breakAt !== undefined ? interpolate(t, [p.breakAt, p.breakAt + 1.2], [0, 1], clamp) : 0;
+  const size = pt("size");
+  return <div style={{ position: "absolute", left: `${pt("x") * 100}%`, top: `${pt("y") * 100}%`, transform: "translate(-50%,-50%)", display: "flex", whiteSpace: "pre" }}>
+    {p.text.split("").map((ch, i) => { const d = Math.max(0, br * 1.7 - rnd(i, 1) * 0.7);
+      return <span key={i} style={{ fontFamily: p.font, fontWeight: 900, fontSize: size, color: p.color, opacity: k * (1 - Math.min(1, d)), display: "inline-block", transform: `translate(${(rnd(i, 2) - 0.5) * d * 160}px, ${d * d * 520}px) rotate(${(rnd(i, 3) - 0.5) * d * 140}deg)`, filter: `blur(${(1 - k) * 12}px)`, textShadow: `0 0 ${size * 0.3}px ${p.glow}, 0 6px 30px rgba(0,0,0,.6)` }}>{ch}</span>; })}
+  </div>;
+};
+
+/** A wall of screens: every cell shows `before` (pictures or one video in the centre), then from `flipAt` the cells turn
+ *  to `after` one by one from the centre out while the camera pulls back — one person everywhere, a name in every
+ *  headline. `cells` 3–7 a side. */
+export const ScreenWall: React.FC<{ cells?: number; before: string[]; after: string[]; centreBefore?: string; centreAfter?: string; flipAt: number; keys?: CamKey[]; afterFilter?: string; beforeFilter?: string; glow?: string }> = (p) => {
+  const { fps } = useVideoConfig(); const t = useCurrentFrame() / fps;
+  const n = p.cells ?? 5, w = 100 / n, gap = 0.7, mid = Math.floor(n / 2);
+  const c = camAt(p.keys ?? [{ t: 0, s: 3 }, { t: p.flipAt - 0.1, s: 2.6 }, { t: p.flipAt + 1.6, s: 1.08 }], t);
+  const isV = (f: string) => /\.(mp4|webm|mov)$/i.test(f);
+  const pic = (f: string, filter?: string, from?: number) => isV(f) ? (from !== undefined ? <Sequence from={Math.round(from * fps)} layout="none"><OffthreadVideo src={src(f)} muted style={{ width: "100%", height: "100%", objectFit: "cover", filter }} /></Sequence> : <OffthreadVideo src={src(f)} muted style={{ width: "100%", height: "100%", objectFit: "cover", filter }} />) : <Img src={src(f)} style={{ width: "100%", height: "100%", objectFit: "cover", filter }} />;
+  return <AbsoluteFill style={{ background: "#020305", transform: `scale(${c.s}) translate(${c.x}%, ${c.y}%)` }}>
+    {Array.from({ length: n * n }).map((_, i) => {
+      const cx = i % n, cy = Math.floor(i / n), centre = cx === mid && cy === mid;
+      const flipped = t > p.flipAt + Math.hypot(cx - mid, cy - mid) * 0.18 + rnd(i, 7) * 0.15;
+      const f = centre ? (flipped ? p.centreAfter ?? p.after[0]! : p.centreBefore ?? p.before[0]!) : (flipped ? p.after[Math.floor(rnd(i, 8) * p.after.length)]! : p.before[i % p.before.length]!);
+      return <div key={i} style={{ position: "absolute", left: `${cx * w + gap / 2}%`, top: `${cy * w + gap / 2}%`, width: `${w - gap}%`, height: `${w - gap}%`, overflow: "hidden", background: "#0b0d10", boxShadow: `0 0 30px ${p.glow ?? "rgba(255,255,255,.08)"}` }}>
+        {pic(f, flipped ? p.afterFilter : p.beforeFilter, centre && flipped ? p.flipAt : undefined)}
+        <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, rgba(0,0,0,0) 2px 4px)" }} />
+      </div>;
+    })}
+  </AbsoluteFill>;
+};
+
 export { DepthPlate } from "./depth";
 export const CRAFT_TOOLS: Record<string, string> = {
   DepthPlate: "a real still made into a 3D surface from its own depth map (tools/depth/depth.py) and filmed by a real camera: dolly, drift and orbit with true parallax and occlusion — the channel's layered photo move",
@@ -371,5 +463,10 @@ export const CRAFT_TOOLS: Record<string, string> = {
   LedBoard: "a lit information board in a dark room (a stock index, departures, a scoreboard) at an angle, glowing rows on a dot-pitch screen; one row flickers and changes on cue (a company replacing another)",
   PinnedPrint: "a real photo of a person printed and pinned into footage of a place (an evidence board, a wall) on cue, with a thread drawn to it — who is being looked at",
   LightSweep: "a beam sweeping across a print or document on a dark wall, so a still plays",
+  GlitchIn: "a subject arriving out of a broken signal (RGB split, tear lines) — for a shock or a person's first appearance; never every film's opening",
+  PressHeadline: "a real article screenshot laid into the shot as a lit print, a marker sweeping the words that prove the line, source and date under it",
+  SignatureObject: "THIS film's one recurring object, cut out from a real photo and lit, whose screen or surface says what the story says at that moment (e.g. a terminal: APPROVED, then DECLINED); chosen from the film's own story, never reused by another film",
+  TravellingFigure: "one figure on its own layer carried across several shots (arrives, rides along, falls apart at the turn) — the idea that links a sequence",
+  ScreenWall: "a wall of screens whose cells turn to one person or one name from the centre out while the camera pulls back — how big someone became, or how everyone reported it",
   ZoomThrough: "wrap a built shot: it arrives out of a blurred enlarged frame and leaves into one — a picture change by moving, not a cut",
 };

@@ -7,7 +7,7 @@
  *  - after the render, on the whole film (QA): the same motion and word-hold measures.
  */
 import path from "node:path";
-import { BED_GAP, BED_GAP_BAND, measureBedGap, ensureFlowBand, flowIssues, flowText, measureMotion, measureTextHold, producedJobs, templateShare, TEMPLATE_LIMITS, type FlowBand, type MotionMeasure, type TextHoldMeasure } from "@opumia/agents";
+import { BED_GAP, BED_GAP_BAND, measureBedGap, ensureFlowBand, flowIssues, flowText, measureMotion, measureTextHold, producedJobs, templateShare, TEMPLATE_LIMITS, loadCraft, openingShare, OPENING_LIMIT, type FlowBand, type MotionMeasure, type TextHoldMeasure } from "@opumia/agents";
 import type { ResolutionReport, ScenePlan, Storyboard } from "@opumia/contracts";
 import type { PreflightCheck } from "./preflight.js";
 
@@ -30,10 +30,14 @@ export async function flowChecks(o: { root: string; data: string; channel: strin
 /** The plan against every earlier film of ours (produced films, the same topic included). */
 export async function templateShareCheck(o: { root: string; data: string; jobId: string; board: Storyboard; scenes: ScenePlan; resolution: ResolutionReport }): Promise<PreflightCheck[]> {
   const others = [...(await producedJobs(o.data))].filter((j) => j !== o.jobId).map((j) => path.join(o.root, "out", j));
-  const rows = await templateShare({ board: o.board, scenes: o.scenes as never, resolution: o.resolution as never }, others);
+  const craft = await loadCraft(path.join(o.root, "out", o.jobId));
+  const plan = { board: o.board, scenes: o.scenes as never, resolution: o.resolution as never, craft };
+  const rows = await templateShare(plan, others);
+  const opening = await openingShare(plan, others);
+  const openOver = opening.filter((r) => r.shared.length >= OPENING_LIMIT.shared && r.jaccard >= OPENING_LIMIT.jaccard);
   const over = rows.filter((r) => r.pictures > TEMPLATE_LIMITS.pictures || r.devices > TEMPLATE_LIMITS.devices || r.cuts > TEMPLATE_LIMITS.cuts);
   const worst = over[0] ?? rows[0];
-  return [{ id: "template_share", label: "What the plan shares with our earlier films (devices at the same moment, cut timing, pictures — excess over chance)", value: worst ? Math.max(worst.devices, worst.cuts, worst.pictures) : 0, target: `devices ≤ ${TEMPLATE_LIMITS.devices}, cuts ≤ ${TEMPLATE_LIMITS.cuts}, pictures ≤ ${TEMPLATE_LIMITS.pictures} against every earlier film`, pass: over.length === 0, level: "blocker", repair: "redesign_scene", shots: [...new Set(over.flatMap((r) => r.shots))].slice(0, 8), ...(over.length ? { note: `too like ${over.slice(0, 3).map((r) => `${r.film} (devices ${r.devices}, cuts ${r.cuts}, pictures ${r.pictures})`).join(", ")} — redesign these shots from nothing: another device, another picture, other cut points; never the same layout at the same moment` } : {}) } as PreflightCheck];
+  return [{ id: "template_share", label: "What the plan shares with our earlier films (devices at the same moment, cut timing, pictures — excess over chance)", value: worst ? Math.max(worst.devices, worst.cuts, worst.pictures) : 0, target: `devices ≤ ${TEMPLATE_LIMITS.devices}, cuts ≤ ${TEMPLATE_LIMITS.cuts}, pictures ≤ ${TEMPLATE_LIMITS.pictures} against every earlier film`, pass: over.length === 0, level: "blocker", repair: "redesign_scene", shots: [...new Set(over.flatMap((r) => r.shots))].slice(0, 8), ...(over.length ? { note: `too like ${over.slice(0, 3).map((r) => `${r.film} (devices ${r.devices}, cuts ${r.cuts}, pictures ${r.pictures})`).join(", ")} — redesign these shots from nothing: another device, another picture, other cut points; never the same layout at the same moment` } : {}) } as PreflightCheck, { id: "opening_too_close", label: "The opening's distinctive devices (channel techniques, non-footage worlds in the first 15 s) against every earlier film's opening", value: openOver[0]?.jaccard ?? opening[0]?.jaccard ?? 0, target: `fewer than ${OPENING_LIMIT.shared} shared and overlap < ${OPENING_LIMIT.jaccard} with every earlier film`, pass: openOver.length === 0, level: "blocker", repair: "redesign_scene", shots: o.board.shots.filter((x) => x.startS < 15).map((x) => x.id), ...(openOver.length ? { note: `opens like ${openOver.slice(0, 2).map((r) => `${r.film} (${r.shared.join(", ")})`).join("; ")} — open this film its own way: its own subject, its own signature object or place, a technique its story calls for` } : {}) } as PreflightCheck];
 }
 
 /** The whole finished film, for QA (major: keeps the verdict at review when outside the band). */
@@ -125,8 +129,11 @@ const TYPE_TELL: Record<string, { id: string; label: string; note: string }> = {
   caps: { id: "type_case", label: "Words set in capitals (share of lines)", note: "the channel sets most key words in capitals" },
   textFrames: { id: "words_everywhere", label: "Frames carrying words on screen", note: "let footage of the story play with nothing on it more often; words for the key figures, names and turns only" },
 };
+// words_everywhere is advisory: OCR also reads real signage in footage (the logo on the HQ, an AGM stage, an exchange
+// sign), which the channel's films carry too (Wirecard v7.2: 0.80, much of it Wirecard's own logo on the screen wall).
+// The words we put on screen are gated on the plan by text_share (paperChecks).
 export function typeItems(r: TypeReport): PreflightCheck[] {
-  return Object.entries(r.verdict).filter(([k]) => TYPE_TELL[k]).map(([k, v]) => ({ id: TYPE_TELL[k]!.id, label: TYPE_TELL[k]!.label, value: v.value, target: `${v.side === "max" ? "≤" : "≥"} ${v.limit} (the channel's ${v.side === "max" ? "p90" : "p10"}; median ${v.median})`, pass: v.pass, level: "blocker", repair: "redesign_scene", shots: [], ...(v.pass ? {} : { note: TYPE_TELL[k]!.note }) }) as PreflightCheck);
+  return Object.entries(r.verdict).filter(([k]) => TYPE_TELL[k]).map(([k, v]) => ({ id: TYPE_TELL[k]!.id, label: TYPE_TELL[k]!.label, value: v.value, target: `${v.side === "max" ? "≤" : "≥"} ${v.limit} (the channel's ${v.side === "max" ? "p90" : "p10"}; median ${v.median})`, pass: v.pass, level: k === "textFrames" ? "advisory" : "blocker", repair: "redesign_scene", shots: [], ...(v.pass ? {} : { note: TYPE_TELL[k]!.note }) }) as PreflightCheck);
 }
 export async function typeChecks(o: { root: string; channel: string; clips: Array<{ fromS: number; len: number; file: string }> }): Promise<PreflightCheck[]> {
   if (!o.clips.length) return [];

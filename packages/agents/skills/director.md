@@ -93,3 +93,9 @@ and it was built this way — plan yours the same:
 - **A shot per idea, not per sentence**, each moving on a camera path that follows the words, entering on a push,
   a whip, a flash or a fade (not cuts everywhere): v7 had 26 shots in 68 s and only 16 hard cuts.
 - Ask for footage you can find: describe the picture (who, where, lit how), not the mood.
+
+## A scene per idea (Wirecard v7.2, 2026-11-26)
+Plan the film as ideas, not sentences: an idea that spans two or three clauses ("worth €24 billion, more than Deutsche
+Bank, Germany's champion") is one scene of 5–8 s that grows — its picture changes by moving (a pull-back, a push into
+a screen), not by cutting. Most of v7's shots were 2–3 s; the three merged sequences of v7.2 read most like the
+channel. Keep short shots for runs of quick facts.

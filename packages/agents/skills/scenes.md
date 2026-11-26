@@ -291,3 +291,23 @@ OCR against the channel's 37 films (tools/world/type_check.py; `measure_film` no
 - The designed scenes that worked in v7, now craft tools: `LedBoard` (a lit board, one row changing), `PinnedPrint`
   (a real photo pinned into footage of a place, a thread drawn to it), `LightSweep` (a beam across a print), with
   `BuildWords`, `GradedPlate`, `ZoomThrough`, `FlashCut`, `Whip` for the words and the moves.
+
+## The channel's menu, never a recipe (Wirecard v7.1–v7.2, 2026-11-26)
+Techniques the channel lays over its footage, now craft tools. Choose what THIS story calls for. Every film shares the
+craft and none shares a look: the opening is compared with every earlier film's (`opening_too_close`, blocker), and
+template share now counts the craft tools a shot draws with, so the same device at the same moment as an earlier film
+is caught.
+- `GlitchIn` — a person arriving out of a broken signal (RGB split, tear lines). The channel uses it for a shock or a
+  face's first appearance (Jho Low's opening). Not every film's opening.
+- `PressHeadline` — a real article (screenshot of the cited source; the platform's screenshot tool), lit, a marker
+  sweeping the words that prove the line, source and date under it. When the narration states what the press reported.
+- `SignatureObject` — THIS film's one recurring object, named in the art director's world bible (it must be a thing the
+  story owns; a later film is refused the same object). Two or three appearances, its surface saying something new
+  each time (Wirecard: the terminal — APPROVED after the first real tap, DECLINED and dark on "never there").
+- `TravellingFigure` — one figure carried across a sequence on its own layer, ending in its turn (€1.9 billion over
+  the auditor, over Manila, falling apart as the banks deny it). For a figure the next lines keep chasing.
+- `ScreenWall` — a wall of screens turning to one person or one name from the centre out (how big someone became,
+  how everyone covered it). At most once a film.
+- Scenes that grow: hold an idea 5–8 s and add a layer on the voice (Lustig: the "?", then the magnifier crossing his
+  face, then more marks), instead of a new 2-second shot for every clause.
+- Group footage of a board or a crowd names no one unless that face is verified; the name goes on a verified picture.

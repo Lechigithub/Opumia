@@ -202,8 +202,18 @@ export const flowText = (m: MotionMeasure | null, t: TextHoldMeasure | null, b: 
 // template share (zero template share between our films, the same topic included)
 
 interface PlanShot { id: string; t0: number; t1: number; dev: string; pics: Set<string> }
-type PlanFiles = { board: { shots: Array<{ id: string; startS: number; endS: number }> }; scenes: { scenes: Array<{ shotId: string } & Record<string, unknown>> }; resolution: { media: Array<{ shotId: string; role: string; sourceUrl?: string; ref?: string }> } };
+type PlanFiles = { craft?: Record<string, string[]>; board: { shots: Array<{ id: string; startS: number; endS: number }> }; scenes: { scenes: Array<{ shotId: string } & Record<string, unknown>> }; resolution: { media: Array<{ shotId: string; role: string; sourceUrl?: string; ref?: string }> } };
 /** A plan's shots as the template-share measure sees them (device = backdrop/world + element kinds; pictures by source). */
+/** The channel's named devices a hand-written composite draws with (its @craft imports), per shot. */
+export function craftOfComposites(meta: Record<string, { shotId: string }>, code: Record<string, string>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [name, m] of Object.entries(meta)) {
+    const imp = /import\s*\{([^}]*)\}\s*from\s*["']@craft["']/.exec(code[name] ?? "")?.[1] ?? "";
+    const tools = imp.split(",").map((x) => x.trim().split(/\s+as\s+/)[0]!.trim()).filter((x) => /^[A-Z]/.test(x) && !["CameraPath", "Parallax"].includes(x));
+    out[m.shotId] = [...new Set([...(out[m.shotId] ?? []), ...tools])].sort();
+  }
+  return out;
+}
 export function planShots(p: PlanFiles): PlanShot[] {
   const sc = new Map(p.scenes.scenes.map((s) => [s.shotId, s as Record<string, unknown>]));
   return p.board.shots.map((s) => {
@@ -211,12 +221,22 @@ export function planShots(p: PlanFiles): PlanShot[] {
     const world = ((x.world as { kind?: string } | undefined)?.kind) ?? String(x.backdrop ?? "footage");
     const els = [...new Set(((x.elements as Array<{ name?: string; type?: string }> | undefined) ?? []).map((e) => e.name ?? e.type ?? ""))].sort();
     const pics = new Set(p.resolution.media.filter((m) => m.shotId === s.id && (m.role === "primary" || m.role === "layer")).map((m) => m.sourceUrl ?? m.ref ?? "").filter(Boolean));
-    return { id: s.id, t0: s.startS, t1: s.endS, dev: `${world}|${els.join(",")}`, pics };
+    const craft = (p.craft?.[s.id] ?? []).join("+");
+    return { id: s.id, t0: s.startS, t1: s.endS, dev: `${world}|${els.join(",")}${craft ? `|${craft}` : ""}`, pics };
   });
+}
+export async function loadCraft(job: string): Promise<Record<string, string[]>> {
+  const dir = path.join(job, "design", "film");
+  try {
+    const meta = JSON.parse(await readFile(path.join(dir, "composites.json"), "utf8")) as Record<string, { shotId: string }>;
+    const code: Record<string, string> = {};
+    for (const n of Object.keys(meta)) code[n] = await readFile(path.join(dir, "composites", `${n}.tsx`), "utf8").catch(() => "");
+    return craftOfComposites(meta, code);
+  } catch { return {}; }
 }
 async function loadPlan(job: string): Promise<PlanShot[] | null> {
   const rd = async <T>(f: string) => JSON.parse(await readFile(path.join(job, f), "utf8")) as T;
-  try { return planShots({ board: await rd("storyboard.json"), scenes: await rd("scenes.json"), resolution: await rd("resolution.json") }); } catch { return null; }
+  try { return planShots({ board: await rd("storyboard.json"), scenes: await rd("scenes.json"), resolution: await rd("resolution.json"), craft: await loadCraft(job) }); } catch { return null; }
 }
 const at = (shots: PlanShot[], t: number) => shots.find((s) => s.t0 <= t && t < s.t1) ?? null;
 function compareShots(A: PlanShot[], B: PlanShot[], shift: number) {
@@ -274,3 +294,38 @@ export async function measureBedGap(voiceStem: string, bedStem: string, fromS: n
   if (hole >= 6) dead.push({ atS: r2(fromS + (n - hole) / 10), s: hole / 10 });
   return { gapDb: r2(median(sp)), fallsAway: r3(away / Math.max(1, sp.length)), deadAir: dead };
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// the opening (owner, 2026-11-26: "if you create a new film from scratch the film becomes a new film of its kind"):
+// the first seconds are where films look most alike. Distinctive devices in the opening (not plain footage, not a
+// word over footage) are compared with every earlier film's opening.
+/** The opening's distinctive devices: the channel techniques drawn (@craft) and any world that is not plain footage.
+ *  Each film's own kit components are its own and cannot collide; plain footage is the channel's default. */
+export function openingDevices(shots: PlanShot[], seconds = 15): string[] {
+  const out = new Set<string>();
+  for (const s of shots.filter((x) => x.t0 < seconds)) {
+    const [world = "", , craft = ""] = s.dev.split("|");
+    if (world && world !== "footage") out.add(`world:${world}`);
+    for (const c of craft.split("+").filter(Boolean)) out.add(c);
+  }
+  return [...out].sort();
+}
+export interface OpeningShare { film: string; shared: string[]; jaccard: number }
+export const OPENING_LIMIT = { shared: 2, jaccard: 0.5 } as const;
+export async function openingShare(job: string | PlanFiles, others: string[], seconds = 15): Promise<OpeningShare[]> {
+  const A = typeof job === "string" ? await loadPlan(job) : planShots(job);
+  if (!A?.length) return [];
+  const a = new Set(openingDevices(A, seconds));
+  const out: OpeningShare[] = [];
+  for (const o of others) {
+    if (typeof job === "string" && path.resolve(o) === path.resolve(job)) continue;
+    const B = await loadPlan(o);
+    if (!B?.length) continue;
+    const b = new Set(openingDevices(B, seconds));
+    const shared = [...a].filter((d) => b.has(d));
+    const uni = new Set([...a, ...b]).size;
+    out.push({ film: path.basename(o), shared, jaccard: uni ? r3(shared.length / uni) : 0 });
+  }
+  return out.sort((x, y) => y.jaccard - x.jaccard);
+}
+

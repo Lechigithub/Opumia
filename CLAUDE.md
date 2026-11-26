@@ -482,6 +482,25 @@ money is gone), words set into the picture above the grade, four designed scenes
   shifted every later one: five v7 clips arrived under the wrong need).
 - **Not proven on an agent film** (needs the API).
 
+## The channel's menu and originality (Wirecard v7.1–v7.2, 2026-11-26)
+
+v7.1–v7.2 added what the channel lays over its footage; the owner asked that nothing taught makes films look alike
+("a new film of its kind … sharing only the style, skill, craft"). Taught as a menu, guarded in code:
+- **Craft tools** (`remotion/craft.tsx`): `GlitchIn`, `PressHeadline` (real article screenshot, marker, source),
+  `SignatureObject`, `TravellingFigure`, `ScreenWall`; skills say when the channel uses each (scenes.md "The channel's
+  menu"), and that an idea is one scene of 5–8 s that grows (director.md).
+- **Signature object** (`film-designer-agent.ts`): `write_world` asks for one real thing from THIS story that returns
+  2–3 times; refused when an earlier film used the same object (`sameObject`) or it is a generic money symbol
+  (`GENERIC_OBJECTS`); recorded in `data/film-kits.json` (`signatureObject`).
+- **Craft counted as devices** (`flow-measure.ts:craftOfComposites/loadCraft`): template share now sees the @craft tools
+  each composite draws with, so the same technique at the same moment as an earlier film is caught.
+- **Opening check** (`openingShare`, preflight `opening_too_close`, blocker → the scene designer): the first 15 s's
+  distinctive devices (craft tools, non-footage worlds) against every earlier film's opening (≥ 2 shared and overlap
+  ≥ 0.5 fails).
+- **Words on frames** from OCR (`words_everywhere`) is advisory: it also reads real signage in footage; the words we put
+  on screen stay gated by `text_share` on the plan.
+- Test: `dev/originality-test.ts` (in regressions, 27/27). Not proven on agent films: the two-film proof will show it.
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after
