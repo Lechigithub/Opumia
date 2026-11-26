@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 /**
  * Preflight gate: every release-gate check that can be computed BEFORE the render — from the plan, the scene
  * previews and the narration — so a film that would fail is repaired or stopped before render time is spent.
@@ -168,6 +169,12 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
   // may not show a face unless the picture is verified press of that person.
   if (o.people?.length) {
     const words = o.timed.segments.flatMap((sg) => sg.words);
+    const sourcing = (() => { try { return JSON.parse(readFileSync(path.join(o.jobDir, "sourcing.json"), "utf8")) as { rows?: Array<{ candidates?: Array<{ source?: string; ref?: string; shows?: string }> }> }; } catch { return null; } })();
+    const realExists = (person: string) => {
+      const sn = person.toLowerCase().split(/\s+/).at(-1)!;
+      if (o.resolution.media.some((m) => m.origin === "press" && (m.depicts ?? "").toLowerCase().includes(sn))) return true;
+      return (sourcing?.rows ?? []).some((r) => (r.candidates ?? []).some((c) => (c.source === "press" || String(c.ref ?? "").startsWith("youtube:") || String(c.ref ?? "").startsWith("wiki")) && (c.shows ?? "").toLowerCase().includes(sn)));
+    };
     const stand: string[] = [];
     for (const sh of shots) {
       const said = words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ").toLowerCase();
@@ -182,7 +189,10 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       for (const m of media) {
         const verified = m.origin === "press" && named.some((p) => (m.depicts ?? "").toLowerCase().includes(p.toLowerCase().split(/\s+/).at(-1)!));
         const said2 = `${m.depicts ?? ""} ${(m.seen as { note?: string } | undefined)?.note ?? ""}`;
-        if (!verified && (m.seen?.face || looksLikeAPerson(said2))) stand.push(sh.id);
+        // the channel's practice (owner, 2026-11-26): an actor performing the person is fine when no real footage or
+        // photo of them exists; when it does (placed anywhere in this film, or found by the search), a stranger may
+        // not stand in for them (proof film 1: the real Braun was found on Bloomberg and a stock speaker was placed).
+        if (!verified && (m.seen?.face || looksLikeAPerson(said2)) && named.some((p) => realExists(p))) stand.push(sh.id);
       }
     }
     const uniq = [...new Set(stand)];
@@ -208,14 +218,15 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
   }
 
 
-  // --- Fair use: one clip per source video, clips ≤ 7.5 s, press footage ≤ 45 % of the runtime.
+  // --- Fair use as the channel practises it (reference index, 37 films): clips ≤ 8.5 s (its p90), real footage ≤ 27 %
+  //     of the runtime (its maximum); several clips per source allowed; every use logged (QA).
   {
     const clips = o.resolution.media.filter((m) => m.role === "primary" && m.origin === "press" && m.kind === "video");
     const byVideo = new Map<string, string[]>();
     for (const c of clips) byVideo.set(baseRef(c.ref), [...(byVideo.get(baseRef(c.ref)) ?? []), c.shotId]);
     // one clip per source video: halves of an editor split are the same clip
     const extra = [...byVideo.values()].flatMap((v) => { const first = rootOf([...v].sort()[0]!); return v.filter((id) => rootOf(id) !== first); });
-    add({ id: "fair_use_one_clip", label: "Extra clips taken from one source video", value: extra.length, target: "0", pass: extra.length === 0, level: "blocker", repair: "replace_picture", shots: extra });
+    void extra; // several clips from one source are allowed (owner, 2026-11-26: the channel's practice)
     const dur = (id: string) => {
       const sh = shots.find((x) => x.id === id);
       return sh ? sh.endS - sh.startS : 0;
@@ -226,10 +237,10 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
     // unsplit: the excerpt recorded at download; split: the halves' shot lengths added (the stored figure is the
     // whole clip from before the split, so adding to it would count twice)
     const used = new Map([...fam].map(([k, cs]) => [k, cs.length === 1 ? (cs[0]!.fairUse?.usedS ?? dur(cs[0]!.shotId)) : cs.reduce((t, c) => t + dur(c.shotId), 0) + 0.8] as [string, number]));
-    const long = clips.filter((c) => (used.get(`${rootOf(c.shotId)}|${baseRef(c.ref)}`) ?? 0) > 7.5).map((c) => c.shotId);
-    add({ id: "fair_use_clip_length", label: "Press clips longer than 7.5 s", value: long.length, target: "0", pass: long.length === 0, level: "blocker", repair: "replace_picture", shots: long });
+    const long = clips.filter((c) => (used.get(`${rootOf(c.shotId)}|${baseRef(c.ref)}`) ?? 0) > 8.5).map((c) => c.shotId);
+    add({ id: "fair_use_clip_length", label: "Press and film clips longer than 8.5 s (the channel's p90)", value: long.length, target: "0", pass: long.length === 0, level: "blocker", repair: "replace_picture", shots: long });
     const share = clips.reduce((t, c) => t + dur(c.shotId), 0) / Math.max(1, o.timed.durationS);
-    add({ id: "fair_use_share", label: "Share of the runtime on press footage", value: share, target: "≤ 0.45", pass: share <= 0.45, level: "blocker", repair: "replace_picture", shots: share > 0.45 ? clips.sort((a, b) => dur(b.shotId) - dur(a.shotId)).slice(0, 1).map((c) => c.shotId) : [] });
+    add({ id: "fair_use_share", label: "Share of the runtime on press and film footage", value: share, target: "≤ 0.27 (the channel's maximum)", pass: share <= 0.27, level: "blocker", repair: "replace_picture", shots: share > 0.45 ? clips.sort((a, b) => dur(b.shotId) - dur(a.shotId)).slice(0, 1).map((c) => c.shotId) : [] });
   }
 
   // --- Coverage: enough of the film stands on real pictures (from the sourcing report).

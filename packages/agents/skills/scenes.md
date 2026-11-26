@@ -311,3 +311,18 @@ is caught.
 - Scenes that grow: hold an idea 5–8 s and add a layer on the voice (Lustig: the "?", then the magnifier crossing his
   face, then more marks), instead of a new 2-second shot for every clause.
 - Group footage of a board or a crowd names no one unless that face is verified; the name goes on a verified picture.
+
+## People, film clips and fair use — as the channel does them (owner, 2026-11-26)
+- **A named person:** show the real person when real footage or a photo exists (news reports, their own talks,
+  Wikipedia). When none exists for that moment, the channel performs it: an actor in period clothes (Ponzi, the young
+  Lustig), a reenactment, a figure from behind — and the name may go on screen over it. What is never done: a generic
+  stock face under someone's name when the real person's footage was there to use (proof film 1: a stock speaker under
+  Braun's line while Bloomberg had him).
+- **Film and TV scenes** are allowed as performed footage and metaphor (the channel's Jho Low film uses The Wolf of
+  Wall Street), several shots from one film or report allowed. An actor is never presented as the real person's press.
+- **Older footage** as metaphor is allowed whatever its era (only footage LATER than the story is wrong).
+- **Fair use at the channel's own measured practice:** real or film clips up to 8.5 s each (its p90), real footage up to
+  27 % of the runtime (its maximum), muted, graded and under commentary, every use logged with its source.
+- **Falling money** is allowed when the story calls for it (Lustig, J.P. Morgan, Ponzi).
+- **Unchanged:** no AI-generated pixels; never MagnatesMedia's own frames, graphics, music, thumbnails or a clone of
+  its narrator; every film its own world (originality checks).

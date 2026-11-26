@@ -57,14 +57,14 @@ export async function runQA(q: QAInput): Promise<{ report: QAReport; licenseMark
     // One excerpt continued across a split shot (sh014 → sh014_2, the same ref and in-point, played on) is one clip,
     // not two: clips are counted by excerpt (build list 4, the Nokia proof film read a split as a reused source).
     const clips = [...new Map(press.filter((m) => m.kind === "video").map((m) => [m.ref, m] as [string, typeof m])).values()];
-    const long = clips.filter((m) => (m.fairUse?.usedS ?? m.durationS ?? 0) > 7.5);
+    const long = clips.filter((m) => (m.fairUse?.usedS ?? m.durationS ?? 0) > 8.5);
     const unlogged = press.filter((m) => !m.fairUse || !m.sourceUrl);
     const pressS = clips.reduce((t, m) => t + (m.fairUse?.usedS ?? 0), 0);
     const share = pressS / Math.max(1, q.manifest.durationFrames / fps);
     const perSource = new Map<string, number>();
     for (const m of clips) perSource.set(m.ref.split("@")[0]!, (perSource.get(m.ref.split("@")[0]!) ?? 0) + 1);
     const reused = [...perSource.values()].filter((n) => n > 1).length;
-    add({ id: "fair_use", severity: "major", passed: long.length === 0 && unlogged.length === 0 && share <= 0.45 && reused === 0, message: `${clips.length} press clip(s) (${pressS.toFixed(1)} s, ${Math.round(share * 100)} % of runtime, audio muted), ${press.length - clips.length} press still(s)${long.length ? `; ${long.length} clip(s) over 7.5 s` : ""}${unlogged.length ? `; ${unlogged.length} without a source record` : ""}${reused ? `; ${reused} source video(s) used more than once` : ""}`, measured: Math.round(share * 100), expected: "clips ≤ 7.5 s, ≤ 45 % of runtime, one clip per source, all logged" });
+    add({ id: "fair_use", severity: "major", passed: long.length === 0 && unlogged.length === 0 && share <= 0.27, message: `${clips.length} press clip(s) (${pressS.toFixed(1)} s, ${Math.round(share * 100)} % of runtime, audio muted), ${press.length - clips.length} press still(s)${long.length ? `; ${long.length} clip(s) over 8.5 s` : ""}${unlogged.length ? `; ${unlogged.length} without a source record` : ""}${reused ? `; ${reused} source(s) used for several clips (allowed)` : ""}`, measured: Math.round(share * 100), expected: "clips ≤ 8.5 s, ≤ 27 % of runtime (the channel's practice), all logged" });
   }
 
   const bugged = libRefs.filter((a) => a?.bugSpots?.length);

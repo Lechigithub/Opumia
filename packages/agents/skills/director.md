@@ -99,3 +99,8 @@ Plan the film as ideas, not sentences: an idea that spans two or three clauses (
 Bank, Germany's champion") is one scene of 5–8 s that grows — its picture changes by moving (a pull-back, a push into
 a screen), not by cutting. Most of v7's shots were 2–3 s; the three merged sequences of v7.2 read most like the
 channel. Keep short shots for runs of quick facts.
+
+## People and footage, as the channel does them (owner, 2026-11-26)
+Plan a named person's line on the real person when footage or a photo of them exists; when it does not, plan a
+performed reenactment (period clothes, from behind, a hand, a silhouette, or an actor in a film scene) — the channel
+does both. Film and TV scenes, older footage and falling money are all allowed when the story calls for them.

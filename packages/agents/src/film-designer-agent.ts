@@ -206,7 +206,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         inventory: z.string().min(80).describe("the people, companies, places, documents, objects and materials THIS story owns, from the facts"),
         oneLine: z.string().min(20).describe("the world in one sentence"),
         motifs: z.string().min(40),
-        moneyPowerFailure: z.string().min(40).describe("how this story's money, power and failure are shown — never borrowed from another film (no generic money rain)"),
+        moneyPowerFailure: z.string().min(40).describe("how this story's money, power and failure are shown — in this film's own way (money may fall or rain when the story calls for it, as the channel does in Lustig, J.P. Morgan and Ponzi; never a copy of another film of ours)"),
         wordDevice: z.string().min(30).describe("how words arrive on screen in this world (one device, used at the channel's rate, not on every shot)"),
         transition: z.string().min(20),
         palette: z.string().min(20),

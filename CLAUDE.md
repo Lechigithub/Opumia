@@ -520,6 +520,25 @@ Fixed, tested offline on that film's own data (`dev/proof1-test.ts`, `dev/proof1
 - Not yet fixed: speed (stages run one after another; previews re-bundle Remotion each time) — see the owner's
   parallel-production request; the $5 limit for ≤ 90 s (narration alone was $1.21).
 
+## Matching the channel's own practice (owner decision 2026-11-26 — overrides older stricter rules in this file)
+
+"Do everything exactly the way the reference does": the rules that were stricter than MagnatesMedia were changed;
+kept: no AI pixels, Library/ and Reference/ read-only, secrets never visible, never the channel's own material or a
+clone of its narrator, originality between our films.
+- **People** (`preflight.ts` `stand_in_face`, `scene-designer.ts` name guard): real material when it exists; when the
+  real person was found anywhere in the film's search or placement, a stranger may not stand in; when nothing real was
+  found, a performed reenactment (and the name over it) is allowed, as the channel does (Ponzi, the young Lustig).
+  `real_subjects` still pushes the search for the real person.
+- **Fair use at the channel's measured practice** (reference index, 37 films: real footage clips median 2.1 s, p90
+  8.5 s; 4 % of runtime typically, 17 % p90, 27 % max): `PRESS_MAX_CLIP_S = 8.5`, `PRESS_MAX_SHARE = 0.27` (preflight
+  `fair_use_clip_length`, `fair_use_share`, QA `fair_use`); several clips per source allowed (`fair_use_one_clip`
+  removed); every use logged.
+- **Film and TV scenes** as performed footage (`youtubeFootage({ film: true })`, offered for staged and period shots;
+  never press of a real person); **older footage** allowed (`tooOld` off; later-than-story still caught);
+  **falling money** allowed when the story calls for it.
+- Older notes in this file that say "one clip per source video", "≤ 6.5 s / 7.5 s", "≤ 45 %", "footage more than 15
+  years older is out", "scripted dramas … never" or "no face under a line naming a person" are superseded by this.
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

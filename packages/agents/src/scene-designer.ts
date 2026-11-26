@@ -222,7 +222,10 @@ export async function designScenes(o: DesignScenesOptions): Promise<ScenePlan> {
     const onScreen = els.flatMap((e) => (e.type === "component" ? Object.values(e.props).filter((v): v is string => typeof v === "string") : [])).join(" ").toLowerCase();
     const named = people.filter((sn) => new RegExp(`\\b${sn}\\b`, "i").test(onScreen));
     const verified = (sn: string) => primaryM?.origin === "press" && (primaryM.depicts ?? "").toLowerCase().includes(sn);
-    const unsafeFace = named.length > 0 && hasFootage && !named.every(verified);
+    // the channel's practice (owner, 2026-11-26): a name over an actor performing the person is fine when no real
+    // footage or photo of them exists in this film; when it does, the name goes on the real person.
+    const realOf = (sn: string) => o.resolution.media.some((m) => m.origin === "press" && (m.depicts ?? "").toLowerCase().includes(sn));
+    const unsafeFace = named.length > 0 && hasFootage && !named.every((sn) => verified(sn) || !realOf(sn));
     if (unsafeFace) nameGuarded++;
     // A journey: one camera through 2–6 panels, never a cut inside the shot (hand film v30b–v32)
     if (d.backdrop === "journey" && (d.journey?.stops.length ?? 0) >= 2) {

@@ -209,7 +209,9 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   const needs = o.storyboard.shots.map((sh) => needOf(sh, era)).filter((n): n is Need => n !== null);
   for (const n of needs) n.line = (o.words ?? []).filter((w) => w.startS >= n.shot.startS - 0.05 && w.startS < n.shot.endS).map((w) => w.word).join(" ");
   // Footage much older than the story is out of period unless the shot asks for that era.
-  const tooOld = (doc: LocalDoc, n: Need) => Boolean(era && era.min >= 1960 && doc.decade !== null && doc.decade < era.min - 15 && !(n.decade !== null && n.decade < era.min - 15));
+  // owner, 2026-11-26: the channel uses older and Hollywood footage as metaphor freely — no cut-off for older footage
+  // (footage LATER than the story is still caught: anachronistic, periodCheck).
+  const tooOld = (_doc: LocalDoc, _n: Need) => false;
   const usedLocal = new Set<string>();
   const usedStock = new Set<string>();
   const chosen = new Map<string, Cand>();
@@ -239,6 +241,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
   };
   const ytMemo = new Map<string, Promise<PressCandidate[]>>();
   const usedVideos = new Set<string>();
+  const usedClips = new Set<string>(); // the same moment of a source is never placed twice
   const pressStills: Array<{ shotId: string; c: PressCandidate; q: number }> = [];
   const usedWiki = new Set<string>();
   const wantsImage = (n: Need) => n.kind === "image";
@@ -286,10 +289,10 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       const ok = flat.map((x, k) => ({ ...x, v: verdicts[k]! })).filter((x) => x.n === n && x.v.shows && x.v.quality >= 5);
       const pref = wantsImage(n) ? "image" : "video";
       const pickP = ok
-        .filter((x) => !(x.c.provider === "youtube" ? usedVideos.has(x.c.externalId.split("@")[0]!) : usedWiki.has(x.c.externalId)))
+        .filter((x) => !(x.c.provider === "youtube" ? usedClips.has(x.c.externalId) : usedWiki.has(x.c.externalId)))
         .sort((a, b) => Number(b.c.kind === pref) - Number(a.c.kind === pref) || b.v.quality - a.v.quality)[0];
       if (!pickP) continue;
-      if (pickP.c.provider === "youtube") usedVideos.add(pickP.c.externalId.split("@")[0]!);
+      if (pickP.c.provider === "youtube") { usedVideos.add(pickP.c.externalId.split("@")[0]!); usedClips.add(pickP.c.externalId); }
       else usedWiki.add(pickP.c.externalId);
       pickP.c.banner = Boolean(pickP.v.banner);
       const isScene = n.shot.source.kind === "designed" && n.shot.source.designed === "scene";
@@ -422,6 +425,8 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         if (usedStock.has(`${c.provider}:${c.externalId}`) || anachronistic(text, era) || mismatch(text, n.line, n.decade)) continue;
         push({ src: "stock", c, score: 1 });
       }
+      // film and TV scenes as performed footage for staged and period shots (the channel's Hollywood clips)
+      if (o.press !== false && (b.need === "staged" || b.need === "period") && b.stock[0]) for (const yp of await youtubeFootage({ query: `${b.stock[0]} movie scene`, about: `${b.must} ${n.line}`, must: b.must, subjects, dlDir: pressDir, clipS: n.durationS, videos: 2, film: true }).catch(() => [])) push({ src: "press", p: yp, score: 1 });
       if (o.press !== false && b.need === "real" && b.youtube) for (const yp of await youtubeFootage({ query: b.youtube, about: `${b.must} ${n.line}`, must: b.must, subjects, people: subjects.filter((x) => o.storyboard.shots.some((sh) => sh.entities?.some((en) => en.name === x && en.type === "person"))), dlDir: pressDir, clipS: n.durationS, videos: 4 }).catch(() => [])) push({ src: "press", p: yp, score: 1 });
       // At most 16 per shot, taken in turns from each source so no single library crowds the others out.
       const bySource = new Map<string, Cand[]>();
@@ -503,9 +508,9 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
       if (chosen.has(x.n.shot.id) || takenKeys.has(x.key)) continue;
       if (x.r.idle && idleChosen >= idleMax) continue;
       if (x.c.src === "press") {
-        // One clip per source video per film.
+        // Several clips from one source are allowed (the channel takes several shots from one film or report); the
+        // same moment twice is not.
         const vid = x.c.p.externalId.split("@")[0]!;
-        if (usedVideos.has(vid)) continue;
         usedVideos.add(vid);
         const who = x.n.shot.entities?.find((e) => e.type === "person");
         x.c.p.depicts = who && x.r.face && titledAs(x.c, x.n) ? `${who.name} (person) — ${x.r.shows}` : x.r.shows;

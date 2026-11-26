@@ -24,7 +24,12 @@ import { downloadCandidate, type StockCandidate } from "./stock.js";
 
 const run = promisify(execFile);
 const UA = "Opumia/0.1 (documentary pipeline)";
-export const PRESS_MAX_CLIP_S = 6.5;
+/** Fair use as the channel practises it (owner, 2026-11-26: "match what the channel does in fair use"), measured on
+ *  37 MagnatesMedia films (reference index): real news footage clips median 2.1 s, p90 8.5 s; real footage 4 % of a
+ *  film's runtime typically, 17 % at p90, 27 % at most. Several clips from one source, film and TV clips as performed
+ *  footage, every use logged. */
+export const PRESS_MAX_CLIP_S = 8.5;
+export const PRESS_MAX_SHARE = 0.27;
 
 /** Channels whose finished documentaries we never lift footage from (we'd be copying their edit). */
 const NO_LIFT = /\b(magnates ?media|how money works|logically answered|modern mba|moon|big company|business casual|company man|cold fusion|coldfusion|wendover|polymatter|johnny harris|vox|bloomberg originals? documentary)\b/i;
@@ -462,11 +467,17 @@ async function ytMoments(info: YtInfo, must: string, dlDir: string, subject?: st
  * Real footage found by description. `subjects` are the film's named people/companies/products: a video is
  * only considered when its title names one of them, so every excerpt is coverage of what the film discusses.
  */
-export async function youtubeFootage(o: { query: string; about: string; must?: string; subjects: string[]; people?: string[]; dlDir: string; clipS: number; videos?: number }): Promise<PressCandidate[]> {
+export async function youtubeFootage(o: { query: string; about: string; must?: string; subjects: string[]; people?: string[]; dlDir: string; clipS: number; videos?: number; /** film/TV scenes as performed footage (the channel: The Wolf of Wall Street in its Jho Low film) — never press of a real person */ film?: boolean }): Promise<PressCandidate[]> {
   const person = (o.people ?? []).find((p) => namesAll(`${o.must ?? ""} ${o.query}`, p));
   const hits = newsFirst(await ytSearch(o.query, 8))
     .filter((e) => {
       const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
+      if (o.film) {
+        // a film or TV scene: from the studio or a clip channel, never another documentary, essay or parody
+        if (NO_LIFT.test(ch) || PARODY.test(e.title) || /\b(documentary|explained|essay|reaction|review|recap|ending explained|trailer)\b/i.test(e.title)) return false;
+        if (!(DRAMA_CHANNEL.test(ch) || /\b(movie|film|scene|clip)\b/i.test(e.title))) return false;
+        return Boolean(e.duration && e.duration >= 20 && e.duration <= 1200);
+      }
       if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title) || DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title)) return false;
       if (/[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) return false;
       if (!e.duration || e.duration < 25 || e.duration > 3600) return false;
@@ -499,19 +510,19 @@ export async function youtubeFootage(o: { query: string; about: string; must?: s
             externalId: `${e.id}@${at}`,
             kind: "video",
             title: `${info.title} — ${info.channel}`,
-            tags: ["press", "footage"],
+            tags: o.film ? ["film clip", "performed"] : ["press", "footage"],
             pageUrl: `https://www.youtube.com/watch?v=${e.id}&t=${at}s`,
             fileUrl: null,
             durationS: len,
-            license: "Fair use (press footage, muted excerpt)",
+            license: o.film ? "Fair use (film/TV scene, short excerpt as metaphor under commentary)" : "Fair use (press footage, muted excerpt)",
             attributionRequired: true,
             attributionText: `${info.channel} — "${info.title.slice(0, 80)}"`,
             aiGenerated: false,
             archival: true,
             localFile: file,
             frameFile: frame,
-            depicts: "",
-            fairUse: { sourceTitle: info.title, channel: info.channel, atS: at, usedS: len, reason: "short muted excerpt of coverage of the subject, reframed and graded under commentary" },
+            depicts: o.film ? "performed film scene (actors — never the real person)" : "",
+            fairUse: { sourceTitle: info.title, channel: info.channel, atS: at, usedS: len, reason: o.film ? "short excerpt of a film or TV scene, used as metaphor under commentary, graded and reframed" : "short muted excerpt of coverage of the subject, reframed and graded under commentary" },
             fetch: () => ytSection(e.id, at, len, file),
           });
         }),
