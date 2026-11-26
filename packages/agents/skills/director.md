@@ -76,3 +76,20 @@ are about a third; real footage of the subject 5 %; real still photos about 1 %,
 appear briefly or inside designed scenes, and a still that must stay up moves as depth planes. `measure_plan` holds your
 plan to this mix (performed + b-roll at least 32 %, designed at most 57 %, held photos at most 15 %). Show the story;
 don't turn each line's fact into a card.
+
+## Footage first (Wirecard v5 → v7, 2026-11-26 — overrides older notes that leaned on designed beats)
+The owner rejected v5 (a picture per sentence, generic push-ins, metaphor clips picked by text search) and v6 (every
+shot a designed card: "looks like a template… cards too much… repetition"). v7 was the first that read like the channel,
+and it was built this way — plan yours the same:
+- **Most shots are moving footage that shows the line**, graded into the film's world: real news footage of the real
+  subjects (their HQ, their stage, their exchange floor, their share price; one clip per source video, ≤ 6.5 s), and
+  performed stock where nothing real exists (a hand tapping a card, a reporter typing at night, investigators at a
+  board, an auditor under a desk lamp, a torch in an empty room, police lights, a jet on a wet apron). Six MagnatesMedia
+  films watched side by side (Ponzi, Lustig, Silk Road, Versace, J.P. Morgan, DeLorean) are mostly this.
+- **Only a few designed scenes, each one a lit real place built for its line** (a stock board in a dark hall with one
+  name changing; the subject standing in front of a blurred applauding crowd under the key words; a reporter's photo
+  pinned to the investigators' board; a wanted poster on a dark wall with light sweeping across it). In 65 s: about
+  four. Never one device on line after line.
+- **A shot per idea, not per sentence**, each moving on a camera path that follows the words, entering on a push,
+  a whip, a flash or a fade (not cuts everywhere): v7 had 26 shots in 68 s and only 16 hard cuts.
+- Ask for footage you can find: describe the picture (who, where, lit how), not the mood.

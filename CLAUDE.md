@@ -458,6 +458,30 @@ The FTX film was built by hand (v24–v33) until its opening read like the chann
 - **v34, the minute rebuilt after watching Ponzi at 12 fps** (`dev/hand/watch.ts`: dense frame sheets, spectrogram, words, onsets, cuts, loudness): one performed shot per sentence, key words huge and building word by word, flashes instead of cuts, a title card, a continuous bed. Taught: craft `BuildWords` / `GradedPlate` / `FlashCut` / `LightWash` / `LightLayer`; `MusicCue.duckDb`; `narration/refit.ts:shapeColdOpen` (pauses ≤ 0.6 s, a 2 s title breath after the hook for long films → `TimedScript.titleCard`, drawn by the kit's chapter role); `agents/bed-level.ts:levelBeds` (from each bed's measured loudness; build list 6 corrected the targets to the channel's 37-film medians: cold open ≈ 15.8 dB under the voice, body ≈ 19.1 dB — the first ones came from Ponzi alone); preflight `bed_gap`, `dead_air` on the plan's stems.
 - **Not yet proven on an agent film** (needs the API).
 
+## Footage first, words in the picture (Wirecard v5 → v7, 2026-11-26)
+
+The owner rejected v5 (a picture per sentence, generic push-ins) and v6 (every shot a designed card: "still looks like a
+template, the use of cards is too much, and repetition"). v7, built by hand as its own Remotion project
+(`out/hand-wirecard-v7/src`, rendered with `packages/motion-engine/src/hand/render-film.ts <job>`), was the first that
+read like the channel: 26 shots in 68 s, almost all moving footage (real Reuters/Bloomberg news of the real subjects,
+one clip per source video, and 1080p performed stock), graded into one world (steel-blue night glass, red when the
+money is gone), words set into the picture above the grade, four designed scenes lit like real places.
+- **Type gate** (`tools/world/type_check.py`, on-device OCR, no model; `flow-checks.ts:runTypeCheck/typeItems/typeChecks`):
+  `boxed_words` (words on small flat boxes ≤ channel p90 0.14), `one_type_size` (size spread ≥ p10 0.56), `type_case`
+  (capitals ≥ p10 0.20), `words_everywhere` (words on ≤ p90 0.74 of frames). Runs in the scene designer's
+  `measure_film` on its own previews, in preflight on the judge's preview stretches and in QA on the finished film
+  (ladders → the scene designer). v6 fails the first three on film and stills, v7 passes them (`dev/type-check-test.ts`,
+  in regressions); v7 still fails `words_everywhere` (0.83).
+- **Measured and not kept as a check:** whole-frame self-sameness (`tools/world/self_sameness.py`, SigLIP, channel band
+  from 37 films) does not separate v6 from v7 (0.601 vs 0.596, both inside) — the template was in the type, not the
+  pictures.
+- **Craft tools from v7:** `PlaceLine`, `LedBoard`, `PinnedPrint`, `LightSweep` (`remotion/craft.tsx`).
+- **Skills:** director (footage first, a few lit designed scenes), scenes (words in the picture; the four type checks),
+  film designer (the world is a look over footage), sourcing (news strips, one clip per video, check every clip by eye).
+- `dev/hand/stock-look.ts` keeps a blank tile for a failed preview and writes each sheet's order (a skipped tile had
+  shifted every later one: five v7 clips arrived under the wrong need).
+- **Not proven on an agent film** (needs the API).
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

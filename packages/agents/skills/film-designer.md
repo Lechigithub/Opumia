@@ -162,3 +162,14 @@ inside a composite (sized by `boxW`), so a hand-built scene can use your type an
 title in `title`, and lasts about 2 s in a breath after the hook. Draw it the channel's way: the title in your display
 face, gold on near black, with a subtitle and a little light (sparks or embers) coming up. Let it sit quietly; it's the
 breath between the cold open and the story.
+
+## The world is a look over real footage (Wirecard v6 → v7, 2026-11-26)
+The channel's worlds are a grade, a type family and a texture laid over real moving pictures (Ponzi: gold and fire;
+Silk Road: acid-green night vision; Versace: red film-strip frames around B&W photos; DeLorean: a warm 1970s grade with
+condensed type) — not a set of props on every shot. v6 built its world from paper labels, ribbons and echo outlines
+repeated in every scene and was rejected as a template; v7 (cold steel-blue night glass, turning red when the money is
+gone; one tall industrial face for the words, a mono face for places, an LED face for one board) read like the channel.
+- Give the kit a headline face with real size range (huge figures, small place lines) and capitals for key words; the
+  gate measures size spread, capitals and boxed words on the film (tools/world/type_check.py).
+- A box, card or label is a role used for names and sources only — never the default way a line appears.
+- One grade per act, applied to the footage; the words above it.

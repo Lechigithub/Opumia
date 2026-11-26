@@ -47,3 +47,11 @@ or the wrong decade. You look at what was placed, beside its line, and fix what 
   ("crowd cheering hands raised", "man covering face with hands", "people rushing through doors", "businessmen
   shaking hands"). Prefer clips where the action changes during the clip (a handshake that lets go, a hand going to the
   head).
+
+## Footage you can trust (Wirecard v7, 2026-11-26)
+- Real news reports (Reuters, Bloomberg, DW News; never documentary channels) hold the subject's real places and
+  moments: HQ exteriors, the exchange floor, AGM stages, share-price charts. Look at the report's whole strip first,
+  cut one clip per source video (≤ 6.5 s), crop clear of the broadcaster's graphics, skip the opening cut.
+- Performed stock at 1080p or more for what was never filmed (hands, rooms, people at work at night); 720p looks soft.
+- Check every downloaded clip by eye against its need before it is placed: in v7 five clips arrived under the wrong
+  need (a sheet whose previews failed shifted every later tile; stock-look now keeps a blank tile and writes the order).

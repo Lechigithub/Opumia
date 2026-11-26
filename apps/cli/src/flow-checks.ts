@@ -100,6 +100,41 @@ export async function filmWorld(o: { root: string; jobId: string; film: string; 
 }
 
 /**
+ * How the film sets its words, against the channel's own films (build list 6, Wirecard v6 → v7; owner on v6: "still
+ * looks like a template, the use of cards is too much, and repetition"). On-device OCR, no model
+ * (tools/world/type_check.py): words on small flat boxes too often, one type size everywhere, no capitals, words on
+ * too many frames. v6 failed all four (boxed 0.26 vs p90 0.14, size spread 0.46 vs p10 0.56, caps 0.09 vs p10 0.20,
+ * words on 0.88 of frames vs p90 0.74); v7 (words set into footage) failed only the last.
+ */
+export type TypeReport = { measures: Record<string, number>; verdict: Record<string, { value: number; limit: number; side: "max" | "min"; median: number; pass: boolean }>; pass: boolean };
+export async function runTypeCheck(o: { root: string; channel: string; film?: string; clips?: Array<{ fromS: number; len: number; file: string }>; frames?: string[] }): Promise<TypeReport | null> {
+  const { embedPython } = await import("@opumia/ingest");
+  const { execFile } = await import("node:child_process");
+  const { writeFile, mkdtemp } = await import("node:fs/promises");
+  const os = await import("node:os");
+  const args = ["-I", path.join(o.root, "tools/world/type_check.py"), ...(o.film ? [o.film] : []), "--json", "--channel", o.channel];
+  if (o.clips?.length) { const f = path.join(await mkdtemp(path.join(os.tmpdir(), "type-")), "clips.json"); await writeFile(f, JSON.stringify(o.clips)); args.push("--clips", f); }
+  if (o.frames?.length) args.push("--frames", ...o.frames);
+  const out = await new Promise<string>((res, rej) => execFile(embedPython(), args, { cwd: o.root, maxBuffer: 1 << 24, timeout: 15 * 60_000 }, (e, stdout) => (e ? rej(e) : res(stdout))));
+  const line = out.trim().split("\n").filter((l) => l.startsWith("{")).at(-1);
+  return line ? (JSON.parse(line) as TypeReport) : null;
+}
+const TYPE_TELL: Record<string, { id: string; label: string; note: string }> = {
+  smallBoxed: { id: "boxed_words", label: "Words on small flat boxes or labels (share of frames with words)", note: "the channel sets its words into the picture; a label or card on line after line is the template look — keep a box for a name or a source once in a while" },
+  sizeSpread: { id: "one_type_size", label: "Spread of type sizes across the film", note: "every word at one size reads as a template: key words and figures huge, names and places small, like the channel" },
+  caps: { id: "type_case", label: "Words set in capitals (share of lines)", note: "the channel sets most key words in capitals" },
+  textFrames: { id: "words_everywhere", label: "Frames carrying words on screen", note: "let footage of the story play with nothing on it more often; words for the key figures, names and turns only" },
+};
+export function typeItems(r: TypeReport): PreflightCheck[] {
+  return Object.entries(r.verdict).filter(([k]) => TYPE_TELL[k]).map(([k, v]) => ({ id: TYPE_TELL[k]!.id, label: TYPE_TELL[k]!.label, value: v.value, target: `${v.side === "max" ? "≤" : "≥"} ${v.limit} (the channel's ${v.side === "max" ? "p90" : "p10"}; median ${v.median})`, pass: v.pass, level: "blocker", repair: "redesign_scene", shots: [], ...(v.pass ? {} : { note: TYPE_TELL[k]!.note }) }) as PreflightCheck);
+}
+export async function typeChecks(o: { root: string; channel: string; clips: Array<{ fromS: number; len: number; file: string }> }): Promise<PreflightCheck[]> {
+  if (!o.clips.length) return [];
+  const r = await runTypeCheck({ root: o.root, channel: o.channel, clips: o.clips });
+  return r ? typeItems(r) : [];
+}
+
+/**
  * Paper and cards at the channel's rate (build list 6, B3a; owner: "why … paper, documents, cards a lot … instead of
  * showing the story?"). On the plan, no model: the channel lets 19–75 % of its shots play as clean footage (median 40 %),
  * carries text on 26–86 %, and all its non-footage kinds together (title, document, logo, chart, card, map…) are ≈ 27 %

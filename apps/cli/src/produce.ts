@@ -14,7 +14,7 @@ import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
 import { googleFonts, makeLikeness, runFilmDesigner } from "./film-kit.js";
-import { bedChecks, filmFlow, filmWorld, flowChecks, paperChecks, templateShareCheck, worldChecks } from "./flow-checks.js";
+import { bedChecks, filmFlow, filmWorld, flowChecks, paperChecks, runTypeCheck, templateShareCheck, typeChecks, typeItems, worldChecks } from "./flow-checks.js";
 import { compareWithReference } from "./compare-ref.js";
 import { ensurePlucks, trackPoint, run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
@@ -510,7 +510,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     // build list 5, items 10–14: the scene designer measures worlds, treatment, type scale, data and repeats as the gate does
     const designBandB = await ensureDesignBand({ root: o.root, data: o.data, channelId: channel, log }).catch(() => null);
     const presetsB = await ensureTechniquePresets({ data: o.data, channel }).catch(() => ({}));
-    return designScenesAgent({ presets: presetsB, techniques: [await techniqueBrief({ data: o.data, channel, owner: "scene designer", durationS: o.durationS }).catch(() => ""), await grammarBrief({ data: o.data, channel, owner: "scene designer" }).catch(() => "")].filter(Boolean).join("\n\n"), extraTools: [seeTechniqueTool({ data: o.data, channel })],  ...(designBandB ? { designBand: { band: designBandB, root: o.root, data: o.data } } : {}), storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, composites: { kitDir: path.join(jobDir, "design", "film"), fonts: new Set(googleFonts()) }, compare: async (plan: ScenePlan, a: number, b: number) => {
+    return designScenesAgent({ presets: presetsB, techniques: [await techniqueBrief({ data: o.data, channel, owner: "scene designer", durationS: o.durationS }).catch(() => ""), await grammarBrief({ data: o.data, channel, owner: "scene designer" }).catch(() => "")].filter(Boolean).join("\n\n"), extraTools: [seeTechniqueTool({ data: o.data, channel })],  ...(designBandB ? { designBand: { band: designBandB, root: o.root, data: o.data } } : {}), typeCheck: (frames: string[]) => runTypeCheck({ root: o.root, channel, frames }), storyboard: board, script: timed, resolution, design, channel, visualBand, referenceShots, render, play, pictures, kit: filmKit, composites: { kitDir: path.join(jobDir, "design", "film"), fonts: new Set(googleFonts()) }, compare: async (plan: ScenePlan, a: number, b: number) => {
       const m = await buildManifest({ storyboard: board, script: timed, resolution, libraryRoot: o.library, outputPath: path.join(jobDir, "_preview.mp4"), narrationPath: timed.voice.audioPath, burnCaptions: burn, scenes: new Map<string, unknown>(plan.scenes.map((x) => [x.shotId, x])) });
       const c = await watchClip({ manifest: m, look: lookA, design, publicDir: pub, jobDir, fromS: a, toS: b });
       return compareWithReference({ root: o.root, data: o.data, channel, ours: c.file, fromS: a, toS: b, filmS: timed.durationS, outDir: path.join(jobDir, "compare") });
@@ -1027,6 +1027,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         if (pt?.clips.length) tells.push(...(await flowChecks({ root: o.root, data: o.data, channel, board, clips: pt.clips, log }).catch((e: Error) => (log(`  ! flow checks failed: ${e.message.slice(0, 120)}`), []))));
         // build list 6: do the pictures show what each line says (words blurred out), and is the film's world too close
         // to an earlier film of ours (word look, pictures)? Local SigLIP + OCR, no API.
+        if (pt?.clips.length) tells.push(...(await typeChecks({ root: o.root, channel, clips: pt.clips }).catch((e: Error) => (log(`  ! type checks failed: ${e.message.slice(0, 120)}`), []))));
         if (pt?.clips.length) tells.push(...(await worldChecks({ root: o.root, jobId, board, timedPath: path.join(jobDir, "timed-script.json"), clips: pt.clips, log }).catch((e: Error) => (log(`  ! world checks failed: ${e.message.slice(0, 120)}`), []))));
         // craft inventory: the channel's staples (in ≥ 40 % of its stretches) that a tool can make and none of the
         // preview stretches shows — each to its owner, before any frame is rendered
@@ -1160,6 +1161,12 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     if (flow?.band) {
       qa.report.checks.push({ id: "flow", severity: "major", passed: flow.issues.length === 0, message: `${flow.summary.replace(/\n/g, "; ")}${flow.issues.length ? ` — OUTSIDE the channel's band: ${flow.issues.map((x) => x.detail).join(" | ").slice(0, 400)}` : ""}`, measured: flow.motion?.softShare ?? 0, atFrames: (flow.text?.rushed ?? []).map((x) => Math.round(x.atS * manifest.fps)) });
       if (flow.issues.length && qa.report.verdict === "pass") qa.report.verdict = "review";
+    }
+    // build list 6 (Wirecard v6 → v7): how the finished film sets its words — boxed labels, one size, words everywhere
+    const typed = existsSync(finalPath) ? await runTypeCheck({ root: o.root, channel, film: finalPath }).catch(() => null) : null;
+    if (typed) {
+      for (const c of typeItems(typed)) qa.report.checks.push({ id: c.id, severity: "major", passed: c.pass, message: `${c.label}: ${c.value} (${c.target})${c.note ? ` — ${c.note}` : ""}`.slice(0, 600) } as never);
+      if (!typed.pass && qa.report.verdict === "pass") qa.report.verdict = "review";
     }
     // build list 6: the finished film's world against the channel's bands and every earlier film (it then joins that memory)
     const world = await filmWorld({ root: o.root, jobId, film: finalPath, timedPath: path.join(jobDir, "timed-script.json"), durationS: timed.durationS, board }).catch(() => null);

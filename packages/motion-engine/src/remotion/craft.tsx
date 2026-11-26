@@ -277,7 +277,75 @@ export const Parallax: React.FC<{ bg: string; cut?: string; box?: [number, numbe
   </AbsoluteFill>;
 };
 
+// ---- from Wirecard v7 (2026-11-26, footage first): the quiet devices the channel uses between its big words
+
+/** A place or name line, the documentary way: a thin rule drawing out, mono caps beside it, an optional second line.
+ *  Not a box or a label: it sits on the footage. Your font and colours. */
+export const PlaceLine: React.FC<{ text: string; sub?: string; at: number; x?: number; y?: number; until?: number; font: string; color: string; subColor?: string; rule: string; size?: number }> = (p) => {
+  const t = useCurrentFrame() / useVideoConfig().fps;
+  const k = interpolate(t, [p.at, p.at + 0.5], [0, 1], { ...clamp, easing: EASE_OUT });
+  const g = p.until !== undefined ? interpolate(t, [p.until - 0.25, p.until], [1, 0], clamp) : 1;
+  if (k <= 0) return null;
+  const z = p.size ?? 52;
+  return <div style={{ position: "absolute", left: `${(p.x ?? 0.06) * 100}%`, top: `${(p.y ?? 0.8) * 100}%`, opacity: g }}>
+    <div style={{ width: k * z * 5, height: Math.max(3, z / 10), background: p.rule, marginBottom: z * 0.27 }} />
+    <div style={{ fontFamily: p.font, fontWeight: 600, fontSize: z, letterSpacing: "0.18em", color: p.color, opacity: k, textShadow: "0 2px 18px rgba(0,0,0,.95)" }}>{p.text}</div>
+    {p.sub ? <div style={{ fontFamily: p.font, fontWeight: 500, fontSize: z * 0.58, letterSpacing: "0.26em", color: p.subColor ?? p.color, opacity: k, marginTop: z * 0.15, textShadow: "0 2px 14px rgba(0,0,0,.95)" }}>{p.sub}</div> : null}
+  </div>;
+};
+
+/** A lit information board in a dark room (stock index, departures, scoreboard): glowing rows on a dot-pitch screen,
+ *  seen at an angle; one row changes on cue (flickers, then shows its new text in its new colour). Your font and colours. */
+export const LedBoard: React.FC<{ rows: Array<{ name: string; value?: string; to?: string; toColor?: string }>; swapAt?: number; font: string; color: string; up?: string; down?: string; size?: number; columns?: number; tilt?: number }> = (p) => {
+  const t = useCurrentFrame() / useVideoConfig().fps;
+  const sw = p.swapAt !== undefined ? interpolate(t, [p.swapAt, p.swapAt + 0.35], [0, 1], clamp) : 0;
+  const flick = sw > 0 && sw < 1 ? (Math.floor(t * 30) % 2 ? 0.2 : 1) : 1;
+  return <AbsoluteFill style={{ background: "#04060a" }}>
+    <AbsoluteFill style={{ transform: `perspective(1600px) rotateY(${p.tilt ?? -14}deg)`, transformOrigin: "30% 40%" }}>
+      <div style={{ position: "absolute", left: "8%", top: "6%", width: "84%", height: "90%", background: "#0a0c10", border: "6px solid #15181f", padding: "28px 40px", columnCount: p.columns ?? 2, columnGap: 80 }}>
+        {p.rows.map((r, i) => {
+          const swapped = r.to !== undefined && sw >= 0.5;
+          const c = swapped ? r.toColor ?? p.color : p.color;
+          const v = r.value ?? "";
+          const vc = v.trim().startsWith("-") ? p.down ?? "#ff5a4a" : p.up ?? "#7dff8c";
+          return <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: p.font, fontWeight: 900, fontSize: p.size ?? 40, letterSpacing: "0.04em", color: c, textShadow: `0 0 12px ${c}, 0 0 30px ${c}`, opacity: r.to !== undefined ? flick : 0.92, padding: "4px 0" }}>
+            <span>{swapped ? r.to : r.name}</span>{v ? <span style={{ color: vc, textShadow: "0 0 10px currentColor" }}>{v}</span> : null}
+          </div>;
+        })}
+      </div>
+      <AbsoluteFill style={{ backgroundImage: "radial-gradient(circle, rgba(0,0,0,0) 0 1.6px, rgba(0,0,0,.55) 2.2px)", backgroundSize: "6px 6px" }} />
+    </AbsoluteFill>
+    <AbsoluteFill style={{ background: "radial-gradient(ellipse at 40% 45%, rgba(0,0,0,0) 40%, rgba(0,0,0,.75) 100%)" }} />
+  </AbsoluteFill>;
+};
+
+/** A real photo printed and pinned into a scene (an evidence board, a wall), dropping in on cue, with a thread drawn
+ *  to it. Put it over footage of the place it is pinned in. */
+export const PinnedPrint: React.FC<{ src: string; at: number; right?: number; top?: number; w?: number; pin: string; thread?: { from: [number, number] }; filter?: string }> = (p) => {
+  const { fps, width: W, height: H } = useVideoConfig();
+  const t = useCurrentFrame() / fps;
+  const k = interpolate(t, [p.at, p.at + 0.4], [0, 1], { ...clamp, easing: EASE_OUT });
+  const right = p.right ?? 0.09, top = p.top ?? 0.14, w = p.w ?? 0.26;
+  return <>
+    <div style={{ position: "absolute", right: `${right * 100}%`, top: `${top * 100}%`, width: `${w * 100}%`, aspectRatio: "4 / 5", background: "#ececea", padding: "1.2%", transform: `rotate(${4 - k * 2}deg) translateY(${(1 - k) * -60}px)`, opacity: k, boxShadow: "0 30px 60px rgba(0,0,0,.7)" }}>
+      <div style={{ width: "100%", height: "100%", background: "#c9c9c4", overflow: "hidden" }}><Img src={src(p.src)} style={{ width: "120%", marginLeft: "-10%", filter: p.filter ?? "grayscale(1) contrast(1.3)" }} /></div>
+      <div style={{ position: "absolute", left: "48%", top: -10, width: 22, height: 22, borderRadius: 11, background: p.pin, boxShadow: "0 4px 6px rgba(0,0,0,.6)" }} />
+    </div>
+    {p.thread ? <svg width="100%" height="100%" style={{ position: "absolute", inset: 0 }} viewBox={`0 0 ${W} ${H}`}><path d={`M ${W * (1 - right - w / 2)} ${H * (top - 0.01)} Q ${W * 0.55} ${H * 0.24} ${W * p.thread.from[0]} ${H * p.thread.from[1]}`} stroke={p.pin} strokeWidth="4" fill="none" strokeDasharray={`${k * W} ${W * 2}`} /></svg> : null}
+  </>;
+};
+
+/** A beam of light sweeping across a print or a document on a dark wall (a torch, a passing car) — a still made to
+ *  play. Lay it over the print's box. */
+export const LightSweep: React.FC<{ from?: number; to?: number; len: number; dark?: number; light?: number }> = ({ from = -40, to = 140, len, dark = 0.55, light = 0.18 }) => {
+  const t = useCurrentFrame() / useVideoConfig().fps;
+  const x = interpolate(t, [0, len], [from, to], clamp);
+  return <AbsoluteFill style={{ background: `linear-gradient(105deg, rgba(0,0,0,${dark}) ${x - 30}%, rgba(255,255,255,${light}) ${x}%, rgba(0,0,0,${dark}) ${x + 30}%)` }} />;
+};
+
+export { DepthPlate } from "./depth";
 export const CRAFT_TOOLS: Record<string, string> = {
+  DepthPlate: "a real still made into a 3D surface from its own depth map (tools/depth/depth.py) and filmed by a real camera: dolly, drift and orbit with true parallax and occlusion — the channel's layered photo move",
   CameraPath: "a camera move through keyframes (scale, x, y, rotation at times), eased; wraps anything; depth scales how far a layer travels",
   Parallax: "a real still made to move like a filmed shot: its background softened and its subject cut out where it stood (box from the cut-out tool), each plane on the same camera path at its own depth",
   Slab3D: "spoken words as thick carved 3D type that flies in from depth and turns (inside perspective); colours and font are yours",
@@ -299,5 +367,9 @@ export const CRAFT_TOOLS: Record<string, string> = {
   FlashCut: "a light flash carrying one picture into the next (in at the start, out at the end, short flashes inside the shot)",
   LightWash: "the frame's own light: a soft-light wash in your colour, a hot centre, edges burned down",
   LightLayer: "sparks, embers or dust filmed on black, screened over the picture",
+  PlaceLine: "a place or a name as the documentary marks it: a thin rule drawing out and mono caps beside it, on the footage (never a box or a label); a second smaller line under it",
+  LedBoard: "a lit information board in a dark room (a stock index, departures, a scoreboard) at an angle, glowing rows on a dot-pitch screen; one row flickers and changes on cue (a company replacing another)",
+  PinnedPrint: "a real photo of a person printed and pinned into footage of a place (an evidence board, a wall) on cue, with a thread drawn to it — who is being looked at",
+  LightSweep: "a beam sweeping across a print or document on a dark wall, so a still plays",
   ZoomThrough: "wrap a built shot: it arrives out of a blurred enlarged frame and leaves into one — a picture change by moving, not a cut",
 };

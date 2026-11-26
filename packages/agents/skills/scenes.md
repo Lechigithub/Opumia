@@ -275,3 +275,19 @@ Asked in plain words what the channel's cold-open frames show (SigLIP, 37 films)
 Your world decides HOW the words look: their face, their device, their colour. It never decides their size or weight:
 the channel's key words are big and heavy in every film. Show people performing, archival footage and the film look.
 A building in daylight is a brief establishing shot, not a beat.
+
+## Words in the picture, not on cards (Wirecard v6 → v7, 2026-11-26 — measured, and checked on your previews)
+v6 put words on torn paper labels on line after line, all at one size, and the owner called it a template. Measured by
+OCR against the channel's 37 films (tools/world/type_check.py; `measure_film` now runs it on your own previews):
+- **boxed_words**: words on small flat boxes or labels — the channel ≤ 14 % of its text frames (median 2 %); v6 26 %.
+  Set the words into the picture: over footage, behind or beside the subject, tracking in out of a blur. A box is for a
+  name or a source, once in a while.
+- **one_type_size**: the spread of type sizes — the channel ≥ 0.56 (median 0.74); v6 0.46. Key figures and turns huge
+  (the size of the frame), names and places small (a quiet mono line beside a thin rule: craft `PlaceLine`).
+- **type_case**: the channel sets most key words in capitals (≥ 20 % of lines, median 64 %); v6 9 %.
+- **words_everywhere** (preflight and QA on moving frames): words on ≤ 74 % of frames (median 60 %); even v7 had 83 %.
+  Let footage play clean.
+- Grade the picture, never the words: words sit above the film's grade so they keep their colour.
+- The designed scenes that worked in v7, now craft tools: `LedBoard` (a lit board, one row changing), `PinnedPrint`
+  (a real photo pinned into footage of a place, a thread drawn to it), `LightSweep` (a beam across a print), with
+  `BuildWords`, `GradedPlate`, `ZoomThrough`, `FlashCut`, `Whip` for the words and the moves.

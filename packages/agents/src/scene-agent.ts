@@ -55,6 +55,8 @@ export interface SceneAgentOptions {
   play?: (plan: ScenePlan, shotId: string) => Promise<string | null>;
   /** Step 4: trained taste of rendered frames (0–10, the same heads as the film score), and the channel's real band. */
   taste?: { score: (files: string[]) => Promise<Array<number | null>>; realP10: number; realMedian: number };
+  /** How the frames set their words against the channel (tools/world/type_check.py on the preview frames): boxed labels, one type size, no capitals. */
+  typeCheck?: (frames: string[]) => Promise<{ verdict: Record<string, { value: number; limit: number; side: "max" | "min"; median: number; pass: boolean }> } | null>;
   /** Build list 3, item 20: likeness of frames to our earlier films (max cosine) and the limit above which a frame looks like one. */
   likeness?: { near: (files: string[]) => Promise<number[]>; limit: number };
   /** This film's own kit (design/film/meta.json): every word on screen and the stage come from it (build list 3, L3). */
@@ -206,6 +208,12 @@ export async function designScenesAgent(o: SceneAgentOptions): Promise<ScenePlan
     // Readability: text that cannot be read at a glance (labelled on the rendered frame, like everything else).
     const hard = ids.filter((id, k) => labels[k] && labels[k]!.words > 0 && !labels[k]!.readable);
     if (hard.length) issues.push({ kind: "hard_to_read", detail: `text is hard to read at a glance in ${hard.join(", ")} (too small, low contrast against what is behind it, across a busy area, cut off, or overlapping). Make it larger, move it to a calm part of the frame, or dim the footage under it — then look again.` });
+    // Type (Wirecard v6 → v7): the words set the way the channel sets them, measured on the rendered frames by OCR.
+    if (o.typeCheck && ids.length >= 6) {
+      const tr = await o.typeCheck(ids.map((id) => frames.get(id)!.mid)).catch(() => null);
+      const tell: Record<string, string> = { smallBoxed: "boxed_words", sizeSpread: "one_type_size", caps: "type_case" };
+      for (const [k, v] of Object.entries(tr?.verdict ?? {})) if (tell[k] && !v.pass) issues.push({ kind: tell[k]!, detail: k === "smallBoxed" ? `words sit on small flat boxes or labels on ${Math.round(v.value * 100)} % of the frames that carry words (the channel: at most ${Math.round(v.limit * 100)} %, typically ${Math.round(v.median * 100)} %) — set the words into the picture (over footage, behind or beside the subject), keep a box for a name or a source once in a while` : k === "sizeSpread" ? `the words are nearly all one size (spread ${v.value}, the channel at least ${v.limit}) — key figures and turns huge, names and places small` : `few words in capitals (${Math.round(v.value * 100)} %, the channel at least ${Math.round(v.limit * 100)} %) — set key words in capitals` });
+    }
     // Colour: footage tinted so heavily that the frame reads as one colour.
     const washed: string[] = [];
     for (const sc of plan.scenes) {
