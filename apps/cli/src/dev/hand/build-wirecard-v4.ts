@@ -11,7 +11,7 @@ import path from "node:path";
 import { FilmDesignSystem, LibraryIndex, ResolutionReport, ScenePlan, Storyboard, TimedScript, type ResolvedMedia, type SceneSpec } from "@opumia/contracts";
 import { buildManifest, renderShotPreviews, renderStretches, renderVideo, masterAudio, muxFinal } from "@opumia/motion-engine";
 import { resolveAudio } from "@opumia/resolver";
-import { levelBeds } from "@opumia/agents";
+import { BED_GAP, levelBeds } from "@opumia/agents";
 
 const root = process.cwd();
 const job = path.join(root, "out", "hand-wirecard-v4");
@@ -183,7 +183,7 @@ const index = LibraryIndex.parse(JSON.parse(await readFile(path.join(root, "data
 const turn = +(at("w04", 0) - 0.3).toFixed(2);
 const fall = +(at("w08", 0) - 0.25).toFixed(2); // v3: the third bed on "Within a week" (the fall)
 const lv = await levelBeds({ music: [{ assetId: "39077750b3a7cb24", startS: 0, endS: turn + 0.6, gainDb: 0 }, { assetId: "83a05b4dfa79db82", startS: turn, endS: fall + 0.4, gainDb: 0, duckDb: -9 }, { assetId: "02a60366aa8488ef", startS: fall, endS: dur, gainDb: 0, duckDb: -9 }], /* v3: "discovery" ("emergent" cost the mix 0.80 → 0.70) */ fileOf: (id) => { const a = index.assets.find((x) => x.id === id); return a ? path.join(root, "Library", a.relPath) : null; }, titleCardEndS: turn + 1, cacheDir: path.join(root, "data", ".cache") });
-for (const k of [1, 2]) if (lv.music[k]) lv.music[k]!.gainDb += 4.5; // the later beds is still the cold open (≈ 10.5 dB under the voice, not the body's 15)
+for (const k of [1, 2]) if (lv.music[k]) lv.music[k]!.gainDb += BED_GAP.body - BED_GAP.coldOpen; // the whole film is a cold open: the later beds at the cold-open level too
 console.log("beds:", lv.notes.join(" | "));
 let board = Storyboard.parse({ schemaVersion: 1, id: "sb_hand_wirecard_v4", scriptId: timed.id, styleProfileId: "magnates-media", aspect: "16:9", durationS: dur, shots, music: lv.music.map((m, k) => ({ ...m, mood: k === 0 ? "rise" : k === 1 ? "tension" : "collapse", drops: k === 1 ? [{ startS: +(at("w07", 0) - 0.15).toFixed(2), endS: +(at("w07", 5) - 0.02).toFixed(2) }] : [] })), generatedAt: new Date().toISOString() });
 let resolution = ResolutionReport.parse({ schemaVersion: 1, storyboardId: board.id, media, unresolved: [], stats: { library: 0, stock: media.filter((m) => m.origin === "stock").length, archival: media.filter((m) => m.origin === "archival").length, designed: shots.length }, generatedAt: new Date().toISOString() });

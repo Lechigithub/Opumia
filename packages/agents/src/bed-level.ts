@@ -1,7 +1,7 @@
 /**
- * Music beds at the channel's level under the voice (hand film v34, 2026-11-25). Measured on the channel's own stems
- * (Reference sound.json, demucs): in a cold open the bed sits ≈ 9.5 dB under the voice and never drops out; over a whole
- * film ≈ 14–17 dB under it. Our films sat ≈ 20 dB under, a thin pad that vanished between lines.
+ * Music beds at the channel's level under the voice. Measured on all 37 of the channel's films (Reference sound.json,
+ * demucs): in a cold open the bed sits ≈ 15.8 dB under the voice (p10 8.9, p90 21.7); over a whole film ≈ 19.1 dB
+ * (build list 6; an earlier 9.5 dB came from Ponzi alone). Our films sat ≈ 20 dB under, a thin pad that vanished between lines.
  *
  * Each cue's gain is set from its bed's own measured loudness over the span it plays (ffmpeg EBU R128 on the file,
  * cached), with a model taken from the hand passes: the bed under speech ≈ its loudness + gain − (|duck| + 3) dB.
@@ -37,7 +37,12 @@ export async function bedLoudness(file: string, inS: number, len: number, cacheD
   return out;
 }
 
-export const BED_GAP = { coldOpen: 10.5, body: 15 } as const;
+// Build list 6 (2026-11-25), measured on all 37 MagnatesMedia films with demucs htdemucs (two stems, the same separation
+// as Reference sound.json; reproduced on Ponzi at r = 0.999): the voice sits over the bed by p10 8.9 / median 15.8 /
+// p90 21.7 dB in the first 70 s, and 14.8 / 19.1 / 24.7 dB over whole films. The old 10.5 / 15 came from Ponzi alone,
+// near the channel's loudest-bed extreme. Hand film Wirecard v4.4, separated the same way: 8.8 dB (too loud).
+export const BED_GAP = { coldOpen: 15.8, body: 19.1 } as const;
+export const BED_GAP_BAND = { coldOpen: [8.9, 21.7], body: [14.8, 24.7] } as const;
 const VOICE_LUFS = -17; // the narrator chain's level while speaking (measured on our mixes)
 
 /** Sets every cue's gain (and the cold open's duck) so its bed sits at the channel's distance under the voice. */

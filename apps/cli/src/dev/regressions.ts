@@ -74,7 +74,7 @@ const cases: Case[] = [
     const kit = checkKitCode(`import { Slab3D } from "@craft";\nimport { FILM } from "@film";\nexport default function X() { return null; }`, new Set(), { composite: true }).length === 0 && checkKitCode(`import { FILM } from "@film";\nexport const FILM2 = 1;`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport default 1;`, new Set(), { composite: true }).length > 0;
     return motionOk && shared && held && kit;
   } },
-  { id: "minute-v34", defect: "hand film v34: a 1.7 s hole of dead air after the first line, no title card, the bed 20 dB under the voice and gone on a third of the speech", run: async () => {
+  { id: "minute-v34", defect: "hand film v34: a 1.7 s hole of dead air after the first line, no title card, the bed gone on a third of the speech (the bed level is now aimed at the channel's 37-film cold-open median, not Ponzi's)", run: async () => {
     const { shapeColdOpen } = await import("@opumia/narration");
     const { levelBeds } = await import("@opumia/agents");
     const { TimedScript } = await import("@opumia/contracts");
@@ -87,7 +87,10 @@ const cases: Case[] = [
     const capped = w(r.script, "l03", 0).startS - w(r.script, "l01", 14).endS <= 0.65;
     const breath = Boolean(r.breath && r.breath.endS - r.breath.startS >= 1.5);
     const lv = await levelBeds({ music: [{ assetId: "x", startS: 0, endS: 15, gainDb: -12 }], fileOf: () => "Library/music/free_incompetech_ascending_the_vale.mp3", titleCardEndS: 15, cacheDir: "data/.cache" });
-    const cold = lv.music[0]!.duckDb === -9 && lv.music[0]!.gainDb > 0;
+    // build list 6: the bed is aimed at the channel's measured cold-open level (37 films, demucs): ≈ 15.8 dB under the
+    // voice (the "20 dB = defect" belief came from Ponzi alone; 20 dB is inside the channel's band 8.9–21.7)
+    const { BED_GAP } = await import("@opumia/agents");
+    const cold = lv.music[0]!.duckDb === -9 && BED_GAP.coldOpen > 13 && BED_GAP.coldOpen < 18 && lv.notes.some((n) => n.includes(`≈ ${BED_GAP.coldOpen} dB under`));
     return capped && breath && cold;
   } },
   { id: "kit-safety", defect: "a film kit may not reach the network or the file system", run: async () => checkKitCode(`import fs from "fs";\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`import React from "react";\nexport const FILM = { components: {} };`, new Set()).length === 0 },

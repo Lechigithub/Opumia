@@ -170,12 +170,17 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   pluck 10 % / object sounds ≈ 3 %, so a film's sound world is its own beds and cue shape, not object noises; beds
   already on cooldown; written into the sound skill) from its story (beds on cooldown; effects chosen for the story's objects
   where the channel does that — measure first, `HIT_CLASS` rule re-checked on the reference).
-- ◐ G2 **Mix** (2026-11-25: two measures disagree. The channel's stems (demucs) put the bed 15.8 dB under the voice in
-  its first 70 s (p10 8.9, p90 21.7; whole films 19.1), not the 9.5 dB taken from Ponzi. v4's clean stems read 7.8 dB.
-  But the ears head scores a lower bed WORSE: 0.79 → 0.72 at −4 dB, 0.64 at −8 dB, possibly learned from our old
-  thin beds. A fair test separates our finished mix with the same demucs (not installed; needs the owner's OK to
-  download). Speech-over-pause measuring fails on ours: 3 pauses ≥ 0.3 s in 65 s. Earlier: Wirecard v4.3: 0.79; a sound event early in the cold open was worth +0.04; the rest is still unknown, measure on stems): ours 0.79 against real films' 0.844 on the ears measure; find which part of the mix (bed spectrum,
-  voice chain, hits, room tone) carries the gap, measured on stems.
+- ☑ G2 **Mix level** (settled 2026-11-25 with demucs, installed with the owner's OK into the SigLIP environment,
+  torch untouched; reproduces the channel's stored stems at r = 0.999).
+  - **Our mixes, separated the same way:** Wirecard v4.4 8.8 dB voice over bed, too loud, under the channel's p10
+    8.9; median 15.8.
+  - **Platform:** `BED_GAP` 10.5/15 (Ponzi) → 15.8/19.1 (37-film medians), `bed_gap` gate on the band; v4.5 reads
+    14.5 dB.
+  - **The ears mix head** scored louder beds higher (0.79 → 0.64 at −8 dB). It most likely rewards masking our
+    synthetic narrator, since the channel's own stretches score 0.84 with quieter beds.
+  - **Open:** retrain the mix head with voice-matched pairs (G3).
+- ☐ G3 **Retrain the ears mix head** so it judges the mix, not how well the bed hides our voice: pairs with the same
+  narrator, beds at measured levels.
 - ☐ G3 **Bed choice measured:** a bed that lowers the mix score is refused (Wirecard: "emergent" 0.70 vs "discovery"
   0.79).
 

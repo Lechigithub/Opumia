@@ -68,9 +68,10 @@ Fix what it names in your own part of the film. Pass on what belongs to another 
 This was measured on the channel's own stems and confirmed by building a minute by hand beside Ponzi.
 
 - **In a cold open the music never stops.** It is a full bed with a steady low end, from before the first word to the
-  title card, sitting about 9.5 dB under the voice. The voice runs almost without a break (speech on 97 % of the cold
-  open).
-- **Over the rest of a film** the bed sits about 14–17 dB under the voice and still never drops out while he speaks.
+  title card, sitting about 15.8 dB under the voice (median of all 37 films, demucs-separated; band 8.9–21.7 — the
+  earlier "9.5 dB" was Ponzi alone). The voice runs almost without a break (speech on 97 % of the cold open).
+- **Over the rest of a film** the bed sits about 19.1 dB under the voice (band 14.8–24.7) and still never drops out
+  while he speaks.
   The only silences are deliberate drop-outs before a reveal.
 - **Choose steady beds.** A bed whose loudness swings more than about 8 dB over its span falls away between lines.
   The first bed of a film especially should hold steady.
@@ -93,7 +94,9 @@ the bed falls away) and for `dead_air` (voice and music both near silent for 0.6
   printer or till noises on every beat. Use an object sound once, where the story's object is the point.
 - **Beds are on cooldown across films** (`data/asset-usage.json`): a second production of the same script gets its
   own music.
-- **The bed under the voice is not settled.** The channel's own stems (demucs) put it 8.9–21.7 dB under the voice in
-  its first 70 s (median 15.8). Our ears measure prefers it louder (≈ 8 dB under). Those disagree until our mixes are
-  separated by the same model. Until then keep the leveller's setting and do not push the bed down on one measure
-  alone.
+- **The bed under the voice, settled (2026-11-25).** Our finished mixes separated by the same demucs as the channel's
+  (reproduces its stored stems at r = 0.999; `dev/hand/stem-gap.py`): Wirecard v4.4 sat 8.8 dB under, louder than
+  ≈ 90 % of the channel's films; at the channel's median it reads 14.5. The ears mix measure scored the louder bed
+  higher. It most likely rewards a bed that hides our synthetic narrator, not a good mix: the channel's own stretches
+  score 0.84 with their quieter beds. Follow the channel's measured level; the ears head needs retraining with
+  voice-matched pairs.

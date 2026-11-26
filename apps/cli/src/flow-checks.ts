@@ -7,7 +7,7 @@
  *  - after the render, on the whole film (QA): the same motion and word-hold measures.
  */
 import path from "node:path";
-import { BED_GAP, measureBedGap, ensureFlowBand, flowIssues, flowText, measureMotion, measureTextHold, producedJobs, templateShare, TEMPLATE_LIMITS, type FlowBand, type MotionMeasure, type TextHoldMeasure } from "@opumia/agents";
+import { BED_GAP, BED_GAP_BAND, measureBedGap, ensureFlowBand, flowIssues, flowText, measureMotion, measureTextHold, producedJobs, templateShare, TEMPLATE_LIMITS, type FlowBand, type MotionMeasure, type TextHoldMeasure } from "@opumia/agents";
 import type { ResolutionReport, ScenePlan, Storyboard } from "@opumia/contracts";
 import type { PreflightCheck } from "./preflight.js";
 
@@ -52,7 +52,7 @@ export async function bedChecks(o: { stems: { voice: string; bed: string }; cold
   const shotsAt = (t: number) => o.board.shots.filter((s) => s.startS <= t && s.endS > t).map((s) => s.id);
   const dead = [...cold.deadAir, ...(body?.deadAir ?? [])];
   const out: PreflightCheck[] = [
-    { id: "bed_gap", label: "Music bed under the voice (cold open; body)", value: cold.gapDb, target: `cold open ≈ ${BED_GAP.coldOpen} dB (≤ 13), body ≈ ${BED_GAP.body} dB (≤ 19), falling away under 15 % of speech`, pass: cold.gapDb <= 13 && cold.fallsAway <= 0.15 && (!body || (body.gapDb <= 19 && body.fallsAway <= 0.25)), level: "blocker", repair: "reseed_sound", shots: [], note: `cold open ${cold.gapDb} dB under (falls away on ${Math.round(cold.fallsAway * 100)} % of speech)${body ? `; body ${body.gapDb} dB (${Math.round(body.fallsAway * 100)} %)` : ""} — raise the bed or choose a steadier one; the channel's bed never drops out while the narrator speaks` },
+    { id: "bed_gap", label: "Music bed under the voice (cold open; body)", value: cold.gapDb, target: `cold open ≈ ${BED_GAP.coldOpen} dB (${BED_GAP_BAND.coldOpen.join("–")}), body ≈ ${BED_GAP.body} dB (${BED_GAP_BAND.body.join("–")}), falling away under 15 % of speech`, pass: cold.gapDb >= BED_GAP_BAND.coldOpen[0] && cold.gapDb <= BED_GAP_BAND.coldOpen[1] && cold.fallsAway <= 0.15 && (!body || (body.gapDb >= BED_GAP_BAND.body[0] && body.gapDb <= BED_GAP_BAND.body[1] && body.fallsAway <= 0.25)), level: "blocker", repair: "reseed_sound", shots: [], note: `cold open ${cold.gapDb} dB under (falls away on ${Math.round(cold.fallsAway * 100)} % of speech)${body ? `; body ${body.gapDb} dB (${Math.round(body.fallsAway * 100)} %)` : ""} — set the bed inside the channel's band (37 films, demucs-separated) or choose a steadier one; the channel's bed never drops out while the narrator speaks` },
     { id: "dead_air", label: "Dead air (voice and music both near silent ≥ 0.6 s)", value: dead.length, target: "0 (except a deliberate drop-out before a reveal)", pass: dead.length <= 1, level: "blocker", repair: "reseed_sound", shots: [...new Set(dead.flatMap((d) => shotsAt(d.atS)))].slice(0, 6), ...(dead.length ? { note: dead.map((d) => `${d.atS} s for ${d.s} s`).join(", ") } : {}) },
   ];
   return out;
