@@ -197,6 +197,12 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   too_still: FLOW,
   words_rushed: FLOW,
   template_share: TEMPLATE,
+  // build list 6: the world check (pictures that show the line; a world too close to an earlier film of ours)
+  line_fit: FIT,
+  clean_footage: SCENE,
+  paper_and_cards: SCENE,
+  text_share: SCENE,
+  world_too_close: TEMPLATE,
   scene_defects: SCENE,
   unreadable_text: SCENE,
   film_taste: SCENE,

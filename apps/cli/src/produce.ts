@@ -14,7 +14,7 @@ import { cooldownRefs, eraOfFacts, recordUsage } from "./asset-usage.js";
 import { buildPublishingPackage } from "./publish.js";
 import { inspectStretch } from "./inspect.js";
 import { googleFonts, makeLikeness, runFilmDesigner } from "./film-kit.js";
-import { bedChecks, filmFlow, flowChecks, templateShareCheck } from "./flow-checks.js";
+import { bedChecks, filmFlow, filmWorld, flowChecks, paperChecks, templateShareCheck, worldChecks } from "./flow-checks.js";
 import { compareWithReference } from "./compare-ref.js";
 import { ensurePlucks, trackPoint, run, PausedError, setPauseHooks } from "@opumia/senses";
 import { loadExemplars } from "./exemplars.js";
@@ -1025,6 +1025,9 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         if (pt?.clips.length) tells.push(...(await mixTasteCheck({ root: o.root, data: o.data, channel, clips: pt.clips }).catch(() => [])));
         // the hand film's measures on the preview stretches: moving not cutting, never still, words held until read
         if (pt?.clips.length) tells.push(...(await flowChecks({ root: o.root, data: o.data, channel, board, clips: pt.clips, log }).catch((e: Error) => (log(`  ! flow checks failed: ${e.message.slice(0, 120)}`), []))));
+        // build list 6: do the pictures show what each line says (words blurred out), and is the film's world too close
+        // to an earlier film of ours (word look, pictures)? Local SigLIP + OCR, no API.
+        if (pt?.clips.length) tells.push(...(await worldChecks({ root: o.root, jobId, board, timedPath: path.join(jobDir, "timed-script.json"), clips: pt.clips, log }).catch((e: Error) => (log(`  ! world checks failed: ${e.message.slice(0, 120)}`), []))));
         // craft inventory: the channel's staples (in ≥ 40 % of its stretches) that a tool can make and none of the
         // preview stretches shows — each to its owner, before any frame is rendered
         if (pt?.clips.length) {
@@ -1046,6 +1049,7 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
         ...tells,
         ...(await (async () => { const st = await premixStems(manifest, path.join(jobDir, "watch", "preflight-stems")); return bedChecks({ stems: st, coldOpenEndS: timed.titleCard?.endS ?? Math.min(45, timed.durationS), durationS: timed.durationS, board }); })().catch((e: Error) => (log(`  ! bed checks failed: ${e.message.slice(0, 120)}`), []))),
         ...(await templateShareCheck({ root: o.root, data: o.data, jobId, board, scenes: scenePlan, resolution }).catch((e: Error) => (log(`  ! template share failed: ${e.message.slice(0, 120)}`), []))),
+        ...(await paperChecks({ data: o.data, channel, scenes: scenePlan }).catch((e: Error) => (log(`  ! paper checks failed: ${e.message.slice(0, 120)}`), []))),
         ...(await techniqueUseChecks({ data: o.data, channel, prevDir, board, scenes: scenePlan, timed }).catch((e: Error) => (log(`  ! technique checks failed: ${e.message.slice(0, 120)}`), []))),
       ];
       checks = await preflightChecks({ ...tasteIn, editBand, extra, era: eraG ? { min: eraG.min, max: eraG.max } : null, cutBand: { lo: (pack.profile.pacing.cutsPerMin?.p25 ?? 12) * 0.85, hi: (pack.profile.pacing.cutsPerMin?.p75 ?? 21) * 1.15 }, people: (facts.story?.characters ?? []).map((c) => c.name), jobDir, board, scenes: scenePlan, resolution, manifest, timed, exemplars: ex, ...((await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))?.wpm ? { naturalWpm: (await storedVoiceMeasure(o.data, timed.voice.voiceId, timed.voice.modelId))!.wpm } : {}), sceneDefects: defects, hueRef, previewFrames: scenePlan.scenes.map((x) => path.join(prevDir, `${x.shotId}_1.jpg`)).filter((f) => existsSync(f)), recent, quality: qualityBand });
@@ -1156,6 +1160,12 @@ async function produceStages(o: ProduceOptions): Promise<{ jobDir: string; final
     if (flow?.band) {
       qa.report.checks.push({ id: "flow", severity: "major", passed: flow.issues.length === 0, message: `${flow.summary.replace(/\n/g, "; ")}${flow.issues.length ? ` — OUTSIDE the channel's band: ${flow.issues.map((x) => x.detail).join(" | ").slice(0, 400)}` : ""}`, measured: flow.motion?.softShare ?? 0, atFrames: (flow.text?.rushed ?? []).map((x) => Math.round(x.atS * manifest.fps)) });
       if (flow.issues.length && qa.report.verdict === "pass") qa.report.verdict = "review";
+    }
+    // build list 6: the finished film's world against the channel's bands and every earlier film (it then joins that memory)
+    const world = await filmWorld({ root: o.root, jobId, film: finalPath, timedPath: path.join(jobDir, "timed-script.json"), durationS: timed.durationS, board }).catch(() => null);
+    if (world) {
+      for (const c of world.checks) qa.report.checks.push({ id: c.id, severity: "major", passed: c.pass, message: `${c.label}: ${c.value} (${c.target})${c.note ? ` — ${c.note}` : ""}`.slice(0, 900) } as never);
+      if (world.checks.some((c) => !c.pass) && qa.report.verdict === "pass") qa.report.verdict = "review";
     }
     if (preUnresolved && !preUnresolved.pass) {
       qa.report.checks.push({ id: "preflight_unresolved", severity: "major", passed: false, message: `rendered with ${preUnresolved.blockers.length} preflight check(s) the ladders could not fix: ${preUnresolved.blockers.join(", ")} (see preflight.json, ladders.jsonl)`, measured: preUnresolved.blockers.length, atFrames: [] });

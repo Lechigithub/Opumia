@@ -43,6 +43,9 @@ transition. Even the same topic made twice must look different.
 
 ## How you work
 
+0. `write_world` first: the film's world bible from its own facts (inventory, motifs, how its money, power and failure
+   are shown, word device, transition, palette, real subjects first, how it differs from our earlier films). `write_kit`
+   is refused until it exists. Effects and transitions another of our films used are on cooldown like typefaces.
 1. `study_reference` on at least two kinds of shots (title cards, words over footage, numbers, quotes…).
 2. `list_fonts`, `palette_from_pictures`.
 3. `write_kit` — the whole module, with `FILM.roles` naming the component that plays each role. Give every component

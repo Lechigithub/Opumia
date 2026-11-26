@@ -55,6 +55,9 @@ const img = async (file: string): Promise<Anthropic.Beta.BetaImageBlockParam> =>
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]! : 0);
 
 /** Returns the storyboard and, per shot id, the candidates the director's probes found. */
+/** The channel's picture mix per film (build list 6; reference index, 37 MagnatesMedia films). */
+export const PICTURE_MIX = { performedMin: 0.32, designedMax: 0.57, photoMax: 0.15 } as const;
+
 export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ storyboard: Storyboard; probes: Map<string, unknown[]> }> {
   const log = o.log ?? (() => {});
   const words = o.script.segments.flatMap((s) => s.words.map((w) => ({ ...w, seg: s.id })));
@@ -90,6 +93,16 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
     const cpm = (valid.length / Math.max(1, o.script.durationS)) * 60;
     if (cpm < cuts.lo || cpm > cuts.hi) issues.push({ kind: "pace", detail: `${valid.length} shots in ${Math.round(o.script.durationS)} s is ${cpm.toFixed(1)} cuts a minute; the channel cuts ${cuts.lo.toFixed(0)}–${cuts.hi.toFixed(0)} (typically ${cuts.mid.toFixed(0)}). ${cpm < cuts.lo ? "Cut more often: split the long shots on their sentence starts and weight words." : "Cut less often."}` });
     const long = valid.map((s, i) => ({ s, d: durs[i]! })).filter((x) => x.d > maxShot);
+    // build list 6 (F1/B3a): the channel's picture mix, per film (reference index, 37 films): people performing the line
+    // and b-roll 32–70 % (median 49 %), designed 18–57 %, real stills ≈ 1 % and brief (its stills live inside designed
+    // scenes or move as depth planes). A film of cards and held photos illustrates the script instead of showing the story.
+    {
+      const share = (k: string[]) => valid.filter((s) => k.includes(String(s.visual))).length / Math.max(1, valid.length);
+      const performed = share(["reenactment", "broll"]), designedSh = share(["designed"]), photo = share(["photo"]);
+      if (performed < PICTURE_MIX.performedMin) issues.push({ kind: "picture_mix", detail: `${Math.round(performed * 100)} % of the shots are people performing the line or b-roll; the channel: ${Math.round(PICTURE_MIX.performedMin * 100)}–70 % (median 49 %). Show the story: turn held photos and cards into someone doing what the line says, or the place it happens.` });
+      if (designedSh > PICTURE_MIX.designedMax) issues.push({ kind: "picture_mix", detail: `${Math.round(designedSh * 100)} % of the shots are designed; the channel: at most ${Math.round(PICTURE_MIX.designedMax * 100)} %.` });
+      if (photo > PICTURE_MIX.photoMax) issues.push({ kind: "picture_mix", detail: `${Math.round(photo * 100)} % of the shots hold a still photo; the channel shows real stills on ≈ 1 % of its shots, briefly — keep a real subject's photo short, or move it as depth planes (Parallax) inside a designed scene.` });
+    }
     if (long.length) issues.push({ kind: "shot_too_long", detail: `${long.length} shot(s) run over ${maxShot} s (${long.slice(0, 5).map((x) => `word ${x.s.startWord}: ${x.d.toFixed(1)} s`).join(", ")}). The channel never sits that long on one picture: cut inside them.` });
     const tiny = valid.map((s, i) => ({ s, d: durs[i]! })).filter((x) => x.d < 0.8);
     if (tiny.length) issues.push({ kind: "shot_too_short", detail: `${tiny.length} shot(s) are under 0.8 s (${tiny.slice(0, 5).map((x) => `word ${x.s.startWord}`).join(", ")}).` });

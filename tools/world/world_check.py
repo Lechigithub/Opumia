@@ -1,7 +1,10 @@
 """World check (build list 6, B1/B2/B4): one film against the channel's bands and against every earlier film of ours.
 Local only (on-device OCR + the reference index's SigLIP 2), no API.
 
-  ~/lechi_tts/venv/bin/python -I apps/cli/src/dev/world/world_check.py <name> <film.mp4> <timed-script.json> [--len 70]
+  ~/lechi_tts/venv/bin/python -I tools/world/world_check.py <name> <film.mp4> <timed-script.json> [--len 70]
+     [--clips clips.json]   preview stretches instead of the film: [{"file", "fromS", "len"}] (frames at film time)
+     [--no-save]            measure only; a draft never joins the comparison memory
+     [--json]               one JSON line on stdout (for the gates: apps/cli/src/flow-checks.ts:worldChecks)
 
 Measures, per film (cached in data/world-profile/films/<name>.npz so later films compare against it):
   - line fit with on-screen words blurred out: rank of each shot's own spoken line among the film's lines;
@@ -20,6 +23,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("name"); ap.add_argument("film"); ap.add_argument("timed")
 ap.add_argument("--len", type=float, default=70); ap.add_argument("--step", type=float, default=1.0)  # 1 s: steady to ±0.005 (2 s moved ±0.04)
 ap.add_argument("--version-of", default="", help="comma list of our film names this is a version of (not compared)")
+ap.add_argument("--clips", default=""); ap.add_argument("--no-save", action="store_true"); ap.add_argument("--json", action="store_true")
 a = ap.parse_args()
 ROOT = os.getcwd(); PY = sys.executable
 OUT = os.path.join(ROOT, "data", "world-profile", "films"); os.makedirs(OUT, exist_ok=True)
@@ -29,11 +33,17 @@ EMBED = os.path.join(ROOT, "tools", "siglip", "embed.py")
 from PIL import Image, ImageFilter
 
 tmp = tempfile.mkdtemp(prefix="world-")
-ts = [a.step * k + a.step / 2 for k in range(int(a.len // a.step))]
+# (film time, source file, time inside the source): the whole film, or the judge's preview stretches
+src = []
+if a.clips:
+    for c in json.load(open(a.clips)):
+        for k in range(int(c["len"] // a.step)): src.append((c["fromS"] + a.step * k + a.step / 2, c["file"], a.step * k + a.step / 2))
+else:
+    src = [(a.step * k + a.step / 2, a.film, a.step * k + a.step / 2) for k in range(int(a.len // a.step))]
 frames = []
-for k, t in enumerate(ts):
+for k, (t, vf, tt) in enumerate(src):
     f = f"{tmp}/f{k}.jpg"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", a.film, "-frames:v", "1", "-vf", "scale=768:-2", "-pix_fmt", "yuvj420p", f])
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{tt:.2f}", "-i", vf, "-frames:v", "1", "-vf", "scale=768:-2", "-pix_fmt", "yuvj420p", f])
     if os.path.exists(f): frames.append((t, f))
 boxes = {}
 r = subprocess.run([OCR, *[f for _, f in frames]], capture_output=True, text=True)
@@ -86,7 +96,7 @@ Sm = P @ T.T
 fit = np.array([(Sm[k] < Sm[k, k]).mean() for k in range(len(P))])
 weak = [{"t": items_mask[ix[k]]["time"], "line": lines[k], "fit": round(float(fit[k]), 2)} for k in np.argsort(fit)[:6]]
 
-np.savez(os.path.join(OUT, f"{a.name}.npz"), full=E_full, crop=E_crop)
+if not a.no_save: np.savez(os.path.join(OUT, f"{a.name}.npz"), full=E_full, crop=E_crop)
 rng = np.random.default_rng(0)
 def nn(A, B, n=20, reps=20):
     if len(A) < 6 or len(B) < 6: return None
@@ -114,6 +124,8 @@ rep = {
     "againstOurFilms": sorted(others, key=lambda o: -max(o["words"] or 0, o["pictures"] or 0)),
     "tooClose": too_close, "pass": bool(fit.mean() >= BANDS["lineFit"]["p10"]) and not too_close,
 }
-json.dump(rep, open(os.path.join(OUT, f"{a.name}.json"), "w"), indent=1)
-print(json.dumps({k: v for k, v in rep.items() if k != "againstOurFilms"}, indent=1))
-print("closest of ours:", rep["againstOurFilms"][:4])
+if not a.no_save: json.dump(rep, open(os.path.join(OUT, f"{a.name}.json"), "w"), indent=1)
+if a.json: print(json.dumps(rep))
+else:
+    print(json.dumps({k: v for k, v in rep.items() if k != "againstOurFilms"}, indent=1))
+    print("closest of ours:", rep["againstOurFilms"][:4])

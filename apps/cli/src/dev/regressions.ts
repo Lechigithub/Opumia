@@ -56,6 +56,8 @@ const cases: Case[] = [
   { id: "bl5-packaging", defect: "Nokia: a topic-sentence title, a wordless thumbnail whose fire says 'exploding phone'", run: async () => script("package-bl5-test.ts", "--offline") },
   { id: "film3-faults", defect: "film 3: the limit reset on resume, no reserve, ladders re-bought a failed art director, a render refused, \"$1,100\" patents, lone-word cards", run: async () => (await film3Test()).length === 0 },
   { id: "ladder-escalates", defect: "build list 3: a failing check must climb its ladder one rung a round, stop when fixed, and be logged", run: async () => (await ladderTest()).length === 0 },
+  { id: "bl6-paper-and-cards", defect: "Wirecard v4 (2026-11-25): receipts, pink sheets or labels on 14 of 22 beats — illustrating the script instead of showing the story (the channel: plain footage 42 %, documents 4 %)", run: async () => script("paper-test.ts") },
+  { id: "bl6-device-cooldown", defect: "Wirecard v3 (2026-11-25): every finished-look effect borrowed from FTX v35 (word glow, flash, light wash, money in depth) — the template the owner saw", run: async () => script("device-test.ts") },
   { id: "hand-transfer", defect: "hand film (2026-11-25): a slideshow — cuts instead of moves, words rushed, a template shared with the earlier film; composites may use @craft and @film but not the network", run: async () => {
     const { measureMotion, templateShare, journeyStops } = await import("@opumia/agents");
     // the frozen v34 film's motion as the Python measure reads it (softShare 0.812, cuts 4.13/min)

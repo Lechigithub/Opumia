@@ -53,7 +53,9 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   from measured token use, and the owner's yes.
 
 ### B. Measures the platform is missing (local, no model)
-- ◑ B1 (gate tool: `apps/cli/src/dev/world/world_check.py`, one frame a second, steady to ±0.005; our 11 films in its memory)
+- ☑ B1 **Gated 2026-11-25:** `flow-checks.ts:worldChecks` in preflight (judge preview stretches, a draft, never
+  stored) and `filmWorld` in QA (the finished film joins the memory); ladders FIT and TEMPLATE; test
+  `dev/world-gate-test.ts`. (gate tool: `tools/world/world_check.py`, one frame a second, steady to ±0.005; our 11 films in its memory)
    **Picture-to-line fit** (measured 2026-11-25, `apps/cli/src/dev/world/`: words blurred out first, because the
   unmasked fit rewards writing the line on screen; channel p10 0.614 / median 0.659; Wirecard v3 0.564 and WeWork 0.509
   below it, FTX v35 0.638 inside; still to wire into the gates) (SigLIP 2 picture + text towers): the rank of a shot's own line among its film's lines;
@@ -71,7 +73,8 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   1. families may be shared at the channel's rate;
   2. the IMPLEMENTATION AND LOOK of each family is never shared. Word looks are measured on SigLIP crops of the
      on-screen words (OCR boxes), with the band taken from the channel's own films.
-- ◑ B3a **Paper and cards at the channel's rate** (applied by hand in Wirecard v4.4; gate still to build) (owner, 2026-11-25: "why … paper, documents, cards a lot … instead of
+- ☑ B3a **Paper and cards at the channel's rate** (gate `flow-checks.ts:paperChecks` in preflight: clean footage ≥ the
+  channel's p10, paper/cards ≤ 1.3× its non-footage share, text ≤ its p90; test `dev/paper-test.ts`) (owner, 2026-11-25: "why … paper, documents, cards a lot … instead of
   showing the story?").
   - **The channel** (visual profile, 276 labelled shots): plain footage 42 % (per film 19–75 %), words over footage
     26 %, documents and screens 4 %, title cards 5 %, quote cards 0.4 %.
@@ -125,10 +128,13 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 - ☐ D2 **Story inventory from research:** the researcher tags every fact with what can be SEEN. That means its people
   (portraits), company (logo, HQ), places, documents (filings, letters, articles), objects (terminals, ledgers) and
   numbers. This is the world's raw material.
-- ☐ D3 **World bible per film** (`design/film/WORLD.md`): what this story is made of, its motifs, how its money, power
+- ☑ D3 **World bible per film** (enforced 2026-11-25: the art director's `write_world`; `write_kit` refused until it
+  exists; the brief lists earlier films' concepts to stay unlike) (`design/film/WORLD.md`): what this story is made of, its motifs, how its money, power
   and failure are shown, its word treatment, its transitions. Checked against every earlier film (B2/B4) before any
   scene is designed.
-- ☐ D4 **Devices written per film** from the blocks. Every device is new to the film. A device another film used is on
+- ☑ D4 **Devices written per film** (enforced 2026-11-25: `write_kit` refuses an earlier film's transition and a kit
+  borrowing > 44 % of its effects from one earlier film; plain blocks free; `film-kits.json` records each kit's effects;
+  test `dev/device-test.ts`) from the blocks. Every device is new to the film. A device another film used is on
   cooldown like pictures and sounds.
 
 ### E. Pictures that show what is said

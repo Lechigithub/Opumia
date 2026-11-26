@@ -67,3 +67,12 @@ Give every moment its own picture, and never one stock shot for five moments.
 - **The cold open ends on the title card.** For a film long enough for chapters, the narration gets a 2 s breath after
   the hook, and the kit's chapter role draws the title there (`TimedScript.titleCard`). Plan no important picture
   under it.
+
+
+## The picture mix (measured on 37 films, build list 6)
+
+Half the channel's shots are people performing the line (staged reenactment, 32 %) and b-roll (19 %); designed scenes
+are about a third; real footage of the subject 5 %; real still photos about 1 %, held under half a second. Real subjects
+appear briefly or inside designed scenes, and a still that must stay up moves as depth planes. `measure_plan` holds your
+plan to this mix (performed + b-roll at least 32 %, designed at most 57 %, held photos at most 15 %). Show the story;
+don't turn each line's fact into a card.

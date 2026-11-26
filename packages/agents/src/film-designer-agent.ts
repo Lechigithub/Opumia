@@ -101,6 +101,15 @@ export function checkKitCode(code: string, fonts: Set<string>, o: { composite?: 
   return issues;
 }
 
+/** The finished-look effects a kit imports from the shared craft library (build list 6). Plain building blocks —
+ *  camera paths, depth planes, easing, randomness — carry no look and are free to share. */
+export const PLAIN_BLOCKS = new Set(["CameraPath", "Parallax", "camAt", "rnd", "clamp", "EASE", "EASE_OUT", "EASE_IN", "EASE_IN_OUT", "ramp", "shake", "shardsOf", "CRAFT_TOOLS"]);
+export const DEVICE_SHARE_MAX = 0.44; // the channel's p90 of technique families shared by two of its films: at most this share of a kit's own effects may come from one earlier film
+export function kitDevices(code: string): string[] {
+  const names = [...code.matchAll(/import\s*\{([^}]*)\}\s*from\s*["']@craft["']/g)].flatMap((m) => m[1]!.split(",").map((x) => x.trim().split(/\s+as\s+/)[0]!.trim()).filter(Boolean));
+  return [...new Set(names.filter((n) => !PLAIN_BLOCKS.has(n)))].sort();
+}
+
 export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDesignerReport> {
   const log = o.log ?? (() => {});
   const fontSet = new Set(o.fonts);
@@ -108,7 +117,12 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const made = await producedJobs(o.data);
   const earlier = await readFile(path.join(o.data, "film-kits.json"), "utf8").then((t) => (JSON.parse(t) as Array<{ job: string; fonts: string[]; palette: string[]; tokens?: { primary: string; accent: string; surface: string }; concept: string; transition: string }>).filter((k) => made.has(k.job) && k.job !== o.job), () => []);
   const usedFonts = new Set(earlier.flatMap((k) => k.fonts));
+  // build list 6 (B2/B4): effects and transitions are on cooldown like typefaces — a film's world never borrows another's
+  const earlierDevices = earlier.map((k) => ({ job: k.job, devices: new Set(((k as { devices?: string[] }).devices ?? []).map((d) => d.toLowerCase())), transition: String(k.transition ?? "").toLowerCase() }));
   let code: string | null = existsSync(kitFile) && !o.change?.fresh ? await readFile(kitFile, "utf8") : null;
+  // build list 6 (D3): the world bible comes first — the kit is refused until the film's world is written
+  const worldFile = path.join(o.kitDir, "WORLD.md");
+  let world: string | null = existsSync(worldFile) ? await readFile(worldFile, "utf8") : null;
   let studied = 0, renders = 0, transitionSeen = false, lastRenderOk = false, accepted: string | null = null, noteSaved = false;
   // a change to an accepted kit starts from it: studied, transition seen, tokens set — the change still has to be
   // rendered, looked at and submitted again
@@ -159,11 +173,35 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
       run: (async () => (await o.palette()).join(", ")) as AgentTool["run"],
     },
     {
+      name: "write_world",
+      description: "Write the film's world bible BEFORE the kit (the channel dresses every film in its subject's own visual language and era: Red Bull looks like Red Bull's events, Silk Road like a darknet terminal, DeLorean like 1970s Kodak film). Read it off THIS story's facts: the things it is made of, its motifs, how its money, power and failure are shown, how its words arrive, how one picture becomes the next, its palette, and the real subjects to show first.",
+      schema: z.object({
+        inventory: z.string().min(80).describe("the people, companies, places, documents, objects and materials THIS story owns, from the facts"),
+        oneLine: z.string().min(20).describe("the world in one sentence"),
+        motifs: z.string().min(40),
+        moneyPowerFailure: z.string().min(40).describe("how this story's money, power and failure are shown — never borrowed from another film (no generic money rain)"),
+        wordDevice: z.string().min(30).describe("how words arrive on screen in this world (one device, used at the channel's rate, not on every shot)"),
+        transition: z.string().min(20),
+        palette: z.string().min(20),
+        realSubjectsFirst: z.string().min(40).describe("which real pictures to show first: portraits, logos, buildings, documents, news"),
+        unlikeEarlier: z.string().min(30).describe("how this world differs from our earlier films' worlds (listed in your brief)"),
+      }),
+      run: (async (i: Record<string, string>) => {
+        const md = `# World bible\n\n${Object.entries(i).map(([k, v]) => `## ${k}\n${v.trim()}`).join("\n\n")}\n`;
+        await mkdir(o.kitDir, { recursive: true });
+        await writeFile(`${worldFile}.tmp`, md);
+        await rename(`${worldFile}.tmp`, worldFile);
+        world = md;
+        return `World written. Earlier films' concepts to stay unlike: ${earlier.map((k) => `${k.job}: ${String(k.concept).slice(0, 90)}`).join(" | ") || "(none)"}. Now write the kit from this world.`;
+      }) as AgentTool["run"],
+    },
+    {
       name: "write_kit",
       description: "Write (or rewrite) the whole kit: one TSX module that `export const FILM = { components: {…}, roles: { headline: \"Name\", phrase: \"Name\", … every role }, transitions: {…}, transition: \"name\", transitionFrames: 8–14, fonts: { display, body }, meta: { Name: { use, props } } }`. roles maps each role (the engine draws chapter cards, stages, charts, maps and documents through it) to one of the components. Components are React function components using useCurrentFrame/spring/interpolate from remotion; each gets its own props plus `slots` (picture slot → staticFile path), `boxW`, `boxH`. Load fonts with `import { loadFont } from \"@remotion/google-fonts/<Font>\"; const { fontFamily } = loadFont();`. The channel's techniques are shared engine tools you may import from \"@craft\" (Slab3D carved 3D type, TwoSided, DepthRain, HeroCutout, rimLight, WrapAround, DoubleExposure, Whip, Flare, Phone, GlassSlab, Cracks, Shatter, shake, rnd, ramp) — give them this film's own colours and type. A transition receives `progress` 0→1 (the cut at 0.5) and draws over the whole frame (AbsoluteFill). Checked for safety before it is written.",
       schema: z.object({ code: z.string() }),
       run: (async (i: { code: string }) => {
         const issues = checkKitCode(i.code, fontSet);
+        if (!world) issues.push("no world bible yet: call write_world first — the kit is built from the film's own world, never from a template");
         const fontsUsed = [...i.code.matchAll(/@remotion\/google-fonts\/([A-Za-z0-9]+)/g)].map((m) => m[1]!);
         const repeat = fontsUsed.filter((f) => usedFonts.has(f));
         // item 19: a font loads only the weights the kit uses (film 2 loaded every weight of every face)
@@ -172,6 +210,14 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         const bare = loads.filter((m) => !/weights\s*:/.test(m[1] ?? ""));
         if (bare.length) issues.push(`${bare.length} loadFont() call(s) load every weight: pass only the weights used, e.g. loadFont("normal", { weights: ["400", "800"], subsets: ["latin"] })`);
         if (repeat.length) issues.push(`typefaces an earlier film used: ${repeat.join(", ")} — this film needs its own`);
+        const dv = kitDevices(i.code);
+        const tr = (/transition\s*:\s*["']([^"']+)/.exec(i.code)?.[1] ?? "").toLowerCase();
+        for (const e of earlierDevices) {
+          if (tr && e.transition && tr === e.transition) issues.push(`the transition "${tr}" is ${e.job}'s — this film's changes of picture come from its own world`);
+          const shared = dv.filter((d) => e.devices.has(d.toLowerCase()));
+          const borrowed = shared.length / Math.max(1, dv.length); // how much of THIS kit comes from that film
+          if (shared.length >= 2 && borrowed > DEVICE_SHARE_MAX) issues.push(`effects borrowed from ${e.job}: ${shared.join(", ")} (${Math.round(borrowed * 100)} % of this kit's; at most ${Math.round(DEVICE_SHARE_MAX * 100)} %, the channel's own films' p90 of shared technique families) — build this film's effects from the plain blocks and its world bible`);
+        }
         if (issues.length) return `NOT WRITTEN:\n${issues.map((x) => `- ${x}`).join("\n")}`;
         // syntax check before the render bundles it
         const ts = await import("typescript");
@@ -262,7 +308,7 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, roles, components, fonts: kitFonts(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null }, null, 1) + "\n");
         await o.onDesign(designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: i.concept, fonts: kitFontStacks(), tokens: tokens! }).design);
         const pal = await o.palette().catch(() => [] as string[]);
-        const rec = { job: o.job, fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", at: new Date().toISOString() };
+        const rec = { job: o.job, devices: kitDevices(code ?? ""), fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", at: new Date().toISOString() };
         const f = path.join(o.data, "film-kits.json");
         const all = await readFile(f, "utf8").then((t) => JSON.parse(t) as unknown[], () => []);
         await writeFile(`${f}.tmp`, JSON.stringify([...all.filter((x) => (x as { job: string }).job !== o.job), rec], null, 1) + "\n");
