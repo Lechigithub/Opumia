@@ -110,9 +110,10 @@ const BEATS: Beat[] = [
   { id: "V12", seg: "w07", k: 0, lead: 0.05, intent: "a man on the phone rubbing his eyes (staged); the terminal's screen: NOTHING to do with Wirecard", slots: { 0: "phone" },
     props: (t, r) => ({ plates: [{ slot: 0, trim: 2, push: [1.1, 1.35], pan: [-0.03, 0.03], grade: GRADE.night }], lowkey: true, tearOut: true,
       lcd: [{ box: [0.5, 0.58, 0.42, 0.22], states: [{ text: "SEARCHING", at: r("w07", 0) }, { text: "NOTHING", at: r("w07", 5), sub: "TO DO WITH WIRECARD" }] }] }) },
-  { id: "V13", seg: "w08", k: 0, lead: 0.05, intent: "handcuffs closing, black and white, nothing on them: the chief executive arrested", slots: {}, footage: { key: "cuffs", push: [1.15, 1.55], pan: [0.42, 0.58], wash: { color: "surface", strength: 0.8, mode: "duotone" } }, props: CLEAN },
+  { id: "V13", seg: "w08", k: 0, lead: 0.05, intent: "handcuffs closing, black and white: the chief executive ARRESTED", slots: { 0: "cuffs" },
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.15, 1.55], pan: [0.03, -0.03], grade: "grayscale(1) contrast(1.45) brightness(0.8)" }], tearOut: true }) },
   { id: "V14", seg: "w08", k: 8, lead: 0.05, intent: "the bull and the bear in Frankfurt, the camera on the bear; the receipt prints the first DAX company ever to go bust", slots: { 0: "bullbear2" },
-    props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.7], pan: [0.12, 0.18], grade: GRADE.cool }], tearOut: true,
+    props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.7], pan: [0.12, 0.18], grade: GRADE.dusk }], lowkey: true, tearOut: true,
       receipts: [{ x: 0.05, w: 0.44, tilt: 2.5, lines: [ln("WIRECARD AG", r("w08", 8), { bold: true, size: 1.2 }), rule(r("w08", 10)), ln("FIRST DAX COMPANY", r("w08", 11)), ln("EVER TO GO BUST", r("w08", 14), { bold: true, size: 1.15 })] }] }) },
   { id: "V15", seg: "w08", k: 18, lead: 0.05, intent: "the real wanted poster of Jan Marsalek (Munich police, via euronews)", slots: { 0: "poster" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.0, 1.18], pan: [0, 0], grade: GRADE.paper, box: [0.34, 0.03, 0.32, 0.94] }], lowkey: false, tearOut: true,
@@ -123,12 +124,23 @@ const BEATS: Beat[] = [
       receipts: [{ x: 0.54, w: 0.38, tilt: -2, lines: [ln("PAID IN", r("w08", 33), { size: 1.3 }), ln("CASH", r("w08", 36), { bold: true, size: 2.2 })] }] }) },
   { id: "V18", seg: "w09", k: 0, lead: 0.05, intent: "Wirecard's headquarters at dusk, real euro notes on the €24 billion, then hands opening an empty wallet: money that was never there (a hard cut into the title)", slots: { 0: "hq2", 1: "wallet", 2: "euros" },
     props: (t, r) => ({ plates: [{ slot: 0, push: [1.1, 1.4], pan: [0.03, -0.03], grade: GRADE.dusk }, { slot: 2, at: r("w09", 6) - 0.1, push: [1.1, 1.5], pan: [0.04, -0.04], tilt: [-2, 2], grade: GRADE.night }, { slot: 1, at: r("w09", 13) - 0.1, trim: 4, push: [1.1, 1.4], pan: [-0.03, 0.03], grade: GRADE.night }], lowkey: true,
-      receipts: [{ x: 0.27, w: 0.46, tilt: -1, lines: [ln("COMPANY VALUE", r("w09", 4)), ln("€24,000,000,000", r("w09", 6), { bold: true, size: 1.25, strike: r("w09", 18) }), rule(r("w09", 13)), ln("MONEY THAT WAS", r("w09", 15)), ln("NEVER THERE", r("w09", 18), { bold: true, size: 1.35 })] }] }) },
+      receipts: [{ x: 0.27, w: 0.46, tilt: -1, lines: [ln("COMPANY VALUE", r("w09", 4)), ln("€24,000,000,000", r("w09", 6), { bold: true, size: 1.25, strike: r("w09", 18) })] }] }) },
 ];
 // v4.4 (owner: "why … paper, documents, cards a lot … instead of showing the story?"): the channel shows plain footage
 // on 42 % of its shots and documents on 4 %. The world's paper stays for three moments (the DAX swap, the €1.9 billion,
 // the ending), the FT's pink once, the terminal's screen once and the real people's names; every other beat is clean.
-const STRIP: Record<string, string[]> = { V1: ["receipts"], V5: ["receipts"], V8: ["pink", "columns"], V9: ["pink", "columns", "stamps"], V11: ["labels"], V14: ["receipts"], V17: ["receipts"] };
+// v4.7 (taste: the channel's frames read "a big bold title" 0.42 of the time, ours 0.03): the key words BIG and HEAVY
+const BIG: Record<string, (r: (seg: string, k: number) => number) => Array<Record<string, unknown>>> = {
+  V1: (r) => [{ y: 0.36, lines: [{ text: "SEPTEMBER", at: r("w01", 1) }, { text: "2018", at: r("w01", 2) }] }],
+  V5: (r) => [{ y: 0.38, lines: [{ text: "€24 BILLION", at: r("w03", 4) }] }],
+  V10: (r) => [{ y: 0.36, lines: [{ text: "€1.9 BILLION", at: r("w06", 9) }] }],
+  V13: (r) => [{ y: 0.4, lines: [{ text: "ARRESTED", at: r("w08", 7) }] }],
+  V14: (r) => [{ y: 0.3, lines: [{ text: "FIRST DAX COMPANY", at: r("w08", 11) }, { text: "EVER TO GO BUST", at: r("w08", 14) }] }],
+  V17: (r) => [{ y: 0.38, lines: [{ text: "PAID IN CASH", at: r("w08", 33) }] }],
+  V18: (r) => [{ y: 0.64, lines: [{ text: "NEVER THERE", at: r("w09", 18) }] }],
+};
+for (const b of BEATS) { const big = BIG[b.id]; if (!big) continue; const f = b.props; b.props = (t, r) => ({ ...f(t, r), big: big(r) }); }
+const STRIP: Record<string, string[]> = { V1: ["receipts"], V5: ["receipts"], V8: ["pink", "columns"], V9: ["pink", "columns", "stamps"], V10: ["receipts"], V11: ["labels"], V14: ["receipts"], V17: ["receipts"] };
 for (const b of BEATS) { const drop = STRIP[b.id]; if (!drop) continue; const f = b.props; b.props = (t, r) => Object.fromEntries(Object.entries(f(t, r)).filter(([k]) => !drop.includes(k))); }
 const TITLE_AT = +(timed.durationS + 0.25).toFixed(2), TITLE_LEN = 2.8;
 const starts = BEATS.map((b) => (b.id === "B1" ? 0 : +(at(b.seg, b.k) - (b.lead ?? 0.05)).toFixed(2)));

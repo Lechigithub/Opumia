@@ -10,9 +10,11 @@ import { Parallax } from "@craft";
 import { loadFont as courierF } from "@remotion/google-fonts/CourierPrime";
 import { loadFont as vtF } from "@remotion/google-fonts/VT323";
 import { loadFont as oldF } from "@remotion/google-fonts/OldStandardTT";
+import { loadFont as rubikF } from "@remotion/google-fonts/RubikMonoOne";
 const RECEIPT = courierF("normal", { weights: ["400", "700"], subsets: ["latin"] }).fontFamily;
 const LCDF = vtF("normal", { weights: ["400"], subsets: ["latin"] }).fontFamily;
 const COLUMN = oldF("normal", { weights: ["400", "700"], subsets: ["latin"] }).fontFamily;
+const HEAVY = rubikF("normal", { weights: ["400"], subsets: ["latin"] }).fontFamily; // v4.7: the receipt header blown up — the channel's key words are big and heavy in every film
 type P = Record<string, any>;
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const PAPER = "#f3efe6", INK = "#2b2a28", FADED = "#8d8a84", LCD_BG = "#9fb39a", LCD_INK = "#1d2a1c", PINK = "#f2dfcf", PINK_INK = "#33261f", NIGHT = "#0b0d10";
@@ -145,6 +147,42 @@ const TearOut: React.FC<{ len: number; frames?: number; children: React.ReactNod
   return <AbsoluteFill style={{ transform: `translateY(${-k * H * 1.05}px) rotate(${-k * 4}deg)`, transformOrigin: "0% 0%", clipPath: `polygon(0 0, 100% 0, ${zig(100 - 1.4).split(", ").reverse().join(", ")})`, boxShadow: "0 20px 40px rgba(0,0,0,.6)" }}>{children}</AbsoluteFill>;
 };
 
+/** v4.7 (taste: the channel's frames read "a big bold title" 0.42 of the time, ours 0.03): the line's key words BIG and
+ *  HEAVY, in this world's own way — a receipt header blown up, heavy mono caps printed in by a moving print head, thermal
+ *  texture, no glow. Fitted to the width; held until the next idea. */
+const BigPrint: React.FC<{ lines: Array<{ text: string; at: number }>; y: number; size?: number; until?: number; ink?: boolean }> = (p) => {
+  const f = useCurrentFrame(); const { fps, width: W, height: H } = useVideoConfig(); const t = f / fps;
+  const first = Math.min(...p.lines.map((l) => l.at));
+  if (t < first - 0.1) return null;
+  const gone = p.until !== undefined ? interpolate(t, [p.until, p.until + 0.25], [1, 0], clamp) : 1;
+  const longest = Math.max(...p.lines.map((l) => l.text.length));
+  const size = Math.min(W * (p.size ?? 0.11), (W * 0.86) / Math.max(1, longest * 0.82)); // a wide mono face: ≈ 0.82 em a character
+  return <div style={{ position: "absolute", left: 0, right: 0, top: H * p.y, display: "flex", flexDirection: "column", alignItems: "center", opacity: gone }}>
+    {p.lines.map((l, i) => {
+      const k = interpolate(t, [l.at - 0.06, l.at + 0.16], [0, 1], { ...clamp, easing: ease });
+      if (k <= 0) return <div key={i} style={{ height: size * 1.05 }} />;
+      return <div key={i} style={{ position: "relative", fontFamily: HEAVY, fontSize: size, lineHeight: 1.05, letterSpacing: -size * 0.02, color: p.ink ? INK : PAPER, whiteSpace: "pre",
+        clipPath: `inset(0 ${(1 - k) * 100}% 0 0)`, textShadow: p.ink ? "none" : "0 6px 18px rgba(0,0,0,.55)",
+        WebkitMaskImage: "repeating-linear-gradient(0deg, #000 0 3px, rgba(0,0,0,.82) 3px 4px)" }}>
+        {l.text}
+        {k < 1 ? <div style={{ position: "absolute", top: 0, bottom: 0, left: `${k * 100}%`, width: size * 0.08, background: "rgba(255,255,255,.75)", filter: "blur(2px)" }} /> : null}
+      </div>;
+    })}
+  </div>;
+};
+
+/** v4.7 (taste: "a vintage film look" 0.22 of the channel's frames, ours 0.04): every beat read as film, not clean
+ *  digital — a slight gate weave, softer blacks, warm highlights over cool shadows, a deeper vignette. */
+const FilmLook: React.FC = () => {
+  const f = useCurrentFrame();
+  return <>
+    <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(255,190,120,.05), rgba(40,70,110,.06))", mixBlendMode: "soft-light" }} />
+    <AbsoluteFill style={{ background: "rgba(24,18,12,.07)", mixBlendMode: "screen" }} />
+    <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 45%, rgba(0,0,0,.5) 100%)" }} />
+    <AbsoluteFill style={{ opacity: 0.08 + 0.03 * Math.sin(f * 1.3), background: "radial-gradient(circle at 30% 20%, rgba(255,220,180,.5), rgba(0,0,0,0) 40%)", mixBlendMode: "screen" }} />
+  </>;
+};
+
 /** One beat of the film: real pictures under the world's grade, then the world's own objects on top. */
 const Beat: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const { fps } = useVideoConfig(); const len = Number(p.len);
@@ -172,8 +210,12 @@ const Beat: React.FC<P> = (p) => {
     {((p.receipts ?? []) as P[]).map((r, i) => <Receipt key={i} lines={r.lines} x={r.x} w={r.w} tilt={r.tilt} from={r.from} until={r.until} top={r.top} />)}
     {((p.labels ?? []) as P[]).map((l, i) => <Label key={i} {...(l as never)} />)}
     {((p.stamps ?? []) as P[]).map((s, i) => <Stamp key={i} {...(s as never)} />)}
+    {((p.big ?? []) as P[]).map((b, i) => <BigPrint key={i} lines={b.lines} y={b.y} size={b.size} until={b.until} ink={b.ink} />)}
+    <FilmLook />
   </AbsoluteFill>;
-  return p.tearOut ? <TearOut len={len}>{body}</TearOut> : body;
+  const weave = { transform: `translate(${(Math.sin(f * 2.1) + Math.sin(f * 0.7)) * 0.6}px, ${Math.sin(f * 1.7) * 0.5}px)` };
+  const woven = <AbsoluteFill style={weave}>{body}</AbsoluteFill>;
+  return p.tearOut ? <TearOut len={len}>{woven}</TearOut> : woven;
 };
 
 /** The title: the name printed as a receipt header, the strip torn off the printer. */
