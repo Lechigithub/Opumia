@@ -539,6 +539,29 @@ clone of its narrator, originality between our films.
 - Older notes in this file that say "one clip per source video", "≤ 6.5 s / 7.5 s", "≤ 45 %", "footage more than 15
   years older is out", "scripted dramas … never" or "no face under a line naming a person" are superseded by this.
 
+## The film agent (2026-11-26, owner: "make the agents work like you")
+
+One agent makes the whole film the way the hand films were made, instead of a fixed pipeline of narrow agents:
+`pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--dry-run]` (`apps/cli/src/film-agent/`).
+- **Before it:** the platform's own research, writer and voice agents (`produce --until narration`), cached.
+- **The agent:** a Claude Agent SDK session (Sonnet; owner: Sonnet and Haiku for now) with `out/<job>/` as its workspace:
+  Bash, Read (it sees images), Write, Edit, web search, plus `film-tools` (`tools.ts`, documented in `TOOLS.md`: the
+  reference watcher, press/film-clip search with strips and cut, article screenshots, Commons, stock sheets, the film
+  library, cut-out, depth, render, beds, effects, mix at the channel's levels (`mix.ts`), side-by-side watch, type and
+  world checks, the gate, lessons, spend). It writes its own Remotion film in `src/Film.tsx` (template in
+  `film-agent/template/`) with the shared `@craft` techniques.
+- **Playbook:** `packages/agents/skills/film-agent.md` (watch the reference, a scene per idea, real pictures first,
+  build, look at every scene, render, watch beside the reference, fix, gate, review, lessons).
+- **Guard** (`run.ts:guard`, every tool use): no keys or environment, no Keychain, no git, nothing written outside the
+  workspace and its memory (`data/agents/film-agent/`), Library/ and Reference/ read-only, no posting data out.
+- **Gate** (`gate.ts`, code, no model): whole narration, 1920×1080 at 24 fps; −12.5 ± 1 LUFS, peak ≤ −1.4 dB; the
+  type checks; fair use at the channel's practice (≤ 8.5 s clips, ≤ 27 %, never a documentary channel); every picture
+  credited; no generated imagery; nothing of MagnatesMedia's; a signature object no earlier film used; REVIEW.md. The
+  agent is sent back (up to two more rounds) until it passes or the film's budget is spent.
+- **Memory:** `data/agents/film-agent/<channel>.md` (lessons, shown before the next film) and `owner-notes.md`.
+- Test: `npx tsx apps/cli/src/dev/film-agent-test.ts` (in regressions). **Not yet run on a film** (a paid run, the
+  owner's approval first).
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

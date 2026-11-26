@@ -14,6 +14,7 @@
   ],
   "exclude": [
     "packages/motion-engine/src/remotion",
-    "packages/cloudflare"
+    "packages/cloudflare",
+    "apps/cli/src/film-agent/template"
   ]
 }

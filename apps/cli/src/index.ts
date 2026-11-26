@@ -26,6 +26,7 @@ const gb = (b: number) => `${(b / 1e9).toFixed(1)} GB`;
 
 const HELP = `opumia <command>
 
+  film-agent           One agent makes the whole film in out/<job>/ (paid; --topic, --duration, --max-usd, --dry-run)
   index-library        Index Library/ → data/library-index.json (incremental ffprobe, read-only)
       --no-probe         skip ffprobe (stats + metadata only)
       --concurrency N    parallel ffprobe processes (default: min(8, cores))
@@ -132,6 +133,16 @@ async function main() {
       log(`Resuming ${job}${p ? ` (paused at ${p.stage ?? "?"}: ${p.provider} ${p.kind})` : ""}`);
       const { report } = await produce({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic: j.topic, channel: j.channel, aspect: j.aspect, durationS: j.durationS, job, redo: [], log });
       if (report && report.verdict === "fail") process.exitCode = 2;
+      return;
+    }
+    case "film-agent": {
+      // one agent with a workspace makes the whole film (apps/cli/src/film-agent/): a paid run — start only with the owner's approval
+      const { runFilmAgent } = await import("./film-agent/run.js");
+      const topic = opt("topic");
+      const name = opt("job") ?? (topic ? `agent-${topic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40)}` : undefined);
+      if (!name) throw new Error("usage: opumia film-agent --topic \"…\" [--job NAME] [--duration 70] [--max-usd 9] [--dry-run]");
+      const r = await runFilmAgent({ root: ROOT, ...(topic ? { topic } : {}), job: path.join(ROOT, "out", name), channel: opt("channel") ?? "magnates-media", durationS: Number(opt("duration") ?? 70), maxUsd: Number(opt("max-usd") ?? process.env.OPUMIA_MAX_USD ?? 9), model: opt("model") ?? "claude-sonnet-5-5", dryRun: flag("dry-run"), log });
+      if (!r.pass && !flag("dry-run")) process.exitCode = 2;
       return;
     }
     case "escalations": {
