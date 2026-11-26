@@ -119,6 +119,12 @@ export function sameObject(a: string, b: string): boolean {
   const shared = A.filter((w) => B.has(w)).length;
   return shared / Math.min(A.length, B.size) >= 0.5;
 }
+/** The kit's transition name, read from `export const FILM = { … transition: "name" … }` — not a CSS transition inside
+ *  a component (proof film 1, 2026-11-26: "none" was read from a span's style and recorded as the film's transition). */
+export function kitTransition(code: string | null): string | null {
+  const film = (code ?? "").split(/export\s+const\s+FILM\s*=/)[1] ?? "";
+  return /(?:^|[,{\s])transition\s*:\s*["']([^"']+)["']/.exec(film)?.[1] ?? null;
+}
 export const DEVICE_SHARE_MAX = 0.44; // the channel's p90 of technique families shared by two of its films: at most this share of a kit's own effects may come from one earlier film
 export function kitDevices(code: string): string[] {
   const names = [...code.matchAll(/import\s*\{([^}]*)\}\s*from\s*["']@craft["']/g)].flatMap((m) => m[1]!.split(",").map((x) => x.trim().split(/\s+as\s+/)[0]!.trim()).filter(Boolean));
@@ -141,6 +147,10 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   const worldFile = path.join(o.kitDir, "WORLD.md");
   let world: string | null = existsSync(worldFile) ? await readFile(worldFile, "utf8") : null;
   let studied = 0, renders = 0, transitionSeen = false, lastRenderOk = false, accepted: string | null = null, noteSaved = false;
+  // proof film 1 (2026-11-26): a complete kit was submitted, then money and time ran out before the final look — the film
+  // stopped. A submitted kit whose only gap is that final look is accepted at the end (noted), never a stop.
+  let lastSubmit: { concept: string; meta: Record<string, { use: string; props: string }>; note: string } | null = null;
+  let lastMiss: string[] = [];
   // a change to an accepted kit starts from it: studied, transition seen, tokens set — the change still has to be
   // rendered, looked at and submitted again
   let tokens: KitTokens | null = o.change && !o.change.fresh && o.change.tokens ? o.change.tokens : null;
@@ -324,15 +334,17 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
         if (unknownMeta.length || noMeta.length) miss.push(`meta must describe exactly the kit's components (${noMeta.length ? `missing ${noMeta.join(", ")}` : ""}${unknownMeta.length ? ` unknown ${unknownMeta.join(", ")}` : ""})`);
         if (!transitionSeen) miss.push("render_transition and look at it");
         if (!lastRenderOk) miss.push("render_samples until they are readable and not too close to an earlier film");
+        lastSubmit = i;
+        lastMiss = miss;
         if (miss.length) return `NOT ACCEPTED:\n${miss.map((x) => `- ${x}`).join("\n")}`;
         accepted = `${i.concept} — ${i.note}`;
         roles = Object.fromEntries(KIT_ROLES.map((r) => [r, r0[r]!]));
         const byComp = new Map(Object.entries(roles).map(([r, c]) => [c, r]));
         const components = Object.fromEntries(Object.entries(i.meta).map(([k, v]) => [k, { ...v, ...(byComp.has(k) ? { role: byComp.get(k)! } : {}) }]));
-        await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, roles, components, fonts: kitFonts(), transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null }, null, 1) + "\n");
+        await writeFile(path.join(o.kitDir, "meta.json"), JSON.stringify({ concept: i.concept, roles, components, fonts: kitFonts(), transition: kitTransition(code) ?? null }, null, 1) + "\n");
         await o.onDesign(designFromKit({ job: o.job, channel: o.channel, topic: o.topic, concept: i.concept, fonts: kitFontStacks(), tokens: tokens! }).design);
         const pal = await o.palette().catch(() => [] as string[]);
-        const rec = { job: o.job, devices: kitDevices(code ?? ""), fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? "", ...(signature || world ? { signatureObject: signature || (/## signatureObject\n([^\n]+)/.exec(world ?? "")?.[1] ?? "") } : {}), at: new Date().toISOString() };
+        const rec = { job: o.job, devices: kitDevices(code ?? ""), fonts: kitFonts(), palette: pal.slice(0, 6), ...(tokens ? { tokens: { primary: tokens.palette.primary, accent: tokens.palette.accent, surface: tokens.palette.surface } } : {}), concept: i.concept, transition: kitTransition(code) ?? "", ...(signature || world ? { signatureObject: signature || (/## signatureObject\n([^\n]+)/.exec(world ?? "")?.[1] ?? "") } : {}), at: new Date().toISOString() };
         const f = path.join(o.data, "film-kits.json");
         const all = await readFile(f, "utf8").then((t) => JSON.parse(t) as unknown[], () => []);
         await writeFile(`${f}.tmp`, JSON.stringify([...all.filter((x) => (x as { job: string }).job !== o.job), rec], null, 1) + "\n");
@@ -368,7 +380,15 @@ export async function filmDesignerAgent(o: FilmDesignerOptions): Promise<FilmDes
   let grace = 1;
   tools.push(...(o.extraTools ?? []));
   const run = await agentLoop({ stage: "film-designer.agent", fixed: 0.85, finish: { message: "Your budget for this stage is used up. Call submit_kit NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_kit again." }, model, system, user, tools, effort: "medium", maxTurns: o.change ? 14 : 24, maxSeconds: o.change ? 300 : 600, maxUsd: o.change ? 0.6 : 1.2, maxTokens: 32000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The kit is not submitted. Study, write the kit, render samples on the film's shots, look, revise, and submit.", log });
-  const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), roles, transition: /transition\s*:\s*["']([^"']+)/.exec(code ?? "")?.[1] ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
+  const LOOK_ONLY = /^(render_transition and look at it|render_samples until)/;
+  const ls = lastSubmit as { concept: string; meta: Record<string, { use: string; props: string }>; note: string } | null;
+  if (!accepted && ls && lastMiss.length && lastMiss.every((m) => LOOK_ONLY.test(m)) && tokens && code) {
+    const submit = tools.find((t) => t.name === "submit_kit")!;
+    transitionSeen = true; lastRenderOk = true;
+    const r = await submit.run({ ...ls, note: `${ls.note} — accepted without its final look (budget or time ran out; the preflight gate still checks every scene)` } as never);
+    log(`  art director: kit accepted without its final look (${lastMiss.join("; ").slice(0, 120)}) — ${String(r).slice(0, 40)}`);
+  }
+  const report: FilmDesignerReport = { pass: accepted !== null, fonts: kitFonts(), components: kitComponents(), roles, transition: kitTransition(code) ?? null, renders, note: accepted ?? "not submitted", agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4 } };
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });
     await appendFile(path.join(o.memoryDir, `${o.channel}.md`), `- LOG ${new Date().toISOString().slice(0, 10)} "${o.title.slice(0, 60)}": ${report.pass ? "kit accepted" : "not accepted"}; fonts ${report.fonts.join(", ")}; ${report.components.length} components; ${renders} renders; ${(accepted ?? "").slice(0, 200).replace(/\s+/g, " ")}\n`);

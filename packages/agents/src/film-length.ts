@@ -24,7 +24,7 @@ export const STAGE_SHARE: Record<string, { usd: number; time: number; fixed: num
   A3: { usd: 0.15, time: 0.1, fixed: 0.1 }, // narration (speech is billed per character)
   B1: { usd: 0.08, time: 0.07, fixed: 0.2 }, // director
   B2: { usd: 0.03, time: 0.07, fixed: 0.2 }, // sourcing
-  B2d: { usd: 0.11, time: 0.08, fixed: 0.85 }, // art director (one kit per film)
+  B2d: { usd: 0.2, time: 0.1, fixed: 0.85 }, // art director (one kit per film); proof film 1 (2026-11-26): 0.11 gave it $0.27, its first pass needs $0.60
   B2s: { usd: 0.02, time: 0.04, fixed: 0.2 }, // picture researcher
   B3: { usd: 0.09, time: 0.09, fixed: 0.1 }, // scene designer
   B4e: { usd: 0.015, time: 0.03, fixed: 0.1 }, // editor
