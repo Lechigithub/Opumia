@@ -205,7 +205,7 @@ plain building blocks (`@craft`: camera paths, depth, masks, physics, 3D, blur, 
   - DeLorean like 1970s Kodak film;
   - Ponzi like 1920s newspapers and banknotes.
 
-  Real examples and how each differs: `data/world-profile/magnates-media/worlds.md`.
+  Real examples and how each differs: `packages/agents/skills/worlds/magnates-media.md`.
 - **Invent this film's devices from its own things:**
   - how this story's money, power, secrecy or collapse is shown;
   - how its words arrive;

@@ -23,7 +23,7 @@ transition. Even the same topic made twice must look different.
    - Nike is purple with sneakers standing on gold bars as the chart;
    - Ponzi is 1920s newspapers and banknotes.
 
-   Seven worlds taken apart: `data/world-profile/magnates-media/worlds.md`. Write the world bible first
+   Seven worlds taken apart: `packages/agents/skills/worlds/magnates-media.md`. Write the world bible first
    (`design/film/WORLD.md`): what this story is made of, its motifs, how its money, power and failure are shown, its
    word device, its transition. Every component expresses it.
 2. **Type is the voice of the design.** Choose a display face with character and a body face that serves it, from

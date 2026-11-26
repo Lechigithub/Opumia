@@ -117,7 +117,7 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
 - ☐ C5 **The regression suite** keeps passing; `hand-transfer` repointed to block-level facts.
 
 ### D. The film's world (art director, from the story)
-- ◐ D1 **Reference world deconstructions** (11 of 37 written in `data/world-profile/magnates-media/worlds.md`: Ponzi,
+- ☑ D1 **Reference world deconstructions** (37 of 37 written in `packages/agents/skills/worlds/magnates-media.md`: Ponzi,
   1MDB, Eiffel Tower — three scam stories, three different worlds): every analysed MagnatesMedia film (37), taken apart by eye in the session
   from its sheets and frames. Each records:
   - its world: the objects, places, documents, people and materials it shows;
