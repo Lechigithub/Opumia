@@ -43,6 +43,9 @@ export async function bedLoudness(file: string, inS: number, len: number, cacheD
 // near the channel's loudest-bed extreme. Hand film Wirecard v4.4, separated the same way: 8.8 dB (too loud).
 export const BED_GAP = { coldOpen: 15.8, body: 19.1 } as const;
 export const BED_GAP_BAND = { coldOpen: [8.9, 21.7], body: [14.8, 24.7] } as const;
+// The cold open's duck, from the channel's measured swell of the bed between lines (37 films, demucs): median 6.7 dB.
+// A −9 dB duck (set by hand on v34) swelled 9.4 dB and pumped a sparse bed; −6 dB swells 6.9 dB (Wirecard v4.6).
+export const COLD_OPEN_DUCK = -6;
 const VOICE_LUFS = -17; // the narrator chain's level while speaking (measured on our mixes)
 
 /** Sets every cue's gain (and the cold open's duck) so its bed sits at the channel's distance under the voice. */
@@ -52,7 +55,7 @@ export async function levelBeds(o: { music: Cue[]; fileOf: (assetId: string) => 
   for (const [k, m] of o.music.entries()) {
     const f = o.fileOf(m.assetId);
     const cold = k === 0 && m.startS < 1 && (o.titleCardEndS !== undefined ? m.endS <= o.titleCardEndS + 2 : m.endS <= 45);
-    const duck = cold ? -9 : m.duckDb ?? -14;
+    const duck = cold ? COLD_OPEN_DUCK : m.duckDb ?? -14;
     const lv = f ? await bedLoudness(f, m.inS ?? 0, m.endS - m.startS, o.cacheDir) : null;
     if (!lv) { music.push({ ...m, ...(cold ? { duckDb: duck } : {}) }); notes.push(`cue ${k}: loudness not measurable, gain kept`); continue; }
     const target = VOICE_LUFS - (cold ? BED_GAP.coldOpen : BED_GAP.body);

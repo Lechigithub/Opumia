@@ -179,8 +179,18 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   - **The ears mix head** scored louder beds higher (0.79 → 0.64 at −8 dB). It most likely rewards masking our
     synthetic narrator, since the channel's own stretches score 0.84 with quieter beds.
   - **Open:** retrain the mix head with voice-matched pairs (G3).
-- ☐ G3 **Retrain the ears mix head** so it judges the mix, not how well the bed hides our voice: pairs with the same
-  narrator, beds at measured levels.
+- ☑ G3 **A voice-blind bed head** (2026-11-25).
+  - **The problem:** stem swaps showed the old mix head heard our voice (−0.13) about as much as our bed (−0.15).
+  - **The fix:** the new "bed" head is trained on demucs-separated music-and-effects windows (200 real, 70 ours, AUC
+    0.988 on unseen films; real p10 0.645, median 0.843). Our voice now costs 0.05, a known-bad bed 0.26 (test
+    `dev/bed-head-test.ts`).
+  - **What it showed:** v4's beds sounded unlike the channel's ("Lightless Dawn" 0.33, "Floating Cities" 0.59).
+    `dev/bed-rank.ts` scores every library bed (51 of 127 above the channel's p10).
+  - **v4.6:** "Rising" 0.907 and "Nightfall" 0.920 come in, the later beds enter past their quiet intros, and the duck
+    goes from −9 to −6 dB: the bed swells 6.9 dB between lines (the channel's median 6.7), the voice sits 17.8 dB over
+    it (band 8.9–21.7), and the clean music-and-effects stem has a median ≈ 0.70 (channel 0.645–0.843).
+  - **Platform:** preflight `mix_taste` uses the bed head; `levelBeds` cold-open duck −6.
+  - **Open:** a few windows still dip (the turn into Nightfall, the first second).
 - ☐ G3 **Bed choice measured:** a bed that lowers the mix score is refused (Wirecard: "emergent" 0.70 vs "discovery"
   0.79).
 

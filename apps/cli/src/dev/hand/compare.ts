@@ -21,7 +21,8 @@ for (const arg of process.argv.slice(2)) {
   const wins = Array.from({ length: Math.floor(span / 8) }, (_, i) => ({ file, t: t0 + i * 8, dur: 4 }));
   const voice = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "voice", items: wins });
   const mix = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "mix", items: wins });
+  const bed = await scoreSoundTaste({ root, data, channel: "magnates-media", kind: "bed", items: wins });
   const look = await measureLook(file, { ss: t0, t: span }).catch(() => null) as Record<string, unknown> | null;
   const tasteOk = taste.filter((x) => x >= 4.4).length;
-  console.log(`${label}: taste median ${r(med(taste), 1)} (real 6.1, real p10 4.4, ours 4.9) — ${tasteOk}/${taste.length} frames ≥ real p10 | voice ${r(voice?.median ?? NaN)} (real ${voice?.realMedian}) | mix ${r(mix?.median ?? NaN)} (real ${mix?.realMedian}) | look ${look ? JSON.stringify(Object.fromEntries(Object.entries(look).filter(([, v]) => typeof v === "number").map(([k, v]) => [k, r(v as number)]))) : "-"}`);
+  console.log(`${label}: taste median ${r(med(taste), 1)} (real 6.1, real p10 4.4, ours 4.9) — ${tasteOk}/${taste.length} frames ≥ real p10 | voice ${r(voice?.median ?? NaN)} (real ${voice?.realMedian}) | mix ${r(mix?.median ?? NaN)} (real ${mix?.realMedian}; voice-biased) | bed ${r(bed?.median ?? NaN)} (real p10 ${bed?.realP10}, median ${bed?.realMedian}) | look ${look ? JSON.stringify(Object.fromEntries(Object.entries(look).filter(([, v]) => typeof v === "number").map(([k, v]) => [k, r(v as number)]))) : "-"}`);
 }

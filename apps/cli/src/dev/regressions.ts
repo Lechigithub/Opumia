@@ -58,6 +58,7 @@ const cases: Case[] = [
   { id: "ladder-escalates", defect: "build list 3: a failing check must climb its ladder one rung a round, stop when fixed, and be logged", run: async () => (await ladderTest()).length === 0 },
   { id: "bl6-paper-and-cards", defect: "Wirecard v4 (2026-11-25): receipts, pink sheets or labels on 14 of 22 beats — illustrating the script instead of showing the story (the channel: plain footage 42 %, documents 4 %)", run: async () => script("paper-test.ts") },
   { id: "bl6-device-cooldown", defect: "Wirecard v3 (2026-11-25): every finished-look effect borrowed from FTX v35 (word glow, flash, light wash, money in depth) — the template the owner saw", run: async () => script("device-test.ts") },
+  { id: "bl6-bed-head", defect: "Wirecard v4 (2026-11-25): the ears' mix head scored our synthetic narrator as much as the mix and rewarded a bed loud enough to hide him (a bed 8 dB under the channel's level scored best)", run: async () => script("bed-head-test.ts") },
   { id: "hand-transfer", defect: "hand film (2026-11-25): a slideshow — cuts instead of moves, words rushed, a template shared with the earlier film; composites may use @craft and @film but not the network", run: async () => {
     const { measureMotion, templateShare, journeyStops } = await import("@opumia/agents");
     // the frozen v34 film's motion as the Python measure reads it (softShare 0.812, cuts 4.13/min)
@@ -89,8 +90,8 @@ const cases: Case[] = [
     const lv = await levelBeds({ music: [{ assetId: "x", startS: 0, endS: 15, gainDb: -12 }], fileOf: () => "Library/music/free_incompetech_ascending_the_vale.mp3", titleCardEndS: 15, cacheDir: "data/.cache" });
     // build list 6: the bed is aimed at the channel's measured cold-open level (37 films, demucs): ≈ 15.8 dB under the
     // voice (the "20 dB = defect" belief came from Ponzi alone; 20 dB is inside the channel's band 8.9–21.7)
-    const { BED_GAP } = await import("@opumia/agents");
-    const cold = lv.music[0]!.duckDb === -9 && BED_GAP.coldOpen > 13 && BED_GAP.coldOpen < 18 && lv.notes.some((n) => n.includes(`≈ ${BED_GAP.coldOpen} dB under`));
+    const { BED_GAP, COLD_OPEN_DUCK } = await import("@opumia/agents");
+    const cold = lv.music[0]!.duckDb === COLD_OPEN_DUCK && BED_GAP.coldOpen > 13 && BED_GAP.coldOpen < 18 && lv.notes.some((n) => n.includes(`≈ ${BED_GAP.coldOpen} dB under`));
     return capped && breath && cold;
   } },
   { id: "kit-safety", defect: "a film kit may not reach the network or the file system", run: async () => checkKitCode(`import fs from "fs";\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`const x = fetch("https://x");\nexport const FILM = {};`, new Set()).length > 0 && checkKitCode(`import React from "react";\nexport const FILM = { components: {} };`, new Set()).length === 0 },

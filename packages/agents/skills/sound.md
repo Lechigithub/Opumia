@@ -100,3 +100,13 @@ the bed falls away) and for `dead_air` (voice and music both near silent for 0.6
   higher. It most likely rewards a bed that hides our synthetic narrator, not a good mix: the channel's own stretches
   score 0.84 with their quieter beds. Follow the channel's measured level; the ears head needs retraining with
   voice-matched pairs.
+
+## Choosing the beds and the duck (build list 6, G3)
+
+- **Choose beds the channel's ears would accept.** `data/audio-profile-bed-taste.json` scores every library bed with
+  the voice-blind bed head (the channel's real beds: p10 0.645, median 0.843). Wirecard v4's "Lightless Dawn" scored
+  0.33 and sank the whole middle of the film. Prefer beds above the channel's median that fit the section's mood and
+  are off cooldown.
+- **Enter a bed past its quiet intro** (`inS`). A bed scored on its body can sound like nothing in its first bars.
+- **Duck the cold-open bed about 6 dB under the voice** (`COLD_OPEN_DUCK`). The channel's bed swells a median 6.7 dB
+  between lines; a 9 dB duck pumped a sparse bed in and out and read as ours.

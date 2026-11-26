@@ -23,7 +23,12 @@ import type { ChannelId } from "@opumia/contracts";
 import { CHANNELS } from "@opumia/ingest";
 
 export const AUDIO_DIM = 1792;
-export type SoundKind = "voice" | "mix";
+export type SoundKind = "voice" | "mix" | "bed";
+/** "bed" (build list 6, G3): the soundtrack WITHOUT the voice — every window separated by demucs htdemucs (two stems,
+ *  the same separation as Reference sound.json) and only the music and effects embedded. The "mix" head scored our
+ *  synthetic narrator as much as the mix (stem swaps: our voice over Ponzi's bed −0.13, Ponzi's voice over ours −0.15),
+ *  so it rewarded a bed loud enough to hide him. Voice is judged by the "voice" head, the level under it by
+ *  bed-level.ts (the channel's 37-film band); "bed" judges the music and effects alone. */
 export interface AudioItem { file: string; t: number; dur: number }
 export interface SoundTasteModel { kind: SoundKind; channel: string; w: number[]; b: number; auc: number; trained: { real: number; ours: number }; calibration: { real: { p10: number; median: number }; ours: { median: number } }; builtAt: string }
 
@@ -107,7 +112,7 @@ function auc(s: number[], y: number[]) {
 /** Real narration windows (voice ≥ 18 dB over the music) from all reference channels, and the channel's own mix windows. */
 function realWindows(reference: string, kind: SoundKind, channel: string, n: number): Array<AudioItem & { group: string }> {
   const out: Array<AudioItem & { group: string }> = [];
-  const dirs = kind === "voice" ? CHANNELS.map((c) => c.dir) : [CHANNELS.find((c) => c.id === channel)?.dir ?? ""];
+  const dirs = kind === "voice" ? CHANNELS.map((c) => c.dir) : [CHANNELS.find((c) => c.id === channel)?.dir ?? ""]; // mix and bed: the channel itself
   for (const cd of dirs) {
     const root = path.join(reference, cd);
     if (!cd || !existsSync(root)) continue;
@@ -149,13 +154,34 @@ function ourWindows(root: string, kind: SoundKind, n: number): Array<AudioItem &
   return out.slice(0, n);
 }
 
+/** The music-and-effects stem of each window (demucs, memoised in data/.cache/beds/). */
+export async function separateBeds(o: { root: string; data: string; items: AudioItem[]; log?: (s: string) => void }): Promise<Array<AudioItem | null>> {
+  const { execFile } = await import("node:child_process");
+  const { embedPython } = await import("@opumia/ingest");
+  const dir = path.join(o.data, ".cache", "beds");
+  await mkdir(dir, { recursive: true });
+  const key = (it: AudioItem) => createHash("sha1").update(`${it.file}|${it.t}|${it.dur}|${statSync(it.file).mtimeMs}`).digest("hex").slice(0, 16);
+  const run = (cmd: string, args: string[]) => new Promise<void>((res, rej) => execFile(cmd, args, { maxBuffer: 1 << 26, timeout: 60 * 60_000 }, (e) => (e ? rej(e) : res())));
+  const todo = o.items.filter((it) => existsSync(it.file) && !existsSync(path.join(dir, "htdemucs", key(it), "no_vocals.wav")));
+  for (const it of todo) await run("ffmpeg", ["-v", "error", "-y", "-ss", String(it.t), "-t", String(it.dur), "-i", it.file, "-ac", "2", "-ar", "44100", path.join(dir, `${key(it)}.wav`)]).catch(() => {});
+  for (let i = 0; i < todo.length; i += 24) {
+    const batch = todo.slice(i, i + 24).map((it) => path.join(dir, `${key(it)}.wav`)).filter((f) => existsSync(f));
+    if (!batch.length) continue;
+    o.log?.(`  separating beds ${i + batch.length}/${todo.length}`);
+    await run(embedPython(), ["-m", "demucs", "--two-stems", "vocals", "-n", "htdemucs", "--shifts", "0", "--overlap", "0.1", "-o", dir, ...batch]).catch((e: Error) => o.log?.(`  ! demucs: ${e.message.slice(0, 120)}`));
+  }
+  return o.items.map((it) => { if (!existsSync(it.file)) return null; const f = path.join(dir, "htdemucs", key(it), "no_vocals.wav"); return existsSync(f) ? { file: f, t: 0, dur: it.dur } : null; });
+}
+
 /** Train a head (real vs ours), held out by film. */
 export async function trainSoundTaste(o: { root: string; data: string; reference: string; channel: ChannelId; kind: SoundKind; log?: (s: string) => void }): Promise<SoundTasteModel> {
-  const real = realWindows(o.reference, o.kind, o.channel, o.kind === "voice" ? 200 : 160);
+  const real = realWindows(o.reference, o.kind, o.channel, o.kind === "voice" ? 200 : o.kind === "bed" ? 200 : 160);
   const ours = ourWindows(o.root, o.kind, 220);
   o.log?.(`  ears (${o.kind}): ${real.length} real windows, ${ours.length} of ours — listening…`);
   const items = [...real, ...ours];
-  const vecs = await embedAudio({ root: o.root, data: o.data, items, ...(o.log ? { log: o.log } : {}) });
+  const sepd = o.kind === "bed" ? await separateBeds({ root: o.root, data: o.data, items, ...(o.log ? { log: o.log } : {}) }) : null;
+  const embedItems = sepd ? items.map((it, i) => sepd[i] ?? { ...it, file: "/nonexistent" }) : items;
+  const vecs = await embedAudio({ root: o.root, data: o.data, items: embedItems.filter((x) => existsSync(x.file)), ...(o.log ? { log: o.log } : {}) }).then((v) => { const out: Array<Float32Array | null> = []; let k = 0; for (const x of embedItems) out.push(existsSync(x.file) ? v[k++] ?? null : null); return out; });
   const rows = items.map((it, i) => ({ it, v: vecs[i], y: i < real.length ? 1 : 0 })).filter((r): r is { it: (typeof items)[number]; v: Float32Array; y: number } => Boolean(r.v));
   const held = (g: string) => parseInt(createHash("sha1").update(g).digest("hex").slice(0, 4), 16) % 4 === 0;
   const tr = rows.filter((r) => !held(r.it.group)), te = rows.filter((r) => held(r.it.group));
@@ -180,7 +206,9 @@ export async function loadSoundTaste(data: string, channel: string, kind: SoundK
 export async function scoreSoundTaste(o: { root: string; data: string; channel: string; kind: SoundKind; items: AudioItem[] }): Promise<{ scores: number[]; median: number; realP10: number; realMedian: number; below: boolean } | null> {
   const m = await loadSoundTaste(o.data, o.channel, o.kind);
   if (!m || !o.items.length) return null;
-  const vecs = await embedAudio({ root: o.root, data: o.data, items: o.items });
+  const sepd = o.kind === "bed" ? await separateBeds({ root: o.root, data: o.data, items: o.items }) : null;
+  const its = sepd ? sepd.filter((x): x is AudioItem => Boolean(x)) : o.items;
+  const vecs = await embedAudio({ root: o.root, data: o.data, items: its });
   const scores = vecs.map((v) => (v ? Math.round(score(m, v) * 1000) / 1000 : NaN)).filter(Number.isFinite);
   const median = pct(scores, 0.5);
   return { scores, median, realP10: m.calibration.real.p10, realMedian: m.calibration.real.median, below: median < m.calibration.real.p10 };

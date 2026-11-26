@@ -176,7 +176,10 @@ export async function techniqueUseChecks(o: { data: string; channel: string; pre
 /** Ears: the soundtrack of the judge's preview stretches, scored by the trained mix taste against the real channel. */
 export async function mixTasteCheck(o: { root: string; data: string; channel: string; clips: Array<{ file: string; len: number }> }): Promise<PreflightCheck[]> {
   const items = o.clips.map((c) => ({ file: c.file, t: 0, dur: Math.min(8, c.len) }));
-  const r = await scoreSoundTaste({ root: o.root, data: o.data, channel: o.channel, kind: "mix", items }).catch(() => null);
+  // build list 6 (G3): the voice-blind bed head — the music and effects, separated from the voice by demucs the same way
+  // as the channel's windows. The old "mix" head scored our synthetic narrator as much as the mix and rewarded a bed loud
+  // enough to hide him; the level under the voice is bed_gap's job (the channel's 37-film band), the voice the voice head's.
+  const r = await scoreSoundTaste({ root: o.root, data: o.data, channel: o.channel, kind: "bed", items }).catch(() => null);
   if (!r) return [];
-  return [{ id: "mix_taste", label: "The soundtrack (voice, music, effects together) heard against the channel's", value: Math.round(r.median * 1000) / 1000, target: `≥ ${r.realP10} (the channel's lowest tenth; its median ${r.realMedian})`, pass: !r.below, level: "blocker", shots: [] }];
+  return [{ id: "mix_taste", label: "The music and effects (voice separated out) heard against the channel's", value: Math.round(r.median * 1000) / 1000, target: `≥ ${r.realP10} (the channel's lowest tenth; its median ${r.realMedian})`, pass: !r.below, level: "blocker", shots: [] }];
 }
