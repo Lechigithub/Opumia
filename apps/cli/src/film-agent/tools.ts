@@ -9,6 +9,12 @@ import path from "node:path";
 const ROOT = process.env.OPUMIA_ROOT ?? process.cwd();
 const JOB = process.env.FILM_JOB ? path.resolve(process.env.FILM_JOB) : process.cwd();
 const CHANNEL = process.env.FILM_CHANNEL ?? "magnates-media";
+// a scene builder (parallel film agent) works in scene mode: its downloads, credits and names are its own, so builders
+// running at the same time never write the same file
+const SCENE = process.env.FILM_SCENE && /^s\d{2}$/.test(process.env.FILM_SCENE) ? process.env.FILM_SCENE : undefined;
+const WS = SCENE ? path.join(JOB, "downloads", SCENE) : JOB;
+const nm = (name: string) => (SCENE && !name.startsWith(`${SCENE}_`) ? `${SCENE}_${name}` : name);
+const ledger = (kind: "credits" | "fair-use") => (SCENE ? path.join(JOB, kind, `${SCENE}.json`) : path.join(JOB, `${kind}.json`));
 const REF_DIR = path.join(ROOT, "Reference", "MagnatesMedia");
 const PY = process.env.OPUMIA_PY ?? path.join(process.env.HOME ?? "", "lechi_tts", "venv", "bin", "python");
 const [cmd, ...args] = process.argv.slice(2);
@@ -24,12 +30,14 @@ const tsx = (script: string, a: string[], env: Record<string, string> = {}) => s
 const ensure = (d: string) => (mkdirSync(d, { recursive: true }), d);
 const jread = <T>(f: string, d: T): T => { try { return JSON.parse(readFileSync(f, "utf8")) as T; } catch { return d; } };
 const credit = (e: { file: string; kind: string; source: string; url?: string; license: string; note?: string }) => {
-  const f = path.join(JOB, "credits.json");
+  const f = ledger("credits");
+  mkdirSync(path.dirname(f), { recursive: true });
   const all = jread<Array<typeof e>>(f, []).filter((x) => x.file !== e.file);
   writeFileSync(f, JSON.stringify([...all, e], null, 1));
 };
 const fairUse = (e: { file: string; kind: "press" | "film"; video: string; title: string; channel: string; inS: number; seconds: number }) => {
-  const f = path.join(JOB, "fair-use.json");
+  const f = ledger("fair-use");
+  mkdirSync(path.dirname(f), { recursive: true });
   const all = jread<Array<typeof e>>(f, []).filter((x) => x.file !== e.file);
   writeFileSync(f, JSON.stringify([...all, e], null, 1));
 };
@@ -81,7 +89,7 @@ async function main() {
       const people = (opt("--person") ?? "").split(",").filter(Boolean);
       const world = (opt("--world") ?? "").split(",").filter(Boolean);
       const j = JSON.parse(execFileSync("yt-dlp", ["--no-warnings", "--flat-playlist", "-J", `ytsearch${n + 4}:${q}`], { maxBuffer: 1 << 26 }).toString()) as { entries: Array<{ id: string; title: string; channel?: string; uploader?: string; duration?: number }> };
-      const out = ensure(path.join(JOB, "downloads", "news"));
+      const out = ensure(path.join(WS, "downloads", "news"));
       let k = 0;
       for (const e of j.entries) {
         const ch = `${e.channel ?? e.uploader ?? ""}`;
@@ -99,11 +107,12 @@ async function main() {
       return;
     }
     case "clip": {
-      const [id, start, len, name] = args.filter((a) => !a.startsWith("--") && a !== opt("--crop"));
+      const [id, start, len, rawName] = args.filter((a) => !a.startsWith("--") && a !== opt("--crop"));
+      const name = nm(rawName!);
       const seconds = Math.min(8.5, Number(len));
       if (Number(len) > 8.5) console.log("note: clips are at most 8.5 s (the channel's practice) — cut to 8.5");
       const crop = opt("--crop") ?? "crop=iw:ih:0:0";
-      const parts = ensure(path.join(JOB, "downloads", "news", "parts")), part = path.join(parts, `${name}.mp4`);
+      const parts = ensure(path.join(WS, "downloads", "news", "parts")), part = path.join(parts, `${name}.mp4`);
       const s = Number(start);
       sh("yt-dlp", ["-q", "--no-warnings", "--no-playlist", "-f", "bv*[height<=1080][ext=mp4]/bv*[height<=1080]", "--download-sections", `*${s}-${s + seconds + 1}`, "-o", part, `https://www.youtube.com/watch?v=${id}`]);
       const outF = path.join(ensure(path.join(JOB, "public", "v")), `${name}.mp4`);
@@ -115,7 +124,8 @@ async function main() {
       return;
     }
     case "screenshot": {
-      const [url, name] = args;
+      const [url, rawName] = args;
+      const name = nm(rawName!);
       const { screenshotPage } = await import("@opumia/resolver");
       const f = path.join(ensure(path.join(JOB, "public", "img")), `${name}.jpg`);
       const ok = await screenshotPage(url!, f).catch(() => false);
@@ -133,7 +143,7 @@ async function main() {
         const d = await (await fetch(`https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1920&format=json&titles=${encodeURIComponent(hit.title)}`, { headers: UA })).json() as { query: { pages: Record<string, { imageinfo?: Array<{ thumburl?: string; url: string; descriptionurl: string; extmetadata?: Record<string, { value: string }> }> }> } };
         const ii = Object.values(d.query.pages)[0]?.imageinfo?.[0];
         if (!ii) continue;
-        const name = `commons_${hit.title.slice(5).replace(/[^A-Za-z0-9]+/g, "_").slice(0, 50)}${/\.png/i.test(ii.thumburl ?? ii.url) ? ".png" : ".jpg"}`;
+        const name = nm(`commons_${hit.title.slice(5).replace(/[^A-Za-z0-9]+/g, "_").slice(0, 50)}${/\.png/i.test(ii.thumburl ?? ii.url) ? ".png" : ".jpg"}`);
         const f = path.join(out, name);
         if (!existsSync(f)) writeFileSync(f, Buffer.from(await (await fetch(ii.thumburl ?? ii.url, { headers: UA })).arrayBuffer()));
         const lic = ii.extmetadata?.LicenseShortName?.value ?? "see source";
@@ -144,20 +154,20 @@ async function main() {
     }
     case "stock": {
       const qs = args.filter((a) => !a.startsWith("--"));
-      tsx("apps/cli/src/dev/hand/stock-look.ts", [JOB, ...qs], flag("--image") ? { KIND: "image" } : {});
-      console.log(`sheets: ${path.join(JOB, "downloads", "stock-look")}/sheet_*.jpg (4 per row; the .json beside each sheet gives the key at every position)`);
+      tsx("apps/cli/src/dev/hand/stock-look.ts", [ensure(WS), ...qs], flag("--image") ? { KIND: "image" } : {});
+      console.log(`sheets: ${path.join(WS, "downloads", "stock-look")}/sheet_*.jpg (4 per row; the .json beside each sheet gives the key at every position)`);
       return;
     }
     case "stock-get": {
-      tsx("apps/cli/src/dev/hand/stock-get.ts", [JOB, ...args]);
-      const cat = jread<Record<string, { provider: string; pageUrl: string; license: string; attributionText?: string }>>(path.join(JOB, "downloads", "stock-look", "candidates.json"), {});
-      for (const k of args) { const c = cat[k]; if (c) credit({ file: `downloads/stock/${k}`, kind: "stock", source: c.provider, url: c.pageUrl, license: c.license, note: c.attributionText }); }
-      console.log("downloaded to downloads/stock/ — LOOK at each one (ffmpeg a frame) before copying it into public/v/");
+      tsx("apps/cli/src/dev/hand/stock-get.ts", [ensure(WS), ...args]);
+      const cat = jread<Record<string, { provider: string; pageUrl: string; license: string; attributionText?: string }>>(path.join(WS, "downloads", "stock-look", "candidates.json"), {});
+      for (const k of args) { const c = cat[k]; if (c) credit({ file: `${path.relative(JOB, path.join(WS, "downloads", "stock"))}/${k}`, kind: "stock", source: c.provider, url: c.pageUrl, license: c.license, note: c.attributionText }); }
+      console.log(`downloaded to ${path.relative(JOB, path.join(WS, "downloads", "stock"))}/ — LOOK at each one (ffmpeg a frame) before copying it into public/v/${SCENE ? ` (name it ${SCENE}_<key>.mp4)` : ""}`);
       return;
     }
     case "films": {
       const q = args.filter((a) => !a.startsWith("--"));
-      sh(PY, ["-I", path.join(ROOT, "apps/cli/src/dev/hand/film-search.py"), ensure(path.join(JOB, "downloads", "films")), ...q, "--n", opt("--n") ?? "12"]);
+      sh(PY, ["-I", path.join(ROOT, "apps/cli/src/dev/hand/film-search.py"), ensure(path.join(WS, "downloads", "films")), ...q, "--n", opt("--n") ?? "12"]);
       console.log("public-domain feature films (Library/footage). Cut with ffmpeg from the Library file (read-only) into public/v/, then credit it: film-tools credit <file> film \"<film title> (public domain)\"");
       return;
     }
@@ -181,7 +191,30 @@ async function main() {
     }
     // ---- build, look, mix
     case "render": {
+      // a scene builder renders its own scene through its own entry (film seconds in, its own stills folder)
+      const sc = opt("--scene") ?? SCENE;
+      if (sc) {
+        const { readPlan, sceneWindow } = await import("./plan.js");
+        const plan = readPlan(JOB), i = plan?.scenes.findIndex((x) => x.id === sc) ?? -1;
+        if (!plan || i < 0) { console.log(`no scene ${sc} in plan.json`); process.exitCode = 1; return; }
+        const len = jread<{ seconds: number }>(path.join(JOB, "src", "length.json"), { seconds: 0 }).seconds;
+        const w = sceneWindow(plan, i, len);
+        const rest = args.filter((a, k) => a !== "--scene" && args[k - 1] !== "--scene");
+        const media = !rest.includes("--stills");
+        tsx("packages/motion-engine/src/hand/render-film.ts", [JOB, "--entry", path.join("src", "entries", `${sc}.tsx`), "--offset", String(w.startS), "--stills-dir", path.join("stills", sc), ...(media ? ["--out", `scene_${sc}.mp4`, "--concurrency", "3"] : []), ...rest]);
+        console.log(`(${sc} is mounted ${w.startS.toFixed(2)}–${(w.startS + w.frames / 24).toFixed(2)} s; times are film seconds)`);
+        return;
+      }
       tsx("packages/motion-engine/src/hand/render-film.ts", [JOB, ...args]);
+      return;
+    }
+    case "scene-check": {
+      const sc = args[0] ?? SCENE;
+      const { sceneCheck } = await import("./scene-check.js");
+      const r = await sceneCheck(JOB, sc!);
+      for (const c of r.checks) console.log(`${c.pass ? "PASS" : "FAIL"} ${c.id}: ${c.detail}`);
+      console.log(r.pass ? `SCENE ${sc} PASSED` : `SCENE ${sc} FAILED — fix the FAIL lines`);
+      process.exitCode = r.pass ? 0 : 2;
       return;
     }
     case "beds": {
@@ -225,7 +258,7 @@ async function main() {
     // ---- memory and spend
     case "lesson": {
       const f = path.join(ensure(path.join(ROOT, "data", "agents", "film-agent")), `${CHANNEL}.md`);
-      appendFileSync(f, `- (${path.basename(JOB)}, ${new Date().toISOString().slice(0, 10)}) ${args.join(" ").replace(/\s+/g, " ").slice(0, 500)}\n`);
+      appendFileSync(f, `- (${path.basename(JOB)}${SCENE ? ` ${SCENE}` : ""}, ${new Date().toISOString().slice(0, 10)}) ${args.join(" ").replace(/\s+/g, " ").slice(0, 500)}\n`);
       console.log("lesson saved");
       return;
     }

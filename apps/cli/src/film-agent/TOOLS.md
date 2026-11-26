@@ -9,6 +9,10 @@ Look at every image a command produces (Read the .jpg). Every command that bring
 
 ## Your film
 - `film-tools render [--stills 1.2,5.0,…] [--frames a-b]` — render `src/` (stills to `stills/`, or `picture.mp4`).
+  A scene builder renders only its own scene (`--scene <id>` is implied): stills to `stills/<id>/`, or
+  `scene_<id>.mp4`; times are always film seconds.
+- `film-tools scene-check <id>` — the scene is built, compiles, uses only files that exist and are credited, and is
+  not blank at its start, middle and end. Must print `SCENE <id> PASSED`.
 - `film-tools mix` — sound from `mix.json` at the channel's levels, muxed with `picture.mp4` → `film_16x9.mp4`.
   `mix.json`: `{ "beds": [{ "file", "from", "to", "inS" }], "cues": [{ "t", "file", "db" }], "drops": [{ "from", "to" }] }`
 - `film-tools beds` — music beds ranked by how like the channel's own beds they sound (pick past their quiet intros).
@@ -38,6 +42,8 @@ Look at every image a command produces (Read the .jpg). Every command that bring
 - `film-tools spend` — what the film has cost so far and its limit.
 
 ## Remotion (src/)
-`src/Film.tsx` exports `FilmRoot` (1920×1080, 24 fps, length = the narration + a 2–3 s title). Media from `public/`
+Solo: `src/Film.tsx` exports `FilmRoot` (1920×1080, 24 fps, length = the narration + a 2–3 s title). Parallel:
+`src/world.tsx` (planner), `src/scenes/<id>.tsx` (builders: `export default` a component taking
+`{ start, lead, length }`), `src/Film.tsx` generated from `plan.json`. Media from `public/`
 with `staticFile("v/…")`. Shared techniques: `import { … } from "@craft"` (see the playbook). Fonts:
 `import { loadFont } from "@remotion/google-fonts/<Font>"`. Render only through `film-tools render`.

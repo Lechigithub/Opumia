@@ -4,6 +4,13 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { sameObject, objectWords, GENERIC_OBJECTS } from "@opumia/agents";
 
+/** The film's ledger plus every scene builder's own (credits/<scene>.json, fair-use/<scene>.json). */
+export function ledgers<T>(job: string, kind: "credits" | "fair-use"): T[] {
+  const all = [...jread<T[]>(path.join(job, `${kind}.json`), [])];
+  const dir = path.join(job, kind);
+  if (existsSync(dir)) for (const f of readdirSync(dir).sort()) if (f.endsWith(".json")) all.push(...jread<T[]>(path.join(dir, f), []));
+  return all;
+}
 export interface GateCheck { id: string; pass: boolean; detail: string }
 const jread = <T>(f: string, d: T): T => { try { return JSON.parse(readFileSync(f, "utf8")) as T; } catch { return d; } };
 const AI = /\b(ai[- ]generated|generative|midjourney|dall-?e|stable diffusion|firefly|higgsfield|sora|runway|imagen|flux)\b/i;
@@ -33,13 +40,13 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   add("type", typeFails.length === 0, Object.entries(tv).map(([k, x]) => `${k} ${x.value} (${x.pass ? "ok" : "OUTSIDE"} ${x.limit})`).join(", ") || "type check did not run");
 
   // fair use at the channel's practice
-  const fu = jread<Array<{ file: string; kind: string; video: string; channel: string; seconds: number }>>(path.join(o.job, "fair-use.json"), []);
+  const fu = ledgers<{ file: string; kind: string; video: string; channel: string; seconds: number }>(o.job, "fair-use");
   const long = fu.filter((x) => x.seconds > 8.5), share = fu.reduce((t, x) => t + x.seconds, 0) / Math.max(1, d);
   const lifted = fu.filter((x) => OWN.test(x.channel) || LIFT.test(x.channel));
   add("fair_use", !long.length && share <= 0.27 && !lifted.length, `${fu.length} clip(s), ${Math.round(share * 100)} % of runtime (≤ 27 %), ${long.length} over 8.5 s${lifted.length ? `, ${lifted.length} from a channel never lifted from (${lifted.map((x) => x.channel).join(", ")})` : ""}`);
 
   // every picture placed has a source
-  const credits = jread<Array<{ file: string; kind: string; source: string; url?: string; license: string; note?: string }>>(path.join(o.job, "credits.json"), []);
+  const credits = ledgers<{ file: string; kind: string; source: string; url?: string; license: string; note?: string }>(o.job, "credits");
   const known = new Set(credits.map((c) => path.basename(c.file)));
   const media: string[] = [];
   for (const sub of ["v", "img"]) { const dir = path.join(o.job, "public", sub); if (existsSync(dir)) for (const f of readdirSync(dir)) if (/\.(mp4|mov|webm|jpg|jpeg|png|webp)$/i.test(f) && !/_depth\.|_cut\.|_crop|_mask/.test(f)) media.push(`${sub}/${f}`); }
@@ -47,8 +54,12 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   add("sources", unknown.length === 0, unknown.length ? `${unknown.length} picture(s) in public/ without a credit: ${unknown.slice(0, 8).join(", ")} — film-tools credit <file> <kind> <source> <url> (derived files: name them *_cut, *_crop, *_depth)` : `${media.length} picture(s), all credited`);
 
   // no generated pixels; never the channel's own material
-  const cands = jread<Record<string, { aiGenerated?: boolean }>>(path.join(o.job, "downloads", "stock-look", "candidates.json"), {});
+  const cands: Record<string, { aiGenerated?: boolean }> = { ...jread<Record<string, { aiGenerated?: boolean }>>(path.join(o.job, "downloads", "stock-look", "candidates.json"), {}) };
+  const dl = path.join(o.job, "downloads");
+  if (existsSync(dl)) for (const d of readdirSync(dl)) if (/^s\d{2}$/.test(d)) Object.assign(cands, jread<Record<string, { aiGenerated?: boolean }>>(path.join(dl, d, "downloads", "stock-look", "candidates.json"), {}));
   const aiStock = credits.filter((c) => c.kind === "stock" && cands[path.basename(c.file).replace(/\.\w+$/, "")]?.aiGenerated);
+  // a picture in public/ named after an AI-flagged stock key counts too
+  for (const m of media) { const k = Object.keys(cands).find((key) => cands[key]?.aiGenerated && m.includes(key.replace(/\.\w+$/, ""))); if (k) aiStock.push({ file: m, kind: "stock", source: k, license: "" }); }
   const aiText = credits.filter((c) => AI.test(`${c.source} ${c.note ?? ""} ${c.license}`));
   const own = credits.filter((c) => OWN.test(`${c.source} ${c.url ?? ""} ${c.note ?? ""}`));
   add("no_ai", !aiStock.length && !aiText.length, aiStock.length || aiText.length ? `generated imagery: ${[...aiStock, ...aiText].map((c) => c.file).join(", ")}` : "no generated imagery among the credited sources");

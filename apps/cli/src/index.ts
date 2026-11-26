@@ -26,7 +26,7 @@ const gb = (b: number) => `${(b / 1e9).toFixed(1)} GB`;
 
 const HELP = `opumia <command>
 
-  film-agent           One agent makes the whole film in out/<job>/ (paid; --topic, --duration, --max-usd, --dry-run)
+  film-agent           A planner, parallel scene builders and a finisher make the film in out/<job>/ (paid; --topic, --duration, --max-usd, --parallel 6, --solo, --dry-run)
   index-library        Index Library/ → data/library-index.json (incremental ffprobe, read-only)
       --no-probe         skip ffprobe (stats + metadata only)
       --concurrency N    parallel ffprobe processes (default: min(8, cores))
@@ -140,8 +140,8 @@ async function main() {
       const { runFilmAgent } = await import("./film-agent/run.js");
       const topic = opt("topic");
       const name = opt("job") ?? (topic ? `agent-${topic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40)}` : undefined);
-      if (!name) throw new Error("usage: opumia film-agent --topic \"…\" [--job NAME] [--duration 70] [--max-usd 9] [--dry-run]");
-      const r = await runFilmAgent({ root: ROOT, ...(topic ? { topic } : {}), job: path.join(ROOT, "out", name), channel: opt("channel") ?? "magnates-media", durationS: Number(opt("duration") ?? 70), maxUsd: Number(opt("max-usd") ?? process.env.OPUMIA_MAX_USD ?? 9), model: opt("model") ?? "claude-sonnet-5-5", dryRun: flag("dry-run"), log });
+      if (!name) throw new Error("usage: opumia film-agent --topic \"…\" [--job NAME] [--duration 70] [--max-usd 9] [--parallel 6] [--solo] [--dry-run]");
+      const r = await runFilmAgent({ root: ROOT, ...(topic ? { topic } : {}), job: path.join(ROOT, "out", name), channel: opt("channel") ?? "magnates-media", durationS: Number(opt("duration") ?? 70), maxUsd: Number(opt("max-usd") ?? process.env.OPUMIA_MAX_USD ?? 9), model: opt("model") ?? "claude-sonnet-5-5", ...(opt("builder-model") ? { builderModel: opt("builder-model")! } : {}), parallel: Number(opt("parallel") ?? 6), solo: flag("solo"), dryRun: flag("dry-run"), log });
       if (!r.pass && !flag("dry-run")) process.exitCode = 2;
       return;
     }
