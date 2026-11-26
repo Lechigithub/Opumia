@@ -501,6 +501,25 @@ v7.1–v7.2 added what the channel lays over its footage; the owner asked that n
   on screen stay gated by `text_share` on the plan.
 - Test: `dev/originality-test.ts` (in regressions, 27/27). Not proven on agent films: the two-film proof will show it.
 
+## Proof film 1 by the agents (2026-11-26) — what failed and what was fixed
+
+Wirecard, 60 s, Christopher on Eleven v4, produced untouched; stopped by the owner before render at ≈ $5.20.
+Narration was clean (169 wpm, 0 % WER); the art director's world was original (signature object: the bank
+confirmation letter). Not the channel's style: stock strangers under lines naming Braun and Marsalek, real material on
+1 of 9 named shots (then traded for stock), seven designed cards back to back, generic repeated stock; judge realness 0.56.
+Fixed, tested offline on that film's own data (`dev/proof1-test.ts`, `dev/proof1-picture-test.ts`, regressions 30/30):
+- art director: stage share 0.2 (its first pass needs $0.60); a complete submitted kit cut off before its final look
+  is accepted, never a stop; the kit's transition read from FILM (`kitTransition`), not a component's CSS;
+- press (`resolver/press.ts`): `pressTitleOk` (role + company names a person; broadcasters first, `NEWS`; outside them
+  only primary footage, `PRIMARY`; never `PARODY`), moments found on the subject's own thumbnail strip (the subject may
+  speak; anchors, reporters, others may not), 3–4 videos; the rater's `face` counts anyone a viewer could take for the
+  named person;
+- gate: `stand_in_face` reads the picture's description too (`looksLikeAPerson`) and split shots' parent pictures;
+  `cards_in_a_row` (≤ 2), `real_subjects` (≥ half of named shots real); the director's plan measure warns on card runs;
+- picture researcher: never replaces or drops real press/archive material.
+- Not yet fixed: speed (stages run one after another; previews re-bundle Remotion each time) — see the owner's
+  parallel-production request; the $5 limit for ≤ 90 s (narration alone was $1.21).
+
 ## Learning, speed and cost (build list 3, part E, 2026-11-22)
 
 - **Every escalation is logged** with its cause and cost (`out/<job>/ladders.jsonl` → `data/escalations.jsonl` after

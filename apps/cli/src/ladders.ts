@@ -183,6 +183,8 @@ export const PREFLIGHT_LADDERS: LadderTable<Act> = {
   repeat_in_film: PICTURE,
   shared_pictures: PICTURE,
   stand_in_face: [replacePicture, directorReplans, designedFromKit],
+  real_subjects: [replacePicture, directorReplans, designedFromKit],
+  cards_in_a_row: [replacePicture, directorReplans],
   fair_use_one_clip: PICTURE,
   fair_use_clip_length: PICTURE,
   fair_use_share: PICTURE,

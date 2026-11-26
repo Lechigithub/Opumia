@@ -173,14 +173,40 @@ export async function preflightChecks(o: PreflightInput): Promise<PreflightCheck
       const said = words.filter((w) => w.startS >= sh.startS - 0.05 && w.startS < sh.endS).map((w) => w.word).join(" ").toLowerCase();
       const named = o.people.filter((p) => { const last = p.toLowerCase().split(/\s+/).at(-1) ?? ""; return last.length > 2 && new RegExp(`\\b${last.replace(/[^a-z]/g, "")}\\b`).test(said); });
       if (!named.length) continue;
-      for (const m of o.resolution.media.filter((x) => x.shotId === sh.id && (x.role === "primary" || x.role === "layer"))) {
+      // an editor's split ("sh002_2") shows its parent's pictures; the rater's face flag is not trusted alone — the
+      // picture's own description is read too (proof film 1: "man in suit speaking at a podium", face=false, under
+      // "Wirecard's boss Markus Braun told investors").
+      const own = o.resolution.media.filter((x) => x.shotId === sh.id && (x.role === "primary" || x.role === "layer"));
+      const base = sh.id.replace(/(_\d+)+$/, "");
+      const media = own.length ? own : o.resolution.media.filter((x) => x.shotId === base && (x.role === "primary" || x.role === "layer"));
+      for (const m of media) {
         const verified = m.origin === "press" && named.some((p) => (m.depicts ?? "").toLowerCase().includes(p.toLowerCase().split(/\s+/).at(-1)!));
-        if (!verified && m.seen?.face) stand.push(sh.id);
+        const said2 = `${m.depicts ?? ""} ${(m.seen as { note?: string } | undefined)?.note ?? ""}`;
+        if (!verified && (m.seen?.face || looksLikeAPerson(said2))) stand.push(sh.id);
       }
     }
     const uniq = [...new Set(stand)];
     add({ id: "stand_in_face", label: "Shots where the narration names a real person over a face that is not verified as them", value: uniq.length, target: "0", pass: uniq.length === 0, level: "blocker", repair: "replace_picture", shots: uniq });
+  }  // --- proof film 1 (2026-11-26): designed cards back to back, and real subjects shown by stock.
+  {
+    const isCard = (id: string) => {
+      // footage scenes are stored as designed "scene"s too: a card is a designed document, chart, map or stage
+      const sh = o.board.shots.find((x) => x.id === id) as { source?: { kind?: string; designed?: string } } | undefined;
+      const sc = o.scenes.scenes.find((x) => x.shotId === id) as { backdrop?: string } | undefined;
+      return (sh?.source?.kind === "designed" && sh.source.designed !== "scene") || (sc?.backdrop !== undefined && sc.backdrop !== "footage");
+    };
+    const runs: string[][] = []; let cur: string[] = [];
+    for (const sh of o.board.shots) { if (isCard(sh.id)) cur.push(sh.id); else { if (cur.length) runs.push(cur); cur = []; } }
+    if (cur.length) runs.push(cur);
+    const long = runs.filter((r) => r.length > 2);
+    add({ id: "cards_in_a_row", label: "Designed shots back to back (cards, charts, maps, documents)", value: Math.max(0, ...runs.map((r) => r.length)), target: "≤ 2 in a row", pass: long.length === 0, level: "blocker", repair: "replace_picture", shots: long.flatMap((r) => r.filter((_, k) => k % 2 === 1)), ...(long.length ? { note: "put footage between them: the place, the people, someone doing what the line says; keep a card for the one figure or document that must be read" } : {}) });
+    // a shot planned around a named person or company shows real material of them (press, archive, Wikipedia)
+    const realOrigin = (m: { origin?: string; provider?: string }) => ["press", "archival"].includes(String(m.origin)) || ["youtube", "wikipedia", "commons", "nara", "europeana", "archive"].includes(String(m.provider));
+    const named = o.board.shots.filter((x) => (x.entities ?? []).some((e) => ["person", "company"].includes(e.type)) && !isCard(x.id));
+    const unmet = named.filter((x) => { const base = x.id.replace(/(_\d+)+$/, ""); const ms = o.resolution.media.filter((m) => (m.shotId === x.id || m.shotId === base) && (m.role === "primary" || m.role === "layer")); return !ms.some((m) => realOrigin(m as never)); });
+    if (named.length >= 2) add({ id: "real_subjects", label: "Shots about a named person or company that show real material of them", value: Math.round((1 - unmet.length / named.length) * 100) / 100, target: "≥ 0.5 (press, archive, Wikipedia — never a stock stand-in)", pass: unmet.length / named.length <= 0.5, level: "blocker", repair: "replace_picture", shots: unmet.map((x) => x.id), ...(unmet.length / named.length > 0.5 ? { note: "find the real person or company: news reports (Reuters, Bloomberg, DW…), their own interviews and talks, Wikipedia and Commons photos — or design the shot around a real photo" } : {}) });
   }
+
 
   // --- Fair use: one clip per source video, clips ≤ 7.5 s, press footage ≤ 45 % of the runtime.
   {
@@ -468,3 +494,12 @@ export function dropPictures(resolution: ResolutionReport, checks: PreflightChec
   });
   return { media, shots };
 }
+
+/** A picture described as showing a person who could be taken for someone (not hands, a silhouette, a back or a crowd). */
+export function looksLikeAPerson(desc: string): boolean {
+  const d = desc.toLowerCase();
+  if (!/\b(man|woman|men|women|businessman|businesswoman|executive|speaker|person|people|guy|gentleman|lady|boss|ceo|actor|official|banker|politician|he|she)\b/.test(d)) return false;
+  if (/\b(silhouette|silhouetted|from behind|back of|backs of|hands?|wrists?|fingers|feet|legs|shadow|crowd|distant|faceless|blurred figure)\b/.test(d) && !/\b(face|portrait|close-up of a (man|woman)|speaking|talking|smiling|looking at)\b/.test(d)) return false;
+  return true;
+}
+

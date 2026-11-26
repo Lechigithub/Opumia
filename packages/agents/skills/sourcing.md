@@ -55,3 +55,17 @@ or the wrong decade. You look at what was placed, beside its line, and fix what 
 - Performed stock at 1080p or more for what was never filmed (hands, rooms, people at work at night); 720p looks soft.
 - Check every downloaded clip by eye against its need before it is placed: in v7 five clips arrived under the wrong
   need (a sheet whose previews failed shifted every later tile; stock-look now keeps a blank tile and writes the order).
+
+## Real subjects first, and never traded away (proof film 1, 2026-11-26)
+Film 1 by the agents showed a stock speaker at a podium under "Wirecard's boss Markus Braun told investors" and a stock
+man with a suitcase under Jan Marsalek's line; real material was found for 1 of 9 shots that needed it, and that one
+was then replaced with stock. Now:
+- Press search ranks broadcasters and wire services first (Reuters, Bloomberg, DW, AFP, Euronews, Spiegel, ZEIT…);
+  a person's report may name their role with another subject ("Former Wirecard CEO arrested"); outside broadcasters
+  only primary footage passes (their own interview, talk, conference, statement, trial) — never a channel retelling
+  the story, never a parody.
+- The moment is found where the person is actually on screen (their thumbnail strip, looked at), not at fixed points.
+- `find_picture` and `drop_picture` refuse a shot that already shows real press or archive material of its subject.
+- The gate now blocks: a person who could be taken for someone the line names unless verified press of them
+  (`stand_in_face` also reads the picture's description); fewer than half the named shots showing real material
+  (`real_subjects`); more than two designed cards back to back (`cards_in_a_row`).

@@ -101,6 +101,11 @@ export async function directStoryboardAgent(o: DirectorAgentOptions): Promise<{ 
       const performed = share(["reenactment", "broll"]), designedSh = share(["designed"]), photo = share(["photo"]);
       if (performed < PICTURE_MIX.performedMin) issues.push({ kind: "picture_mix", detail: `${Math.round(performed * 100)} % of the shots are people performing the line or b-roll; the channel: ${Math.round(PICTURE_MIX.performedMin * 100)}–70 % (median 49 %). Show the story: turn held photos and cards into someone doing what the line says, or the place it happens.` });
       if (designedSh > PICTURE_MIX.designedMax) issues.push({ kind: "picture_mix", detail: `${Math.round(designedSh * 100)} % of the shots are designed; the channel: at most ${Math.round(PICTURE_MIX.designedMax * 100)} %.` });
+      // proof film 1 (2026-11-26): seven designed shots back to back (newspaper, filing, chart, map, letter, chart,
+      // newspaper) — 23 s of cards. The channel lets a designed moment land between pieces of footage.
+      let run = 0, worst = 0;
+      for (const sh of valid) { run = sh.visual === "designed" ? run + 1 : 0; worst = Math.max(worst, run); }
+      if (worst > 2) issues.push({ kind: "cards_in_a_row", detail: `${worst} designed shots in a row; at most 2 back to back. Put footage between them — the place, the people, someone doing what the line says — and keep a designed shot for the one figure or document that must be read.` });
       if (photo > PICTURE_MIX.photoMax) issues.push({ kind: "picture_mix", detail: `${Math.round(photo * 100)} % of the shots hold a still photo; the channel shows real stills on ≈ 1 % of its shots, briefly — keep a real subject's photo short, or move it as depth planes (Parallax) inside a designed scene.` });
     }
     if (long.length) issues.push({ kind: "shot_too_long", detail: `${long.length} shot(s) run over ${maxShot} s (${long.slice(0, 5).map((x) => `word ${x.s.startWord}: ${x.d.toFixed(1)} s`).join(", ")}). The channel never sits that long on one picture: cut inside them.` });

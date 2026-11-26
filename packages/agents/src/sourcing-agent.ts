@@ -117,6 +117,9 @@ export async function sourcingAgent(o: SourcingAgentOptions): Promise<{ resoluti
       schema: z.object({ shotId: z.string(), want: z.string(), kind: z.enum(["video", "image"]).default("video") }),
       run: (async (i: { shotId: string; want: string; kind: "video" | "image" }) => {
         if (!rows.has(i.shotId)) return `no shot ${i.shotId}`;
+        // proof film 1 (2026-11-26): the only real press shot was replaced with stock ("real 1 → 0/9"). Real material of
+        // the subject is never traded away.
+        if (["press", "archival"].includes(originOf(i.shotId))) return `KEPT — ${i.shotId} already shows real ${originOf(i.shotId)} material of its subject; a stock picture never replaces it. Improve another shot.`;
         const r = await o.findPicture({ shotId: i.shotId, want: i.want, as: "footage", kind: i.kind });
         if (!r.ok) { ops.push(`find ${i.shotId}: none (${i.want})`); return `nothing placed: ${r.why}`; }
         replaced.set(i.shotId, { depicts: r.depicts, fit: r.fit ?? 6, preview: r.preview, origin: primary(i.shotId)?.origin ?? "stock" });
@@ -131,6 +134,7 @@ export async function sourcingAgent(o: SourcingAgentOptions): Promise<{ resoluti
       schema: z.object({ shotId: z.string(), why: z.string() }),
       run: (async (i: { shotId: string; why: string }) => {
         if (!rows.has(i.shotId)) return `no shot ${i.shotId}`;
+        if (["press", "archival"].includes(originOf(i.shotId))) return `KEPT — ${i.shotId} shows real ${originOf(i.shotId)} material of its subject; it is not dropped.`;
         dropped.add(i.shotId);
         replaced.delete(i.shotId);
         ops.push(`drop ${i.shotId} (${i.why.slice(0, 50)})`);

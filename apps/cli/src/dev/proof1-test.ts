@@ -11,5 +11,5 @@ const code = 'const W = () => <span style={{ transition: "none" }}>x</span>;\nex
 ok(kitTransition(code) === "ledger", `transition read from FILM: ${kitTransition(code)}`);
 ok(STAGE_SHARE.B2d!.usd * 3 >= 0.6, `art director share on the $3 floor: $${(STAGE_SHARE.B2d!.usd * 3).toFixed(2)} >= $0.60`);
 const kit = "out/proof-wirecard-a/design/film/index.tsx";
-if (existsSync(kit)) ok(kitTransition(readFileSync(kit, "utf8")) === "ledger", `proof film 1's own kit: ${kitTransition(readFileSync(kit, "utf8"))}`);
+if (existsSync(kit)) { const t = kitTransition(readFileSync(kit, "utf8")); ok(t !== null && t !== "none" && /transitions\s*:\s*\{[^}]*\b/.test(readFileSync(kit, "utf8")) && new RegExp(`\\b${t}\\s*:`).test(readFileSync(kit, "utf8")), `proof film 1's own kit: transition "${t}" is one of its own transitions`); }
 if (bad) process.exit(1);

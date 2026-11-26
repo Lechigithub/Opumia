@@ -260,7 +260,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
     // Clips are fetched at the longest allowed length once per subject and trimmed per shot.
     const press = (e: { name: string; type: string; year?: number }) => {
       const k = e.name.toLowerCase();
-      if (!ytMemo.has(k)) ytMemo.set(k, youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 2, perVideo: 2, clipS: 6, world }).catch(() => []));
+      if (!ytMemo.has(k)) ytMemo.set(k, youtubePress({ entity: e, context: e.type === "person" ? "interview" : e.type === "event" ? "footage" : "", dlDir: pressDir, usedVideos: new Set(), videos: 3, perVideo: 2, clipS: 6, world }).catch(() => []));
       return ytMemo.get(k)!;
     };
     const lim = 8;
@@ -422,7 +422,7 @@ export async function resolveAssets(o: ResolveOptions): Promise<ResolutionReport
         if (usedStock.has(`${c.provider}:${c.externalId}`) || anachronistic(text, era) || mismatch(text, n.line, n.decade)) continue;
         push({ src: "stock", c, score: 1 });
       }
-      if (o.press !== false && b.need === "real" && b.youtube) for (const yp of await youtubeFootage({ query: b.youtube, about: `${b.must} ${n.line}`, must: b.must, subjects, dlDir: pressDir, clipS: n.durationS, videos: 3 }).catch(() => [])) push({ src: "press", p: yp, score: 1 });
+      if (o.press !== false && b.need === "real" && b.youtube) for (const yp of await youtubeFootage({ query: b.youtube, about: `${b.must} ${n.line}`, must: b.must, subjects, people: subjects.filter((x) => o.storyboard.shots.some((sh) => sh.entities?.some((en) => en.name === x && en.type === "person"))), dlDir: pressDir, clipS: n.durationS, videos: 4 }).catch(() => [])) push({ src: "press", p: yp, score: 1 });
       // At most 16 per shot, taken in turns from each source so no single library crowds the others out.
       const bySource = new Map<string, Cand[]>();
       for (const c of list) {

@@ -144,11 +144,37 @@ async function ytSection(id: string, atS: number, lenS: number, out: string): Pr
   }
 }
 
+/** Proof film 1 (2026-11-26): Reuters' "Former Wirecard CEO arrested" names Braun's role and company, not his surname, and
+ *  was dropped. A person's press may name them, or their role together with another subject of the film. */
+const ROLE = /\b(ceo|chief executive|founder|co-?founder|boss|chief operating officer|coo|cfo|chairman|chairwoman|president|executive|director|manager|banker|reporter|journalist|fugitive)\b/i;
+/** Wire services and broadcasters first: their reports carry the real places and moments (proof film 1). */
+const NEWS = /\b(reuters|bloomberg(?! originals)|associated press|\bap\b|afp|agence france|dw news|deutsche welle|cnbc|bbc news|sky news|euronews|al jazeera|financial times|wall street journal|cnn|abc news|nbc news|cbs news|tagesschau|zdf|ard|welt|spiegel|die zeit|zeit online|handelsblatt|faz)\b/i;
+const PARODY = /\b(risitas|parody|meme|satire|satirical|reaction|reacts|funny|comedy|prank|ai voice)\b/i;
+const PRIMARY = /\b(interview|interviewed|speech|keynote|conference|panel|statement|press conference|testimony|testifies|trial|court|hearing|agm|annual general meeting|shareholder meeting|investor day|earnings call|dld\d*|summit|forum|q&a|im interview|rede|pressekonferenz|prozess|hauptversammlung|vor gericht)\b/i;
+const newsFirst = <T extends { channel?: string; uploader?: string }>(xs: T[]) => [...xs].sort((a, b) => Number(NEWS.test(`${b.channel ?? ""} ${b.uploader ?? ""}`)) - Number(NEWS.test(`${a.channel ?? ""} ${a.uploader ?? ""}`)));
 const namesAll = (title: string, name: string) => {
   const toks = name.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((t) => t.length > 2 && !["the", "inc", "corp", "company", "and"].includes(t));
   const key = toks.at(-1);
   return Boolean(key && new RegExp(`\\b${key}`, "i").test(title));
 };
+/** Whether a search hit may be press of the entity (no essay, documentary, drama or reference channel; the title names
+ *  it — or, for a person, names their role and another subject of the film; a namesake must name another subject). */
+export function pressTitleOk(e: { title: string; channel?: string; uploader?: string; duration?: number }, entity: { name: string; type: string }, world: string[]): boolean {
+  const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
+  if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title)) return false;
+  // A title crediting two or more performers ("| Amanda Seyfried, Laurie Metcalf") is a drama clip.
+  if (DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title) || /[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) return false;
+  if (!e.duration || e.duration < 25 || e.duration > 2400) return false;
+  if (PARODY.test(e.title)) return false;
+  // Outside the broadcasters, only primary footage: the person's own interview, speech, conference, statement, trial —
+  // never a channel retelling the story (proof film 1's probe: "Hollow Money", "ExhibitCapital" passed the old filter).
+  if (!NEWS.test(ch) && !PRIMARY.test(e.title)) return false;
+  const byRole = entity.type === "person" && ROLE.test(e.title) && world.some((w) => namesAll(e.title, w));
+  if (!namesAll(e.title, entity.name) && !byRole) return false;
+  if (entity.type === "person" && world.length && !world.some((w) => namesAll(`${e.title} ${ch}`, w))) return false;
+  return true;
+}
+export const isNewsChannel = (ch: string) => NEWS.test(ch);
 
 /**
  * Up to `perVideo` short sections from each of the top `videos` press videos naming the entity.
@@ -166,23 +192,23 @@ export async function youtubePress(o: { entity: { name: string; type: string; ye
       if (seen.has(e.id) || o.usedVideos.has(e.id)) continue;
       seen.add(e.id);
       const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
-      if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title)) continue;
-      // A title crediting two or more performers ("| Amanda Seyfried, Laurie Metcalf") is a drama clip.
-      if (DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title) || /[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) continue;
-      if (!e.duration || e.duration < 25 || e.duration > 2400) continue;
-      if (!namesAll(e.title, o.entity.name)) continue;
-      // A namesake is not the person: the title or channel must also name another subject of the film.
-      if (o.entity.type === "person" && world.length && !world.some((w) => namesAll(`${e.title} ${ch}`, w))) continue;
+      if (!pressTitleOk(e, o.entity, world)) continue;
       hits.push(e);
     }
     if (hits.length >= (o.videos ?? 2)) break;
   }
   const len = Math.min(PRESS_MAX_CLIP_S, Math.max(2.5, o.clipS + 0.6));
-  const jobs = hits.slice(0, o.videos ?? 2).flatMap((e) => {
+  // Where in each report the subject is actually on screen, found on the video's own thumbnail strip (a report's
+  // 32 % and 58 % points were often its anchor at a desk — proof film 1 found 1 of 7); fixed points only as a fallback.
+  const must = o.entity.type === "person" ? `${o.entity.name} himself or herself on camera: speaking, on a stage, arriving, being interviewed` : `${o.entity.name}: the real place, building, logo, product or event itself`;
+  const picked = newsFirst(hits).slice(0, o.videos ?? 3);
+  const jobs = (await Promise.all(picked.map(async (e) => {
     const d = e.duration!;
-    const spots = [0.32, 0.58].slice(0, o.perVideo ?? 2).map((f) => Math.max(8, Math.min(d - len - 8, d * f)));
-    return spots.map((at) => ({ e, at }));
-  });
+    const info = await ytInfo(e.id).catch(() => null);
+    const seen = info ? await ytMoments(info, must, o.dlDir, o.entity.type === "person" ? o.entity.name : undefined).catch(() => []) : [];
+    const spots = seen.length ? seen.map((t) => Math.max(2, Math.min(d - len - 2, t - len / 3))) : [0.32, 0.58].map((f) => Math.max(8, Math.min(d - len - 8, d * f)));
+    return spots.slice(0, o.perVideo ?? 2).map((at) => ({ e, at }));
+  }))).flat();
   await mkdir(o.dlDir, { recursive: true });
   const res = await Promise.all(
     jobs.map(async ({ e, at }) => {
@@ -390,7 +416,7 @@ export async function archiveMoment(c: { externalId: string; moments?: Array<{ a
 }
 
 /** Where in the video the wanted picture is: the model looks at the video's thumbnail strip and names the cells. */
-async function ytMoments(info: YtInfo, must: string, dlDir: string): Promise<number[]> {
+async function ytMoments(info: YtInfo, must: string, dlDir: string, subject?: string): Promise<number[]> {
   if (!info.sheets.length) return [];
   const n = info.sheets.length;
   const idx = n <= 4 ? info.sheets.map((_, i) => i) : [0, 1, 2, 3].map((k) => Math.round((k * (n - 1)) / 3));
@@ -418,7 +444,9 @@ async function ytMoments(info: YtInfo, must: string, dlDir: string): Promise<num
   const res = await structured({
     stage: "resolve.moments",
     model: MODELS.haiku,
-    system: [plain("Each image is a grid of small frames from one video, in time order, numbered from 0 left-to-right then top-to-bottom. Pick up to 3 cells that clearly show the wanted picture. Never a talking head, an interview, a presenter, a title card, text or graphics. If no cell shows it, return no picks.")],
+    system: [plain(subject
+      ? `Each image is a grid of small frames from one video, in time order, numbered from 0 left-to-right then top-to-bottom. Pick up to 3 cells that clearly show ${subject} themself — speaking, on a stage, at a press conference, arriving, being interviewed. Never a news anchor or presenter in a studio, a reporter, someone else, a title card, text or graphics. If no cell shows them, return no picks.`
+      : "Each image is a grid of small frames from one video, in time order, numbered from 0 left-to-right then top-to-bottom. Pick up to 3 cells that clearly show the wanted picture. Never a talking head, an interview, a presenter, a title card, text or graphics. If no cell shows it, return no picks.")],
     user: [{ type: "text" as const, text: `Wanted picture: ${must}` }, ...got.flatMap((g, k) => [{ type: "text" as const, text: `[sheet ${k}] ${g.sh.cols} columns × ${g.sh.rows} rows` }, { type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: g.data } }])],
     schema: Moments,
     effort: "low",
@@ -434,13 +462,15 @@ async function ytMoments(info: YtInfo, must: string, dlDir: string): Promise<num
  * Real footage found by description. `subjects` are the film's named people/companies/products: a video is
  * only considered when its title names one of them, so every excerpt is coverage of what the film discusses.
  */
-export async function youtubeFootage(o: { query: string; about: string; must?: string; subjects: string[]; dlDir: string; clipS: number; videos?: number }): Promise<PressCandidate[]> {
-  const hits = (await ytSearch(o.query, 8))
+export async function youtubeFootage(o: { query: string; about: string; must?: string; subjects: string[]; people?: string[]; dlDir: string; clipS: number; videos?: number }): Promise<PressCandidate[]> {
+  const person = (o.people ?? []).find((p) => namesAll(`${o.must ?? ""} ${o.query}`, p));
+  const hits = newsFirst(await ytSearch(o.query, 8))
     .filter((e) => {
       const ch = `${e.channel ?? ""} ${e.uploader ?? ""}`;
       if (NO_LIFT.test(ch) || NO_LIFT_TITLE.test(e.title) || DRAMA_CHANNEL.test(ch) || DRAMA_TITLE.test(e.title)) return false;
       if (/[|–-]\s*[A-Z][a-z]+ [A-Z][a-z]+,\s*[A-Z][a-z]+ [A-Z][a-z]+/.test(e.title)) return false;
       if (!e.duration || e.duration < 25 || e.duration > 3600) return false;
+      if (PARODY.test(e.title) || (!NEWS.test(ch) && !PRIMARY.test(e.title))) return false;
       return o.subjects.some((sub) => namesAll(e.title, sub));
     })
     .slice(0, o.videos ?? 2);
@@ -454,7 +484,7 @@ export async function youtubeFootage(o: { query: string; about: string; must?: s
       if (!info?.stream) return;
       const d = info.duration || e.duration!;
       const cm = captionMoment(info, words);
-      const seenAt = o.must ? await ytMoments(info, o.must, o.dlDir).catch(() => []) : [];
+      const seenAt = o.must ? await ytMoments(info, o.must, o.dlDir, person).catch(() => []) : [];
       // Moments seen in the thumbnail strip first (the clip starts a little before them), then where the video's
       // own narration talks about it, then two spread moments.
       const spots = [...new Set([...seenAt.map((t) => t - Math.min(1, len / 3)), ...(cm !== null ? [cm] : []), ...(seenAt.length >= 2 ? [] : [d * 0.3, d * 0.62])].map((t) => Math.round(Math.max(2, Math.min(d - len - 2, t)))))].slice(0, 4);
@@ -531,7 +561,7 @@ const Review = z.object({
       fit: z.number().describe("0–10: how well this picture carries the MEANING of the line and intent — its idea, not its nouns (10 = says exactly what the line means; 5 = same general world, or only a noun matches; 2 = unrelated)"),
       idle: z.boolean().describe("stock people doing nothing in particular (see the rule)"),
       specific: z.boolean().describe("a picture of THIS story (see the rule)"),
-      face: z.boolean().describe("true if one identifiable person's face is prominent (a close-up or medium shot a viewer would take to be a specific person)"),
+      face: z.boolean().describe("true if a person's face is visible clearly enough that a viewer could take them for someone the narration names — close-ups, medium shots, a speaker at a podium all count; silhouettes, backs, hands or a distant crowd do not (proof film 1: a podium speaker was marked false under a line naming Wirecard's CEO)"),
       banner: z.boolean().describe("true if burned-in text, captions, watermarks, title cards or broadcaster graphics are visible"),
       wrongEra: z.boolean().describe("true if clothing, cars, devices or film stock clearly belong to a different period than stated"),
       synthetic: z.boolean().describe("true if the picture looks AI-generated, a 3D render, an illustration or an animation rather than a photograph or filmed footage"),
@@ -558,7 +588,7 @@ export async function reviewPictures(items: Array<{ frameFile: string; intent: s
     const res = await structured({
       stage: "resolve.review",
       model: MODELS.haiku,
-      system: [plain(`You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible.\n${MEANING_RULE}\n${IDLE_RULE} An idle picture's fit is at most 5 unless the line itself is about such a moment.\n${SPECIFIC_RULE}\n` + "A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: say face=true only when a specific person's face is clearly the subject. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. Legible text that names a different company, person, product or subject than the line (a document, sign or screen about something else) is misleading: fit at most 3. Be alert to AI-generated imagery (too-perfect, hyper-detailed, impossible objects, melted details): synthetic=true. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
+      system: [plain(`You are a strict documentary picture editor reviewing the frame chosen for each shot. Judge only what is visible.\n${MEANING_RULE}\n${IDLE_RULE} An idle picture's fit is at most 5 unless the line itself is about such a moment.\n${SPECIFIC_RULE}\n` + "A generic stand-in (a random person, an unrelated office, a different country, a different industry) is a poor fit even if it matches a keyword. Be accurate about faces: face=true whenever a person's face is visible enough that a viewer could take them for someone the line names (a speaker at a podium, a medium shot of a businessman); false for silhouettes, backs, hands and distant crowds. When the intent asks for a specific named thing (that company's factory, that product, that document) and the picture shows only a generic one of its kind, fit is at most 5. wrongEra=true only when something clearly LATER than the story period is visible (a calendar dated after it, a smartphone or flat screen in a 1970s scene); older or timeless things are not a wrong era. Legible text that names a different company, person, product or subject than the line (a document, sign or screen about something else) is misleading: fit at most 3. Be alert to AI-generated imagery (too-perfect, hyper-detailed, impossible objects, melted details): synthetic=true. A title card, name slate, presenter graphic, subscribe button, watermark or burned-in caption means banner=true and fit at most 3.")],
       user: blocks,
       schema: Review,
       effort: "low",
