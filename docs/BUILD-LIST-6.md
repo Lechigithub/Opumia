@@ -71,6 +71,14 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   1. families may be shared at the channel's rate;
   2. the IMPLEMENTATION AND LOOK of each family is never shared. Word looks are measured on SigLIP crops of the
      on-screen words (OCR boxes), with the band taken from the channel's own films.
+- ◑ B3a **Paper and cards at the channel's rate** (applied by hand in Wirecard v4.4; gate still to build) (owner, 2026-11-25: "why … paper, documents, cards a lot … instead of
+  showing the story?").
+  - **The channel** (visual profile, 276 labelled shots): plain footage 42 % (per film 19–75 %), words over footage
+    26 %, documents and screens 4 %, title cards 5 %, quote cards 0.4 %.
+  - **Wirecard v4** put receipts, pink sheets or labels on ~14 of 22 beats and left ~3 clean.
+  - **Causes:** each line's fact turned into an object, the world's device repeated, drama clips (the channel's
+    performed scenes) replaced by paper, and an unmasked measure that rewarded words on screen.
+  - **Gate:** document/card share ≤ 2× the channel's, clean footage ≥ its p10 (19 %), words over footage near 26 %.
 - ☐ B3 **Device rates per film** from `technique-inventory` (falling money ≈ 0.38/min, floating particles ≈ 15 % of
   stretches, …). Over 2.5× the channel's rate is a gate failure to the owner of the device.
 - ☐ B4 **Sameness on every axis**, one report against every earlier film:
@@ -183,6 +191,14 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   - **Result:** no earlier film of ours is too close (FTX's word look is gone), the real subjects are in (Braun,
     McCrum, the Marsalek wanted poster, Wirecard's HQ, BPI Manila, the Frankfurt Bull and Bear, a real terminal and
     receipt printer), and the cuts are at Ponzi's 5.3 a minute.
+  - **v4.4 (2026-11-25, taste, mix, paper):**
+    - **Taste:** split per shot by its two heads (`taste-heads.ts`). The FT's pink was a one-colour wash (pro head) →
+      now a sheet beside the picture. Daylight buildings were far from the channel's low-key look → dusk. The title
+      was on an empty stage → over the HQ. 31 of 33 frames above the real floor, median 4.7.
+    - **Mix 0.79,** inside the channel's band (p10 0.737). A louder or quieter bed and more thuds all scored lower.
+    - **Paper cut to the channel's rate:** receipts for 3 moments, the pink once, the terminal once, names; the rest
+      clean. Line fit 0.614 (passes), dark frames 11 %, moving 0.82, changes by moving 0.77, cuts 8.8/min: the channel's
+      medians. Too close to no earlier film.
   - **v4.3 (2026-11-25):**
     - **Line fit 0.623:** passes the channel's p10 0.614. The weak beats were rebuilt around what the line names: the
       real Frankfurt trading floor, the Reichstag for "Germany", the BaFin building for the regulator, Wirecard's HQ

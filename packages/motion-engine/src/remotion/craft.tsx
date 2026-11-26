@@ -271,7 +271,7 @@ export const Parallax: React.FC<{ bg: string; cut?: string; box?: [number, numbe
   const plane = (child: React.ReactNode, depth: number, key: string) => <CameraPath key={key} keys={p.keys} depth={depth}><div style={{ position: "absolute", left: (W - fw) / 2, top: (H - fh) / 2, width: fw, height: fh }}>{child}</div></CameraPath>;
   const b = p.box ?? [0, 0, 1, 1];
   return <AbsoluteFill style={{ overflow: "hidden" }}>
-    {plane(<Img src={src(p.bg)} style={{ width: "100%", height: "100%", objectFit: "fill", filter: p.bgFilter ?? "blur(3px) brightness(0.82)", transform: "scale(1.04)" }} />, p.far ?? 0.55, "bg")}
+    {plane(<Img src={src(p.bg)} style={{ width: "100%", height: "100%", objectFit: "fill", filter: p.bgFilter ?? "blur(3px) brightness(0.82)", transform: "scale(1.22)" }} />, p.far ?? 0.55, "bg")} {/* the far plane is oversized so the camera never travels past its edge */}
     {p.extra ? plane(p.extra, ((p.far ?? 0.55) + (p.near ?? 1.35)) / 2, "mid") : null}
     {p.cut ? plane(<Img src={src(p.cut)} style={{ position: "absolute", left: `${b[0] * 100}%`, top: `${b[1] * 100}%`, width: `${b[2] * 100}%`, height: `${b[3] * 100}%`, filter: p.cutFilter ?? "drop-shadow(0 18px 30px rgba(0,0,0,.55))" }} />, p.near ?? 1.35, "cut") : null}
   </AbsoluteFill>;

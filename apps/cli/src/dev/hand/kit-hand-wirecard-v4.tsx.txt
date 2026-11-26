@@ -85,6 +85,12 @@ const LCD: React.FC<{ states: Array<{ text: string; at: number; sub?: string }>;
 };
 
 /** The FT's salmon-pink newsprint laid over a picture (duotone into the paper's colour, with paper fibre). */
+const Sheet: React.FC<{ k: number; box: [number, number, number, number] }> = ({ k, box }) => {
+  const { width: W, height: H } = useVideoConfig();
+  return <div style={{ position: "absolute", left: W * box[0], top: H * box[1], width: W * box[2], height: H * box[3], opacity: k, transform: `translateX(${(1 - k) * W * 0.1}px) rotate(${box[0] > 0.4 ? 1.2 : -1.2}deg)`, background: "#f4dcc8", boxShadow: "0 30px 60px rgba(0,0,0,.6)" }}>
+    <AbsoluteFill style={{ opacity: 0.3, mixBlendMode: "multiply", backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0.55 0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>\")" }} />
+  </div>;
+};
 const Pink: React.FC<{ k?: number }> = ({ k = 1 }) => <>
   <AbsoluteFill style={{ backdropFilter: "grayscale(1) contrast(1.15)", opacity: k }} />
   <AbsoluteFill style={{ background: "#f4c9ad", mixBlendMode: "multiply", opacity: 0.95 * k }} />
@@ -158,7 +164,7 @@ const Beat: React.FC<P> = (p) => {
       </AbsoluteFill>;
     })}
     {p.parallax ? <Parallax bg={S(p, p.parallax.bg)!} cut={S(p, p.parallax.cut)} box={p.parallax.box} aspect={Number(p.parallax.aspect)} keys={p.parallax.keys} near={p.parallax.near} far={p.parallax.far} bgFilter={p.parallax.bgFilter} cutFilter={p.parallax.cutFilter} /> : null}
-    {p.pink ? <Pink k={interpolate(f, [Number(p.pink.from ?? 0) * fps, Number(p.pink.from ?? 0) * fps + 10], [0, 1], clamp)} /> : null}
+    {p.pink ? (p.pink.box ? <Sheet box={p.pink.box} k={interpolate(f, [Number(p.pink.from ?? 0) * fps, Number(p.pink.from ?? 0) * fps + 8], [0, 1], { ...clamp, easing: ease })} /> : <Pink k={interpolate(f, [Number(p.pink.from ?? 0) * fps, Number(p.pink.from ?? 0) * fps + 10], [0, 1], clamp)} />) : null}
     {p.lowkey ? <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 30%, rgba(0,0,0,.72) 100%)" }} /> : null}
     {((p.lcd ?? []) as P[]).map((l, i) => <LCD key={i} states={l.states} box={l.box} rot={l.rot} skew={l.skew} />)}
    </AbsoluteFill>
@@ -175,6 +181,7 @@ const Title: React.FC<P> = (p) => {
   const f = useCurrentFrame(); const { fps, width: W } = useVideoConfig(); const len = Number(p.len ?? 2.6);
   const lines: Line[] = [{ text: "* * * * * * * * *", at: 0.1, align: "center" }, { text: String(p.title ?? "WIRECARD").toUpperCase(), at: 0.35, size: 2.6, bold: true, align: "center" }, { text: String(p.subtitle ?? ""), at: 0.9, size: 0.62, align: "center" }, { text: "", at: 1.0, rule: true }, { text: "TOTAL      €0.00", at: 1.35, size: 1.1, bold: true, align: "center" }];
   return <AbsoluteFill style={{ background: NIGHT, opacity: interpolate(f, [len * fps - 8, len * fps], [1, 0], clamp) }}>
+    {S(p, 0) ? <Plate s={S(p, 0)} len={len} push={[1.05, 1.2]} pan={[0.02, -0.02]} grade="saturate(1.1) contrast(1.35) brightness(0.42) blur(2px)" /> : null}
     <Receipt lines={lines} x={0.3} w={0.4} tilt={-1} from={0} />
   </AbsoluteFill>;
 };
