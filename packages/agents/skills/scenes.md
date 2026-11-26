@@ -262,3 +262,16 @@ Measured on the channel's cold opens (Ponzi watched at 12 frames a second; motio
 The FTX hand films (v34, v35) and Wirecard (v1–v3) made their own choices: glowing gradient key words, white-gold
 flashes, money in depth, number rain. Those are THEIR world. They are kept in those films' kits as examples of one
 film's devices, and are never a default for another film.
+
+
+## Taste, measured (build list 6, 2026-11-25)
+
+Asked in plain words what the channel's cold-open frames show (SigLIP, 37 films):
+- **The channel shows more:** a big bold title (0.42 of frames), archival footage (0.57), movie scenes with actors
+  (0.25), a vintage film look (0.22), collages (0.24).
+- **Wirecard v4 showed more:** a document or receipt (0.43 against the channel's 0.03), building facades in daylight
+  (0.28 against 0.01), screens.
+
+Your world decides HOW the words look: their face, their device, their colour. It never decides their size or weight:
+the channel's key words are big and heavy in every film. Show people performing, archival footage and the film look.
+A building in daylight is a brief establishing shot, not a beat.

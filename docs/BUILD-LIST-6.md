@@ -165,6 +165,32 @@ Status: ☐ open · ◐ started · ☑ done and measured. Nothing is ☑ until i
   colour as a film choice, not a default.
 - ☐ F4 **Clean footage** at the channel's share (≈ 42 %, 19–75 % per film).
 
+### F+. Taste, measured in words (2026-11-25, `apps/cli/src/dev/world/concepts.py`)
+SigLIP text prompts against the channel's first-70 s shots (37 films) and our frames: the share of frames where each
+concept is among the frame's five best matches.
+
+| | Channel | Wirecard v4 |
+| --- | --- | --- |
+| A big bold title | 0.42 | 0.03 |
+| Archival historical footage | 0.57 | 0.28 |
+| A movie scene with actors | 0.25 | 0.03 |
+| A vintage film look | 0.22 | 0.04 |
+| A collage of photos | 0.24 | 0.07 |
+| A cinematic still | 0.80 | 0.63 |
+| An old black-and-white photograph | 0.14 | 0.00 |
+| **We over-show:** a document or receipt | 0.03 | 0.43 |
+| A building facade in daylight | 0.01 | 0.28 |
+| A stock photo of a building | 0.03 | 0.28 |
+| A computer or phone screen | 0.07–0.14 | 0.19–0.38 |
+
+Pixels are not the gap: our frames are sharper and more contrasty than the channel's (frame-craft). The cold open is
+carried by BIG BOLD key words over cinematic, archival or performed footage with a film look; the world's device sets
+the words' style, never their size or weight.
+- ☐ T1 Key words big and heavy, every film, in its own face (type band: bigText ≥ 0.09, heavy ≥ 0.54, stroke ≥ 0.126).
+- ☐ T2 A film look: the channel's frames read as film, not clean digital.
+- ☐ T3 Performed and archival footage over buildings and screens; a building in daylight only briefly.
+- ☐ T4 The concept check as a gate, with the channel's shares as the band.
+
 ### G. Sound
 - ◑ G1 **Each film's music and sound world** (measured 2026-11-25: the channel's hits are thud 57 % / boom 27 % / click and
   pluck 10 % / object sounds ≈ 3 %, so a film's sound world is its own beds and cue shape, not object noises; beds
