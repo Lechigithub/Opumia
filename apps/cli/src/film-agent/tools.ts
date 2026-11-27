@@ -101,7 +101,10 @@ async function main() {
       for (const e of j.entries) {
         const ch = `${e.channel ?? e.uploader ?? ""}`;
         const ok = film ? /\b(movie|film|scene|clip)\b/i.test(e.title) && !/\b(documentary|explained|essay|reaction|trailer|review)\b/i.test(e.title)
-          : people.length ? people.some((p) => pressTitleOk(e, { name: p, type: "person" }, world)) : pressTitleOk(e, { name: q.split(" ").slice(0, 2).join(" "), type: "company" }, world) || isNewsChannel(ch);
+          : people.length ? people.some((p) => pressTitleOk(e, { name: p, type: "person" }, world))
+          // a newsroom's report may not name the company in its title ("Do You Need a $400 Juicer?"): it passes when
+          // the title shares a word with the search; everything else must pass the press filter
+          : [q.split(" ").slice(0, 2).join(" "), ...world].some((w) => pressTitleOk(e, { name: w, type: "company" }, world)) || (isNewsChannel(ch) && !/\b(reaction|reacts|meme|parody)\b/i.test(e.title) && q.toLowerCase().split(/\W+/).filter((w) => w.length > 3).some((w) => e.title.toLowerCase().includes(w.replace(/o$/, ""))));
         if (!ok) continue;
         if (++k > n) break;
         // a low-resolution copy of the first minutes, tiled one frame per 2 s, so you can SEE where the moment is

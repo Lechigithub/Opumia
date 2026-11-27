@@ -158,6 +158,18 @@ ok("adapters: the world's colours are valid design tokens (a bad colour falls ba
   ok("a session ending in an error does not throw, and is logged", !threw && Boolean(res?.subtype.startsWith("error")) && readFileSync(path.join(pj, "logs/probe.log"), "utf8").includes("ended in an error"), res?.subtype);
 }
 
+// proof film 2 (Juicero): the press filter refused every newsroom outside the wire services, and the company's own film
+{
+  const { pressTitleOk } = await import("@opumia/resolver");
+  const co = { name: "Juicero", type: "company" }, doug = { name: "Doug Evans", type: "person" };
+  ok("press: Bloomberg's short report passes", pressTitleOk({ title: "Juicero squeeze test", channel: "Bloomberg Originals", duration: 60 }, co, []));
+  ok("press: a long Bloomberg Originals documentary does not", !pressTitleOk({ title: "Juicero: the full story", channel: "Bloomberg Originals", duration: 1500 }, co, []));
+  ok("press: the company's own channel is primary footage", pressTitleOk({ title: "Making Juice is Easy", channel: "Juicero", duration: 116 }, co, []));
+  ok("press: The Verge and VICE News are newsrooms", pressTitleOk({ title: "The ludicrous Juicero", channel: "The Verge", duration: 152 }, co, []) && pressTitleOk({ title: "The Juicero Founder Is Really Into Raw Water", channel: "VICE News", duration: 340 }, doug, ["Juicero"]));
+  ok("press: a person's own titled talk passes", pressTitleOk({ title: "Doug Evans, Founder Juicero | FounderMade", channel: "FounderMade", duration: 117 }, doug, ["Juicero"]));
+  ok("press: essays, parody and retellings still do not", !pressTitleOk({ title: "What happened to Juicero?", channel: "Business Vortex", duration: 401 }, co, []) && !pressTitleOk({ title: "Juicero meme compilation", channel: "punyama", duration: 120 }, co, []));
+}
+
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails
 const v7 = path.join(ROOT, "out/hand-wirecard-v7");
 if (existsSync(path.join(v7, "film_16x9.mp4"))) {

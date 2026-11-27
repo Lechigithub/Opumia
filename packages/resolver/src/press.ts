@@ -153,7 +153,10 @@ async function ytSection(id: string, atS: number, lenS: number, out: string): Pr
  *  was dropped. A person's press may name them, or their role together with another subject of the film. */
 const ROLE = /\b(ceo|chief executive|founder|co-?founder|boss|chief operating officer|coo|cfo|chairman|chairwoman|president|executive|director|manager|banker|reporter|journalist|fugitive)\b/i;
 /** Wire services and broadcasters first: their reports carry the real places and moments (proof film 1). */
-const NEWS = /\b(reuters|bloomberg(?! originals)|associated press|\bap\b|afp|agence france|dw news|deutsche welle|cnbc|bbc news|sky news|euronews|al jazeera|financial times|wall street journal|cnn|abc news|nbc news|cbs news|tagesschau|zdf|ard|welt|spiegel|die zeit|zeit online|handelsblatt|faz)\b/i;
+// Proof film 2 (Juicero, 2026-11-26): the filter knew only wire services and big broadcasters, so a US tech story found
+// nothing — Bloomberg's own squeeze-test report, The Verge, VICE News, Fast Company were all refused and the film fell
+// back to stock. Tech and business newsrooms are newsrooms too.
+const NEWS = /\b(reuters|bloomberg|associated press|the verge|vice news|fast company|techcrunch|business insider|insider business|cnet|engadget|wired|the guardian|guardian news|new york times|nyt|washington post|wsj|cbs sunday morning|cbs mornings|pbs newshour|nbc news now|today show|good morning america|fox business|yahoo finance|axios|forbes|fortune|cnn business|bbc|channel 4 news|itv news|abc news australia|cbc news|global news|nikkei|south china morning post|scmp|cbs 8|wion|\bap\b|afp|agence france|dw news|deutsche welle|cnbc|bbc news|sky news|euronews|al jazeera|financial times|wall street journal|cnn|abc news|nbc news|cbs news|tagesschau|zdf|ard|welt|spiegel|die zeit|zeit online|handelsblatt|faz)\b/i;
 const PARODY = /\b(risitas|parody|meme|satire|satirical|reaction|reacts|funny|comedy|prank|ai voice)\b/i;
 const PRIMARY = /\b(interview|interviewed|speech|keynote|conference|panel|statement|press conference|testimony|testifies|trial|court|hearing|agm|annual general meeting|shareholder meeting|investor day|earnings call|dld\d*|summit|forum|q&a|im interview|rede|pressekonferenz|prozess|hauptversammlung|vor gericht)\b/i;
 const newsFirst = <T extends { channel?: string; uploader?: string }>(xs: T[]) => [...xs].sort((a, b) => Number(NEWS.test(`${b.channel ?? ""} ${b.uploader ?? ""}`)) - Number(NEWS.test(`${a.channel ?? ""} ${a.uploader ?? ""}`)));
@@ -173,8 +176,15 @@ export function pressTitleOk(e: { title: string; channel?: string; uploader?: st
   if (PARODY.test(e.title)) return false;
   // Outside the broadcasters, only primary footage: the person's own interview, speech, conference, statement, trial —
   // never a channel retelling the story (proof film 1's probe: "Hollow Money", "ExhibitCapital" passed the old filter).
-  if (!NEWS.test(ch) && !PRIMARY.test(e.title)) return false;
+  // Bloomberg Originals makes documentaries too: its short reports pass, its long films do not
+  if (/bloomberg originals/i.test(ch) && (e.duration ?? 0) > 900) return false;
+  const ownChannel = entity.type !== "person" && namesAll(ch, entity.name);
+  // a title naming the person with their role ("Doug Evans, Founder Juicero") is their own talk: primary footage
+  const ownTalk = entity.type === "person" && namesAll(e.title, entity.name) && ROLE.test(e.title);
+  if (!NEWS.test(ch) && !PRIMARY.test(e.title) && !ownChannel && !ownTalk) return false;
   const byRole = entity.type === "person" && ROLE.test(e.title) && world.some((w) => namesAll(e.title, w));
+  // a company's (or product's) own channel: its launch film, ads and keynotes are primary footage of it
+  if (entity.type !== "person" && namesAll(ch, entity.name)) return true;
   if (!namesAll(e.title, entity.name) && !byRole) return false;
   if (entity.type === "person" && world.length && !world.some((w) => namesAll(`${e.title} ${ch}`, w))) return false;
   return true;
