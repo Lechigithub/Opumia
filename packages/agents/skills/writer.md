@@ -10,7 +10,10 @@ Narration only: the words the narrator speaks. A person telling ONE viewer a tru
 
 1. **Study before you write.** Use your tools to read real films of this channel, whole or in part. Read at least two openings and one ending, and one longer stretch from the middle of a film whose story is closest to yours. Notice how a film opens, how often the narrator stops to say what something means, how the viewer is brought in, how facts are carried by events instead of being recited, how it ends. Then reproduce how this channel tells a story as exactly as you can: its structure, beat order, sentence shapes and rhetorical moves. Any topic is open, including ones the channel has covered. The one limit: never reuse a line word for word.
 2. **Find this story's own shape.** From the dossier: who wanted what, what they did, what it cost, what turned. The structure comes from these events. There is no standard arc to fill in. Two films of this channel are never built the same way, and neither are two of yours.
-3. **Draft the whole script.**
+3. **Draft the whole script, checking as you go.** `check_passage` is instant and free (the script referee on this
+   machine, no model): run it on each paragraph or chapter while you write and rewrite what it flags before moving on.
+   A long film may arrive with a first draft already written chapter by chapter — then do not start over: fix what
+   fails, stretch by stretch. Speed matters: the script is not the hard part of the film.
 4. **Measure it** with `measure_draft`. It measures your draft exactly the way the channel's real films were measured and tells you where yours sits against them, with the lines concerned. Read the numbers. They are not a style guide to obey line by line; they tell you when the draft has drifted into something this channel does not sound like.
 5. **Revise as its author.** Fix what the measurement shows by rewriting the passage so it is better told, not by patching a sentence to move a number. If a fix makes the prose worse, it is the wrong fix. Never fix one measure by breaking another.
 6. **Submit** with `submit_script` when the draft passes. A submission that does not pass comes back with what is still wrong.

@@ -27,6 +27,7 @@ import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLO
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
 const Segment = z.object({ role: z.enum(ROLES), chapter: z.string().describe("chapter title (long-form); empty for shorts"), text: z.string(), claimIds: z.array(z.string()).describe("fact-sheet claim ids this segment relies on"), visualIdea: z.string().describe("one line: what should be on screen (real footage, a staged scene, a chart, a document) — never AI imagery") });
 const Draft = z.object({ segments: z.array(Segment).min(1) });
+const Outline = z.object({ title: z.string(), parts: z.array(z.object({ title: z.string().describe("\"Intro\" for the first part, else the chapter's title"), purpose: z.string(), beats: z.array(z.string()), roles: z.array(z.enum(ROLES)), claimIds: z.array(z.string()) })).min(2) });
 const Submission = z.object({
   title: z.string(),
   plan: z.object({
@@ -120,13 +121,25 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   // the channel's whole-film structure (long films): measured from the reference's story analysis, built once
   const structure = !short && dataDir ? (() => { try { return structureProfile({ reference: path.resolve(path.dirname(dataDir), process.env.OPUMIA_REFERENCE_DIR ?? "Reference"), data: dataDir, channel: o.pack.channelId }); } catch { return null; } })() : null;
 
+  // ---- speed (owner, 2026-11-27: "the script is not the hard part — it should be super fast and still reach the score"):
+  // a sentence is labelled once per run; a re-measured draft costs only the sentences that changed.
+  const lineCache = new Map<string, Awaited<ReturnType<typeof labelLines>>[number]>();
+  const sceneCache = new Map<string, Awaited<ReturnType<typeof labelSceneLines>>[number]>();
+  const endCache = new Map<string, Awaited<ReturnType<typeof endingKind>>>();
+  const labelOnce = async <T>(lines: string[], cache: Map<string, T>, fn: (xs: string[]) => Promise<T[]>): Promise<T[]> => {
+    const miss = [...new Set(lines.filter((l) => !cache.has(l)))];
+    if (miss.length) { const got = await fn(miss); miss.forEach((l, i) => { if (got[i] !== undefined) cache.set(l, got[i]!); }); }
+    return lines.map((l) => cache.get(l)!);
+  };
+  const endingOnce = async (open: string[], end: string[]) => { const k = `${open.join(" ")}|${end.join(" ")}`; if (!endCache.has(k)) endCache.set(k, await endingKind(open, end)); return endCache.get(k)!; };
+
   // ---- one evaluation, used by measure_draft and submit_script: the same checks, nothing rewritten.
   const rounds: StoryReport["rounds"] = [];
   let last: { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null = null;
   const evaluate = async (segments: z.infer<typeof Segment>[]) => {
     const lines = segments.flatMap((sg) => sentencesOf(sg.text));
     const openLines = openingLineCount(lines, openWords);
-    const [labels, sceneLabels, ending] = await Promise.all([labelLines(lines), sceneBand ? labelSceneLines(lines, datedFacts) : Promise.resolve(null), sceneBand ? endingKind(lines.slice(0, openLines), lines.slice(-Math.max(1, Math.min(3, Math.ceil(lines.length / 6))))) : Promise.resolve(null)]);
+    const [labels, sceneLabels, ending] = await Promise.all([labelOnce(lines, lineCache, labelLines), sceneBand ? labelOnce(lines, sceneCache, (xs) => labelSceneLines(xs, datedFacts)) : Promise.resolve(null), sceneBand ? endingOnce(lines.slice(0, openLines), lines.slice(-Math.max(1, Math.min(3, Math.ceil(lines.length / 6))))) : Promise.resolve(null)]);
     const story = storyIssues(lines, labels, band);
     const issues: Array<{ kind: string; detail: string }> = story.issues.map((x) => ({ kind: x.kind, detail: `${x.detail}${x.lines.length ? ` Lines: ${x.lines.slice(0, 8).map((k) => `"${lines[k]}"`).join(" | ")}` : ""}` }));
     // the scene measure decides together with the line-kind band (item 5): both must pass
@@ -291,6 +304,15 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
       }) as AgentTool["run"],
     },
     {
+      name: "check_passage",
+      description: "Instant and free (no model call): the script referee alone on a passage you are writing — a paragraph, a chapter or the whole script — with what pulls it away from the channel and which words to cut. Use it on every paragraph as you go; use measure_draft only on a full draft.",
+      schema: z.object({ text: z.string().min(20) }),
+      run: (async (i: { text: string }) => {
+        const v = dataDir ? scriptReferee(path.dirname(dataDir), i.text, o.pack.channelId) : null;
+        return v ? scriptRefereeReport(v) : "the script referee is not available here";
+      }) as AgentTool["run"],
+    },
+    {
       name: "note_lesson",
       description: "Save one short lesson for your future self (what worked, what the measurement kept catching, a mistake to avoid). It is shown to you before your next script.",
       schema: z.object({ lesson: z.string().max(400) }),
@@ -316,8 +338,37 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   ];
   const user = `Write the narration for this film.\n\nTOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n\n${dossier}\n\nFACT SHEET (the only facts you may use):\n${claims.map((c) => `[${c.id}] (${c.verdict}) ${c.text}`).join("\n")}${earlier ? `\n\nEARLIER FILMS OF OURS WERE BUILT LIKE THIS — build this one differently:\n${earlier}` : ""}${o.recentOpenings?.length ? `\n\nEARLIER FILMS OF OURS OPENED ON — open differently:\n${o.recentOpenings.map((x) => `- "${x}…"`).join("\n")}` : ""}${o.brief ? `\n\nTHE SHOWRUNNER SENT THE LAST VERSION OF THIS SCRIPT BACK. Keep what worked; change what it asks, for the reasons it gives:\n${o.brief}` : ""}\n\nStart by studying the channel's real films with your tools.`;
 
+  // ---- long films: a first draft written in parallel (an outline to the measured structure, then every part at once,
+  // each checked by the script referee on this machine and the weak ones rewritten once, at once). The writer then
+  // starts from this draft and only fixes what fails.
+  const factsBlock = user.replace(/\n\nStart by studying the channel's real films with your tools\.$/, "");
+  const parallelDraft = async (): Promise<z.infer<typeof Segment>[] | null> => {
+    if (short || !structure || !dataDir) return null;
+    const t0 = Date.now(), root = path.dirname(dataDir);
+    const introWords = Math.round((structure.introS.p50 * o.narrationWpm) / 60);
+    const chapterWords = Math.round((targetWords - introWords) / Math.max(1, lp.chapters));
+    const ol = await structured({ stage: "script.outline", model: ROLE_MODEL.writer, system, user: `${factsBlock}\n\nPLAN THE FILM FIRST, to the structure above: ${lp.chapters + 1} parts — an intro (title "Intro": the hook and the thesis) and ${lp.chapters} titled chapters. For each part: its title, its purpose, its beats in order, the roles of its segments (the twist in a middle chapter; the last chapter ends the film the channel's way) and the claim ids it will use. Open on this story's strongest first moment, not the way earlier films of ours opened.`, schema: Outline, effort: "medium", maxTokens: 6000 }).catch(() => null);
+    if (!ol) return null;
+    const parts = ol.data.parts.slice(0, lp.chapters + 1);
+    const plan = parts.map((c, i) => `${i}. ${c.title} — ${c.purpose}: ${c.beats.join(" → ")}`).join("\n");
+    const writePart = (k: number, feedback?: string) => structured({ stage: "script.part", model: ROLE_MODEL.writer, system, user: `${factsBlock}\n\nTHE FILM'S PLAN (title: ${ol.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": about ${k === 0 ? introWords : chapterWords} words; beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Spoken, not written: simple past told forwards, a figure then the narrator's verdict, one thread carried from sentence to sentence.${feedback ? `\n\nYOUR LAST VERSION OF THIS PART, AND WHAT THE SCRIPT REFEREE SAID — rewrite it:\n${feedback}` : ""}`, schema: Draft, effort: "medium", maxTokens: 6000 }).then((x) => x.data.segments).catch(() => null);
+    const drafts = await Promise.all(parts.map((_, k) => writePart(k)));
+    const judge = (segs: z.infer<typeof Segment>[] | null) => (segs ? scriptReferee(root, segs.map((x) => x.text).join(" "), o.pack.channelId) : null);
+    const verdicts = drafts.map(judge);
+    const weak = verdicts.map((v, k) => (v && v.score < 0.85 ? k : -1)).filter((k) => k >= 0);
+    if (weak.length) {
+      const again = await Promise.all(weak.map((k) => writePart(k, `${drafts[k]!.map((x) => x.text).join(" ")}\n\n${scriptRefereeReport(verdicts[k]!)}`)));
+      weak.forEach((k, i) => { const v2 = judge(again[i] ?? null); if (again[i] && v2 && v2.score > (verdicts[k]?.score ?? -1)) { drafts[k] = again[i]!; verdicts[k] = v2; } });
+    }
+    const segs = drafts.flatMap((d) => d ?? []);
+    log(`  writer: first draft in parallel — ${parts.length} parts, ${segs.reduce((n, x) => n + countWords(x.text), 0)} words, part scores ${verdicts.map((v) => v?.score ?? "?").join(" / ")}${weak.length ? ` (${weak.length} rewritten once)` : ""}, ${Math.round((Date.now() - t0) / 1000)} s`);
+    return segs.length ? segs : null;
+  };
+  const firstDraft = await parallelDraft();
+  const userStart = firstDraft ? `${factsBlock}\n\nA FIRST DRAFT HAS ALREADY BEEN WRITTEN, chapter by chapter in parallel, each part checked by the script referee (below, as segments). Do not start over. Read two of the channel's narrations, measure this draft, then fix only what fails — stretch by stretch, using check_passage as you go — and submit.\n\nFIRST DRAFT:\n${JSON.stringify(firstDraft)}` : user;
+
   log(`  writer: one author with tools — ${studyFilms.length} real films to study${heldBack.size ? ` (${heldBack.size} held back for the script referee)` : ""}, ${targetWords} words to write at ${o.narrationWpm} wpm (${ROLE_MODEL.writer})…`);
-  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user, tools, effort: "high", maxTurns: Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: Math.round(360 * lengthFactor), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
+  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user: userStart, tools, effort: "high", maxTurns: Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: Math.round(360 * lengthFactor), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
   const final = (accepted ?? lastSubmission) as z.infer<typeof Submission> | null;
   const lastEval = last as { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null;
   if (!final && !lastEval) throw new Error("writer: no draft was produced");

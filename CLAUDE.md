@@ -384,6 +384,15 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   6 minutes / 22 turns a 60 s script gets after 6 measurements. Fixed: the writer's time and turns grow with the
   script (×1 to ×6 by words, `lengthFactor`); for long scripts the referee names words to cut and the craft gap per
   weak stretch, worst first (`weakest`), since an average over many stretches washed them out.
+- **Second long run, the old way (baseline):** 34 min, $3.96, 50 turns, 19 submissions; every check passed but the
+  referee (best 0.67 against 0.90). Owner: "the script is not even the hard part — it should be super fast and still
+  reach the score, and beat it if possible."
+- **The fast writer (2026-11-27):** sentence labels, scene labels and the ending check are cached for the run (a
+  re-measured draft costs only the sentences that changed); `check_passage` is the script referee alone on any passage,
+  on this machine, no model call (~1 s) — the writer checks each paragraph as it writes; long films get a first draft in
+  parallel (`script.outline`: the plan to the measured structure, then `script.part`: every part written at once, each
+  refereed locally, parts under 0.85 rewritten once, at once) and the writer only fixes what fails from there. Not yet
+  run.
 
 ### The researcher (second agent rebuilt)
 
