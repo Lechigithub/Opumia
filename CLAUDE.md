@@ -867,6 +867,14 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     Big Company, half of Moon), not real footage as such and not MagnatesMedia alone. Good enough while our films sit
     at 4.0–4.8; a MagnatesMedia-specific picture measure (against Big Company and the others) would be the next step
     once inside the family.
+  - **Motion and sound referees, first attempt — NOT proven, not used** (`tools/referee/motion_sound.py`, model
+    `data/referee/magnates-media-motion-sound.json`): 20 s windows, motion (frame change, near-still share, cuts,
+    shot length, brightness change) and sound (loudness spread relative to the film's level, hits, low-frequency
+    weight, silences, spectral centre); 97 reference films of five channels, 22 of ours. They do not separate: real vs
+    ours — motion held-back real 0.45–0.79 vs ours 0.20–0.90 (32 % of real windows flagged), sound 0.28–0.85 vs
+    0.12–0.88 (28 %); MagnatesMedia vs others overlaps too. Too blunt: no camera-move kinds (push, pan, whip,
+    parallax) and no voice / music / effects separation on our side. Next if pursued: optical-flow camera moves and
+    cut-to-word timing; voice/music separation on our films as the reference has (`sound.json`).
   - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
     shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
     → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
