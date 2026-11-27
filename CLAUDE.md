@@ -861,6 +861,12 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     clip scored 3.80 dimmed three times over with a print and a huge figure on it, 5.03 on a plate at 70 % with the
     caption — exactly what `footage_shows` sends back; s14 4.27 → 4.63 the same way. Left: the closing title (4.47)
     and the real Bloomberg scenes (4.5–4.6).
+  - **What the picture referee measures** (2026-11-27, the other channels' films, same 60–140 s window, bar 4.9):
+    held-back MagnatesMedia 7 of 8 pass; Logically Answered 0 / 6, How Money Works 1 / 6, Modern MBA 2 / 6, Moon 3 / 6,
+    Big Company 6 / 6. It rewards a family of looks (dark, cinematic, staged-footage documentaries — MagnatesMedia,
+    Big Company, half of Moon), not real footage as such and not MagnatesMedia alone. Good enough while our films sit
+    at 4.0–4.8; a MagnatesMedia-specific picture measure (against Big Company and the others) would be the next step
+    once inside the family.
   - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
     shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
     → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
