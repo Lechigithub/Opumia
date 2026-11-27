@@ -426,6 +426,18 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   mostly on questions, connectors and sentence length. Guidance, not a gate (it explains part of the human gap; the
   rest is finer word texture the referee reads): in `check_passage`, `measure_draft`, each parallel part's
   instructions (`voiceTargets`) and `writer.md`.
+- **Voice-meter writer test stopped by the account's API usage limit** (Anthropic: access back 2026-12-01 00:00 UTC; the
+  owner is raising it). Before it stopped, the voice targets did not lift the parallel parts (0.23 / 0.55 / 0.45 /
+  0.37 after three rounds): instructions about sentence shape alone do not make the prose read as human.
+- **Referee bias found and fixed:** the strongest marker of our "machine-reading" stretches was "she" / "her" — only 2
+  of the 140 human narrations are told mainly about a woman, so a woman's story read as machine-written (Enron's
+  Sherron Watkins). Gendered pronouns are no longer counted (`GENDERED`); both measures still hold (held-back human
+  0.94–1.00, ours ≤ 0.77; channel 0.75–0.84 against 0.03–0.52). Re-scored, the first fast-writer Enron draft is human
+  0.89 against 0.90 and channel 0.82 (passes).
+- **What our machine-reading stretches do** (133 stretches of our scripts, the corrected referee): rhetorical "why" /
+  "how" questions as transitions, timeline stepping ("after", "later", "afterward", "seven years later"), sentences
+  opening on a "That…" verdict, dense figures; our human-reading stretches are long explanatory sentences joined with
+  "and", "of", "in fact", told in the moment.
 
 ### The researcher (second agent rebuilt)
 

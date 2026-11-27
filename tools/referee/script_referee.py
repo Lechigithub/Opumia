@@ -35,6 +35,11 @@ whatever when where whether which while who whom whose why will with within with
 actually almost already back basically enough else instead later maybe simply soon""".split()) | {
     "it's", "that's", "he's", "they're", "didn't", "wasn't", "don't", "couldn't", "wouldn't", "isn't", "he'd", "they'd",
     "there's", "what's", "you're", "we're", "i'm", "let's"}
+# whether a story is told about a man or a woman is topic, not style: the human narrations of five channels are almost all
+# about men (2 of 140 films mostly about a woman), so "she" and "her" were read as a machine's fingerprint (2026-11-27,
+# Enron's Sherron Watkins stretches). Gendered pronouns are not counted.
+GENDERED = {"he", "him", "his", "himself", "she", "her", "hers", "herself", "he's", "she's", "he'd", "she'd"}
+FUNCTION -= GENDERED
 OPEN = ["but", "so", "and", "now", "because", "which", "this", "that", "in", "the", "it", "he", "they", "and so", "of course"]
 PRON = {"he", "she", "they", "it", "this", "that", "these", "those", "his", "her", "their"}
 FILLER = ["let's dive in", "buckle up", "but here's the thing", "little did they know", "in a world where",
