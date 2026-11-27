@@ -32,7 +32,8 @@ if (existsSync(j)) {
   ok("the writer is told craft gaps, never single words to sprinkle", v.gaps.every((g) => !g.what.startsWith('the word "')), v.gaps.map((g) => g.what));
 }
 // the proof run's Quibi script: the words that drag its weak stretches are shown as words to CUT ("had", "than")
-const qf = path.join(ROOT, "out", "writer-score", "bl5c-quibi", "script.draft.json");
+// the proof run's first Quibi script (0.29), kept apart from later re-runs that overwrite out/writer-score
+const qf = path.join(ROOT, "out", "writer-score-proof1", "bl5c-quibi", "script.draft.json");
 if (existsSync(qf)) {
   const q = scriptReferee(ROOT, (JSON.parse(readFileSync(qf, "utf8")) as { segments: Array<{ text: string }> }).segments.map((s) => s.text).join(" "))!;
   const cut = (q.cut ?? []).map((c) => c.word);
