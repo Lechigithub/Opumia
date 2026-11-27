@@ -20,10 +20,21 @@ for (const f of films.filter((x) => M.held.includes(x.id))) {
   ok(`held-back ${f.id} 90 s opening reads like the channel`, open.pass, `${open.score} (bar ${open.bar})`);
 }
 // measured at build time on never-seen material
-const t = M.test as { heldBackWindowsFlagged: number; ourWindowsCaught: number; gamedWindowsCaught: number };
-ok("held-back channel windows rarely flagged (≤ 5 %)", t.heldBackWindowsFlagged <= 0.05, t.heldBackWindowsFlagged);
-ok("our windows caught (≥ 75 %)", t.ourWindowsCaught >= 0.75, t.ourWindowsCaught);
-ok("cheap tricks on never-seen scripts caught (≥ 75 %)", t.gamedWindowsCaught >= 0.75, t.gamedWindowsCaught);
+const t = (M.test as { human: { heldWindowsFlagged: number; ourWindowsCaught: number; gamedWindowsCaught: number }; channel: { heldMagnates: Record<string, number>; heldOthers: Record<string, number> } });
+ok("held-back human narration windows rarely flagged (≤ 5 %)", t.human.heldWindowsFlagged <= 0.05, t.human.heldWindowsFlagged);
+ok("our windows caught as not human (≥ 75 %)", t.human.ourWindowsCaught >= 0.75, t.human.ourWindowsCaught);
+ok("cheap tricks on never-seen scripts caught (≥ 75 %)", t.human.gamedWindowsCaught >= 0.75, t.human.gamedWindowsCaught);
+// the first referee passed the other channels' human narrations (it measured human vs ours, not this channel): the
+// channel measure must separate MagnatesMedia from them
+const cm = Object.values(t.channel.heldMagnates), co = Object.values(t.channel.heldOthers);
+ok("every held-back MagnatesMedia narration scores above every held-back narration of the other channels", Math.min(...cm) > Math.max(...co), { magnates: [Math.min(...cm), Math.max(...cm)], others: [Math.min(...co), Math.max(...co)] });
+// other channels' human narrations pass as human but fail as MagnatesMedia
+{
+  const { scriptReferee: sr } = await import("@opumia/agents");
+  const other = JSON.parse(readFileSync(path.join(DATA, "story-profile", "how-money-works-films.json"), "utf8")) as Array<{ lines: Array<string | { text: string }> }>;
+  const v = sr(ROOT, other[0]!.lines.map((l) => (typeof l === "string" ? l : l.text)).join(" "))!;
+  ok("another channel's narration reads as human but not as MagnatesMedia", (v.human ?? 0) >= (v.humanBar ?? 1) && (v.channel ?? 1) < (v.channelBar ?? 0), { human: v.human, channel: v.channel });
+}
 // a known script of ours that does not read like the channel
 const j = path.join(ROOT, "out", "agent-juicero-3", "script.draft.json");
 if (existsSync(j)) {

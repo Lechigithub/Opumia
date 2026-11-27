@@ -258,5 +258,100 @@ def score(arg):
                       "windows": [round(float(x), 2) for x in p], "weakWindows": [i for i, x in enumerate(p) if x < M["bars"]["window"]],
                       "structure": round(float(q.mean()), 2), "structureFlagged": [i for i, x in enumerate(q) if x < 0.5], "gaps": gaps}))
 
+OTHER = ["how-money-works", "modern-mba", "moon", "logically-answered"]
+def other_narrations():
+    out = {}
+    for ch in OTHER:
+        f = os.path.join(DATA, "story-profile", f"{ch}-films.json")
+        if not os.path.exists(f): continue
+        fs = json.load(open(f)); fs = fs if isinstance(fs, list) else list(fs.values())
+        for x in fs: out[f"{ch}:{x['id']}"] = " ".join(l if isinstance(l, str) else l.get("text", "") for l in x["lines"])
+    return out
+
+def build2():
+    """Two measures (2026-11-27): the first referee, trained only against our scripts, passed the four other channels'
+    human narrations it never saw (103 of 110) — it measured human narration against our generator, not MagnatesMedia.
+      human    human narration of all five channels  vs  ours (+ tricks)        — does it read like a person wrote it?
+      channel  MagnatesMedia                         vs  the four other channels — does it read like THIS channel?
+    Held back: the six MagnatesMedia narrations and every fifth film of each other channel; bars from those, unseen."""
+    rng = random.Random(0)
+    mm, oth, ours = real_narrations(), other_narrations(), our_narrations()
+    okeys = sorted(oth); oheld = set(okeys[i] for i in range(0, len(okeys), 5))
+    train_text = " ".join(t for k, t in mm.items() if k not in HELD)
+    vocab = [w for w, _ in collections.Counter(w for w in words(train_text) if w in FUNCTION).most_common(110)]
+    def W(d, keys, stride=WIN, trick=None):
+        X, g = [], []
+        for k in keys:
+            for w in windows(d[k], stride=stride): X.append(feats(trick(w, rng) if trick else w, vocab)); g.append(k)
+        return np.array(X), np.array(g)
+    Xm, gm = W(mm, [k for k in mm if k not in HELD]); Xmh, gmh = W(mm, [k for k in mm if k in HELD])
+    Xo, go = W(oth, [k for k in okeys if k not in oheld]); Xoh, goh = W(oth, sorted(oheld))
+    Xu, gu = W(ours, list(ours), stride=25); Xg1, _ = W(ours, list(ours), stride=25, trick=game); Xg2, _ = W(ours, list(ours), stride=25, trick=game_names)
+    Xg, gg = np.vstack([Xg1, Xg2]), np.r_[gu, gu]
+    film = lambda g, p: {k: float(np.mean(p[g == k])) for k in sorted(set(g))}
+    # human: out of fold for ours (by script), held-back human films unseen
+    names_o = sorted(set(gu)); folds = [names_o[i::4] for i in range(4)]
+    pu, pg = np.zeros(len(Xu)), np.zeros(len(Xg)); ph_m, ph_o = [], []
+    for fo in folds:
+        te, tg = np.isin(gu, fo), np.isin(gg, fo)
+        m = fit(np.vstack([Xm, Xo, Xu[~te], Xg[~tg]]), np.r_[np.ones(len(Xm) + len(Xo)), np.zeros((~te).sum() + (~tg).sum())])
+        pu[te], pg[tg] = prob(m, Xu[te]), prob(m, Xg[tg]); ph_m.append(prob(m, Xmh)); ph_o.append(prob(m, Xoh))
+    ph_m, ph_o = np.mean(ph_m, 0), np.mean(ph_o, 0)
+    human = fit(np.vstack([Xm, Xo, Xu, Xg]), np.r_[np.ones(len(Xm) + len(Xo)), np.zeros(len(Xu) + len(Xg))])
+    channel = fit(np.vstack([Xm, Xo]), np.r_[np.ones(len(Xm)), np.zeros(len(Xo))])
+    pc_m, pc_o, pc_u = prob(channel, Xmh), prob(channel, Xoh), prob(channel, Xu)
+    opening = lambda t: " ".join(t.split()[:300])
+    held_texts = {**{k: mm[k] for k in mm if k in HELD}, **{k: oth[k] for k in oheld}}
+    open_h = {k: float(prob(human, [feats(w, vocab) for w in windows(opening(t), stride=WIN // 2)]).mean()) for k, t in held_texts.items()}
+    open_c = {k: float(prob(channel, [feats(w, vocab) for w in windows(opening(t), stride=WIN // 2)]).mean()) for k, t in mm.items() if k in HELD}
+    fl = lambda x: float(np.floor(x * 20) / 20)
+    hm, ho, cm, co = film(gmh, ph_m), film(goh, ph_o), film(gmh, pc_m), film(goh, pc_o)
+    # every bar at the weakest held-back human narration, rounded down: the channel's own films always pass
+    bars = {"humanFilm": fl(min(list(hm.values()) + list(ho.values()))), "humanShort": fl(min(open_h.values())),
+            "channelFilm": fl(min(cm.values())), "channelShort": fl(min(open_c.values())), "shortWords": 600, "window": 0.5}
+    report = {"version": 2, "channel": "magnates-media", "builtAt": __import__("datetime").date.today().isoformat(), "window": WIN,
+              "held": sorted(HELD), "heldOthers": sorted(oheld), "vocab": vocab, "human": human, "channelModel": channel, "style": human, "bars": bars,
+              "test": {"human": {"heldMagnates": hm, "heldOthers": ho, "ourFilms": film(gu, pu), "gamedFilms": film(gg, pg), "ourWindowsCaught": float((pu < 0.5).mean()), "gamedWindowsCaught": float((pg < 0.5).mean()), "heldWindowsFlagged": float((np.r_[ph_m, ph_o] < 0.5).mean())},
+                       "channel": {"heldMagnates": cm, "heldOthers": co, "ourFilms": film(gu, pc_u), "heldOpenings": open_c},
+                       "humanOpenings": open_h}}
+    tmp = OUT_MODEL + ".tmp"; json.dump(report, open(tmp, "w"), indent=1); os.replace(tmp, OUT_MODEL)
+    rng_ = lambda d: f"{min(d.values()):.2f}–{max(d.values()):.2f}"
+    print(f"HUMAN   held MagnatesMedia {rng_(hm)}, held others {rng_(ho)}, ours {rng_(film(gu, pu))} (windows caught {np.mean(pu < 0.5):.0%}), gamed caught {np.mean(pg < 0.5):.0%}; held windows flagged {np.mean(np.r_[ph_m, ph_o] < 0.5):.0%}")
+    print(f"CHANNEL held MagnatesMedia {rng_(cm)}, held others {rng_(co)}, ours {rng_(film(gu, pc_u))}")
+    print("bars", bars)
+
+def score2(arg):
+    M = json.load(open(OUT_MODEL)); vocab = M["vocab"]; B = M["bars"]
+    t = text_of(arg); ws = windows(t, stride=WIN // 2)
+    if not ws: print(json.dumps({"error": "too short to judge (fewer than 12 words)"})); return
+    X = np.array([feats(w, vocab) for w in ws])
+    ph, pc = prob(M["human"], X), prob(M["channelModel"], X)
+    sh, sc = float(ph.mean()), float(pc.mean())
+    short = len(t.split()) < B["shortWords"]
+    bh, bc = (B["humanShort"], B["channelShort"]) if short else (B["humanFilm"], B["channelFilm"])
+    nm = names(vocab)
+    def gaps_of(model, p):
+        mu, sd, coef = np.array(model["mu"]), np.array(model["sd"]), np.array(model["coef"])
+        push = ((X.mean(0) - mu) / sd) * coef
+        craft = [i for i in range(len(nm)) if not nm[i].startswith('the word "')]
+        pc_ = np.full(len(push), 9.0); pc_[craft] = push[craft]
+        return [{"what": nm[i], "ours": round(float(X.mean(0)[i]), 4), "channel": round(float(mu[i]), 4), "more": bool(X.mean(0)[i] > mu[i]), "push": round(float(push[i]), 2)} for i in np.argsort(pc_)[:5] if pc_[i] < -0.15]
+    weak = [i for i, x in enumerate(ph) if x < 0.5]
+    mu, sd, coef = np.array(M["human"]["mu"]), np.array(M["human"]["sd"]), np.array(M["human"]["coef"])
+    by_window = []
+    for i in sorted(weak, key=lambda i: ph[i])[:4]:
+        pi = ((X[i] - mu) / sd) * coef
+        ws_ = [nm[k][10:-1] for k in np.argsort(pi) if nm[k].startswith('the word "') and nm[k][10:-1] not in PRON | {"i", "you", "we"} and pi[k] < -0.3 and X[i][k] > mu[k] * 2 and X[i][k] >= 0.02][:4]
+        crafts = [nm[k] for k in np.argsort(pi) if not nm[k].startswith('the word "') and pi[k] < -0.4][:2]
+        if ws_ or crafts: by_window.append({"from": i * (WIN // 2), "to": i * (WIN // 2) + WIN, "score": round(float(ph[i]), 2), "cut": ws_, "craft": crafts})
+    Xw = X[weak].mean(0) if weak else mu; pw = ((Xw - mu) / sd) * coef
+    cut = [{"word": nm[i][10:-1], "ours": round(float(Xw[i]), 4), "channel": round(float(mu[i]), 4), "times": round(float(Xw[i] / max(mu[i], 1e-4)), 1)}
+           for i in np.argsort(pw) if nm[i].startswith('the word "') and nm[i][10:-1] not in PRON | {"i", "you", "we"} and pw[i] < -0.3 and Xw[i] > mu[i] * 2 and Xw[i] >= 0.008][:6] if weak else []
+    ok = sh >= bh and sc >= bc
+    print(json.dumps({"score": round(min(sh / bh, sc / bc) * min(bh, bc), 2), "bar": round(min(bh, bc), 2), "pass": ok,
+                      "human": round(sh, 2), "humanBar": bh, "channel": round(sc, 2), "channelBar": bc,
+                      "windows": [round(float(x), 2) for x in ph], "weakWindows": weak, "structure": 0, "structureFlagged": [],
+                      "gaps": gaps_of(M["human"], ph) + ([g for g in gaps_of(M["channelModel"], pc)][:3] if sc < bc else []), "cut": cut, "weakest": by_window}))
+
 if __name__ == "__main__":
-    {"build": lambda: build(), "score": lambda: score(sys.argv[2])}[sys.argv[1]]()
+    {"build": lambda: build2(), "build1": lambda: build(), "score": lambda: (score2 if json.load(open(OUT_MODEL)).get("version") == 2 else score)(sys.argv[2])}[sys.argv[1]]()

@@ -405,8 +405,18 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   other reference channels it never saw (How Money Works 30/30, Moon 23/23, Logically Answered 29/30, Modern MBA 21/27
   at the 0.90 bar). Its only negatives were our own Claude-written scripts, so it learned "human YouTube narration vs our
   generator's prose". It is a real signal (our scripts do not read like human narration) but not the target, and
-  prompting barely moves it. Every score above carries that meaning. Next: retrain with the other channels as negatives
-  too and report two measures — reads like human narration, reads like MagnatesMedia — before any further writer runs.
+  prompting barely moves it. Every score above carries that meaning.
+- **Two measures since then** (`script_referee.py build` = `build2`, model `version: 2`; `build1` keeps the first):
+  - **human** — human narration of all five channels against our scripts and their tricks: held-back MagnatesMedia
+    0.94–0.99, held-back other channels 0.95–1.00, ours 0.00–0.67 (windows caught 86 %, tricks 84 %);
+  - **channel** — MagnatesMedia against the four other channels: held-back MagnatesMedia 0.78–0.82, held-back others
+    0.02–0.55 (How Money Works 0.09 … Moon 0.34), every MagnatesMedia film above every other;
+  - held back: the six MagnatesMedia narrations and every fifth film of each other channel; every bar at the weakest
+    held-back narration, rounded down: human 0.90 whole / 0.70 under 600 words, channel 0.75 / 0.50; a script passes
+    both. The writer sees both, with craft gaps and words to cut from the human measure.
+  - **What it shows:** our writer already writes like MagnatesMedia rather than the other channels (most scripts pass
+    the channel bar; Blockbuster 0.97); the gap is human-ness, worst on long scripts (Enron 0.62–0.85 against 0.90).
+    Short scripts that pass both: Wirecard (human 0.97, channel 0.74), Quibi (0.87, 0.76); Blockbuster fails human (0.62).
 
 ### The researcher (second agent rebuilt)
 
