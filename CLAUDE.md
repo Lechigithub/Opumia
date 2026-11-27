@@ -875,6 +875,15 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     0.12–0.88 (28 %); MagnatesMedia vs others overlaps too. Too blunt: no camera-move kinds (push, pan, whip,
     parallax) and no voice / music / effects separation on our side. Next if pursued: optical-flow camera moves and
     cut-to-word timing; voice/music separation on our films as the reference has (`sound.json`).
+  - **Second attempt** (`tools/referee/motion_sound2.py`, `data/referee/magnates-media-motion-sound2.json`): motion
+    from block motion (NumPy phase correlation, sub-pixel; static / push / pull / pan / whip, hold, shake, cuts);
+    sound from Demucs voice / bed levels — ours separated with the reference's own settings (htdemucs, two stems,
+    shifts 0, overlap 0.1), the reference's from its `sound.json`. **Sound separates usefully** (held-back real
+    0.35–0.99, ours 0.04–0.71; 14 % of real windows flagged, 83 % of ours caught) and names the gap: real channels
+    barely duck the bed under the voice (0.2 dB; ours 8.9 dB), keep the voice about 21.5 dB over the bed (ours 28 dB —
+    our music too quiet), the bed present 95 % of the time (ours 75 %), about 20 drop-outs a minute (ours 32). The
+    old rule "music ducked ~8 dB" is the opposite of the channels. **Motion still does not** (26 % of real windows
+    flagged; ours push in more, 0.43 vs 0.28, pull and whip less). Neither is a gate yet.
   - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
     shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
     → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
