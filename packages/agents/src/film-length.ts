@@ -80,8 +80,9 @@ export interface LengthPlan {
 }
 
 export function chaptersFor(durationS: number): number {
-  // a chapter runs 90–150 s; a film too short for two chapters is one continuous film
-  return durationS < 240 ? 0 : Math.max(2, Math.min(15, Math.round(durationS / 120)));
+  // measured on 31 MagnatesMedia films (story-structure.ts, 2026-11-27): an intro of about 50 s, then published chapters
+  // of 128–280 s (median 192 — the 90–150 s assumed before was guessed); a film under five minutes is one continuous film
+  return durationS < 300 ? 0 : Math.max(2, Math.min(20, Math.round((durationS - 50) / 192)));
 }
 
 export function lengthPlan(durationS: number): LengthPlan {
@@ -120,7 +121,8 @@ export function lengthPlan(durationS: number): LengthPlan {
     musicCues: (turns) => Math.max(chapters || 1, Math.min(Math.max(2, Math.round(minutes * 2)), turns + 1)),
     rehookEveryS: chapters ? 30 : Math.min(30, d / 3),
     maxGapS: Math.max(20, Math.min(50, d / 2)),
-    openingS: Math.min(20, d / 4),
+    // the channel's hook ends about 36 s in on its long films (measured); short films keep the window they were measured with
+    openingS: d >= 300 ? 36 : Math.min(20, d / 4),
     endingS: Math.min(20, d / 4),
     minClaims: Math.min(60, Math.max(10, Math.round(8 + minutes * 4))),
     maxShotS: d <= 120 ? 5.5 : 7,

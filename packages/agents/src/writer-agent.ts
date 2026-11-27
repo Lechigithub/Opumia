@@ -21,6 +21,7 @@ import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
 import type { StylePack } from "./style-pack.js";
+import { structureProfile, structureBrief, structureIssues } from "./story-structure.js";
 import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLOCKS, openingFormula, openingShape, openingsLedger } from "./script-referee.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
@@ -113,6 +114,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const datedFacts = claims.filter((c) => c.kind === "date" || c.kind === "event").map((c) => c.text);
   const dossierMoments = (st?.scenes ?? []).map((c) => ({ what: c.what, when: c.when, where: c.where }));
   const openWords = Math.round((lp.openingS * o.narrationWpm) / 60);
+  // the channel's whole-film structure (long films): measured from the reference's story analysis, built once
+  const structure = !short && dataDir ? (() => { try { return structureProfile({ reference: path.resolve(path.dirname(dataDir), process.env.OPUMIA_REFERENCE_DIR ?? "Reference"), data: dataDir, channel: o.pack.channelId }); } catch { return null; } })() : null;
 
   // ---- one evaluation, used by measure_draft and submit_script: the same checks, nothing rewritten.
   const rounds: StoryReport["rounds"] = [];
@@ -129,6 +132,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     const words = segments.reduce((n, sg) => n + countWords(sg.text), 0);
     if (Math.abs(words - targetWords) / targetWords > 0.05) issues.push({ kind: "length", detail: `${words} words; this film needs ${targetWords} (±5%) — at ${o.narrationWpm} words a minute that is ${Math.round((words / o.narrationWpm) * 60)} s against ${o.durationS} s.` });
     for (const i of critiqueNarrative(segments, o.narrationWpm, { short, maxGapS: lp.maxGapS })) issues.push({ kind: i.kind, detail: `${i.where}: ${i.detail}` });
+    if (structure) for (const i of structureIssues(segments, o.durationS, o.narrationWpm, structure, lp.chapters)) issues.push(i);
     const withDigit = lines.filter((t) => /\d/.test(t));
     if (withDigit.length / Math.max(1, lines.length) > 0.2) issues.push({ kind: "too_many_figures", detail: `${withDigit.length} of ${lines.length} sentences carry a figure (the channel: about one in six). Keep the figures the story turns on; tell the rest without numbers or leave those facts out — never replace a number with a vague phrase.` });
     const text = segments.map((sg) => sg.text).join(" ");
@@ -304,7 +308,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const system = [
     cached(o.pack.text),
     plain(
-      `${skill}\n\n## This channel, measured on ${band.films} of its real films\n- explains what things mean in ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)} of its lines (typically ${pc(band.kinds.explain.p50)})\n- talks to the viewer or as the narrator in ${pc(band.viewer.p10)}–${pc(band.viewer.p90)} (typically ${pc(band.viewer.p50)})\n- quotes in at most ${pc(band.kinds.quote.p90)} of its lines; bare facts in at most ${pc(band.kinds.fact.p90)}\n- about one sentence in six carries a figure; the median sentence runs about 19 words; few sentences are six words or shorter\n\n## This film\n${short ? `A ${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}: a hook and thesis early, one scene carried in detail, a turn, and an ending that lands. No chapter titles, no call to subscribe.` : `A ${Math.round(o.durationS / 60)}-minute 16:9 documentary in chapters of 90–150 seconds, each with a title; a re-hook that is a real revelation every half minute or so. No call to subscribe.`}\nLength: ${targetWords} words (±5%) — the narrator speaks at ${o.narrationWpm} words a minute.\nSegment roles: ${ROLES.join(", ")}. Each segment lists the claim ids it relies on and one line on what should be on screen.${notes.trim() ? `\n\n## Your own notes from earlier scripts\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
+      `${skill}\n\n## This channel, measured on ${band.films} of its real films\n- explains what things mean in ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)} of its lines (typically ${pc(band.kinds.explain.p50)})\n- talks to the viewer or as the narrator in ${pc(band.viewer.p10)}–${pc(band.viewer.p90)} (typically ${pc(band.viewer.p50)})\n- quotes in at most ${pc(band.kinds.quote.p90)} of its lines; bare facts in at most ${pc(band.kinds.fact.p90)}\n- about one sentence in six carries a figure; the median sentence runs about 19 words; few sentences are six words or shorter\n\n## This film\n${short ? `A ${o.durationS}-second ${o.aspect === "9:16" ? "vertical short" : "16:9 mini-documentary"}: a hook and thesis early, one scene carried in detail, a turn, and an ending that lands. No chapter titles, no call to subscribe.` : `${structure ? structureBrief(structure, o.durationS, lp.chapters) : `A ${Math.round(o.durationS / 60)}-minute 16:9 documentary in ${lp.chapters} titled chapters of about three minutes.`}\nNo call to subscribe.`}\nLength: ${targetWords} words (±5%) — the narrator speaks at ${o.narrationWpm} words a minute.\nSegment roles: ${ROLES.join(", ")}. Each segment lists the claim ids it relies on and one line on what should be on screen.${notes.trim() ? `\n\n## Your own notes from earlier scripts\n${notes}` : ""}${owner.trim() ? `\n\n## The owner's notes on your work (take these seriously)\n${tail(owner, 30)}` : ""}`,
     ),
   ];
   const user = `Write the narration for this film.\n\nTOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n\n${dossier}\n\nFACT SHEET (the only facts you may use):\n${claims.map((c) => `[${c.id}] (${c.verdict}) ${c.text}`).join("\n")}${earlier ? `\n\nEARLIER FILMS OF OURS WERE BUILT LIKE THIS — build this one differently:\n${earlier}` : ""}${o.recentOpenings?.length ? `\n\nEARLIER FILMS OF OURS OPENED ON — open differently:\n${o.recentOpenings.map((x) => `- "${x}…"`).join("\n")}` : ""}${o.brief ? `\n\nTHE SHOWRUNNER SENT THE LAST VERSION OF THIS SCRIPT BACK. Keep what worked; change what it asks, for the reasons it gives:\n${o.brief}` : ""}\n\nStart by studying the channel's real films with your tools.`;

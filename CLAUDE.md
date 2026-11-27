@@ -359,6 +359,25 @@ chance. `tools/referee/script_referee.py` (`build` → `data/referee/magnates-me
   Limit: at 90 s the channel and a gamed script of ours overlap (one gamed version reaches 0.80); the opening ledger,
   the trick training and the two-film reading rule carry the rest.
 
+### Whole-film structure, measured (2026-11-27)
+
+Long films were planned from guesses (chapters of 90–150 s, "a revelation every half minute", a 20 s opening).
+`agents/story-structure.ts` measures the channel's structure from `Reference/.analysis/story` (hook, thesis, story
+chapters with roles, twist, open loops, decision beats, ending) and `.analysis/meta` (published chapters, duration),
+read only → `data/story-profile/<channel>-structure.json`. On 31 MagnatesMedia films (3–79 min):
+- intro before chapter 1 ≈ 50 s (38–76); the hook ends ≈ 36 s in, the thesis by ≈ 36–51 s; hooks are irony, a
+  question, a claim, a reversal, a flash-forward, a mystery, the stakes;
+- published chapters 2:09–4:49 (median 3:11), ≈ 3.6 per 10 min, made of story beats of ≈ 1:50;
+- an open question about every 5 minutes, paid typically 1:42 later (some only at the end); ≈ 3 decisions per 10 min;
+- the twist at 27–60 % of the film (median the middle); arc by fifths: setup → rise/turn → rise/obstacle/explainer →
+  fall/climax/aftermath → outro/aftermath;
+- endings: lesson 26 %, callback 19 %, outro only 19 %, open question 16 %, where now 16 %; 48 % call back.
+Used: `film-length.ts:chaptersFor` (none under 5 min, else (length − 50 s) / 192 s: 10 min → 3, 20 min → 6, 60 min →
+18; was length / 120 s) and `openingS` 36 s for films ≥ 5 min (short films unchanged); the writer's long-form brief is
+`structureBrief`, and `structureIssues` refuses a long script with the wrong chapter count, chapters far shorter or
+longer than the channel's, a late thesis or a twist away from the middle. Test: `dev/structure-test.ts` (regressions
+33/33). Not yet exercised by a long script (none has been written).
+
 ### The researcher (second agent rebuilt)
 
 - **Why:** research was one pass — search once, fetch each source once with a basic request, drop every claim whose page could not be read. On Kodak 20 of 36 claims were lost that way (Washington Post, CNN Money, PetaPixel, Medium, even justice.gov refused or were gone), and the writer was left without the story's best facts.

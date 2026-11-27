@@ -18,7 +18,8 @@ export async function bl5Test(): Promise<string[]> {
   if (p90.targetUsd !== 3 || p90.targetMinutes !== 30) fails.push(`90 s target must be $3 and 30 min, got $${p90.targetUsd} ${p90.targetMinutes} min`);
   if (Math.abs(p600.targetUsd - 20) > 0.01 || p600.targetMinutes !== 200) fails.push(`10 min must scale by the per-minute figures ($20, 200 min), got $${p600.targetUsd} ${p600.targetMinutes} min`);
   if (p45.targetUsd !== 3) fails.push("a 45 s film keeps the 90 s floor");
-  if (p90.chapters !== 0 || p180.chapters !== 0 || p600.chapters < 4) fails.push(`chapters: 90 s ${p90.chapters}, 180 s ${p180.chapters}, 600 s ${p600.chapters}`);
+  // measured (story-structure.ts, 2026-11-27): an intro of ~50 s, then chapters of ~3 min — a 10-minute film has 2–4
+  if (p90.chapters !== 0 || p180.chapters !== 0 || p600.chapters < 2 || p600.chapters > 4) fails.push(`chapters: 90 s ${p90.chapters}, 180 s ${p180.chapters}, 600 s ${p600.chapters}`);
   const capSum = (p: ReturnType<typeof lengthPlan>) => ["A1", "A2", "A3", "B1", "B2", "B2d", "B3", "B6", "C3"].reduce((a, c) => a + p.stage(c)!.usd, 0);
   if (!(capSum(p600) > capSum(p180) && capSum(p180) > capSum(p90))) fails.push("stage shares must grow with the film's length");
   if (p600.stage("B2d")!.usd > p90.stage("B2d")!.usd * 2.5) fails.push("the art director's share is mostly per film, not per minute");

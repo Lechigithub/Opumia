@@ -1,5 +1,6 @@
 export * from "./llm.js";
 export * from "./script-referee.js";
+export * from "./story-structure.js";
 export * from "./style-pack.js";
 export * from "./narrative.js";
 export * from "./sound-design.js";
