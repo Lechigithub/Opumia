@@ -7,6 +7,11 @@ import { guard, runFilmAgent, pool } from "../film-agent/run.js";
 import { filmGate, ledgers } from "../film-agent/gate.js";
 import { validatePlan, scaffold, sceneWindow, sceneBrief, type FilmPlan } from "../film-agent/plan.js";
 import { sceneCheck } from "../film-agent/scene-check.js";
+import { searchesOf } from "../film-agent/prefetch.js";
+import { draftMix, HIT_GAP_S } from "../film-agent/sound-draft.js";
+import { preFinishChecks, numbersIn } from "../film-agent/checks.js";
+import { boardOf, resolutionOf, designOf } from "../film-agent/after.js";
+import { Storyboard, ResolutionReport, FilmDesignSystem } from "@opumia/contracts";
 import { mkdirSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
 
@@ -98,6 +103,44 @@ writeFileSync(path.join(pj, "src/scenes/s03.tsx"), scene(40));
 const full = spawnSync("npx", ["tsx", path.join(ROOT, "packages/motion-engine/src/hand/render-film.ts"), pj, "--scale", "0.25"], { cwd: ROOT, encoding: "utf8" });
 const dur = existsSync(path.join(pj, "picture.mp4")) ? Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path.join(pj, "picture.mp4")]).toString()) : 0;
 ok("assembled film renders at its length", full.status === 0 && Math.abs(dur - L) < 0.1, `${dur} s`);
+
+// ---- background fetching, the no-repeats register, the draft sound plan, the checks before the finisher, the adapters
+const sp: FilmPlan = { ...plan, scenes: plan.scenes.map((x, i) => ({ ...x, ...(i === 1 ? { mark: "biggest" as const, year: 1999, entities: [{ name: "Markus Braun", type: "person" as const }], pictures: [{ need: "Braun at a press conference", how: "press: Wirecard CEO Markus Braun press conference / stock: dark office tower at night" }, { need: "an old card terminal" }] } : {}), ...(i === 0 ? { mark: "turn" as const, pictures: [{ need: "Munich skyline", how: "commons: Aschheim Wirecard headquarters / films: city at night" }] } : {}) })) };
+const se = searchesOf(sp);
+ok("prefetch: hints become searches in the scene's mode", se.some((x) => x.scene === "s02" && x.tool === "press" && x.args.includes("--person") && x.args.includes("Markus Braun")) && se.some((x) => x.scene === "s01" && x.tool === "commons") && se.some((x) => x.scene === "s01" && x.tool === "films") && se.filter((x) => x.scene === "s02" && x.tool === "stock").length === 1 && se.find((x) => x.scene === "s02" && x.tool === "stock")!.args.length === 2, JSON.stringify(se));
+const toolsTs = path.join(ROOT, "apps/cli/src/film-agent/tools.ts");
+const tool = (scene: string, ...a: string[]) => spawnSync("npx", ["tsx", toolsTs, ...a], { cwd: ROOT, encoding: "utf8", env: { ...process.env, FILM_JOB: pj, FILM_SCENE: scene, OPUMIA_ROOT: ROOT } });
+writeFileSync(path.join(pj, "credits/s01.json"), JSON.stringify([{ file: "downloads/s01/downloads/stock/pexels_123.mp4", kind: "stock", source: "Pexels", license: "Pexels", url: "https://www.pexels.com/video/123" }]));
+mkdirSync(path.join(pj, "fair-use"), { recursive: true });
+writeFileSync(path.join(pj, "fair-use/s01.json"), JSON.stringify([{ file: "v/s01_hq.mp4", kind: "press", video: "https://www.youtube.com/watch?v=AbCdEfGhIjk", title: "Wirecard raid", channel: "Reuters", inS: 30, seconds: 5 }]));
+const sg = tool("s02", "stock-get", "pexels_123.mp4"), cl = tool("s02", "clip", "AbCdEfGhIjk", "32", "4", "raid");
+ok("register: a stock clip another scene uses is refused", sg.status !== 0 && /already used by another scene/.test(sg.stdout), sg.stdout.slice(0, 160));
+ok("register: the same moment of a video in a second scene is refused", cl.status !== 0 && /already uses AbCdEfGhIjk/.test(cl.stdout), cl.stdout.slice(0, 160));
+writeFileSync(path.join(pj, "fair-use/s01.json"), "[]");
+writeFileSync(path.join(pj, "credits/s01.json"), "[]");
+mkdirSync(path.join(pj, "notes"), { recursive: true });
+writeFileSync(path.join(pj, "notes/s02.hits.json"), JSON.stringify([{ t: 5.1, what: "terminal lights", family: "thud" }, { t: 5.9, what: "too close", family: "thud" }]));
+const mix = draftMix({ root: ROOT, job: pj, plan: sp, lengthS: 60 });
+const hitTimes = mix.cues.filter((c) => !/riser/.test(c.why ?? "")).map((c) => c.t);
+ok("sound draft: beds past their intros, from the ranked list", mix.beds.length >= 1 && mix.beds.every((b) => b.file.startsWith("Library/music/") && b.inS >= 0), JSON.stringify(mix.beds));
+ok("sound draft: a builder's hit point is used, hits spaced and at the channel's density", mix.cues.some((c) => /terminal lights/.test(c.why ?? "")) && hitTimes.every((t, i) => i === 0 || t - hitTimes[i - 1]! >= HIT_GAP_S - 0.5) && hitTimes.length <= Math.round(3.06), JSON.stringify(mix.cues));
+ok("sound draft: no effect twice, a drop-out before the biggest line", new Set(mix.cues.map((c) => c.file)).size === mix.cues.length && mix.drops.length === 1 && mix.drops[0]!.to <= 4);
+ok("numbers in text are read with their scale", numbersIn("$7.2B lost, 3,500 staff, 49% and 1.9 billion euros").map((x) => x.value).join(",") === [7.2e9, 3500, 49, 1.9e9].join(","));
+writeFileSync(path.join(pj, "timed-script.json"), JSON.stringify({ schemaVersion: 1, id: "t", title: "t", durationS: 8, segments: [{ id: "seg1", role: "hook", text: "It lost 1.9 billion euros.", startS: 0, endS: 8, words: [{ word: "It", startS: 0.2, endS: 0.4 }, { word: "lost", startS: 0.4, endS: 0.8 }, { word: "1.9", startS: 0.8, endS: 1.3 }, { word: "billion", startS: 1.3, endS: 1.8 }, { word: "euros.", startS: 1.8, endS: 2.3 }] }] }));
+writeFileSync(path.join(pj, "facts.json"), JSON.stringify({ claims: [{ text: "Wirecard had 5,800 staff." }] }));
+writeFileSync(path.join(pj, "plan.json"), JSON.stringify(sp));
+writeFileSync(path.join(pj, "src/scenes/s03.tsx"), scene(40, `<div style={{ color: "#fff", fontSize: 160, fontWeight: 900 }}>€9.9B</div><Img src={staticFile("img/s02_board.jpg")} style={{ width: 400 }} />`));
+spawnSync("npx", ["tsx", path.join(ROOT, "packages/motion-engine/src/hand/render-film.ts"), pj, "--scale", "0.5"], { cwd: ROOT, encoding: "utf8" });
+const ch = await preFinishChecks({ root: ROOT, job: pj, channel: "magnates-media", plan: sp, models: false });
+ok("checks: captions.srt and LICENSES.md written", existsSync(path.join(pj, "captions.srt")) && readFileSync(path.join(pj, "captions.srt"), "utf8").includes("1.9") && existsSync(path.join(pj, "LICENSES.md")));
+ok("checks: a figure on screen nobody says is found", ch.findings.some((f) => f.check === "number" && /9\.9/.test(f.what) && f.scene === "s03"), ch.findings.filter((f) => f.check === "number").map((f) => f.what).join(" | "));
+ok("checks: a scene drawing another scene's picture is a repeat", ch.findings.some((f) => f.check === "repeat" && f.scene === "s03"));
+ok("checks: FINDINGS.md for the finisher", existsSync(path.join(pj, "FINDINGS.md")));
+const tsd = JSON.parse(readFileSync(path.join(pj, "timed-script.json"), "utf8"));
+const bOk = Storyboard.safeParse(boardOf(sp, tsd, L, "magnates-media")), rOk = ResolutionReport.safeParse(resolutionOf(pj, sp)), dOk = FilmDesignSystem.safeParse(designOf({ ...sp, palette: { primary: "#123456", accent: "not-a-colour" } }, "Wirecard", "magnates-media"));
+ok("adapters: the plan is a valid storyboard for the reviewers", bOk.success, bOk.success ? "" : JSON.stringify(bOk.error.issues[0]));
+ok("adapters: the scenes' pictures are a valid resolution report", rOk.success && rOk.data.media.some((m) => m.shotId === "s02" && m.publicPath === "img/s02_board.jpg"), rOk.success ? "" : JSON.stringify(rOk.error.issues[0]));
+ok("adapters: the world's colours are valid design tokens (a bad colour falls back)", dOk.success && dOk.data.palette.primary === "#123456", dOk.success ? "" : JSON.stringify(dOk.error.issues[0]));
 
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails
 const v7 = path.join(ROOT, "out/hand-wirecard-v7");

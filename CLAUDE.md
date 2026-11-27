@@ -561,6 +561,26 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
   4. **Render** (code), then the **finisher** (the planner's session resumed): watches the film whole beside the
      reference, sends scenes back (`REBUILD.json` → those builders again, in parallel), fixes seams, mixes, gates;
      up to three rounds.
+- **Added after review (2026-11-26):**
+  - **Background fetching** (`prefetch.ts`): the moment the plan is valid, every scene's searches (`pictures[].how`:
+    `press:`, `film scene:`, `stock:`, `commons:`, `films:`) run at once in code in the scene's own mode; each builder
+    opens with `downloads/<id>/PREFETCH.md` and candidates on disk. Builders still choose (the old pipeline placed
+    pictures nobody chose — that made its films generic).
+  - **No-repeats register** (the scene ledgers): `clip` refuses a video moment, `stock-get` a stock clip, `commons` a
+    photo another scene already uses; the checks flag any left.
+  - **Draft sound plan** (`sound-draft.ts`): code writes the first `mix.json` from the plan's `mark`s (turn,
+    biggest), the cuts and the builders' `notes/<id>.hits.json`: beds from the ranked list (not used by recent films)
+    past their quiet intros, hits at the channel's 3.06 a minute ≥ 2.4 s apart (booms ≤ 30 %), a riser into the first
+    turn, a drop-out before the biggest line. The finisher adjusts it; levels stay in `mix.ts`.
+  - **Checks before the finisher** (`checks.ts` → `FINDINGS.md`): `captions.srt`, `LICENSES.md`; figures on screen
+    (on-device OCR, 2 frames a second) against the narration and the fact sheet; footage under a pre-2009 line dated
+    (`periodCheck`); a face under a named person whose real material exists in the film (`reviewPictures`); one
+    source, moment or scene file in two scenes; the world check (line fit, sameness to our earlier films).
+  - **Fresh eyes after** (`after.ts`, at the same time): the viewer QA agent, the final-cut judge and the packaging
+    agent on the finished file (adapters turn the plan and ledgers into a storyboard, a resolution report and design
+    tokens from the plan's `palette`/`fonts`); if the viewer or the judge finds something, the finisher gets one more
+    turn. 15 % of the budget is held back for them.
+  - The plan carries `entities`, `year`, `mark` per scene and the world's `palette` and `fonts`.
 - **Solo** (`--solo`): one session does everything (the first design, kept for comparison).
 - **Tools:** `film-tools` (`tools.ts`, `TOOLS.md`): the reference watcher, press/film-clip search with strips and cut,
   article screenshots, Commons, stock sheets, the film library, cut-out, depth, render (whole film or one scene),

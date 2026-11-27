@@ -37,6 +37,9 @@ Look at every image a command produces (Read the .jpg). Every command that bring
 - `film-tools depth <in> <out_depth.png>` — depth map for `@craft` DepthPlate (a still filmed in 3D).
 - `film-tools credit <public file> <kind> "<source>" "<url>" [--license "…"]` — record a source you brought in by hand.
 
+A scene builder works in its own scene's mode: what it brings in is named `<id>_…` and recorded in its own
+ledgers, and the tools refuse a video moment, stock clip or Commons photo another scene already uses.
+
 ## Memory and money
 - `film-tools lesson "<one lesson>"` — saved to your memory for every later film.
 - `film-tools spend` — what the film has cost so far and its limit.

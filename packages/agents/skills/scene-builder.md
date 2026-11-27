@@ -13,20 +13,26 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
   in your notes.
 - Techniques: `import { … } from "@craft"`. Media: `staticFile("v/<id>_….mp4")`.
 - Write only your own files: `src/scenes/<id>.tsx`, `src/scenes/<id>/…`, `public/v/<id>_…`, `public/img/<id>_…`,
-  `downloads/<id>/…`, `stills/<id>/…`, `notes/<id>.md`. The tools name and file what you bring in for you
+  `downloads/<id>/…`, `stills/<id>/…`, `notes/<id>.md`, `notes/<id>.hits.json`. The tools name and file what you bring in for you
   (they prefix your scene id and record the source).
 
 ## Your method
 1. Read your brief, `WORLD.md`, `src/world.tsx`, `plan.json` (your neighbours) and `TOOLS.md`.
-2. **Find the real pictures your scene needs** (`film-tools press`, `clip`, `screenshot`, `commons`, `stock`,
+2. **Start from `downloads/<id>/PREFETCH.md`**: the searches the plan asked for already ran before you started
+   (strips, sheets, photos on disk). Look at them; choose from them or search again. Then
+   **find the real pictures your scene needs** (`film-tools press`, `clip`, `screenshot`, `commons`, `stock`,
    `stock-get`, `films`, `cutout`, `depth`). LOOK at every candidate (strips, sheets, a frame of each download)
    before you use it: does it show the line? Is it the real person? Is it the right period? Sharp, no watermark,
-   no one else's graphics (crop them away)?
+   no one else's graphics (crop them away)? The tools refuse a moment, stock clip or photo another scene already
+   brought in — the same picture twice reads as a repeat; find another.
 3. **Build the scene**: a layered composition in the film's world — footage graded into the look, words set into
    the picture above the grade, a camera that moves on the words, the entrance the plan asks for.
 4. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame.
 5. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`.
-6. **Write `notes/<id>.md`**: what is on screen, the pictures and why, where the words land, what the finisher should
+6. **Write your hit points** in `notes/<id>.hits.json`: `[ { "t": 12.4, "what": "the stamp lands", "family": "thud" } ]`
+   (film seconds; families thud, sub_boom, impact, whoosh) — the moments a sound should land on what is seen. Code
+   builds the film's first sound plan from them.
+7. **Write `notes/<id>.md`**: what is on screen, the pictures and why, where the words land, what the finisher should
    know (a hit point, a seam with the next scene, anything you could not find). Stop.

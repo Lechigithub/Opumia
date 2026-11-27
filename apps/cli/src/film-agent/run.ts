@@ -12,8 +12,12 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, cpSync, chmodSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { filmGate } from "./gate.js";
-import { readPlan, validatePlan, scaffold, sceneBrief, type FilmPlan } from "./plan.js";
+import { readPlan, validatePlan, scaffold, sceneBrief, pool, type FilmPlan } from "./plan.js";
 import { sceneCheck } from "./scene-check.js";
+import { prefetch } from "./prefetch.js";
+import { writeDraftMix } from "./sound-draft.js";
+import { preFinishChecks } from "./checks.js";
+import { freshEyes } from "./after.js";
 
 export interface FilmAgentOptions {
   root: string; topic?: string; job: string; channel: string; durationS: number; maxUsd: number; model: string;
@@ -41,7 +45,7 @@ export function guard(job: string, root: string, scene?: string) {
   const ownBuilder = (abs: string) => {
     const r = path.relative(job, abs).split(path.sep).join("/");
     return r === `src/scenes/${scene}.tsx` || r.startsWith(`src/scenes/${scene}/`) || new RegExp(`^public/(v|img|a)/${scene}_`).test(r)
-      || [`downloads/${scene}/`, `stills/${scene}/`, `watch/${scene}`].some((d) => r.startsWith(d)) || [`notes/${scene}.md`, `credits/${scene}.json`, `fair-use/${scene}.json`].includes(r);
+      || [`downloads/${scene}/`, `stills/${scene}/`, `watch/${scene}`].some((d) => r.startsWith(d)) || r.startsWith(`notes/${scene}.`) || [`credits/${scene}.json`, `fair-use/${scene}.json`].includes(r);
   };
   return async (tool: string, input: Record<string, unknown>) => {
     const deny = (message: string) => ({ behavior: "deny" as const, message });
@@ -145,13 +149,7 @@ async function session(ctx: Ctx, a: { label: string; prompt: string; append: str
   return r;
 }
 
-/** Run tasks with at most n at once. */
-export async function pool<T, R>(items: T[], n: number, f: (x: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let next = 0;
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, async () => { for (let i = next++; i < items.length; i = next++) out[i] = await f(items[i]!); }));
-  return out;
-}
+export { pool } from "./plan.js";
 
 const renderFilm = (o: FilmAgentOptions, extra: string[] = []) => spawnSync("npx", ["tsx", path.join(o.root, "packages/motion-engine/src/hand/render-film.ts"), o.job, ...extra], { cwd: o.root, encoding: "utf8", maxBuffer: 1 << 26 });
 const errorsOf = (r: { stdout?: string; stderr?: string }) => `${r.stderr ?? ""}\n${r.stdout ?? ""}`.split("\n").filter((l) => /error|Error|cannot|Cannot|failed/.test(l)).slice(0, 12).join("\n").slice(0, 2500);
@@ -202,6 +200,8 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
     }
     const plan = readPlan(job) as FilmPlan;
     log(`  plan: ${plan.scenes.length} scenes, signature object: ${plan.signatureObject}`);
+    // every scene's searches start at once in code; builders open with candidates on disk (they still choose)
+    await phase("prefetch", () => prefetch({ root: o.root, job, channel: o.channel, plan, env, parallel: o.parallel ?? 6, log }));
 
     // 2. build every scene at once (each its own session, its own files, its own check)
     const buildAppend = `${common}\n\n${skill(o.root, "scene-builder")}\n\n${here}`;
@@ -210,7 +210,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
     const build = async (id: string, why?: string) => {
       const i = plan.scenes.findIndex((s) => s.id === id);
       const brief = sceneBrief(plan, i, lengthS);
-      const first = why ? `The finisher sent your scene back:\n${why}\n\nFix it, then run film-tools scene-check ${id} until it passes, and update notes/${id}.md.` : `Build scene ${id} of the film.\n\n${brief}\n\nRead WORLD.md, plan.json and src/world.tsx first; build only src/scenes/${id}.tsx (and src/scenes/${id}/…). Finish when film-tools scene-check ${id} prints SCENE ${id} PASSED, with notes/${id}.md written.`;
+      const first = why ? `The finisher sent your scene back:\n${why}\n\nFix it, then run film-tools scene-check ${id} until it passes, and update notes/${id}.md.` : `Build scene ${id} of the film.\n\n${brief}\n\nRead WORLD.md, plan.json, src/world.tsx and downloads/${id}/PREFETCH.md (searches already run for you — look at them, then search again if none shows the line) first; build only src/scenes/${id}.tsx (and src/scenes/${id}/…). Finish when film-tools scene-check ${id} prints SCENE ${id} PASSED, with notes/${id}.md written and your hit points in notes/${id}.hits.json.`;
       let r = await session(ctx, { label: `build-${id}`, prompt: first, append: buildAppend, model: o.builderModel ?? o.model, maxUsd: why ? perScene * 0.6 : perScene, maxTurns: 120, scene: id, ...(builders.get(id) ? { resume: builders.get(id)! } : {}) });
       builders.set(id, r.sessionId);
       let chk = await sceneCheck(job, id);
@@ -226,21 +226,30 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
 
     // 3–4. assemble, render, then the finisher watches it whole, sends scenes back, mixes, gates
     let note = unbuilt.length ? `\nScenes that did not pass their own check: ${unbuilt.map((b) => `${b.id} (${b.failed.join("; ")})`).join(" | ")}.` : "";
+    const finisherMax = () => Math.max(0.3, budget * 0.85 - ctx.spent.usd); // a reserve for the fresh eyes and their round
+    const platformUsd = { usd: 0 };
+    const addPlatform = (u: number) => { platformUsd.usd += u; ctx.spent.usd += u; };
     for (let round = 0; round < 3; round++) {
       scaffold(job, plan, lengthS);
       const r = await phase(`render-${round + 1}`, async () => renderFilm(o));
       const rendered = r.status === 0;
+      if (round === 0) { const m = writeDraftMix({ root: o.root, job, lengthS }); if (m) log(`  sound draft: ${m.beds.length} bed(s), ${m.cues.length} cue(s), ${m.drops.length} drop-out(s)`); }
+      if (rendered) {
+        const c = await phase(`checks-${round + 1}`, () => preFinishChecks({ root: o.root, job, channel: o.channel, plan, log }));
+        addPlatform(c.usd);
+        note += `\n\nChecks on the assembled film (FINDINGS.md) — FIX items are yours or a builder's, "look" items are for your eye:\n${c.text}`;
+      }
       const prompt = round === 0
-        ? `Every scene is built and the film is rendered: picture.mp4 (silent).${rendered ? "" : `\nThe render failed:\n${errorsOf(r)}`}${note}\nNow finish it, following the finisher's part of your playbook: watch it whole and beside the reference, send back scenes that need their builder (REBUILD.json) or fix seams yourself, write mix.json and mix, run film-tools gate, write REVIEW.md and save lessons. If you write REBUILD.json, stop there: the builders will run and you will see the film again.`
+        ? `Every scene is built and the film is rendered: picture.mp4 (silent).${rendered ? "" : `\nThe render failed:\n${errorsOf(r)}`}${note}\nNow finish it, following the finisher's part of your playbook: watch it whole and beside the reference, send back scenes that need their builder (REBUILD.json) or fix seams yourself, adjust the draft mix.json (code wrote it from your marks, the cuts and the builders' hit points) and mix, run film-tools gate, write REVIEW.md and save lessons. If you write REBUILD.json, stop there: the builders will run and you will see the film again.`
         : `The builders reworked ${note}. The film is rendered again${rendered ? "" : ` — but the render failed:\n${errorsOf(r)}`}. Watch the changed scenes, then continue: mix, gate (until GATE PASSED), REVIEW.md, lessons. Write REBUILD.json again only if a scene is still wrong.`;
       const rebuildF = path.join(job, "REBUILD.json");
       if (existsSync(rebuildF)) writeFileSync(rebuildF, "[]");
-      planner = await phase(`finish-${round + 1}`, () => session(ctx, { label: "finisher", prompt, append: `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 200, ...(planner.sessionId ? { resume: planner.sessionId } : {}) }));
+      planner = await phase(`finish-${round + 1}`, () => session(ctx, { label: "finisher", prompt, append: `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`, model: o.model, maxUsd: finisherMax(), maxTurns: 200, ...(planner.sessionId ? { resume: planner.sessionId } : {}) }));
       const back = (() => { try { return (JSON.parse(readFileSync(rebuildF, "utf8")) as Array<{ id: string; why: string }>).filter((x) => plan.scenes.some((s) => s.id === x.id)); } catch { return []; } })();
       if (back.length && round < 2 && ctx.spent.usd < budget - 1) {
         log(`  sent back: ${back.map((b) => b.id).join(", ")}`);
         const again = await phase(`rebuild-${round + 1}`, () => pool(back, o.parallel ?? 6, (b) => build(b.id, b.why)));
-        note = `${back.map((b) => b.id).join(", ")}${again.some((a) => !a.pass) ? ` (not passing their check: ${again.filter((a) => !a.pass).map((a) => a.id).join(", ")})` : ""}`;
+        note = `${back.map((b) => b.id).join(", ")}${again.some((a) => !a.pass) ? ` (not passing their check: ${again.filter((a) => !a.pass).map((a) => a.id).join(", ")})` : ""}.`;
         continue;
       }
       pass = (await filmGate({ root: o.root, job, channel: o.channel })).pass;
@@ -248,6 +257,16 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       const g = await filmGate({ root: o.root, job, channel: o.channel, record: false });
       note = `nothing; the gate still fails: ${g.checks.filter((c) => !c.pass).map((c) => `${c.id}: ${c.detail}`).join(" | ")}`;
     }
+    // 5. fresh eyes on the finished film: the platform's viewer QA, final-cut judge and packaging, at the same time
+    if (existsSync(path.join(job, "film_16x9.mp4"))) {
+      const fe = await phase("fresh-eyes", () => freshEyes({ root: o.root, job, channel: o.channel, topic: o.topic ?? plan.title ?? path.basename(job), lengthS, log }));
+      addPlatform(fe.usd);
+      const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.judge && !fe.judge.pass);
+      if (weak && ctx.spent.usd < budget - 0.5 && planner.sessionId) {
+        planner = await phase("finish-fresh", () => session(ctx, { label: "finisher", prompt: `Reviewers who made none of the film watched it:\n${fe.text}\nFix what is real (edit any scene yourself — no builder round is left), render, mix, and run film-tools gate until GATE PASSED. Then update REVIEW.md and your lessons with what they saw that you did not.`, append: `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 120, resume: planner.sessionId! }));
+      }
+    }
+    phases.platformUsd = { seconds: 0, usd: Math.round(platformUsd.usd * 100) / 100 };
   }
   const g = await filmGate({ root: o.root, job, channel: o.channel, record: false });
   for (const c of g.checks) log(`  ${c.pass ? "PASS" : "FAIL"} ${c.id}: ${c.detail}`);

@@ -33,8 +33,18 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
        "words": "the narration over it", "idea": "what this scene makes the viewer understand",
        "seen": "what is on screen — the real subject first", "camera": "how it moves on the words",
        "onScreen": "words set into the picture, if any", "enter": "how it enters over the scene before",
-       "sound": "hits, drop-out, riser", "pictures": [ { "need": "…", "how": "press: … / stock: … / commons: …" } ] } ] }
+       "sound": "hits, drop-out, riser", "pictures": [ { "need": "…", "how": "press: … / stock: … / commons: …" } ],
+       "entities": [ { "name": "Markus Braun", "type": "person" } ], "year": 2016, "mark": "turn" } ],
+     "palette": { "primary": "#…", "accent": "#…", "surface": "#…", "text": "#…" },
+     "fonts": { "display": "…", "body": "…" } }
    ```
+   - `pictures[].how` starts the searches before any builder begins (several separated by " / "):
+     `press: <a news library's words>`, `film scene: <film or TV scene>`, `stock: <what is seen>`,
+     `commons: <subject>`, `films: <public-domain film moment>`. Write them as a picture researcher would.
+   - `entities`: the real people, companies and places the scene's words name (the face check and the thumbnail
+     use them). `year`: the year the line is about (footage is dated against it). `mark`: `turn` for each story turn,
+     `biggest` for the film's biggest line (the sound draft puts a riser, a hit or a drop-out there).
+   - `palette` and `fonts`: the world's colours and typefaces (the thumbnail is made in them).
    2.5–9 s a scene (an idea that grows over clauses is one scene of 5–8 s). Footage first: most scenes show real
    moving footage; designed scenes few and never more than two in a row. `lead` (0–1.5 s) is how long the scene
    enters over the one before. Tell each builder exactly what you want: a builder cannot ask you.

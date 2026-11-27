@@ -12,8 +12,27 @@ export interface ScenePlan {
   words: string; idea: string; seen: string;
   camera?: string; onScreen?: string; enter?: string; sound?: string;
   pictures?: Array<{ need: string; how?: string }>;
+  /** the real people, companies, places it names (for searches, the face check and the thumbnail) */
+  entities?: Array<{ name: string; type: "person" | "company" | "place" | "landmark" | "event" | "product" }>;
+  /** the year the line is about (the period check dates footage against it) */
+  year?: number;
+  /** a story turn, or the film's biggest line (the sound draft puts a riser, hit or drop-out there) */
+  mark?: "turn" | "biggest";
 }
-export interface FilmPlan { title?: string; world: string; signatureObject: string; scenes: ScenePlan[] }
+export interface FilmPlan {
+  title?: string; world: string; signatureObject: string; scenes: ScenePlan[];
+  /** the world's colours and typefaces (also handed to the thumbnail) */
+  palette?: { primary?: string; accent?: string; surface?: string; text?: string };
+  fonts?: { display?: string; body?: string };
+}
+
+/** Run tasks with at most n at once. */
+export async function pool<T, R>(items: T[], n: number, f: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, async () => { for (let i = next++; i < items.length; i = next++) out[i] = await f(items[i]!); }));
+  return out;
+}
 
 export const STUB = "// STUB — this scene has not been built yet";
 const lead = (s: ScenePlan | undefined) => Math.max(0, Math.min(1.5, s?.lead ?? 0.5));
