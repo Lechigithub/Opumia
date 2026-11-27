@@ -444,6 +444,15 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   films the writer may study: 0.82 / 1.61 / 0.11; typical 0.28 / 0.87 / 0.03; our Enron drafts 0.55–0.73 / 1.46–2.01 /
   0.18–0.56), only where above it. The channel's six held-back narrations are never flagged. Two figures in one
   sentence was measured and dropped (no real difference; dates set it off).
+- **Voice meter + quoted sentences, 10-min Enron:** 24 min, $5.76, human 0.84, channel 0.67 — no better.
+- **Best of five per part** (each variant continuing ~1,500 words of real narration from three study films; the best
+  kept by both measures; then a finish capped at 10 turns / $0.60): best of five per part 0.36 / 0.57 / 0.87 / 0.52 —
+  no part reached 0.90; the script 0.63 / 0.65, not accepted; 5 min, $3.68 (the long examples made each of the 20 calls
+  costly). **Conclusion:** by instruction, measured targets, quoted sentences, long real examples or sampling, Sonnet
+  does not write a 10-minute script that reads as human narration; only the long revision loop came close (0.85–0.89
+  at $4–6, 20–35 min) and none passed. Short scripts do pass (Wirecard 0.97, Quibi 0.80–0.87). About $29 of writer
+  tests that day. Owner's choice open: human-ness reported (not blocking) on long scripts, or a stronger writer model
+  (reverses "Sonnet and Haiku only").
 
 ### The researcher (second agent rebuilt)
 
