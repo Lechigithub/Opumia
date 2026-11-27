@@ -165,6 +165,9 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     if (verdict) refereeSeen.push(verdict.score);
     const formula = o.memoryDir ? openingFormula(text, o.facts.topic, openingsLedger(o.memoryDir, o.pack.channelId)) : null;
     if (formula) issues.push({ kind: "opening_formula", detail: `${formula}. The channel's own openings, for range: ${studyFilms.slice(0, 6).map((f) => `"${String(f.lines[0] ?? "").slice(0, 90)}"`).join(" | ")}` });
+    // the best draft that passes everything but the script referee: kept for when no script is accepted (proof run
+    // 2026-11-27, Quibi: 21 drafts, best 0.36, the last one handed in 0.29)
+    if (verdict && issues.every((x) => x.kind === "reads_unlike_channel") && verdict.score > (bestDraft?.score ?? -1)) bestDraft = { segments, score: verdict.score, issues };
     const header2 = verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header;
     return { ok: issues.length === 0, report: issues.length ? `${header2}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header2}\n\nPASSES every check.` };
   };
@@ -172,6 +175,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   // ---- tools
   const filmsRead = new Set<string>();
   const refereeSeen: number[] = [];
+  let bestDraft: { segments: z.infer<typeof Segment>[]; score: number; issues: Array<{ kind: string; detail: string }> } | null = null;
   // the narrations the script referee holds back are hidden from the writer's reference tools (a fair test)
   const heldBack = dataDir ? heldBackScripts(dataDir, o.pack.channelId) : new Set<string>();
   const studyFilms = o.films.filter((f) => !heldBack.has(f.id));
@@ -310,9 +314,11 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const final = (accepted ?? lastSubmission) as z.infer<typeof Submission> | null;
   const lastEval = last as { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null;
   if (!final && !lastEval) throw new Error("writer: no draft was produced");
-  const segs = final?.segments ?? lastEval!.segments;
   const pass = accepted !== null;
-  const report: StoryReport = { pass, rounds, remaining: pass ? [] : (lastEval?.issues ?? [{ kind: "not_submitted", detail: "the writer never submitted a script" }]), agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4, filmsRead: [...filmsRead] } };
+  const best = bestDraft as { segments: z.infer<typeof Segment>[]; score: number; issues: Array<{ kind: string; detail: string }> } | null;
+  const segs = !pass && best ? best.segments : (final?.segments ?? lastEval!.segments);
+  if (!pass && best) log(`  writer: no script reached the referee's bar — the best clean draft (${best.score}) is kept`);
+  const report: StoryReport = { pass, rounds, remaining: pass ? [] : ((best ? best.issues : lastEval?.issues) ?? [{ kind: "not_submitted", detail: "the writer never submitted a script" }]), agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4, filmsRead: [...filmsRead] } };
   o.onStory?.(report);
   log(`  writer: ${pass ? "script accepted" : "NO ACCEPTED SCRIPT"} after ${run.turns} turn(s) — read ${filmsRead.size} real film(s), measured ${run.calls.measure_draft ?? 0}×, submitted ${run.calls.submit_script ?? 0}×, $${run.usd.toFixed(2)}${refereeSeen.length ? `, script referee ${refereeSeen.at(-1)} (best ${Math.max(...refereeSeen)})` : ""}${pass ? "" : ` — still: ${report.remaining.map((x) => x.kind).join(", ")}`}`);
   if (o.memoryDir) {

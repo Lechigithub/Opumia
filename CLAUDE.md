@@ -336,7 +336,13 @@ chance. `tools/referee/script_referee.py` (`build` → `data/referee/magnates-me
   openings kept in `data/agents/writer/<channel>.openings.jsonl`; `submit_script` is refused until the writer has read
   two channel narrations. The referee now blocks by default (`OPUMIA_SCRIPT_REFEREE_BLOCK=0` reports only). Current
   bars: whole film 0.95, under 600 words 0.75 (the weakest held-back opening sits exactly on it). Test:
-  `dev/script-referee-sanity.ts` (in regressions, 32/32). Not yet re-run with the fixes.
+  `dev/script-referee-sanity.ts` (in regressions, 32/32).
+- **Proof run with the fixes ($1.75):** 2 of 3 accepted honestly — Wirecard 0.90 (opens on the banks failing to
+  confirm the cash; $0.40), Blockbuster 0.75 ($0.67) — both read two channel films, varied openings, no repeated-name
+  padding. Quibi was not accepted (best 0.36 after 21 drafts, its 22-turn limit, $0.67): its opening window scores 1.0,
+  its figure-carried middle and end 0.00–0.14. Production narrates an unaccepted script anyway (QA → review); the writer
+  now hands in its best clean draft rather than its last one. Open: stories carried by figures, and whether the
+  short-script bar (set exactly on the weakest held-back opening) is too tight.
 
 ### The researcher (second agent rebuilt)
 
