@@ -398,7 +398,15 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
 - **Parallel stage strengthened:** every part gets two stretches of real narration as its voice (from the films the
   writer may study, never the held-back ones); the outline is re-asked once if it does not have intro + N chapters;
   parts are held to their word count; up to three parallel rounds rewrite every part under 0.90 or short, keeping the
-  better version; when every part reaches the bar, the finishing loop is capped at 14 turns / 7 min. Not yet run.
+  better version; when every part reaches the bar, the finishing loop is capped at 14 turns / 7 min.
+- **Fast writer, second test:** parallel stage 69 s, 4 parts, 1,513 of 1,690 words, but three parallel rounds moved the
+  parts only 0.00 / 0.32 / 0.40 / 0.54 → 0.43 / 0.45 / 0.83 / 0.54; then 18 min, $4.17, final 0.77. Not accepted.
+- **FINDING — the script referee does not measure MagnatesMedia's style.** It passes the human narrations of the four
+  other reference channels it never saw (How Money Works 30/30, Moon 23/23, Logically Answered 29/30, Modern MBA 21/27
+  at the 0.90 bar). Its only negatives were our own Claude-written scripts, so it learned "human YouTube narration vs our
+  generator's prose". It is a real signal (our scripts do not read like human narration) but not the target, and
+  prompting barely moves it. Every score above carries that meaning. Next: retrain with the other channels as negatives
+  too and report two measures — reads like human narration, reads like MagnatesMedia — before any further writer runs.
 
 ### The researcher (second agent rebuilt)
 
