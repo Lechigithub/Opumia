@@ -31,7 +31,9 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
 4. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame.
-5. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`.
+5. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`. It also checks what you did: that you
+   read your scene's rendered stills, and — when your scene names a person or company and shows none of their real
+   material — that you searched for it (press, screenshot, commons) before using stock.
 6. **Write your hit points** in `notes/<id>.hits.json`: `[ { "t": 12.4, "what": "the stamp lands", "family": "thud" } ]`
    (film seconds; families thud, sub_boom, impact, whoosh) — the moments a sound should land on what is seen. Code
    builds the film's first sound plan from them.

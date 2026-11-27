@@ -18,6 +18,7 @@ import { prefetch } from "./prefetch.js";
 import { writeDraftMix } from "./sound-draft.js";
 import { preFinishChecks } from "./checks.js";
 import { freshEyes } from "./after.js";
+import { plannerProcess, tellsAnswered, toolLog } from "./process.js";
 
 export interface FilmAgentOptions {
   root: string; topic?: string; job: string; channel: string; durationS: number; maxUsd: number; model: string;
@@ -151,7 +152,11 @@ export async function session(ctx: Ctx, a: { label: string; prompt: string; appe
       const content = ((m.message as { content?: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }> })?.content) ?? [];
       for (const b of content) {
         if (b.type === "text" && b.text) appendFileSync(logF, `\n${b.text}\n`);
-        if (b.type === "tool_use") appendFileSync(logF, `→ ${b.name}: ${JSON.stringify(b.input ?? {}).slice(0, 400)}\n`);
+        if (b.type === "tool_use") {
+          appendFileSync(logF, `→ ${b.name}: ${JSON.stringify(b.input ?? {}).slice(0, 400)}\n`);
+          // every call in full: the process checks read what the agent actually did
+          appendFileSync(toolLog(ctx.o.job, a.label), JSON.stringify({ t: new Date().toISOString(), name: b.name, input: b.input ?? {} }) + "\n");
+        }
       }
     }
     if (m.type === "result") {
@@ -219,16 +224,23 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
     // 1. plan (one mind: the world, the signature object, a scene per idea)
     const planAppend = `${common}\n\n${skill(o.root, "film-planner")}\n\n${here}`;
     let planner = await phase("plan", () => session(ctx, { label: "planner", prompt: `Plan the film "${o.topic ?? path.basename(job)}" for the ${o.channel} channel, following your playbook: watch the reference, then write WORLD.md, src/world.tsx and plan.json. Stop when the plan is complete.`, append: planAppend, model: o.model, maxUsd: budget * 0.2, maxTurns: 150 }));
-    for (let k = 0; k < 2; k++) {
+    // the plan is refused until it is usable AND the planner did the work (watched the reference, searched for real
+    // material of everyone it names); a plan that is usable but skipped work goes ahead after two sends-back, logged
+    for (let k = 0; k < 3; k++) {
       const errs = validatePlan(readPlan(job), lengthS, durationS, job);
       if (!errs.length) {
         scaffold(job, readPlan(job)!, lengthS);
         const w = await renderFilm(o, ["--entry", "src/entries/_world.tsx", "--stills", "0", "--stills-dir", "stills/_world"]);
-        if (w.status === 0) break;
-        errs.push(`src/world.tsx does not compile:\n${errorsOf(w)}`);
+        if (w.status !== 0) errs.push(`src/world.tsx does not compile:\n${errorsOf(w)}`);
       }
-      if (k === 1) throw new Error(`the plan is still not usable:\n${errs.join("\n")}`);
-      planner = await session(ctx, { label: "planner", prompt: `The plan is not usable yet:\n${errs.map((e) => `- ${e}`).join("\n")}\nFix it.`, append: planAppend, model: o.model, maxUsd: budget * 0.08, maxTurns: 60, ...(planner.sessionId ? { resume: planner.sessionId } : {}) });
+      const work = errs.length ? [] : plannerProcess(job, readPlan(job)!);
+      if (!errs.length && !work.length) break;
+      if (k === 2) {
+        if (errs.length) throw new Error(`the plan is still not usable:\n${errs.join("\n")}`);
+        log(`  ! the planner still skipped: ${work.join(" | ")}`);
+        break;
+      }
+      planner = await session(ctx, { label: "planner", prompt: `${errs.length ? "The plan is not usable yet" : "The plan is refused: the work behind it was not done"}:\n${[...errs, ...work].map((e) => `- ${e}`).join("\n")}\nDo it, then revise WORLD.md, src/world.tsx and plan.json with what you found.`, append: planAppend, model: o.model, maxUsd: budget * 0.08, maxTurns: 80, ...(planner.sessionId ? { resume: planner.sessionId } : {}) });
     }
     const plan = readPlan(job) as FilmPlan;
     log(`  plan: ${plan.scenes.length} scenes, signature object: ${plan.signatureObject}`);
@@ -314,9 +326,19 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       ag.setBudget(Math.max(0.5, budget - ctx.spent.usd)); ag.setFinishing(true);
       const fe = await phase("fresh-eyes", () => freshEyes({ root: o.root, job, channel: o.channel, topic: o.topic ?? plan.title ?? path.basename(job), lengthS, log }));
       addPlatform(fe.usd);
-      const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.judge && !fe.judge.pass);
+      // the finisher answers what outside eyes saw even when the film passed: every judge tell and every viewer issue
+      // of severity 5+ is answered in TELLS.md (what changed, or why it stays)
+      const tells = fe.judge?.tells ?? [];
+      const issues = (fe.viewer?.issues ?? []).filter((x) => x.severity >= 5).map((x) => x.what);
+      const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.judge && !fe.judge.pass) || tells.length > 0 || issues.length > 0;
+      const finAppend = `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`;
       if (weak && ctx.spent.usd < budget - 0.5 && planner.sessionId) {
-        planner = await phase("finish-fresh", () => session(ctx, { label: "finisher", prompt: `Reviewers who made none of the film watched it:\n${fe.text}\nFix what is real (edit any scene yourself — no builder round is left), render, mix, and run film-tools gate until GATE PASSED. Then update REVIEW.md and your lessons with what they saw that you did not.`, append: `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 120, resume: planner.sessionId! }));
+        planner = await phase("finish-fresh", () => session(ctx, { label: "finisher", prompt: `Reviewers who made none of the film watched it:\n${fe.text}\nFix what is real (edit any scene yourself — no builder round is left), render, mix, and run film-tools gate until GATE PASSED. Write TELLS.md: every tell and issue above as a heading, under it what you changed or why it stays. Then update REVIEW.md and your lessons with what they saw that you did not.`, append: finAppend, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 120, resume: planner.sessionId! }));
+        const open = tellsAnswered(job, [...tells, ...issues]);
+        if (open.length && ctx.spent.usd < budget - 0.4 && planner.sessionId) {
+          log(`  ${open.length} tell(s) not answered in TELLS.md — one more turn`);
+          planner = await phase("finish-tells", () => session(ctx, { label: "finisher", prompt: `These are still not answered in TELLS.md:\n${open.map((t) => `- ${t}`).join("\n")}\nFix each (render, mix, gate) or write in TELLS.md why it stays.`, append: finAppend, model: o.model, maxUsd: Math.min(1, budget - ctx.spent.usd), maxTurns: 60, resume: planner.sessionId! }));
+        }
       }
     }
     phases.platformUsd = { seconds: 0, usd: Math.round(platformUsd.usd * 100) / 100 };

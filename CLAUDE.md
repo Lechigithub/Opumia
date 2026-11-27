@@ -591,6 +591,17 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
   when the type check did not run or the mix is older than the picture (the orchestrator re-mixes), and counts only
   clips the film draws; ledger entries carry their scene; builders' money is what is left after the planner, less the
   finisher's reserve, with a STARVED warning (a Sonnet builder's first pass needs about $0.6, Haiku about $0.08).
+- **Proof film 2 (Juicero, 2026-11-26, untouched):** 58.7 s, gate passed, package made, **$5.58 in 32 min**
+  (narration $1.87 · planner $0.30 · 14 builders $2.15 in 4 min · finisher $0.46 · fresh eyes $0.78). Coherent world and
+  signature object; but no real Juicero footage (the press filter refused every newsroom but the wire services — fixed),
+  and it read as a tech explainer (race-bar dashboard, UI type, words on 77–80 % of frames). The agents under-worked:
+  the planner watched 12 s of one reference film, builders spent $0.15 of $0.73.
+- **What the agents did is checked in code** (`process.ts`; every session writes its full tool calls to
+  `logs/<label>.tools.jsonl`): the plan is refused until the planner watched ≥ 3 reference stretches from ≥ 2 films
+  (≥ 45 s), read ≥ 3 sheets and searched for real material of every person and company it names (two sends-back,
+  then logged); a builder's scene check fails unless it read its own rendered stills and — when its scene names a
+  subject and shows none of their real material — searched for it first; the finisher answers every judge tell and
+  every viewer issue of severity 5+ in `TELLS.md` (even when the film passed), with one more turn for any left open.
 - **Solo** (`--solo`): one session does everything (the first design, kept for comparison).
 - **Tools:** `film-tools` (`tools.ts`, `TOOLS.md`): the reference watcher, press/film-clip search with strips and cut,
   article screenshots, Commons, stock sheets, the film library, cut-out, depth, render (whole film or one scene),

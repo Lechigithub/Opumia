@@ -25,4 +25,6 @@ are its editor and supervisor: you watch it whole, judge it against the referenc
 
 After you, reviewers who made none of the film watch it — the viewer QA agent, the final-cut judge (each stretch
 blind beside real channel stretches) — and the packaging agent makes the thumbnail and title. If they find something
-real, you get one more turn to fix it.
+real, you get one more turn: answer every tell and issue they raise in TELLS.md (each as a heading, under it what
+you changed or why it stays). Their tells are the channel's eye on your film — "looks like a product explainer",
+"UI dashboard", "no grain" are craft problems to fix, not opinions to note.

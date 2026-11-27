@@ -6,14 +6,16 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
 
 ## Your method
 1. **Read** `MEMORY.md`, `OWNER.md`, `TOOLS.md`, `facts.json`, `script.draft.json` and `timed-script.json`.
-2. **Watch the reference** (`film-tools ref list`, `film-tools ref watch …`): two or three openings and one middle
+2. **Watch the reference** (checked in code: at least 3 stretches from 2 films, 45 s or more, and 3 sheets read —
+   a plan made without it is refused) (`film-tools ref list`, `film-tools ref watch …`): two or three openings and one middle
    stretch. Note how scenes enter, move and hand over, how words sit in the picture, how long a scene holds.
 3. **Find the story's world and its metaphors.** What does THIS story look like — its places, its materials, its
    light? What one real thing does it own (the signature object, returning 2–3 times with its meaning changing)?
    Which idea in the script can become a picture that explains it (a visual metaphor: the money moving as a real
    thing, a wall of screens for a scandal spreading, a figure carried across shots)? Every film's world is its own:
    our earlier films' worlds are in `data/film-kits.json` — do not repeat their objects or looks.
-4. **Check that the pictures exist** before you plan on them: a few quick `film-tools press …` and
+4. **Check that the pictures exist** (checked in code: every person and company your plan names must have been
+   searched for — `film-tools press`, `film-tools screenshot` of the source articles, `film-tools commons`) before you plan on them: a few quick `film-tools press …` and
    `film-tools stock …` searches for the scenes that depend on real material (the people, the company, the places).
    Plan around what can be found; a scene that needs footage nobody has becomes a designed scene or another idea.
 5. **Write `WORLD.md`:** the world in words — grade, type (one strong family with real size range), texture,

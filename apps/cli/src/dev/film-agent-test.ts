@@ -11,6 +11,7 @@ import { searchesOf } from "../film-agent/prefetch.js";
 import { draftMix, HIT_GAP_S } from "../film-agent/sound-draft.js";
 import { preFinishChecks, numbersIn } from "../film-agent/checks.js";
 import { boardOf, resolutionOf, designOf } from "../film-agent/after.js";
+import { plannerProcess, builderProcess, tellsAnswered, toolLog, watched } from "../film-agent/process.js";
 import { Storyboard, ResolutionReport, FilmDesignSystem } from "@opumia/contracts";
 import { mkdirSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
@@ -168,6 +169,29 @@ ok("adapters: the world's colours are valid design tokens (a bad colour falls ba
   ok("press: The Verge and VICE News are newsrooms", pressTitleOk({ title: "The ludicrous Juicero", channel: "The Verge", duration: 152 }, co, []) && pressTitleOk({ title: "The Juicero Founder Is Really Into Raw Water", channel: "VICE News", duration: 340 }, doug, ["Juicero"]));
   ok("press: a person's own titled talk passes", pressTitleOk({ title: "Doug Evans, Founder Juicero | FounderMade", channel: "FounderMade", duration: 117 }, doug, ["Juicero"]));
   ok("press: essays, parody and retellings still do not", !pressTitleOk({ title: "What happened to Juicero?", channel: "Business Vortex", duration: 401 }, co, []) && !pressTitleOk({ title: "Juicero meme compilation", channel: "punyama", duration: 120 }, co, []));
+}
+
+// proof film 2: what the agents did is checked from their own tool logs
+{
+  const line = (name: string, input: Record<string, unknown>) => JSON.stringify({ t: "x", name, input }) + "\n";
+  mkdirSync(path.join(pj, "logs"), { recursive: true });
+  // the Juicero planner: 12 s of one film, no sheets read, no search for the person it names
+  writeFileSync(toolLog(pj, "planner"), line("Bash", { command: 'cd x; film-tools ref watch "Silk Road" 0 12' }));
+  const lazy = plannerProcess(pj, sp);
+  ok("planner: 12 s of one film is refused, the unread sheets and the unsearched person named", lazy.some((e) => /watch the reference/.test(e)) && lazy.some((e) => /sheet/.test(e)) && lazy.some((e) => /Markus Braun/.test(e)), lazy.join(" | "));
+  writeFileSync(toolLog(pj, "planner"), [line("Bash", { command: 'film-tools ref watch "Ponzi" 0 20 && film-tools ref watch "Ponzi" 300 320' }), line("Bash", { command: "film-tools ref watch 'Silk Road' 0 15 --fps 12" }), ...[1, 2, 3].map((i) => line("Read", { file_path: `${pj}/watch/ref-2022-0-20/sheet_v_${i}.jpg` })), line("Bash", { command: 'film-tools press "Wirecard CEO Markus Braun" --person "Markus Braun"' })].join(""));
+  ok("planner: 55 s of two films, sheets read and the person searched passes", plannerProcess(pj, sp).length === 0 && watched([{ t: "", name: "Bash", input: { command: 'film-tools ref watch "Ponzi" 0 20' } }])[0]!.to === 20, plannerProcess(pj, sp).join(" | "));
+  writeFileSync(toolLog(pj, "build-s02"), line("Bash", { command: "film-tools stock 'dark office tower'" }));
+  const b1 = builderProcess(pj, sp, "s02", false);
+  ok("builder: never looked at its scene, never searched for the named person — both fail", b1.find((c) => c.id === "looked")?.pass === false && b1.find((c) => c.id === "real_first")?.pass === false);
+  writeFileSync(toolLog(pj, "build-s02"), [line("Bash", { command: 'film-tools press "Markus Braun Wirecard" --person "Markus Braun"' }), line("Read", { file_path: `${pj}/stills/s02/t5.10.jpg` })].join(""));
+  const b2 = builderProcess(pj, sp, "s02", false);
+  ok("builder: looked at its stills and searched first — both pass", b2.every((c) => c.pass), JSON.stringify(b2));
+  ok("builder: a scene that shows real material needs no search check", !builderProcess(pj, sp, "s02", true).some((c) => c.id === "real_first"));
+  const tells = ["Data-dashboard graphics: progress bars feel like a tech explainer", "Smooth glossy macro liquid shots with no grain or vignette texture"];
+  ok("finisher: tells not in TELLS.md are open", tellsAnswered(pj, tells).length === 2);
+  writeFileSync(path.join(pj, "TELLS.md"), "## Dashboard graphics, progress bars\nReplaced the race bars with real Bloomberg footage.\n## Glossy macro liquid, no grain\nAdded grain and vignette texture to the macro shots.\n");
+  ok("finisher: tells answered in TELLS.md are closed", tellsAnswered(pj, tells).length === 0);
 }
 
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails

@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { readPlan, sceneWindow, STUB, FPS } from "./plan.js";
+import { builderProcess } from "./process.js";
 import type { GateCheck } from "./gate.js";
 
 /** A command run without blocking the event loop. */
@@ -63,5 +64,11 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
       add("not_blank", blank.length === 0, blank.length ? `blank or nearly flat frame(s): ${blank.map((f) => path.basename(f)).join(", ")}` : "picture at start, middle and end");
     }
   }
+  // what the builder did (its own tool log): it looked at the scene it rendered, and searched for the real material of
+  // the subjects its scene names before settling for stock
+  const realKinds = /press|film clip|screenshot|photo/i;
+  const allCredits = [...jread<Array<{ file: string; kind: string }>>(path.join(job, "credits.json"), []), ...(existsSync(path.join(job, "credits")) ? readdirSync(path.join(job, "credits")).filter((f) => f.endsWith(".json")).flatMap((f) => jread<Array<{ file: string; kind: string }>>(path.join(job, "credits", f), [])) : [])];
+  const drawsReal = media.some((m) => allCredits.some((c) => realKinds.test(c.kind) && (c.file === m || raw(m).includes(path.basename(c.file).replace(/\.\w+$/, "")))));
+  for (const c of builderProcess(job, plan, id, drawsReal)) add(c.id, c.pass, c.detail);
   return { pass: checks.every((c) => c.pass), checks };
 }
