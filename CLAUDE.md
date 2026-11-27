@@ -854,6 +854,13 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     are neither the scene's nor the narration's), `searched_enough` (footage below the channel's weakest moments
     after < 3 searches, prefetch included); `RoomScreen crop/focus`. On agent Juicero as delivered they fail s02,
     s04, s06, s14 (best footage) and s16 (footage hidden).
+  - **The new footage rules, applied by hand to the agents' film** (`out/agent-juicero-3-fix`, no Claude API; stock
+    previews and downloads free): 4.59 → **4.81** (bar 4.9) — better footage from the agents' own downloads (s05, s07
+    +1.0 each), footage from the people-acting searches (s03 "a man staring in a dark room", s09 "a man counting money
+    by a desk lamp", s14 "a corridor of shuttered shops"), and a treatment that lets the footage show: the same coin
+    clip scored 3.80 dimmed three times over with a print and a huge figure on it, 5.03 on a plate at 70 % with the
+    caption — exactly what `footage_shows` sends back; s14 4.27 → 4.63 the same way. Left: the closing title (4.47)
+    and the real Bloomberg scenes (4.5–4.6).
   - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
     shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
     → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
