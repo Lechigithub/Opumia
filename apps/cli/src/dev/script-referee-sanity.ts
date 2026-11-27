@@ -31,5 +31,19 @@ if (existsSync(j)) {
   ok("agent Juicero's script (accepted by the old checks) does not pass", !v.pass, `${v.score} (bar ${v.bar})`);
   ok("the writer is told craft gaps, never single words to sprinkle", v.gaps.every((g) => !g.what.startsWith('the word "')), v.gaps.map((g) => g.what));
 }
+// openings: our formula is refused, the channel's own openings (in date order) never are
+{
+  const { openingFormula, openingShape } = await import("@opumia/agents");
+  type E = { topic: string; first: string; shape: string; at: string };
+  const L: E[] = [];
+  let flagged = 0;
+  for (const f of films) { const t = text(f); if (openingFormula(t, f.id, L)) flagged++; L.push({ topic: f.id, first: t.slice(0, 200), shape: openingShape(t), at: "" }); }
+  ok("the channel's 30 openings, in order, are never called a formula", flagged === 0, flagged);
+  const ours: E[] = [];
+  const run = ["One August morning, WeWork filed papers for its stock market debut.", "One January, Nikola posted a video of its electric truck.", "On a Monday in November, Sam Bankman-Fried told the world.", "It's a Thursday in June, and Wirecard has promised to publish its accounts."];
+  const verdicts = run.map((t, i) => { const v = openingFormula(t, `t${i}`, ours); ours.push({ topic: `t${i}`, first: t, shape: openingShape(t), at: "" }); return Boolean(v); });
+  ok("our time-stamped opening formula is refused once it repeats", verdicts[3] === true, verdicts);
+  ok("an opening built another way passes", openingFormula("Wirecard said it had €1.9 billion sitting in two Philippine banks.", "t9", ours) === null);
+}
 console.log(fails ? `${fails} failed` : "script referee: all passed");
 process.exitCode = fails ? 1 : 0;

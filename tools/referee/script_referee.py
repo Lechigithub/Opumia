@@ -59,7 +59,8 @@ def names(vocab):
              "figures per word", "commas per sentence", "word variety (the channel repeats more, as speech does)",
              "word length"] + [f'sentences opening with "{o}"' for o in OPEN] + [f'the word "{w}"' for w in vocab] +
             ["each sentence picks up words from the one before", "linking to the sentence before more than to far ones",
-             "sentences opening on he / they / this", "length change between neighbouring sentences"])
+             "sentences opening on he / they / this", "length change between neighbouring sentences",
+             "names inside sentences", "the same name over and over"])
 
 def feats(t, vocab):
     ss = sents(t); ws = words(t); n = max(1, len(ws))
@@ -76,6 +77,9 @@ def feats(t, vocab):
     f += coherence(ss)
     Ls = L if len(L) > 2 else np.array([0, 0, 0])
     f += [float(np.abs(np.diff(Ls)).mean() / max(1, Ls.mean()))]
+    caps = [m for x in ss for m in re.findall(r"(?<!^)(?<![.?!]\s)\b[A-Z][a-z]+", x[1:])]
+    cc = collections.Counter(caps)
+    f += [len(caps) / n, (max(cc.values()) if cc else 0) / n]
     return [float(x) for x in f]
 
 def windows(t, size=WIN, stride=None):
@@ -92,7 +96,16 @@ def game(t, rng):
     ss = [x[:-1] + "." if x.endswith("?") else x for x in ss]
     t = " ".join(ss)
     t = re.sub(r"\b(had|about|which)\s", lambda m: "" if rng.random() < 0.6 else m.group(0), t)
-    return re.sub(r"\bthe (\w+)", lambda m: f"the {m.group(1)} of their" if rng.random() < 0.08 else m.group(0), t)
+    t = re.sub(r"\bthe (\w+)", lambda m: f"the {m.group(1)} of their" if rng.random() < 0.08 else m.group(0), t)
+    return t
+
+def game_names(t, rng):
+    """The blocking run's trick (2026-11-27, Blockbuster): a name repeated where the channel would say he, it or they,
+    to lower word variety ("…so that is where you would rent from Blockbuster today")."""
+    names_ = [m for m in re.findall(r"\b[A-Z][a-z]{3,}\b", t) if m.lower() not in FUNCTION]
+    if not names_: return t
+    top = collections.Counter(names_).most_common(1)[0][0]
+    return re.sub(r"\b(it|he|she|they|its|his|their)\b", lambda m: (top + ("'s" if m.group(1) in ("its", "his", "their") else "")) if rng.random() < 0.7 else m.group(0), t)
 
 def plant(t, kind, rng):
     ss = sents(t)
@@ -151,6 +164,7 @@ def build():
         for w in windows(t, stride=25):
             Xo.append(feats(w, vocab)); go.append(k)
             Xg.append(feats(game(w, rng), vocab)); gg.append(k)
+            Xg.append(feats(game_names(w, rng), vocab)); gg.append(k)
     Xr, Xo, gr, go, Xg, gg = np.array(Xr), np.array(Xo), np.array(gr), np.array(go), np.array(Xg), np.array(gg)
     tr = np.array([g not in HELD for g in gr]); held = ~tr
     # our narrations scored out of fold (by a model that never saw them), the held-back ones by every fold

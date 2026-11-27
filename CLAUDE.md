@@ -324,9 +324,19 @@ chance. `tools/referee/script_referee.py` (`build` → `data/referee/magnates-me
 - **Limits:** at 90 s the referee is noisy (one real opening at 0.59, our best at 0.90); only ≤ 4-minute scripts of ours
   exist, so separation on long scripts is untested for ours; it reads style, not story or truth; the structure model
   (shuffled, choppy, filler, flat) flags 23 % of real windows, so it is reported, not used.
-- **In the writer:** `measure_draft` reports the score, bar, craft gaps and weakest stretches; it does not block yet
-  (`SCRIPT_REFEREE_BLOCKS = false`) until a writer run shows the bar can be reached without tricks. Test:
-  `dev/script-referee-sanity.ts` (in regressions, 32/32).
+- **In the writer:** `measure_draft` reports the score, bar, craft gaps and weakest stretches.
+- **Writer runs (2026-11-27, Wirecard / Quibi / Blockbuster, `out/writer-score*`):** advisory, $0.89 — the old checks
+  accepted all three, the referee scored 0.01 / 0.00 / 0.60; the writer read no channel film and ignored the score.
+  Blocking, $1.40 — all three passed (0.78 / 0.58 / 0.60) and Wirecard and Quibi became genuinely more spoken, but the
+  writer found two tricks: one opening formula for every script ("It's a [time] in [place], and…") and names repeated
+  where a pronoun would do (Blockbuster). Fixed: name repetition is trained as a trick (the gamed Blockbuster script
+  0.60 → 0.37; Wirecard's honest one still 0.81); `openingFormula` refuses an opening built like recent ones (same
+  first words, or a third time-stamped opening in the last eight; our past openings were already "One August
+  morning…", "One January…", "On a Monday in November…"; the channel's 30 openings in order: 0 flagged), with our
+  openings kept in `data/agents/writer/<channel>.openings.jsonl`; `submit_script` is refused until the writer has read
+  two channel narrations. The referee now blocks by default (`OPUMIA_SCRIPT_REFEREE_BLOCK=0` reports only). Current
+  bars: whole film 0.95, under 600 words 0.75 (the weakest held-back opening sits exactly on it). Test:
+  `dev/script-referee-sanity.ts` (in regressions, 32/32). Not yet re-run with the fixes.
 
 ### The researcher (second agent rebuilt)
 

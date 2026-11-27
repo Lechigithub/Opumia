@@ -21,7 +21,7 @@ import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
 import type { StylePack } from "./style-pack.js";
-import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLOCKS } from "./script-referee.js";
+import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLOCKS, openingFormula, openingShape, openingsLedger } from "./script-referee.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
 const Segment = z.object({ role: z.enum(ROLES), chapter: z.string().describe("chapter title (long-form); empty for shorts"), text: z.string(), claimIds: z.array(z.string()).describe("fact-sheet claim ids this segment relies on"), visualIdea: z.string().describe("one line: what should be on screen (real footage, a staged scene, a chart, a document) — never AI imagery") });
@@ -163,6 +163,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     const verdict = dataDir ? scriptReferee(path.dirname(dataDir), text, o.pack.channelId) : null;
     if (verdict && !verdict.pass && SCRIPT_REFEREE_BLOCKS) issues.push({ kind: "reads_unlike_channel", detail: `the script referee scores it ${verdict.score} (bar ${verdict.bar}); fix what it names, sentence by sentence, without changing the facts.` });
     if (verdict) refereeSeen.push(verdict.score);
+    const formula = o.memoryDir ? openingFormula(text, o.facts.topic, openingsLedger(o.memoryDir, o.pack.channelId)) : null;
+    if (formula) issues.push({ kind: "opening_formula", detail: `${formula}. The channel's own openings, for range: ${studyFilms.slice(0, 6).map((f) => `"${String(f.lines[0] ?? "").slice(0, 90)}"`).join(" | ")}` });
     const header2 = verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header;
     return { ok: issues.length === 0, report: issues.length ? `${header2}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header2}\n\nPASSES every check.` };
   };
@@ -265,8 +267,15 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
       schema: Submission,
       run: (async (i: z.infer<typeof Submission>) => {
         lastSubmission = i;
+        // the writer studies how the channel writes before its script is accepted (it read none in three test runs)
+        if (filmsRead.size < Math.min(2, studyFilms.length)) return `NOT YET — read at least two of the channel's narrations first (read_reference_film; you have read ${filmsRead.size}). See how it opens, carries one thread from sentence to sentence and repeats the way speech does, then rewrite in that voice.`;
         const r = await evaluate(i.segments);
         if (r.ok) accepted = i;
+        if (r.ok && o.memoryDir) {
+          const text = i.segments.map((sg) => sg.text).join(" ");
+          await mkdir(o.memoryDir, { recursive: true });
+          await appendFile(path.join(o.memoryDir, `${o.pack.channelId}.openings.jsonl`), JSON.stringify({ topic: o.facts.topic, first: (text.split(/(?<=[.?!])\s+/)[0] ?? "").slice(0, 200), shape: openingShape(text), at: new Date().toISOString() }) + "\n");
+        }
         return r.ok ? `ACCEPTED.\n${r.report}\nIf this script taught you something worth knowing next time, call note_lesson once; then stop.` : r.report;
       }) as AgentTool["run"],
     },
