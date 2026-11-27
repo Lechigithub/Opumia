@@ -25,6 +25,9 @@ ap.add_argument("--len", type=float, default=70); ap.add_argument("--step", type
 ap.add_argument("--version-of", default="", help="comma list of our film names this is a version of (not compared)")
 ap.add_argument("--clips", default=""); ap.add_argument("--no-save", action="store_true"); ap.add_argument("--json", action="store_true")
 a = ap.parse_args()
+if not os.path.exists(a.film):
+    print(f"no film to check yet: {a.film} does not exist — render the film first (film-tools render), then run world-check")
+    sys.exit(0)
 ROOT = os.getcwd(); PY = sys.executable
 OUT = os.path.join(ROOT, "data", "world-profile", "films"); os.makedirs(OUT, exist_ok=True)
 BANDS = json.load(open(os.path.join(ROOT, "data", "world-profile", "magnates-media", "bands.json")))
@@ -87,6 +90,9 @@ lines, ix = [], []
 for k, it in enumerate(items_mask):
     ws = " ".join(w.get("text", w.get("word", "")) for w in words if it["time"] - 1.5 <= w["startS"] <= it["time"] + 1.5)
     if len(ws.split()) >= 4 and k < len(E_mask): lines.append(ws); ix.append(k)
+if not lines:
+    print("no frames with narration under them to check — is the film rendered and the narration timed?")
+    sys.exit(0)
 b = tok(lines, padding="max_length", max_length=64, truncation=True, return_tensors="pt")
 with torch.no_grad(): tf = model.get_text_features(**b)
 tf = tf.pooler_output if hasattr(tf, "pooler_output") else tf

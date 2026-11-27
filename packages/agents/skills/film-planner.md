@@ -12,7 +12,9 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
 3. **For the film's key lines, see how the channel showed lines like them**: `film-tools ref similar "<line>"`
    (and `film-tools ref technique` for a device). Plan each scene from what the channel actually puts on screen.
    **Find the story's world and its metaphors.** What does THIS story look like — its places, its materials, its
-   light? What one real thing does it own (the signature object, returning 2–3 times with its meaning changing)?
+   light? What one real thing does it own (the signature object, returning 2–3 times with its meaning changing)? It must
+   be a thing the camera saw — name it and where its picture comes from ("the Juicero press in Bloomberg's
+   teardown footage"); a drawn dial, gauge, meter, timer, counter, icon or component is refused in code.
    Which idea in the script can become a picture that explains it (a visual metaphor: the money moving as a real
    thing, a wall of screens for a scandal spreading, a figure carried across shots)? Every film's world is its own:
    our earlier films' worlds are in `data/film-kits.json` — do not repeat their objects or looks.
@@ -25,8 +27,8 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
    (write it on its own line as `Signature object: …`), the visual metaphors and which scenes carry them.
 6. **Write `src/world.tsx`:** the world as code every scene imports — palette constants, the loaded fonts
    (`@remotion/google-fonts/<Font>`), the grade as a component (`<Grade>` wrapping footage, words stay above it), the
-   film's type components (a headline that builds word by word, a place line, a figure), the signature object as a
-   component with states, the film's hand-over (e.g. `<Enter kind="push" lead={lead}>`). Use `@craft` techniques
+   film's type components (a headline that builds word by word, a place line, a figure), the treatment of the signature object's real
+   picture (a print, a screen, a cut-out — never a drawn stand-in for it), the film's hand-over (e.g. `<Enter kind="push" lead={lead}>`). Use `@craft` techniques
    inside them. Keep it small and reliable: every builder depends on it compiling (the orchestrator compiles it
    after you and sends any error back to you).
 7. **Write `plan.json`** — a scene per idea, against the word times (`timed-script.json`), touching end to end from

@@ -37,13 +37,15 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
 5. **Build the scene**: a layered composition in the film's world. Words over footage the channel's way: `GlowCaption`
    over a `DarkPlate` (heavy condensed capitals glowing in the film's colour, footage dimmed and pushing in) — proven
    in the recipe lab above app-style type (+0.3) and flat designed cards (+0.6). Never an app panel, a dashboard, a
-   sticker or a card on an empty stage. Bright news or product footage — the proof — plays as footage being watched:
+   sticker or a card on an empty stage, and never a drawn instrument (a gauge, dial, timer, counter, meter,
+   scoreboard or progress bar): a figure is big words in the picture or the real document it comes from. Bright news or product footage — the proof — plays as footage being watched:
    `RoomScreen` (a screen in a dark room); a real photo or a headline goes in as a print over dark footage
    (`PhotoPrint`, `PressHeadline`), never full frame on black (proven in the Juicero rebuild: 3.2–3.5 full frame,
    4.9 treated). A camera that moves on the words, the entrance the plan asks for.
 6. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
-   Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame.
+   Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame, a
+   frame too dark to see anything in (`too_dark` — dim the plate less or pick footage with a lit subject).
 7. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`. It also checks what you did: that you
    read your scene's rendered stills, and — when your scene names a person or company and shows none of their real
    material — that you searched for it (press, screenshot, commons) before using stock.

@@ -28,8 +28,16 @@ reference and it holds up. This playbook is how the platform's best film so far 
 - **One world per film:** its grade, type and texture come from its subject (Ponzi gold and fire; Silk Road acid
   green; Wirecard steel-blue night glass turning red). Each film's world is its own.
 - **A signature object:** one real thing this story owns, returning 2–3 times with its meaning changing (Wirecard:
-  the card terminal — APPROVED after the first real tap, DECLINED and dark on "never there"). Never one another film
-  of ours used (`film-tools gate` checks).
+  the card terminal — APPROVED after the first real tap, DECLINED and dark on "never there"). It is a thing the camera
+  saw — the product, a document, a place, a prop in real footage or a real photo — never a graphic the film draws: a
+  dial, gauge, meter, timer, counter, icon or component is refused in code (agent Juicero, 2026-11-27: a drawn force
+  gauge returned in six scenes, read as templated, and those scenes scored lowest). Never one another film of ours
+  used (`film-tools gate` checks).
+- **No drawn instruments or panels:** the channel shows a figure as big words in the picture or as the real
+  document, never as a gauge, a timer, a scoreboard, a progress bar or an app panel.
+- **Dark, not invisible:** the channel's look is low-key, but its darkest 5 % of frames still show ≥ 3 % of the
+  picture lit. A scene where most of the frame is black fails its check (`too_dark`), and so does any stretch of the
+  film ≥ 2 s like that.
 - **Real receipts:** real headlines, documents and share charts marked as proof, with source and date.
 - **Scenes that grow:** an idea held 5–8 s with layers arriving on the voice; a figure carried across shots; a wall of
   screens; a glitch reveal of a face for a shock. Choose what the story calls for.

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, statS
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { sameObject, objectWords, GENERIC_OBJECTS } from "@opumia/agents";
-import { filmMedia } from "./plan.js";
+import { filmMedia, drawnObject } from "./plan.js";
 
 /** The film's ledger plus every scene builder's own (credits/<scene>.json, fair-use/<scene>.json). */
 export function ledgers<T>(job: string, kind: "credits" | "fair-use"): T[] {
@@ -78,7 +78,8 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   const kits = jread<Array<{ job: string; signatureObject?: string }>>(path.join(o.root, "data", "film-kits.json"), []);
   const clash = kits.find((k) => k.job !== path.basename(o.job) && k.signatureObject && sameObject(so, k.signatureObject));
   const generic = GENERIC_OBJECTS.find((g) => objectWords(so).includes(g.replace(/s$/, "")));
-  add("signature_object", Boolean(so) && !clash && !generic, !so ? 'name it in SCENES.md: "Signature object: …"' : clash ? `"${so}" is ${clash.job}'s — choose a thing THIS story owns` : generic ? `"${generic}" is a generic money symbol` : `"${so.slice(0, 80)}" — its own`);
+  const drawn = so ? drawnObject(so) : null;
+  add("signature_object", Boolean(so) && !clash && !generic && !drawn, !so ? 'name it in SCENES.md: "Signature object: …"' : clash ? `"${so}" is ${clash.job}'s — choose a thing THIS story owns` : generic ? `"${generic}" is a generic money symbol` : drawn ? drawn : `"${so.slice(0, 80)}" — its own`);
   // the referee (proven on held-back channel films it never saw): the film must read like the channel
   try {
     const { refereeConfig, refereeScore } = await import("../referee/score.js");

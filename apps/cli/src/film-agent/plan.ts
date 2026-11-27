@@ -65,12 +65,29 @@ export function readPlan(job: string): FilmPlan | null {
   try { return JSON.parse(readFileSync(path.join(job, "plan.json"), "utf8")) as FilmPlan; } catch { return null; }
 }
 
+/**
+ * The signature object is a real thing from the story, filmed or photographed — never a graphic the film draws
+ * (agent Juicero, 2026-11-27: "the press gauge — a force dial" drawn in code returned in six scenes; the viewer QA
+ * called it templated and those scenes scored lowest on the referee). Returns why it is refused, or null.
+ */
+export function drawnObject(so: string): string | null {
+  const t = so.toLowerCase();
+  const drawn = /\b(drawn|in code|animated|vector|graphic|icon|ui|hud|dashboard|readout|diagram|chart|infographic|progress bar|motion graphic)\b/.exec(t)?.[1];
+  if (drawn) return `"${drawn}": the signature object is a real thing from this story that the camera saw (a product, a document, a place, a prop in real footage or a real photo), not something the film draws`;
+  const component = /<([A-Z]\w*)\s*\/?>/.exec(so)?.[1];
+  if (component) return `"<${component}>": a component the film draws — the signature object is a real thing from this story that the camera saw`;
+  const instrument = /\b(dial|gauge|meter|timer|counter|clock|needle|scoreboard|ticker)\b/.exec(t)?.[1];
+  if (instrument && !/\b(footage|filmed|photo|photograph|photographed|clip|archive|news)\b/.test(t)) return `"${instrument}": an instrument reads as a drawn device unless it is the real one on film — name the real thing and where its picture comes from (footage, photo), or choose another`;
+  return null;
+}
+
 /** What is wrong with a plan (empty = usable). lengthS is the film (narration + title); narrationS the voice alone. */
 export function validatePlan(plan: FilmPlan | null, lengthS: number, narrationS: number, job?: string): string[] {
   if (!plan) return ["plan.json is missing or not valid JSON"];
   const e: string[] = [];
   if (!plan.world?.trim()) e.push("world: describe the film's world (grade, type, texture, devices)");
   if (!plan.signatureObject?.trim()) e.push("signatureObject: one real thing this story owns, returning 2–3 times");
+  else { const d = drawnObject(plan.signatureObject); if (d) e.push(`signatureObject: ${d}`); }
   const sc = plan.scenes ?? [];
   const lo = Math.ceil(lengthS / 9), hi = Math.ceil(lengthS / 2.5);
   if (sc.length < lo || sc.length > hi) e.push(`scenes: ${sc.length} — a ${Math.round(lengthS)} s film has ${lo}–${hi} (a scene per idea, 2.5–9 s)`);

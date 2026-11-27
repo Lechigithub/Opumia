@@ -25,6 +25,19 @@ export function lumaSpread(file: string): number {
   const lo = Number(/YLOW=(\d+(\.\d+)?)/.exec(r)?.[1] ?? 0), hi = Number(/YHIGH=(\d+(\.\d+)?)/.exec(r)?.[1] ?? 0);
   return hi - lo;
 }
+/** How much of a still can be seen: the share of its pixels brighter than luma 48 (of 255), at 320×180. */
+export function litShare(file: string): number {
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", file, "-vf", "scale=320:180,format=gray", "-f", "rawvideo", "-"], { maxBuffer: 1 << 22 });
+  const b = r.stdout as Buffer | null;
+  if (!b?.length) return 1;
+  let n = 0;
+  for (const v of b) if (v > 48) n++;
+  return n / b.length;
+}
+/** The channel's darkest 5 % of frames show this little (data/quality-profile/<channel>-lit-band.json). */
+export function darkBar(root: string, channel = "magnates-media"): number {
+  return jread<{ p5?: number }>(path.join(root, "data", "quality-profile", `${channel}-lit-band.json`), {}).p5 ?? 0.032;
+}
 export function sceneCredits(job: string): Set<string> {
   const all = [...jread<Array<{ file: string }>>(path.join(job, "credits.json"), [])];
   const dir = path.join(job, "credits");
@@ -62,6 +75,10 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
     if (ok) {
       const blank = outs.filter((f) => lumaSpread(f) < 24);
       add("not_blank", blank.length === 0, blank.length ? `blank or nearly flat frame(s): ${blank.map((f) => path.basename(f)).join(", ")}` : "picture at start, middle and end");
+      // a scene that sits in the dark: the channel shows a shot dark throughout in 10 of 276 (3.6 %) — ours put a
+      // near-black empty room under a line (agent Juicero, 2026-11-27, 0.1–1.6 % of the frame lit)
+      const bar = darkBar(root), lit = outs.map(litShare), dark = lit.filter((x) => x < bar).length;
+      add("too_dark", dark * 2 <= outs.length, dark * 2 > outs.length ? `${dark} of ${outs.length} stills show almost nothing (${lit.map((x) => `${(x * 100).toFixed(1)} %`).join(", ")} of the frame lit; the channel's darkest 5 % of frames show ${(bar * 100).toFixed(1)} %) — lift the plate (less dim), pick footage with a lit subject, or light the subject; dark is the channel's look, an unreadable frame is not` : `${lit.map((x) => `${(x * 100).toFixed(0)} %`).join(", ")} of the frame lit`);
     }
   }
   // what the builder did (its own tool log): it looked at the scene it rendered, and searched for the real material of

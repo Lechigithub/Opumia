@@ -1,6 +1,7 @@
 # film-tools — your commands (run with Bash from the workspace)
 
 Look at every image a command produces (Read the .jpg). Every command that brings in a picture records its source.
+This is macOS: there is no `timeout` command (every film-tools command ends on its own).
 
 ## The reference (MagnatesMedia, read-only)
 - `film-tools ref list` — the channel's films.

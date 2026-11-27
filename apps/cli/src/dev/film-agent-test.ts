@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { guard, runFilmAgent, pool, session, type Ctx } from "../film-agent/run.js";
 import { filmGate, ledgers } from "../film-agent/gate.js";
-import { validatePlan, scaffold, sceneWindow, sceneBrief, type FilmPlan } from "../film-agent/plan.js";
-import { sceneCheck } from "../film-agent/scene-check.js";
+import { validatePlan, scaffold, sceneWindow, sceneBrief, drawnObject, type FilmPlan } from "../film-agent/plan.js";
+import { sceneCheck, litShare, darkBar } from "../film-agent/scene-check.js";
 import { searchesOf } from "../film-agent/prefetch.js";
 import { draftMix, HIT_GAP_S } from "../film-agent/sound-draft.js";
-import { preFinishChecks, numbersIn } from "../film-agent/checks.js";
+import { preFinishChecks, numbersIn, darkStretches } from "../film-agent/checks.js";
 import { boardOf, resolutionOf, designOf } from "../film-agent/after.js";
 import { plannerProcess, builderProcess, tellsAnswered, toolLog, watched } from "../film-agent/process.js";
 import { Storyboard, ResolutionReport, FilmDesignSystem } from "@opumia/contracts";
@@ -195,6 +195,32 @@ ok("adapters: the world's colours are valid design tokens (a bad colour falls ba
   ok("finisher: tells not in TELLS.md are open", tellsAnswered(pj, tells).length === 2);
   writeFileSync(path.join(pj, "TELLS.md"), "## Dashboard graphics, progress bars\nReplaced the race bars with real Bloomberg footage.\n## Glossy macro liquid, no grain\nAdded grain and vignette texture to the macro shots.\n");
   ok("finisher: tells answered in TELLS.md are closed", tellsAnswered(pj, tells).length === 0);
+}
+
+// the signature object is a real thing the camera saw, never a graphic the film draws (agent Juicero, 2026-11-27)
+ok("signature object: a drawn force gauge is refused", drawnObject("the press gauge — a force dial: idle (a question), 4 TONS (the claim)") !== null);
+ok("signature object: a component is refused", drawnObject("the Juicero produce pack (`<Pack>`)") !== null);
+ok("signature object: a timer graphic is refused", drawnObject("a countdown timer graphic") !== null);
+ok("signature object: a real document passes", drawnObject("the bank confirmation letter") === null);
+ok("signature object: a real gauge on film passes", drawnObject("the real pressure gauge on the press, filmed in the teardown footage") === null);
+ok("signature object: the product in press footage passes", drawnObject("the Juicero press itself, in Bloomberg's footage") === null);
+
+// too dark to see: the channel's darkest 5 % of frames still show ≥ 3 % of the picture lit
+{
+  const d = mkdtempSync(path.join(tmpdir(), "dark-")), v = path.join(d, "v.mp4");
+  // 1 s lit grey, 3 s near-black with a tiny lit square, 1 s lit grey
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0x808080:s=320x180:d=1:r=24", "-f", "lavfi", "-i", "color=c=0x050505:s=320x180:d=3:r=24", "-f", "lavfi", "-i", "color=c=0x808080:s=320x180:d=1:r=24",
+    "-filter_complex", "[1]drawbox=x=150:y=80:w=12:h=12:c=white:t=fill[dk];[0][dk][2]concat=n=3:v=1:a=0", "-pix_fmt", "yuv420p", v]);
+  const st = darkStretches(v, darkBar(ROOT));
+  ok("dark: a 3 s near-black stretch is found", st.length === 1 && st[0]!.from >= 0.75 && st[0]!.to <= 4.25 && st[0]!.to - st[0]!.from >= 2.5, JSON.stringify(st));
+  const still = path.join(d, "s.jpg");
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-ss", "2", "-i", v, "-frames:v", "1", still]);
+  ok("dark: a near-black still is below the channel's darkest 5 %", litShare(still) < darkBar(ROOT), String(litShare(still)));
+  const j3 = path.join(ROOT, "out/agent-juicero-3/film_16x9.mp4"), hr = path.join(ROOT, "out/hand-juicero-r/film_16x9.mp4");
+  if (existsSync(j3) && existsSync(hr)) {
+    ok("dark: agent Juicero's near-black room (40.5–44 s) is found", darkStretches(j3, darkBar(ROOT)).some((x) => x.from <= 42 && x.to >= 43.5));
+    ok("dark: the hand rebuild (passes the referee) has no such stretch", darkStretches(hr, darkBar(ROOT)).length === 0);
+  }
 }
 
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails

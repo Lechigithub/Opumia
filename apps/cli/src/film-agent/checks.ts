@@ -7,12 +7,32 @@
 //   period          footage under a line set before 2009 dated on its own frame (resolver periodCheck)
 //   faces           a stranger's face under a named person when real material of that person exists in the film
 //   repeats         one source, one moment or one scene's file used in two scenes
+//   dark            stretches of ≥ 2 s where almost nothing can be seen (below the channel's darkest 5 % of frames)
 //   sameness        line fit and sameness to our earlier films (tools/world/world_check.py)
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { readPlan, filmMedia, mediaRefs, type FilmPlan } from "./plan.js";
 import { ledgers } from "./gate.js";
+import { darkBar } from "./scene-check.js";
+
+/** Stretches where almost nothing can be seen: 4 frames a second, the share of each frame brighter than luma 48. */
+export function darkStretches(video: string, bar: number, minS = 2): Array<{ from: number; to: number; lit: number }> {
+  const W = 160, H = 90, FPS = 4;
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", video, "-vf", `fps=${FPS},scale=${W}:${H},format=gray`, "-f", "rawvideo", "-"], { maxBuffer: 1 << 28 });
+  const b = r.stdout as Buffer | null;
+  if (!b?.length) return [];
+  const lit: number[] = [];
+  for (let o = 0; o + W * H <= b.length; o += W * H) { let n = 0; for (let k = o; k < o + W * H; k++) if (b[k]! > 48) n++; lit.push(n / (W * H)); }
+  const out: Array<{ from: number; to: number; lit: number }> = [];
+  for (let i = 0; i < lit.length;) {
+    if (lit[i]! >= bar) { i++; continue; }
+    let j = i; while (j < lit.length && lit[j]! < bar) j++;
+    if ((j - i) / FPS >= minS) out.push({ from: i / FPS, to: j / FPS, lit: Math.max(...lit.slice(i, j)) });
+    i = j;
+  }
+  return out;
+}
 
 export interface Finding { check: string; scene?: string; atS?: number; what: string; severity: "fix" | "look" }
 type Credit = { file: string; kind: string; source: string; url?: string; license: string; note?: string; scene?: string };
@@ -134,6 +154,12 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
       const r = await reviewPictures(faceItems.map((x) => ({ frameFile: x.frame, intent: said(x.scene)?.idea ?? "", line: said(x.scene)?.words ?? "", era: String(said(x.scene)?.year ?? "") }))).catch(() => []);
       r.forEach((v, k) => { const x = faceItems[k]!; if (v.face) findings.push({ check: "face", scene: x.scene, what: `${x.media} shows a face (${v.shows}) under a line naming ${named.filter((p) => p.scene === x.scene).map((p) => p.name).join(", ")} — real material of them is in the film, so a stranger may not stand in`, severity: "fix" }); });
     }
+  }
+
+  // stretches too dark to see (the channel's darkest 5 % of frames: data/quality-profile/<channel>-lit-band.json)
+  if (existsSync(video)) {
+    const bar = darkBar(o.root, o.channel);
+    for (const d of darkStretches(video, bar)) findings.push({ check: "dark", scene: sceneAt(d.from), atS: d.from, what: `${d.from.toFixed(1)}–${d.to.toFixed(1)} s: almost nothing can be seen (at most ${(d.lit * 100).toFixed(1)} % of the frame lit; the channel's darkest 5 % of frames show ${(bar * 100).toFixed(1)} %) — lift it or choose footage with a lit subject`, severity: "fix" });
   }
 
   // sameness to our earlier films and line fit

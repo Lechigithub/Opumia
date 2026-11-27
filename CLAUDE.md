@@ -657,6 +657,25 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     - the referee rewards the documentary look, not fit to the line (choosing still needs the line);
     - the 27 % real-footage cap binds a story whose proof is press footage;
     - the production model scores material from our earlier films low.
+- **Proof film 3 by the agents (Juicero, 2026-11-27, `out/agent-juicero-3`, untouched, Sonnet builders, $16 limit):**
+  - **Referee 4.64** (bar 4.9; the agents' first Juicero about 4.0, the hand rebuild 5.05). The gate passed every other
+    check (7 real clips, 27 % of runtime; 39 pictures credited). **$14.43 in 121 min** (plan 26 min, of which
+    about 17 min were the screenshot hang, since fixed; build $4.60; two rebuild rounds $4.67; finishing 34 min).
+  - What the process checks bought: real material throughout (Bloomberg's squeeze test, the real Doug Evans, Fast
+    Company, real NPR and Guardian pages marked as proof); every 8 s stretch 4.2–4.9 (no collapse).
+  - What still read as ours: a **drawn signature object** (a force gauge from `world.tsx`, over footage in six
+    scenes; the viewer QA called it templated), a hands-vs-machine **timer panel**, and a **near-black room** under
+    a line (0.1–1.6 % of the frame lit).
+  - Fixed (offline, `dev/film-agent-test.ts`, 106 checks):
+    - `plan.ts:drawnObject`: the signature object must be a thing the camera saw; a drawn dial, gauge, meter,
+      timer, counter, icon or a component is refused in the plan and at the gate (an instrument passes only when
+      named as real footage or a photo);
+    - `too_dark` in the scene check and `dark` in the checks before the finisher: below the channel's darkest
+      5 % of frames (`data/quality-profile/magnates-media-lit-band.json`: ≥ 3.2 % of the frame brighter than luma
+      48; 10 of 276 real shots are dark throughout) on most of a scene's stills, or for ≥ 2 s of the film;
+    - playbooks: no drawn instruments or panels (a figure is big words or the real document); the planner no
+      longer writes the signature object as a component;
+    - `world-check` before a film exists says so instead of crashing.
 - **Agent reference tools:**
   - `film-tools ref similar "<line>"`: the channel's real shots under lines nearest in meaning — a word match over
     its 17,660 labelled shots, then one Haiku call — as a frame sheet, with how each was built.
