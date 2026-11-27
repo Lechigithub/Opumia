@@ -348,7 +348,16 @@ chance. `tools/referee/script_referee.py` (`build` → `data/referee/magnates-me
   because word hints were hidden. Now the referee lists, for weak stretches only, the function words used far more
   than the channel as words to CUT (`cut`; pronouns never, nothing to add), and `writer.md` "Spoken, not written"
   teaches simple past told forwards, a figure followed by the narrator's verdict (models from training films only),
-  figures compared by movement. Open: whether the short-script bar (on the weakest held-back opening) is too tight.
+  figures compared by movement. Quibi re-run ($0.77): 0.29 → 0.74 ("…against four million for Disney+. It was a cold
+  welcome."), one point under the old bar.
+- **Bars from all 30 channel narrations, each scored unseen** (the six held back by the production model, the 24
+  training ones leave-one-film-out; `channelOpenings`, `channelWholes` in the model file): the old short bar was the
+  minimum of six openings, one noisy sample. 90 s openings of the channel range 0.51–1.00, whole narrations
+  0.87–1.00. Bars at the channel's weakest tenth, rounded down to 0.05: short scripts 0.65 (1 of 30 channel openings
+  below; 0.70 would fail 4 of 30 and catch no more of our scripts or tricks), whole films 0.90. Under them every
+  latest proof script passes (Wirecard 0.90, Blockbuster 0.75, Quibi 0.74) and the gamed and first drafts fail.
+  Limit: at 90 s the channel and a gamed script of ours overlap (one gamed version reaches 0.80); the opening ledger,
+  the trick training and the two-film reading rule carry the rest.
 
 ### The researcher (second agent rebuilt)
 

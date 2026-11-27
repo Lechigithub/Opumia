@@ -186,14 +186,27 @@ def build():
     planted = {kind: float((prob(structure, [feats(plant(w, kind, rng), vocab) for t in heldtxt for w in windows(t)]) < 0.5).mean()) for kind in ["shuffled", "choppy", "filler", "flat"]}
     held_struct = float((prob(structure, Xr[held]) < 0.5).mean())
     bar = float(np.floor(min(held_films.values()) * 20) / 20)  # the weakest held-back channel narration, rounded down
-    # a short script is judged like the channel's own openings of that length (one held-back 90 s opening scored 0.71)
-    opens = {k: float(prob(style, [feats(w, vocab) for w in windows(" ".join(t.split()[:300]), stride=WIN // 2)]).mean()) for k, t in real.items() if k in HELD}
-    short_bar = float(np.floor(min(opens.values()) * 20) / 20)
+    # every channel narration scored by a model that never saw it: the six held back by the production model, each of
+    # the 24 training ones by a model trained without that film (leave one film out). Bars sit at the channel's weakest
+    # tenth over all 30 (the minimum of six held-back openings was one noisy sample: Quibi 0.74 against a bar of 0.75).
+    open_of = lambda t: " ".join(t.split()[:300])
+    oof_open, oof_whole = {}, {}
+    for k, t in real.items():
+        if k in HELD:
+            m = style
+        else:
+            keep = tr & (gr != k)
+            m = fit(np.vstack([Xr[keep], Xo, Xg]), np.r_[np.ones(keep.sum()), np.zeros(len(Xo)), np.zeros(len(Xg))])
+        oof_open[k] = float(prob(m, [feats(w, vocab) for w in windows(open_of(t), stride=WIN // 2)]).mean())
+        oof_whole[k] = float(prob(m, [feats(w, vocab) for w in windows(t, stride=WIN)]).mean())
+    opens = {k: v for k, v in oof_open.items() if k in HELD}
+    short_bar = float(np.floor(np.percentile(list(oof_open.values()), 10) * 20) / 20)
+    bar = float(np.floor(np.percentile(list(oof_whole.values()), 10) * 20) / 20)
     report = {
         "channel": "magnates-media", "builtAt": __import__("datetime").date.today().isoformat(), "window": WIN,
         "held": sorted(HELD), "vocab": vocab, "style": style, "structure": structure,
         "bars": {"film": bar, "short": short_bar, "shortWords": 600, "window": float(np.percentile(ph, 10)), "structure": 0.5},
-        "heldBackOpenings": opens,
+        "heldBackOpenings": opens, "channelOpenings": oof_open, "channelWholes": oof_whole,
         "test": {"heldBackWindowsFlagged": float((ph < 0.5).mean()), "ourWindowsCaught": float((po < 0.5).mean()),
                  "heldBackFilms": held_films, "ourFilms": our_films, "gamedWindowsCaught": float((pg < 0.5).mean()), "gamedFilms": film(gg, pg), "plantedCaught": planted,
                  "heldBackFlaggedByStructure": held_struct},
@@ -203,7 +216,7 @@ def build():
     tmp = OUT_MODEL + ".tmp"; json.dump(report, open(tmp, "w"), indent=1); os.replace(tmp, OUT_MODEL)
     t = report["test"]
     print(f"held-back channel windows flagged {t['heldBackWindowsFlagged']:.0%}, our windows caught {t['ourWindowsCaught']:.0%}, our gamed windows caught {t['gamedWindowsCaught']:.0%} (never-seen scripts; gamed films up to {max(t['gamedFilms'].values()):.2f})")
-    print(f"held-back channel films {min(held_films.values()):.2f}–{max(held_films.values()):.2f}; ours {min(our_films.values()):.2f}–{max(our_films.values()):.2f}; film bar {bar}; short-script bar {short_bar} (held-back 90 s openings {min(opens.values()):.2f}–{max(opens.values()):.2f})")
+    print(f"held-back channel films {min(held_films.values()):.2f}–{max(held_films.values()):.2f}; ours {min(our_films.values()):.2f}–{max(our_films.values()):.2f}; film bar {bar} (all 30 whole narrations, each unseen: {min(oof_whole.values()):.2f}–{max(oof_whole.values()):.2f}); short-script bar {short_bar} (all 30 openings, each unseen: {min(oof_open.values()):.2f}–{max(oof_open.values()):.2f}; below the bar {sum(v < short_bar for v in oof_open.values())} of 30)")
     print("planted fakes caught by the structure model:", ", ".join(f"{k} {v:.0%}" for k, v in planted.items()), f"(held-back channel flagged {held_struct:.0%})")
 
 def text_of(arg):
