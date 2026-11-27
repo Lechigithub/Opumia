@@ -5,7 +5,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import * as z4 from "zod/v4";
 
 /** Models named for this pipeline: Sonnet 5.5 for creative work, Haiku 5.5 for the jobs it does well (no Opus — owner, 2026-11-22). */
-export const MODELS = { sonnet: "claude-sonnet-5-5", haiku: "claude-haiku-5-5" } as const;
+export const MODELS = { sonnet: "claude-sonnet-5-5", haiku: "claude-haiku-5-5", opus: "claude-opus-5-5" } as const;
 export type ModelId = (typeof MODELS)[keyof typeof MODELS];
 
 /**
@@ -15,7 +15,9 @@ export type ModelId = (typeof MODELS)[keyof typeof MODELS];
  */
 export const ROLE_MODEL = {
   // creative work — Sonnet
-  writer: MODELS.sonnet,
+  // the owner allowed one Opus test of the writer (2026-11-27: Sonnet did not write a 10-minute script that reads as
+  // human narration by any means tried); OPUMIA_WRITER_MODEL=opus switches it, Sonnet stays the default
+  writer: (process.env.OPUMIA_WRITER_MODEL === "opus" ? MODELS.opus : MODELS.sonnet) as ModelId,
   researchPlan: MODELS.sonnet,
   director: MODELS.sonnet,
   artDirector: MODELS.sonnet,
@@ -50,6 +52,7 @@ export type Role = keyof typeof ROLE_MODEL;
 const PRICE: Record<ModelId, { in: number; out: number; cacheRead: number }> = {
   "claude-sonnet-5-5": { in: 2, out: 10, cacheRead: 0.1 },
   "claude-haiku-5-5": { in: 0.1, out: 0.5, cacheRead: 0.01 },
+  "claude-opus-5-5": { in: 4, out: 20, cacheRead: 0.2 },
 };
 
 let _client: Anthropic | null = null;

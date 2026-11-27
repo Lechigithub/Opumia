@@ -451,8 +451,14 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   costly). **Conclusion:** by instruction, measured targets, quoted sentences, long real examples or sampling, Sonnet
   does not write a 10-minute script that reads as human narration; only the long revision loop came close (0.85–0.89
   at $4–6, 20–35 min) and none passed. Short scripts do pass (Wirecard 0.97, Quibi 0.80–0.87). About $29 of writer
-  tests that day. Owner's choice open: human-ness reported (not blocking) on long scripts, or a stronger writer model
-  (reverses "Sonnet and Haiku only").
+  tests that day.
+- **Opus test (owner allowed one; `OPUMIA_WRITER_MODEL=opus`, Sonnet stays the default; Opus 5.5 priced $4 / $20 per M
+  tokens, from the platform's earlier table):** 10-min Enron, two versions per part, finish capped at $1.20 — best part
+  per part 0.82 / 0.73 / 0.86 / 0.71 (Sonnet's best of five: 0.36 / 0.57 / 0.87 / 0.52); the script human 0.86 (bar
+  0.90), channel 0.78 (passes), every other check passed; 7 min, $4.33. Not accepted, but Opus's first drafts sit where
+  Sonnet's long loop topped out; it reads like the channel (opens inside the analyst call, "In other words…", "You'd
+  think the directors would have shut that down immediately. Instead, they approved it."), with a rhetorical question
+  and some timeline stepping left. `OPUMIA_WRITER_VARIANTS` sets the versions per part (default 5).
 
 ### The researcher (second agent rebuilt)
 
