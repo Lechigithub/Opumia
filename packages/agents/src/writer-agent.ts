@@ -16,7 +16,7 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { ScriptDraft, usableClaims, type Aspect, type FactClaim, type FactSheet } from "@opumia/contracts";
 import * as z from "zod/v4";
-import { agentLoop, cached, plain, structured, type AgentTool, ROLE_MODEL } from "./llm.js";
+import { agentLoop, cached, plain, structured, type AgentTool, ROLE_MODEL, MODELS, type ModelId } from "./llm.js";
 import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
@@ -97,6 +97,11 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   // the writer's turns and time grow with the script (a 10-minute Enron script, 1,659 words, ran out of the fixed 6 min
   // and 22 turns that a 60-second script gets after 6 measurements; 2026-11-27): ×1 up to ~250 words, up to ×6
   const lengthFactor = Math.max(1, Math.min(6, targetWords / 250));
+  // the writer's model by length (owner, 2026-11-27): Sonnet writes short films — its 60–90 s scripts read as human
+  // narration (Wirecard 0.97, Quibi 0.80–0.87); Opus writes films with chapters (≥ 5 min) — on a 10-minute script its
+  // first drafts scored 0.71–0.86 per part where Sonnet's best of five scored 0.36–0.87. OPUMIA_WRITER_MODEL forces one.
+  const forced = process.env.OPUMIA_WRITER_MODEL;
+  const writerModel: ModelId = forced === "opus" ? MODELS.opus : forced === "sonnet" ? MODELS.sonnet : short ? ROLE_MODEL.writer : MODELS.opus;
   const claims = usableClaims(o.facts);
   const known = new Set(claims.map((c) => c.id));
   const st = o.facts.story;
@@ -182,7 +187,10 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     const header = `MEASURED (${words} words, ${lines.length} sentences) against ${band.films} real films of the channel:\n- explains what things mean: ${pc(p.share.explain)} of lines (channel ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)})\n- talks to the viewer or as the narrator: ${pc(p.viewerShare)} (channel ${pc(band.viewer.p10)}–${pc(band.viewer.p90)})\n- quotations: ${pc(p.share.quote)} (channel up to ${pc(band.kinds.quote.p90)})\n- bare facts: ${pc(p.share.fact)} (channel up to ${pc(band.kinds.fact.p90)})\n- scenes: ${pc(p.share.scene)}, motives: ${pc(p.share.motive)}, questions: ${pc(p.share.question)}, teases: ${pc(p.share.tease)}, general sayings: ${pc(p.share.maxim)}\n- sentences with a figure: ${pc(withDigit.length / Math.max(1, lines.length))}${scenes && sceneBand ? `\n- lines that put the viewer in a moment: ${pc(scenes.profile.moment)} (channel ${pc(sceneBand.moment.p25)}–${pc(sceneBand.moment.p90)} at ${sceneBand.lengthS} s); a named person wanting, fearing or deciding: ${pc(scenes.profile.agency)} (channel ${pc(sceneBand.agency.p25)}–${pc(sceneBand.agency.p90)})\n- time skipped without a bridge: ${scenes.profile.jumps.length} (${scenes.profile.jumps.map((j) => `${j.from}→${j.to}`).join(", ") || "none"}); opens on a moment: ${scenes.profile.opensOnMoment ? "yes" : "no"}; ending: ${ending?.kind ?? "?"}` : ""}`;
     // the script referee (proven on held-back channel narrations): reported to the writer, blocking once proven
     const verdict = dataDir ? scriptReferee(path.dirname(dataDir), text, o.pack.channelId) : null;
-    if (verdict && !verdict.pass && SCRIPT_REFEREE_BLOCKS) issues.push({ kind: "reads_unlike_channel", detail: `the script referee scores it ${verdict.score} (bar ${verdict.bar}); fix what it names, sentence by sentence, without changing the facts.` });
+    // human-ness blocks a short script; on a long one it is reported and only the channel measure blocks (owner,
+    // 2026-11-27: no writer reached 0.90 on a 10-minute script — Opus 0.86 — and the bar is the weakest real narration)
+    const blocks = verdict && SCRIPT_REFEREE_BLOCKS && (short ? !verdict.pass : verdict.channel !== undefined && verdict.channelBar !== undefined ? verdict.channel < verdict.channelBar : !verdict.pass);
+    if (verdict && blocks) issues.push({ kind: "reads_unlike_channel", detail: `the script referee scores it ${verdict.score} (bar ${verdict.bar}); fix what it names, sentence by sentence, without changing the facts.` });
     if (verdict) refereeSeen.push(verdict.score);
     const formula = o.memoryDir ? openingFormula(text, o.facts.topic, openingsLedger(o.memoryDir, o.pack.channelId)) : null;
     if (formula) issues.push({ kind: "opening_formula", detail: `${formula}. The channel's own openings, for range: ${studyFilms.slice(0, 6).map((f) => `"${String(f.lines[0] ?? "").slice(0, 90)}"`).join(" | ")}` });
@@ -365,19 +373,19 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
       const films3 = [0, 1, 2].map((i) => studyFilms[(seed[i]! + v * 5 + i * 11) % studyFilms.length]!);
       return `\n\nHOW THE CHANNEL SOUNDS — about 1,500 words of its real narration from three films. Write your part in exactly this voice: its sentence lengths, its asides, how one sentence picks up the last, how rarely it asks a question. Never reuse a sentence.\n\n${films3.map((f, i) => stretch(f, 0.2 + 0.25 * i + 0.05 * v, 500)).join("\n\n")}`;
     };
-    const askOutline = (fix?: string) => structured({ stage: "script.outline", model: ROLE_MODEL.writer, system, user: `${factsBlock}\n\nPLAN THE FILM FIRST, to the structure above: exactly ${want} parts — an intro (title "Intro": the hook and the thesis) and ${lp.chapters} titled chapters. For each part: its title, its purpose, its beats in order, the roles of its segments (the twist in a middle chapter; the last chapter ends the film the channel's way) and the claim ids it will use. Open on this story's strongest first moment, not the way earlier films of ours opened.${fix ? `\n\n${fix}` : ""}`, schema: Outline, effort: "medium", maxTokens: 6000 }).catch(() => null);
+    const askOutline = (fix?: string) => structured({ stage: "script.outline", model: writerModel, system, user: `${factsBlock}\n\nPLAN THE FILM FIRST, to the structure above: exactly ${want} parts — an intro (title "Intro": the hook and the thesis) and ${lp.chapters} titled chapters. For each part: its title, its purpose, its beats in order, the roles of its segments (the twist in a middle chapter; the last chapter ends the film the channel's way) and the claim ids it will use. Open on this story's strongest first moment, not the way earlier films of ours opened.${fix ? `\n\n${fix}` : ""}`, schema: Outline, effort: "medium", maxTokens: 6000 }).catch(() => null);
     let ol = await askOutline();
     if (ol && ol.data.parts.length !== want) ol = (await askOutline(`Your last plan had ${ol.data.parts.length} parts. It must have exactly ${want}: "Intro" and ${lp.chapters} chapters.`)) ?? ol;
     if (!ol || ol.data.parts.length < 2) return null;
     const parts = ol.data.parts.slice(0, want);
     const plan = parts.map((c, i) => `${i}. ${c.title} — ${c.purpose}: ${c.beats.join(" → ")}`).join("\n");
     const wordsFor = (k: number) => (k === 0 ? introWords : chapterWords);
-    const writePart = (k: number, v: number) => structured({ stage: "script.part", model: ROLE_MODEL.writer, system, user: `${factsBlock}${voiceFor(v)}\n\nTHE FILM'S PLAN (title: ${ol!.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": ${wordsFor(k)} words (no fewer than ${Math.round(wordsFor(k) * 0.9)}); beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Tell it forwards, in the moment; a figure then the narrator's verdict; one thread carried from sentence to sentence.`, schema: Draft, effort: "medium", maxTokens: 8000 }).then((x) => x.data.segments).catch(() => null);
+    const writePart = (k: number, v: number) => structured({ stage: "script.part", model: writerModel, system, user: `${factsBlock}${voiceFor(v)}\n\nTHE FILM'S PLAN (title: ${ol!.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": ${wordsFor(k)} words (no fewer than ${Math.round(wordsFor(k) * 0.9)}); beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Tell it forwards, in the moment; a figure then the narrator's verdict; one thread carried from sentence to sentence.`, schema: Draft, effort: "medium", maxTokens: 8000 }).then((x) => x.data.segments).catch(() => null);
     const judge = (segs: z.infer<typeof Segment>[] | null) => (segs ? scriptReferee(root, segs.map((x) => x.text).join(" "), o.pack.channelId) : null);
     const wc = (segs: z.infer<typeof Segment>[] | null) => (segs ? segs.reduce((n, x) => n + countWords(x.text), 0) : 0);
     // selection, not instruction: the same request gives parts from 0.0 to 0.9, so every part is written five times at
     // once and the best is kept, judged on both measures at the WHOLE film's bars (human 0.90, channel 0.75)
-    const VARIANTS = Math.max(1, Number(process.env.OPUMIA_WRITER_VARIANTS) || 5), H = 0.9, C = 0.75;
+    const VARIANTS = Math.max(1, Number(process.env.OPUMIA_WRITER_VARIANTS) || (writerModel === MODELS.opus ? 2 : 5)), H = 0.9, C = 0.75;
     const merit = (v: ReturnType<typeof judge>, segs: z.infer<typeof Segment>[] | null, k: number) => (!v || !segs ? -1 : Math.min((v.human ?? v.score) / H, (v.channel ?? 1) / C) - (wc(segs) < wordsFor(k) * 0.85 ? 0.3 : 0));
     const all = await Promise.all(parts.map((_, k) => Promise.all(Array.from({ length: VARIANTS }, (_, v) => writePart(k, v)))));
     const drafts: Array<z.infer<typeof Segment>[] | null> = [], verdicts: Array<ReturnType<typeof judge>> = [], spread: string[] = [];
@@ -394,8 +402,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const firstDraft = await parallelDraft();
   const userStart = firstDraft ? `${factsBlock}\n\nA FIRST DRAFT HAS ALREADY BEEN WRITTEN, chapter by chapter in parallel, each part checked by the script referee (below, as segments). Do not start over and do not rewrite what passes. Measure this draft once, fix only what the measurement names — stretch by stretch, using check_passage as you go — and submit. You have only a few turns.\n\nFIRST DRAFT:\n${JSON.stringify(firstDraft)}` : user;
 
-  log(`  writer: one author with tools — ${studyFilms.length} real films to study${heldBack.size ? ` (${heldBack.size} held back for the script referee)` : ""}, ${targetWords} words to write at ${o.narrationWpm} wpm (${ROLE_MODEL.writer})…`);
-  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user: userStart, tools, effort: "high", maxTurns: firstDraft ? 10 : Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: firstDraft ? 300 : Math.round(360 * lengthFactor), ...(firstDraft ? { maxUsd: ROLE_MODEL.writer === "claude-opus-5-5" ? 1.2 : 0.6 } : {}), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
+  log(`  writer: one author with tools — ${studyFilms.length} real films to study${heldBack.size ? ` (${heldBack.size} held back for the script referee)` : ""}, ${targetWords} words to write at ${o.narrationWpm} wpm (${writerModel})…`);
+  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: writerModel, system, user: userStart, tools, effort: "high", maxTurns: firstDraft ? 10 : Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: firstDraft ? 300 : Math.round(360 * lengthFactor), ...(firstDraft ? { maxUsd: writerModel === MODELS.opus ? 1.2 : 0.6 } : {}), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
   const final = (accepted ?? lastSubmission) as z.infer<typeof Submission> | null;
   const lastEval = last as { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null;
   if (!final && !lastEval) throw new Error("writer: no draft was produced");

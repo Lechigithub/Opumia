@@ -459,6 +459,11 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   Sonnet's long loop topped out; it reads like the channel (opens inside the analyst call, "In other words…", "You'd
   think the directors would have shut that down immediately. Instead, they approved it."), with a rhetorical question
   and some timeline stepping left. `OPUMIA_WRITER_VARIANTS` sets the versions per part (default 5).
+- **Applied (owner, 2026-11-27):** the writer is chosen by length (`writer-agent.ts:writerModel`) — Sonnet for short
+  films (its 60–90 s scripts pass both measures), Opus for films with chapters (≥ 5 min; two versions per part, finish
+  capped at $1.20); `OPUMIA_WRITER_MODEL=opus|sonnet` forces one. Human-ness blocks short scripts only; on long scripts
+  it is reported and the channel measure, structure, facts and story bands are the gates. Owner: the script is not
+  the hard part — the next effort goes to the picture side.
 
 ### The researcher (second agent rebuilt)
 
@@ -533,7 +538,8 @@ appended to `out/<job>/ladders.jsonl` (cause, rung, owner, shots, cost, seconds)
 
 Film 3 (`docs/FILM3-FINDINGS.md`) cost $18.73 over two runs and never rendered. Since then:
 
-- **Models: Sonnet and Haiku only, no Opus** (owner decision). One table, `agents/llm.ts:ROLE_MODEL`: Sonnet for the
+- **Models: Sonnet and Haiku only, no Opus** (owner decision; one exception since 2026-11-27: Opus 5.5 writes scripts
+  for films with chapters, see **The script referee**). One table, `agents/llm.ts:ROLE_MODEL`: Sonnet for the
   creative work (writer, research plan, director, art director, scene designer, showrunner, packaging, thumbnail craft,
   voice director) and the calls where a mistake ships (period check, final-cut judge); Haiku for claim checks, query
   plans, first-pass picture rating, labels, retrieval, checks and the measure-driven agents (picture researcher,
