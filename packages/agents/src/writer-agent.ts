@@ -22,6 +22,7 @@ import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
 import type { StylePack } from "./style-pack.js";
 import { structureProfile, structureBrief, structureIssues } from "./story-structure.js";
+import { voiceBand, voiceStats, voiceReport, voiceTargets } from "./voice-meter.js";
 import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLOCKS, openingFormula, openingShape, openingsLedger } from "./script-referee.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
@@ -188,13 +189,15 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     // the best draft that passes everything but the script referee: kept for when no script is accepted (proof run
     // 2026-11-27, Quibi: 21 drafts, best 0.36, the last one handed in 0.29)
     if (verdict && issues.every((x) => x.kind === "reads_unlike_channel") && verdict.score > (bestDraft?.score ?? -1)) bestDraft = { segments, score: verdict.score, issues };
-    const header2 = verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header;
+    const header2 = `${verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header}${vband ? `\n${voiceReport(voiceStats(text), vband)}` : ""}`;
     return { ok: issues.length === 0, report: issues.length ? `${header2}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header2}\n\nPASSES every check.` };
   };
 
   // ---- tools
   const filmsRead = new Set<string>();
   const refereeSeen: number[] = [];
+  // the voice meter: how a passage is built against the channel's own narration (guidance, instant, no model)
+  const vband = dataDir ? (() => { try { return voiceBand({ data: dataDir, channel: o.pack.channelId, films: o.films, held: heldBackScripts(dataDir, o.pack.channelId) }); } catch { return null; } })() : null;
   let bestDraft: { segments: z.infer<typeof Segment>[]; score: number; issues: Array<{ kind: string; detail: string }> } | null = null;
   // the narrations the script referee holds back are hidden from the writer's reference tools (a fair test)
   const heldBack = dataDir ? heldBackScripts(dataDir, o.pack.channelId) : new Set<string>();
@@ -309,7 +312,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
       schema: z.object({ text: z.string().min(20) }),
       run: (async (i: { text: string }) => {
         const v = dataDir ? scriptReferee(path.dirname(dataDir), i.text, o.pack.channelId) : null;
-        return v ? scriptRefereeReport(v) : "the script referee is not available here";
+        const meter = vband ? `\n${voiceReport(voiceStats(i.text), vband)}` : "";
+        return v ? `${scriptRefereeReport(v)}${meter}` : `the script referee is not available here${meter}`;
       }) as AgentTool["run"],
     },
     {
@@ -360,7 +364,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     const parts = ol.data.parts.slice(0, want);
     const plan = parts.map((c, i) => `${i}. ${c.title} — ${c.purpose}: ${c.beats.join(" → ")}`).join("\n");
     const wordsFor = (k: number) => (k === 0 ? introWords : chapterWords);
-    const writePart = (k: number, feedback?: string) => structured({ stage: "script.part", model: ROLE_MODEL.writer, system, user: `${factsBlock}${voice}\n\nTHE FILM'S PLAN (title: ${ol!.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": ${wordsFor(k)} words (no fewer than ${Math.round(wordsFor(k) * 0.9)}); beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Spoken, not written: simple past told forwards, a figure then the narrator's verdict, one thread carried from sentence to sentence, few questions.${feedback ? `\n\nYOUR LAST VERSION OF THIS PART, AND WHAT WAS WRONG WITH IT — rewrite the whole part:\n${feedback}` : ""}`, schema: Draft, effort: "medium", maxTokens: 8000 }).then((x) => x.data.segments).catch(() => null);
+    const writePart = (k: number, feedback?: string) => structured({ stage: "script.part", model: ROLE_MODEL.writer, system, user: `${factsBlock}${voice}\n\nTHE FILM'S PLAN (title: ${ol!.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": ${wordsFor(k)} words (no fewer than ${Math.round(wordsFor(k) * 0.9)}); beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Spoken, not written: simple past told forwards, a figure then the narrator's verdict, one thread carried from sentence to sentence.${vband ? ` ${voiceTargets(vband)}` : ""}${feedback ? `\n\nYOUR LAST VERSION OF THIS PART, AND WHAT WAS WRONG WITH IT — rewrite the whole part:\n${feedback}` : ""}`, schema: Draft, effort: "medium", maxTokens: 8000 }).then((x) => x.data.segments).catch(() => null);
     const judge = (segs: z.infer<typeof Segment>[] | null) => (segs ? scriptReferee(root, segs.map((x) => x.text).join(" "), o.pack.channelId) : null);
     const wc = (segs: z.infer<typeof Segment>[] | null) => (segs ? segs.reduce((n, x) => n + countWords(x.text), 0) : 0);
     const AIM = 0.9; // the whole film's bar: every part is brought to it here, cheaply and at once

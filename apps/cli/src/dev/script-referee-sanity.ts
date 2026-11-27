@@ -65,5 +65,18 @@ if (existsSync(qf)) {
   ok("our time-stamped opening formula is refused once it repeats", verdicts[3] === true, verdicts);
   ok("an opening built another way passes", openingFormula("Wirecard said it had €1.9 billion sitting in two Philippine banks.", "t9", ours) === null);
 }
+// the voice meter: the channel's own held-back stretches sit inside its band; an early script of ours asked too much
+{
+  const { voiceBand, voiceStats, voiceOff } = await import("@opumia/agents");
+  const b = voiceBand({ data: DATA, films: films as never, held: new Set(M.held) });
+  const chunks = films.filter((f) => M.held.includes(f.id)).flatMap((f) => { const w = text(f).split(/\s+/); const out: string[] = []; for (let i = 0; i + 300 <= w.length; i += 300) out.push(w.slice(i, i + 300).join(" ")); return out; });
+  const off = chunks.reduce((n, c) => n + voiceOff(voiceStats(c), b).length, 0) / chunks.length;
+  ok("held-back channel stretches sit inside the voice band (≤ 1.2 of 7 measures off)", off <= 1.2, off.toFixed(2));
+  const early = path.join(ROOT, "out", "writer-score-advisory", "bl5c-quibi", "script.draft.json");
+  if (existsSync(early)) {
+    const t = (JSON.parse(readFileSync(early, "utf8")) as { segments: Array<{ text: string }> }).segments.map((s) => s.text).join(" ");
+    ok("an early script of ours is flagged for its questions", voiceOff(voiceStats(t), b).includes("questions"), voiceOff(voiceStats(t), b));
+  }
+}
 console.log(fails ? `${fails} failed` : "script referee: all passed");
 process.exitCode = fails ? 1 : 0;

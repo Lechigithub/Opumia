@@ -417,6 +417,15 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   - **What it shows:** our writer already writes like MagnatesMedia rather than the other channels (most scripts pass
     the channel bar; Blockbuster 0.97); the gap is human-ness, worst on long scripts (Enron 0.62–0.85 against 0.90).
     Short scripts that pass both: Wirecard (human 0.97, channel 0.74), Quibi (0.87, 0.76); Blockbuster fails human (0.62).
+- **What "human" is, measured** (MagnatesMedia's 6,789 sentences against our 351): typical sentence 20 words (ours 15),
+  sentences of 25+ words 32 % (ours 15 %), a figure in 16 % (ours 32 %), questions 2 % (ours 8 %), the narrator
+  commenting in the present 23 % (ours 16 %), more spoken connectors ("of course", "in fact", "actually", "just",
+  "also"), less "had" / "later" stepping, lower word variety. `agents/voice-meter.ts`: these seven measures on any
+  passage against the channel's band (300-word stretches of the films the writer may study, 10th–90th percentile;
+  `data/story-profile/<channel>-voice.json`) — held-back channel stretches fall outside on 0.93 of 7 measures, ours
+  mostly on questions, connectors and sentence length. Guidance, not a gate (it explains part of the human gap; the
+  rest is finer word texture the referee reads): in `check_passage`, `measure_draft`, each parallel part's
+  instructions (`voiceTargets`) and `writer.md`.
 
 ### The researcher (second agent rebuilt)
 

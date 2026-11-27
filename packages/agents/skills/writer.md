@@ -51,6 +51,12 @@ backwards in the past perfect. The script referee (proven on channel narrations 
 - **Repeat the way speech does.** Carry one thread: the next sentence picks up the last one's subject ("it", "he",
   "this"), not a new noun and a new fact every clause. Fewer "which" clauses; end the sentence and start another.
 - When the measure lists words to CUT, rewrite the sentences they sit in. Never add words to please it.
+- **The voice meter** (in `check_passage` and `measure_draft`) measures how a passage is built against the channel's
+  own narration, with exact targets. Measured, MagnatesMedia against our earlier scripts: a typical sentence of about
+  19 words (ours 15), about 3 in 10 sentences running 25+ words (ours 15 %), a figure in about 1 sentence in 7 (ours
+  1 in 3), almost no questions (ours 1 in 12), the narrator commenting in the present in about 1 in 5, about 3 spoken
+  connectors per 100 words ("of course", "in fact", "actually", "just", "also", "even", "still"). Fewer, longer,
+  flowing sentences carrying one thread — that is most of what makes narration read as a person speaking.
 
 ## Scenes, people and time (measured on the channel's real films at your film's length)
 
