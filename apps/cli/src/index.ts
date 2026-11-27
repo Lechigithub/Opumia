@@ -195,11 +195,21 @@ async function main() {
   }
 }
 
+// A run must never end silently (proof film 2: research died mid-stage with exit 0 and no message — a call that never
+// settled left Node nothing to wait on). If the loop empties while the command is still running, say so and fail.
+let mainSettled = false;
+process.on("beforeExit", () => {
+  if (mainSettled) return;
+  mainSettled = true;
+  console.error(`\n✗ ${cmd ?? "opumia"} stopped while still waiting on work that never finished (a hung call: a browser, a child process or a socket that closed without answering). Nothing was completed after this point.`);
+  process.exitCode = 1;
+});
 main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   // 3 = paused by a failure outside the platform (resumable with `opumia resume <job>`), 1 = an error
   process.exitCode = (err as { name?: string; resumeAt?: string })?.resumeAt ? 3 : 1;
 }).finally(() => {
+  mainSettled = true;
   // Build list 4: a run always ends. A headless browser or socket left open (bl4-theranos sat 1 h 24 min after its
   // error) must not keep the process alive: once the command is done, exit with its code after a short grace.
   setTimeout(() => process.exit(), 5000).unref();

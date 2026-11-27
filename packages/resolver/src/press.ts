@@ -687,7 +687,21 @@ async function browser() {
 export async function closeBrowser(): Promise<void> {
   const b = browserP;
   browserP = null;
-  await b?.then((x) => x.close({ silent: true })).catch(() => {});
+  await within(Promise.resolve(b?.then((x) => x.close({ silent: true }))), 8_000, "closing the browser").catch(() => {});
+}
+/**
+ * Every browser step has a time limit (proof film 2, 2026-11-26: on a Cloudflare challenge page a browser call never
+ * came back; with nothing else to wait on, Node exited silently in the middle of research). The timer keeps the
+ * process alive and the step fails cleanly; the shared browser is then dropped and opened fresh on the next use.
+ */
+export function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let t: NodeJS.Timeout | undefined;
+  return Promise.race([p, new Promise<never>((_, rej) => { t = setTimeout(() => rej(new Error(`browser: ${what} took over ${Math.round(ms / 1000)} s`)), ms); })]).finally(() => clearTimeout(t));
+}
+function dropBrowser() {
+  const b = browserP;
+  browserP = null;
+  void within(Promise.resolve(b?.then((x) => x.close({ silent: true }))), 8_000, "closing a hung browser").catch(() => {});
 }
 
 /** Screenshot the top of a web page (1280×900) as JPEG. Returns false when the page cannot be captured. */
@@ -699,18 +713,19 @@ export async function pageTextViaBrowser(url: string, maxChars = 80_000): Promis
   if (!/^https?:\/\//.test(url) || /youtube\.com|youtu\.be|\.pdf($|\?)/i.test(url)) return null;
   let page: CdpPage | null = null;
   try {
-    const b = await browser();
-    page = await b.newPage({ context: () => null, logLevel: "error", indent: false, pageIndex: 900 + pageSeq++, onBrowserLog: null, onLog: () => {} });
-    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
-    await Promise.race([page.goto({ url, timeout: 25_000 }).catch(() => null), new Promise((r) => setTimeout(r, 26_000))]);
+    const b = await within(browser(), 45_000, "opening");
+    page = await within(b.newPage({ context: () => null, logLevel: "error", indent: false, pageIndex: 900 + pageSeq++, onBrowserLog: null, onLog: () => {} }), 15_000, "a new page");
+    await within(page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 }), 10_000, "the viewport");
+    await within(page.goto({ url, timeout: 25_000 }).catch(() => null), 27_000, "loading the page").catch(() => null);
     await new Promise((r) => setTimeout(r, 2000));
-    const res = (await page._client().send("Runtime.evaluate", { expression: "document.body ? document.body.innerText : ''", returnByValue: true })) as unknown as { value?: { result?: { value?: string } } };
+    const res = (await within(page._client().send("Runtime.evaluate", { expression: "document.body ? document.body.innerText : ''", returnByValue: true }), 10_000, "reading the text")) as unknown as { value?: { result?: { value?: string } } };
     const text = (res.value?.result?.value ?? "").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
     return text.length > 600 ? text.slice(0, maxChars) : null;
-  } catch {
+  } catch (e) {
+    if (/browser: /.test(String((e as Error)?.message))) { page = null; dropBrowser(); }
     return null;
   } finally {
-    await page?.close().catch(() => {});
+    if (page) await within(page.close(), 5_000, "closing the page").catch(() => dropBrowser());
   }
 }
 
@@ -720,14 +735,14 @@ export async function screenshotPage(url: string, outJpg: string): Promise<boole
   await mkdir(path.dirname(outJpg), { recursive: true });
   let page: CdpPage | null = null;
   try {
-    const b = await browser();
-    page = await b.newPage({ context: () => null, logLevel: "error", indent: false, pageIndex: 900 + pageSeq++, onBrowserLog: null, onLog: () => {} });
-    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
-    await Promise.race([page.goto({ url, timeout: 25_000 }).catch(() => null), new Promise((r) => setTimeout(r, 26_000))]);
+    const b = await within(browser(), 45_000, "opening");
+    page = await within(b.newPage({ context: () => null, logLevel: "error", indent: false, pageIndex: 900 + pageSeq++, onBrowserLog: null, onLog: () => {} }), 15_000, "a new page");
+    await within(page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 }), 10_000, "the viewport");
+    await within(page.goto({ url, timeout: 25_000 }).catch(() => null), 27_000, "loading the page").catch(() => null);
     await new Promise((r) => setTimeout(r, 2500)); // late layout, fonts, lazy hero images
     // Clear the view for the capture only: hide consent/sign-up overlays and sticky bars (nothing is clicked or
     // accepted), collapse empty ad slots, and bring the headline to the top of the frame.
-    await page
+    await within(page
       ._client()
       .send("Runtime.evaluate", {
         expression: `(() => {
@@ -744,16 +759,17 @@ export async function screenshotPage(url: string, outJpg: string): Promise<boole
           const h = document.querySelector('h1');
           if (h) scrollTo(0, Math.max(0, h.getBoundingClientRect().top + scrollY - 150));
         })()`,
-      })
+      }), 10_000, "clearing overlays")
       .catch(() => null);
     await new Promise((r) => setTimeout(r, 500));
-    const { value } = await page._client().send("Page.captureScreenshot", { format: "jpeg", quality: 86, clip: { x: 0, y: 0, width: 1280, height: 900, scale: 1 }, captureBeyondViewport: false });
+    const { value } = await within(page._client().send("Page.captureScreenshot", { format: "jpeg", quality: 86, clip: { x: 0, y: 0, width: 1280, height: 900, scale: 1 }, captureBeyondViewport: false }), 15_000, "the screenshot");
     const { writeFile } = await import("node:fs/promises");
     await writeFile(outJpg, Buffer.from(value.data, "base64"));
-  } catch {
+  } catch (e) {
+    if (/browser: /.test(String((e as Error)?.message))) { page = null; dropBrowser(); }
     return false;
   } finally {
-    await page?.close().catch(() => {});
+    if (page) await within(page.close(), 5_000, "closing the page").catch(() => dropBrowser());
   }
   return exists(outJpg);
 }

@@ -95,8 +95,9 @@ export function prepareWorkspace(o: FilmAgentOptions): { before: number; duratio
   if (!existsSync(path.join(job, "timed-script.json"))) {
     if (o.dryRun || !o.topic) throw new Error("no narration in the workspace (run without --dry-run and with --topic to make it)");
     log("[A] research, script and narration (the platform's own agents)…");
-    const r = spawnSync("pnpm", ["-s", "opumia", "produce", "--topic", o.topic, "--channel", o.channel, "--aspect", "16:9", "--duration", String(o.durationS), "--job", path.basename(job), "--until", "narration"], { cwd: o.root, stdio: "inherit", env: { ...process.env, OPUMIA_MAX_USD: String(o.maxUsd) } });
-    if (r.status !== 0 || !existsSync(path.join(job, "timed-script.json"))) throw new Error("narration did not finish — see the log above");
+    // the CLI directly, not through pnpm: pnpm hands a script's arguments to a shell, which ate "$400" in a topic
+    const r = spawnSync("npx", ["tsx", path.join(o.root, "apps/cli/src/index.ts"), "produce", "--topic", o.topic, "--channel", o.channel, "--aspect", "16:9", "--duration", String(o.durationS), "--job", path.basename(job), "--until", "narration"], { cwd: o.root, stdio: "inherit", env: { ...process.env, OPUMIA_ROOT: o.root, OPUMIA_MAX_USD: String(o.maxUsd) } });
+    if (r.status !== 0 || !existsSync(path.join(job, "timed-script.json"))) throw new Error(`narration did not finish (exit ${r.status ?? "none"}${r.signal ? `, signal ${r.signal}` : ""}) — see the log above`);
   }
   const timing = (() => { try { return JSON.parse(readFileSync(path.join(job, "timing.json"), "utf8")) as { runs: Array<{ filmUsd?: number; usd?: number }> }; } catch { return { runs: [] }; } })();
   const before = timing.runs.reduce((m, r) => Math.max(m, r.filmUsd ?? r.usd ?? 0), 0);
