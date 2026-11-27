@@ -227,7 +227,14 @@ def score(arg):
     push_c = np.full(len(push), 9.0); push_c[craft] = push[craft]
     gaps = [{"what": nm[i], "ours": round(float(X.mean(0)[i]), 4), "channel": round(float(mu[i]), 4), "more": bool(X.mean(0)[i] > mu[i]), "push": round(float(push[i]), 2)} for i in np.argsort(push_c)[:6] if push_c[i] < -0.15]
     bar = M["bars"]["short"] if len(t.split()) < M["bars"].get("shortWords", 600) else M["bars"]["film"]
-    print(json.dumps({"score": round(s, 2), "bar": bar, "pass": s >= bar,
+    # words used far more than the channel uses them, in the windows that score low: shown as words to CUT (never words
+    # to add — adding the channel's favourite words was the first trick). Proof run, Quibi: "had", "than", "before",
+    # "after", "which" — written-history phrasing the writer could not see.
+    weak = [i for i, x in enumerate(p) if x < 0.5]
+    Xw = X[weak].mean(0) if weak else mu; pw = ((Xw - mu) / sd) * coef
+    cut = [{"word": nm[i][10:-1], "ours": round(float(Xw[i]), 4), "channel": round(float(mu[i]), 4), "times": round(float(Xw[i] / max(mu[i], 1e-4)), 1)}
+           for i in np.argsort(pw) if nm[i].startswith('the word "') and nm[i][10:-1] not in PRON | {"i", "you", "we"} and pw[i] < -0.3 and Xw[i] > mu[i] * 2 and Xw[i] >= 0.008][:6]
+    print(json.dumps({"score": round(s, 2), "bar": bar, "pass": s >= bar, "cut": cut,
                       "windows": [round(float(x), 2) for x in p], "weakWindows": [i for i, x in enumerate(p) if x < M["bars"]["window"]],
                       "structure": round(float(q.mean()), 2), "structureFlagged": [i for i, x in enumerate(q) if x < 0.5], "gaps": gaps}))
 

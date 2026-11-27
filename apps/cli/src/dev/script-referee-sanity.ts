@@ -31,6 +31,14 @@ if (existsSync(j)) {
   ok("agent Juicero's script (accepted by the old checks) does not pass", !v.pass, `${v.score} (bar ${v.bar})`);
   ok("the writer is told craft gaps, never single words to sprinkle", v.gaps.every((g) => !g.what.startsWith('the word "')), v.gaps.map((g) => g.what));
 }
+// the proof run's Quibi script: the words that drag its weak stretches are shown as words to CUT ("had", "than")
+const qf = path.join(ROOT, "out", "writer-score", "bl5c-quibi", "script.draft.json");
+if (existsSync(qf)) {
+  const q = scriptReferee(ROOT, (JSON.parse(readFileSync(qf, "utf8")) as { segments: Array<{ text: string }> }).segments.map((s) => s.text).join(" "))!;
+  const cut = (q.cut ?? []).map((c) => c.word);
+  ok("weak stretches name the over-used words to cut (Quibi: had, than)", cut.includes("had") && cut.includes("than"), cut);
+  ok("every word to cut is over-used, never one to add", (q.cut ?? []).every((c) => c.ours > c.channel), q.cut);
+}
 // openings: our formula is refused, the channel's own openings (in date order) never are
 {
   const { openingFormula, openingShape } = await import("@opumia/agents");

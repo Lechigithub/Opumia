@@ -341,8 +341,14 @@ chance. `tools/referee/script_referee.py` (`build` → `data/referee/magnates-me
   confirm the cash; $0.40), Blockbuster 0.75 ($0.67) — both read two channel films, varied openings, no repeated-name
   padding. Quibi was not accepted (best 0.36 after 21 drafts, its 22-turn limit, $0.67): its opening window scores 1.0,
   its figure-carried middle and end 0.00–0.14. Production narrates an unaccepted script anyway (QA → review); the writer
-  now hands in its best clean draft rather than its last one. Open: stories carried by figures, and whether the
-  short-script bar (set exactly on the weakest held-back opening) is too tight.
+  now hands in its best clean draft rather than its last one.
+- **Not a bias against figures** (checked on the held-back narrations): the channel's most figure-heavy stretches score
+  0.92–0.99; Quibi's weakest stretch had no figures. The drag was written-history phrasing: past perfect "had" (3×
+  the channel), "than" comparisons (7×), "before / after" sequencing, "which" clauses — words the writer could not see
+  because word hints were hidden. Now the referee lists, for weak stretches only, the function words used far more
+  than the channel as words to CUT (`cut`; pronouns never, nothing to add), and `writer.md` "Spoken, not written"
+  teaches simple past told forwards, a figure followed by the narrator's verdict (models from training films only),
+  figures compared by movement. Open: whether the short-script bar (on the weakest held-back opening) is too tight.
 
 ### The researcher (second agent rebuilt)
 

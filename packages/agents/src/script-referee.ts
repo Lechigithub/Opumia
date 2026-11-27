@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-export interface ScriptVerdict { score: number; bar: number; pass: boolean; windows: number[]; weakWindows: number[]; structure: number; gaps: Array<{ what: string; ours: number; channel: number; more: boolean; push: number }> }
+export interface ScriptVerdict { score: number; bar: number; pass: boolean; windows: number[]; weakWindows: number[]; structure: number; gaps: Array<{ what: string; ours: number; channel: number; more: boolean; push: number }>; cut?: Array<{ word: string; ours: number; channel: number; times: number }> }
 // Blocking since 2026-11-27: with it the writer reached the bar on all three test topics ($0.35–0.58 a script); the
 // two tricks it found (one opening formula, names repeated for pronouns) are now refused or trained against.
 // OPUMIA_SCRIPT_REFEREE_BLOCK=0 turns it into a report only (tests).
@@ -32,7 +32,7 @@ export function scriptReferee(root: string, text: string, channel = "magnates-me
 /** The referee's verdict in the writer's words: the score, the bar and what pulls the script away from the channel. */
 export function scriptRefereeReport(v: ScriptVerdict): string {
   const gap = (g: ScriptVerdict["gaps"][number]) => `${g.what}: ${g.more ? "more" : "less"} than the channel (yours ${g.ours}, the channel ${g.channel})`;
-  return `- reads like the channel (the script referee, proven on held-back channel narrations): ${v.score} (bar ${v.bar}) — ${v.pass ? "yes" : "NOT YET"}${v.gaps.length ? `\n  what pulls it away from the channel, strongest first:\n${v.gaps.map((g) => `   · ${gap(g)}`).join("\n")}` : ""}${v.weakWindows.length ? `\n  weakest stretches: words ${v.weakWindows.map((i) => `${i * 50}–${i * 50 + 100}`).join(", ")}` : ""}`;
+  return `- reads like the channel (the script referee, proven on held-back channel narrations): ${v.score} (bar ${v.bar}) — ${v.pass ? "yes" : "NOT YET"}${v.gaps.length ? `\n  what pulls it away from the channel, strongest first:\n${v.gaps.map((g) => `   · ${gap(g)}`).join("\n")}` : ""}${v.cut?.length ? `\n  in the weak stretches you use these words far more than the channel does — CUT them by rewriting those sentences (never add words to please this measure): ${v.cut.map((c) => `"${c.word}" ${c.times}×`).join(", ")}` : ""}${v.weakWindows.length ? `\n  weakest stretches: words ${v.weakWindows.map((i) => `${i * 50}–${i * 50 + 100}`).join(", ")}` : ""}`;
 }
 
 // ---- openings: the blocking run (2026-11-27) opened all three scripts "It's a [time] in [place], and…" — the writer

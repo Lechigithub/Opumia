@@ -30,6 +30,25 @@ The fact sheet is the only source of facts, but it is not closed. If the story n
 - **Every sentence is caused by the one before.** "So", "which meant", "because", "and then". No stack of date-led sentences.
 - **Plain spoken English.** Contractions, everyday words, dry irony. Sentences of mixed length, most of them long enough to carry a thought; short ones only where something lands.
 
+## Spoken, not written (what the script referee measures)
+
+The channel's narration is speech. Ours has read like a history book: dense, every clause a new fact, the story told
+backwards in the past perfect. The script referee (proven on channel narrations it never saw) catches it.
+- **Simple past, told forwards.** "They sold it", not "they had sold it". Not "a few weeks before the shutdown" or
+  "the day after the launch, … that the founders…": put events in the order they happened and let "then", "so", "and
+  so" carry the time.
+- **A figure, then the narrator's verdict on it.** The channel gives a number and immediately says, in a short spoken
+  sentence, what it means or how it felt — the move, from its own films (never reuse these sentences; make the move
+  with this story's figures):
+  - "…90% of people who saw it signed up to the subscription plan." → "That's an insanely high conversion number."
+  - "…buy out their shares completely for over $300,000." → "That probably seemed like a fine prize to Bob and Bill at the time."
+  - "…depended on one man, $5,000 and a weekend in Las Vegas." → "This is the absolutely crazy story of FedEx."
+- **Compare figures by movement, not by "than".** "It hoped for 7 million and got half a million", "the price went
+  from four hundred dollars to nothing" — not "more than", "less than", "a fraction of".
+- **Repeat the way speech does.** Carry one thread: the next sentence picks up the last one's subject ("it", "he",
+  "this"), not a new noun and a new fact every clause. Fewer "which" clauses; end the sentence and start another.
+- When the measure lists words to CUT, rewrite the sentences they sit in. Never add words to please it.
+
 ## Scenes, people and time (measured on the channel's real films at your film's length)
 
 - **Moments, not summary.** A good writer finds a scene even in 30 seconds: one person, one place, one time, doing
