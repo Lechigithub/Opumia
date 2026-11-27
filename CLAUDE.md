@@ -391,8 +391,14 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   re-measured draft costs only the sentences that changed); `check_passage` is the script referee alone on any passage,
   on this machine, no model call (~1 s) — the writer checks each paragraph as it writes; long films get a first draft in
   parallel (`script.outline`: the plan to the measured structure, then `script.part`: every part written at once, each
-  refereed locally, parts under 0.85 rewritten once, at once) and the writer only fixes what fails from there. Not yet
-  run.
+  refereed locally, parts under 0.85 rewritten once, at once) and the writer only fixes what fails from there.
+- **Fast writer, first test** (10-min Enron): 19 min (was 34), referee 0.86 (was 0.67), but $4.21 and not accepted.
+  The parallel draft took 31 s but was poor — 3 parts instead of 4, 1,030 of 1,690 words, parts 0.35 / 0.25 / 0.51 —
+  so the agent loop (every turn re-sending the whole conversation) did the work and the spending.
+- **Parallel stage strengthened:** every part gets two stretches of real narration as its voice (from the films the
+  writer may study, never the held-back ones); the outline is re-asked once if it does not have intro + N chapters;
+  parts are held to their word count; up to three parallel rounds rewrite every part under 0.90 or short, keeping the
+  better version; when every part reaches the bar, the finishing loop is capped at 14 turns / 7 min. Not yet run.
 
 ### The researcher (second agent rebuilt)
 

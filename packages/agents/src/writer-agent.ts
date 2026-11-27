@@ -342,33 +342,53 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   // each checked by the script referee on this machine and the weak ones rewritten once, at once). The writer then
   // starts from this draft and only fixes what fails.
   const factsBlock = user.replace(/\n\nStart by studying the channel's real films with your tools\.$/, "");
+  let draftAtBar = false;
   const parallelDraft = async (): Promise<z.infer<typeof Segment>[] | null> => {
     if (short || !structure || !dataDir) return null;
     const t0 = Date.now(), root = path.dirname(dataDir);
     const introWords = Math.round((structure.introS.p50 * o.narrationWpm) / 60);
     const chapterWords = Math.round((targetWords - introWords) / Math.max(1, lp.chapters));
-    const ol = await structured({ stage: "script.outline", model: ROLE_MODEL.writer, system, user: `${factsBlock}\n\nPLAN THE FILM FIRST, to the structure above: ${lp.chapters + 1} parts — an intro (title "Intro": the hook and the thesis) and ${lp.chapters} titled chapters. For each part: its title, its purpose, its beats in order, the roles of its segments (the twist in a middle chapter; the last chapter ends the film the channel's way) and the claim ids it will use. Open on this story's strongest first moment, not the way earlier films of ours opened.`, schema: Outline, effort: "medium", maxTokens: 6000 }).catch(() => null);
-    if (!ol) return null;
-    const parts = ol.data.parts.slice(0, lp.chapters + 1);
+    const want = lp.chapters + 1;
+    // the voice: two stretches of real narration from the films the writer may study (never the held-back ones), the
+    // same for every part — the first parallel draft was written blind to how the channel sounds (parts 0.25–0.51)
+    const pick = (i: number) => { const f = studyFilms[(Math.abs(createHash("sha1").update(o.facts.topic).digest()[i]!) + i * 7) % studyFilms.length]!; const lines = f.lines.map(String); const a = Math.floor(lines.length * (0.3 + 0.25 * i)); let txt = ""; for (let k = a; k < lines.length && txt.split(/\s+/).length < 260; k++) txt += `${lines[k]} `; return `"${f.title}":\n${txt.trim()}`; };
+    const voice = studyFilms.length ? `\n\nHOW THE CHANNEL SOUNDS — two stretches of its real narration (study the voice: the sentence shapes, the asides, how one sentence picks up the last; never reuse a sentence):\n${pick(0)}\n\n${pick(1)}` : "";
+    const askOutline = (fix?: string) => structured({ stage: "script.outline", model: ROLE_MODEL.writer, system, user: `${factsBlock}\n\nPLAN THE FILM FIRST, to the structure above: exactly ${want} parts — an intro (title "Intro": the hook and the thesis) and ${lp.chapters} titled chapters. For each part: its title, its purpose, its beats in order, the roles of its segments (the twist in a middle chapter; the last chapter ends the film the channel's way) and the claim ids it will use. Open on this story's strongest first moment, not the way earlier films of ours opened.${fix ? `\n\n${fix}` : ""}`, schema: Outline, effort: "medium", maxTokens: 6000 }).catch(() => null);
+    let ol = await askOutline();
+    if (ol && ol.data.parts.length !== want) ol = (await askOutline(`Your last plan had ${ol.data.parts.length} parts. It must have exactly ${want}: "Intro" and ${lp.chapters} chapters.`)) ?? ol;
+    if (!ol || ol.data.parts.length < 2) return null;
+    const parts = ol.data.parts.slice(0, want);
     const plan = parts.map((c, i) => `${i}. ${c.title} — ${c.purpose}: ${c.beats.join(" → ")}`).join("\n");
-    const writePart = (k: number, feedback?: string) => structured({ stage: "script.part", model: ROLE_MODEL.writer, system, user: `${factsBlock}\n\nTHE FILM'S PLAN (title: ${ol.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": about ${k === 0 ? introWords : chapterWords} words; beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Spoken, not written: simple past told forwards, a figure then the narrator's verdict, one thread carried from sentence to sentence.${feedback ? `\n\nYOUR LAST VERSION OF THIS PART, AND WHAT THE SCRIPT REFEREE SAID — rewrite it:\n${feedback}` : ""}`, schema: Draft, effort: "medium", maxTokens: 6000 }).then((x) => x.data.segments).catch(() => null);
-    const drafts = await Promise.all(parts.map((_, k) => writePart(k)));
+    const wordsFor = (k: number) => (k === 0 ? introWords : chapterWords);
+    const writePart = (k: number, feedback?: string) => structured({ stage: "script.part", model: ROLE_MODEL.writer, system, user: `${factsBlock}${voice}\n\nTHE FILM'S PLAN (title: ${ol!.data.title}):\n${plan}\n\nWrite part ${k} only — "${parts[k]!.title}": ${wordsFor(k)} words (no fewer than ${Math.round(wordsFor(k) * 0.9)}); beats ${parts[k]!.beats.join(" → ")}; segment roles ${parts[k]!.roles.join(", ")}; claim ids ${parts[k]!.claimIds.join(", ") || "as needed"}. It follows "${parts[k - 1]?.title ?? "nothing — it opens the film"}" and leads into "${parts[k + 1]?.title ?? "nothing — it ends the film"}". Every segment's chapter field is "${parts[k]!.title}". Spoken, not written: simple past told forwards, a figure then the narrator's verdict, one thread carried from sentence to sentence, few questions.${feedback ? `\n\nYOUR LAST VERSION OF THIS PART, AND WHAT WAS WRONG WITH IT — rewrite the whole part:\n${feedback}` : ""}`, schema: Draft, effort: "medium", maxTokens: 8000 }).then((x) => x.data.segments).catch(() => null);
     const judge = (segs: z.infer<typeof Segment>[] | null) => (segs ? scriptReferee(root, segs.map((x) => x.text).join(" "), o.pack.channelId) : null);
+    const wc = (segs: z.infer<typeof Segment>[] | null) => (segs ? segs.reduce((n, x) => n + countWords(x.text), 0) : 0);
+    const AIM = 0.9; // the whole film's bar: every part is brought to it here, cheaply and at once
+    const drafts = await Promise.all(parts.map((_, k) => writePart(k)));
     const verdicts = drafts.map(judge);
-    const weak = verdicts.map((v, k) => (v && v.score < 0.85 ? k : -1)).filter((k) => k >= 0);
-    if (weak.length) {
-      const again = await Promise.all(weak.map((k) => writePart(k, `${drafts[k]!.map((x) => x.text).join(" ")}\n\n${scriptRefereeReport(verdicts[k]!)}`)));
-      weak.forEach((k, i) => { const v2 = judge(again[i] ?? null); if (again[i] && v2 && v2.score > (verdicts[k]?.score ?? -1)) { drafts[k] = again[i]!; verdicts[k] = v2; } });
+    const good = (k: number) => Boolean(drafts[k]) && (verdicts[k]?.score ?? 0) >= AIM && wc(drafts[k]!) >= wordsFor(k) * 0.85;
+    const firstScores = verdicts.map((v) => v?.score ?? 0);
+    let rounds = 0;
+    for (; rounds < 3; rounds++) {
+      const todo = parts.map((_, k) => k).filter((k) => !good(k));
+      if (!todo.length) break;
+      const again = await Promise.all(todo.map((k) => writePart(k, drafts[k] ? `${drafts[k]!.map((x) => x.text).join(" ")}\n\n${wc(drafts[k]!) < wordsFor(k) * 0.85 ? `TOO SHORT: ${wc(drafts[k]!)} words — it must be ${wordsFor(k)}.\n` : ""}${verdicts[k] ? scriptRefereeReport(verdicts[k]!) : ""}` : undefined)));
+      todo.forEach((k, i) => {
+        const v2 = judge(again[i] ?? null);
+        const better = again[i] && v2 && (!drafts[k] || v2.score + (wc(again[i]!) >= wordsFor(k) * 0.85 ? 0.05 : 0) > (verdicts[k]?.score ?? -1) + (drafts[k] && wc(drafts[k]!) >= wordsFor(k) * 0.85 ? 0.05 : 0));
+        if (better) { drafts[k] = again[i]!; verdicts[k] = v2; }
+      });
     }
     const segs = drafts.flatMap((d) => d ?? []);
-    log(`  writer: first draft in parallel — ${parts.length} parts, ${segs.reduce((n, x) => n + countWords(x.text), 0)} words, part scores ${verdicts.map((v) => v?.score ?? "?").join(" / ")}${weak.length ? ` (${weak.length} rewritten once)` : ""}, ${Math.round((Date.now() - t0) / 1000)} s`);
+    draftAtBar = parts.every((_, k) => good(k));
+    log(`  writer: first draft in parallel — ${parts.length} parts, ${wc(segs)} of ${targetWords} words, part scores ${firstScores.map((x) => x.toFixed(2)).join(" / ")} → ${verdicts.map((v) => v?.score ?? "?").join(" / ")} after ${rounds} parallel round(s), ${Math.round((Date.now() - t0) / 1000)} s${draftAtBar ? " — every part at the bar" : ""}`);
     return segs.length ? segs : null;
   };
   const firstDraft = await parallelDraft();
   const userStart = firstDraft ? `${factsBlock}\n\nA FIRST DRAFT HAS ALREADY BEEN WRITTEN, chapter by chapter in parallel, each part checked by the script referee (below, as segments). Do not start over. Read two of the channel's narrations, measure this draft, then fix only what fails — stretch by stretch, using check_passage as you go — and submit.\n\nFIRST DRAFT:\n${JSON.stringify(firstDraft)}` : user;
 
   log(`  writer: one author with tools — ${studyFilms.length} real films to study${heldBack.size ? ` (${heldBack.size} held back for the script referee)` : ""}, ${targetWords} words to write at ${o.narrationWpm} wpm (${ROLE_MODEL.writer})…`);
-  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user: userStart, tools, effort: "high", maxTurns: Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: Math.round(360 * lengthFactor), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
+  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user: userStart, tools, effort: "high", maxTurns: draftAtBar ? 14 : Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: draftAtBar ? 420 : Math.round(360 * lengthFactor), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
   const final = (accepted ?? lastSubmission) as z.infer<typeof Submission> | null;
   const lastEval = last as { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null;
   if (!final && !lastEval) throw new Error("writer: no draft was produced");
