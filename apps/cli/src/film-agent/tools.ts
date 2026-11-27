@@ -398,4 +398,9 @@ async function main() {
   }
 }
 void statSync; void dur; void pos;
-await main();
+// every command ends: a headless browser (screenshot, page reads) or a socket left open would keep the process alive
+// and block the agent's shell (found live on 2026-11-26: screenshots that saved their image and never exited)
+try { await main(); } finally {
+  await import("@opumia/resolver").then((r) => r.closeBrowser()).catch(() => {});
+  setTimeout(() => process.exit(process.exitCode ?? 0), 300).unref();
+}
