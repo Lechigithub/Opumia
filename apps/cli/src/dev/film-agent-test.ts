@@ -38,6 +38,7 @@ ok("guard: no write to the platform code", (await write(path.join(ROOT, "package
 ok("guard: no write into Library/", (await write(path.join(ROOT, "Library/x.json"))) === "deny");
 ok("guard: no reading a secret", (await read(path.join(process.env.HOME ?? "", ".opumia_keys"))) === "deny");
 ok("guard: reading the reference", (await read(path.join(ROOT, "Reference/done.txt"))) === "allow");
+ok("guard: another film of ours is off limits", (await read(path.join(ROOT, "out/hand-juicero-r/src/Film.tsx"))) === "deny" && (await bash(`ls ${ROOT}/out/hand-juicero-r`)) === "deny" && (await bash("cat ../out/agent-juicero-2/plan.json")) === "deny");
 
 // review findings (2026-11-26): home paths, deleting after cd, code that reads keys, reading the key loader
 ok("guard denies deleting a home path", (await bash("rm -rf ~/Opumia")) === "deny" && (await bash("rm -rf $HOME/Opumia")) === "deny");

@@ -46,6 +46,9 @@ export function guard(job: string, root: string, scene?: string) {
     [/(>|>>|\btee\b|\bmv\b|\bcp\b|\brm\b|\bsed\s+-i\b|\btouch\b|\bmkdir\b|\bln\b|\bunlink\b|\brsync\b)[^;&|\n]*\b(Library|Reference)\//, "Library/ and Reference/ are read-only"],
     [/\bcurl\b[^;&|\n]*\s-(X\s*(POST|PUT|DELETE|PATCH)|d\s|-data)/i, "no sending data to outside services"],
   ];
+  // a film is made from the reference and its own material, never from our other films (a test would be spoiled)
+  const outDir = path.join(root, "out"), mine = path.basename(job);
+  const otherFilm = (text: string) => [...text.matchAll(/(?:^|[\s"'=(])((?:[^\s"'=(]*\/)?out\/([\w.-]+))/g)].some((m) => m[2] !== mine && (m[1]!.startsWith("/") ? m[1]!.startsWith(outDir) : true)) || (text.startsWith(outDir + path.sep) && !text.startsWith(path.join(outDir, mine)));
   const WRITE_OP = /(>|>>|\btee\b|\bmv\b|\bcp\b|\brm\b|\bsed\s+-i\b|\btouch\b|\bln\b|\bunlink\b|\brsync\b|\bperl\s+-pi\b)/;
   /** a builder's own files: its scene (and folder), its media, downloads, stills, notes and ledgers */
   const ownBuilder = (abs: string) => {
@@ -58,6 +61,7 @@ export function guard(job: string, root: string, scene?: string) {
     const allow = { behavior: "allow" as const, updatedInput: input };
     if (tool === "Bash") {
       const c = String(input.command ?? "");
+      if (otherFilm(c)) return deny("other films in out/ are not yours to look at — make this film from the reference and your own material (film agent guard)");
       for (const [re, why] of BASH_DENY) if (re.test(c)) return deny(`${why} (film agent guard)`);
       for (const m of c.matchAll(/\brm\s+(-[a-zA-Z]+\s+)*([^;&|\n]+)/g)) for (const p of (m[2] ?? "").trim().split(/\s+/)) if (p && !p.startsWith("-") && !inside(p, job)) return deny(`rm outside the workspace: ${p} (film agent guard)`);
       // deleting after moving elsewhere: cd only inside the workspace when the command removes anything
@@ -82,6 +86,7 @@ export function guard(job: string, root: string, scene?: string) {
     }
     if (["Read", "Glob", "Grep"].includes(tool)) {
       const p = expand(String(input.file_path ?? input.path ?? input.pattern ?? ""));
+      if (otherFilm(p)) return deny("other films in out/ are not yours to look at — make this film from the reference and your own material (film agent guard)");
       return SECRET.test(p) || /\.(opumia_keys)|\/keys\.ts$/.test(p) ? deny("never read a secret (film agent guard)") : allow;
     }
     return allow;
