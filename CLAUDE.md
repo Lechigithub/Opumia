@@ -301,6 +301,33 @@ Craft roles are being rebuilt one at a time as real agents instead of single pro
 - **Gate:** a script that is not accepted is not narrated (`script.story.json`). The five-pass writer was removed (build list 3): a channel without a story band gets its band built first.
 - **Limits:** acceptance means "inside the channel's measured range and factually clean", not "as good as the channel" — nobody has judged these scripts by ear or eye yet. Only 90-second scripts have been run; long-form is untested. Research leaves many claims unverified (Kodak: 20 of 36 "unreachable"), which starves the writer of facts — a research-agent problem. The other roles (director, scene designer, packaging) are still single prompts.
 
+### The script referee (2026-11-27)
+
+Owner: the writer must write any script, at any length, the way the reference would. The writer's acceptance ("inside
+the channel's bands") had never been shown to tell a channel narration from ours, and the blind story judge was at
+chance. `tools/referee/script_referee.py` (`build` → `data/referee/magnates-media-script.json`, `score <txt|job>`),
+`agents/script-referee.ts`:
+- **Topic-free style fingerprint:** sentence rhythm (length, spread, short punches, long runs, change between
+  neighbours), questions and you / I / we, sentence openers, figures per word, word variety, the channel's 110 most
+  common function words (no names or subject words), how each sentence picks up the one before. Logistic regression
+  on 100-word windows (≈ 30 s); a script's score is the mean of its windows.
+- **Fair test:** the six narrations the picture referee holds back are held back here too and hidden from the writer's
+  reference tools; our 22 narrations are transcribed by local whisper like the channel's (the channel run through our
+  transcriber still reads as the channel: 0–7 % flagged), scored out of fold.
+- **Measured:** held-back channel windows flagged 2 %, our windows caught 84 %; whole held-back narrations 0.96–0.98,
+  their 90 s openings 0.59–1.00; our scripts 0.00–0.90 (Wirecard 0.90, WeWork 0.55, the rest ≤ 0.53; agent Juicero
+  0.12). Bars: whole film 0.9, scripts under 600 words 0.55 (the weakest held-back opening). The first version's
+  sharper separation leaned on names and subject words; the topic-free one is what is kept.
+- **Gaming:** cheap tricks ("This is where…" openers, questions and hedges removed) lifted a script of ours from 0.07
+  to 0.62 on the first model; such tricked versions of our scripts are now trained as ours (caught 86 % on scripts the
+  model never saw), and the writer is shown craft-level gaps only, never single words to sprinkle.
+- **Limits:** at 90 s the referee is noisy (one real opening at 0.59, our best at 0.90); only ≤ 4-minute scripts of ours
+  exist, so separation on long scripts is untested for ours; it reads style, not story or truth; the structure model
+  (shuffled, choppy, filler, flat) flags 23 % of real windows, so it is reported, not used.
+- **In the writer:** `measure_draft` reports the score, bar, craft gaps and weakest stretches; it does not block yet
+  (`SCRIPT_REFEREE_BLOCKS = false`) until a writer run shows the bar can be reached without tricks. Test:
+  `dev/script-referee-sanity.ts` (in regressions, 32/32).
+
 ### The researcher (second agent rebuilt)
 
 - **Why:** research was one pass — search once, fetch each source once with a basic request, drop every claim whose page could not be read. On Kodak 20 of 36 claims were lost that way (Washington Post, CNN Money, PetaPixel, Medium, even justice.gov refused or were gone), and the writer was left without the story's best facts.

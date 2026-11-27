@@ -21,6 +21,7 @@ import { critiqueNarrative, sentencesOf } from "./narrative.js";
 import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
 import type { StylePack } from "./style-pack.js";
+import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLOCKS } from "./script-referee.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
 const Segment = z.object({ role: z.enum(ROLES), chapter: z.string().describe("chapter title (long-form); empty for shorts"), text: z.string(), claimIds: z.array(z.string()).describe("fact-sheet claim ids this segment relies on"), visualIdea: z.string().describe("one line: what should be on screen (real footage, a staged scene, a chart, a document) — never AI imagery") });
@@ -158,12 +159,21 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     last = { segments, ok: issues.length === 0, issues, profile: story.profile };
     const p = story.profile;
     const header = `MEASURED (${words} words, ${lines.length} sentences) against ${band.films} real films of the channel:\n- explains what things mean: ${pc(p.share.explain)} of lines (channel ${pc(band.kinds.explain.p10)}–${pc(band.kinds.explain.p90)})\n- talks to the viewer or as the narrator: ${pc(p.viewerShare)} (channel ${pc(band.viewer.p10)}–${pc(band.viewer.p90)})\n- quotations: ${pc(p.share.quote)} (channel up to ${pc(band.kinds.quote.p90)})\n- bare facts: ${pc(p.share.fact)} (channel up to ${pc(band.kinds.fact.p90)})\n- scenes: ${pc(p.share.scene)}, motives: ${pc(p.share.motive)}, questions: ${pc(p.share.question)}, teases: ${pc(p.share.tease)}, general sayings: ${pc(p.share.maxim)}\n- sentences with a figure: ${pc(withDigit.length / Math.max(1, lines.length))}${scenes && sceneBand ? `\n- lines that put the viewer in a moment: ${pc(scenes.profile.moment)} (channel ${pc(sceneBand.moment.p25)}–${pc(sceneBand.moment.p90)} at ${sceneBand.lengthS} s); a named person wanting, fearing or deciding: ${pc(scenes.profile.agency)} (channel ${pc(sceneBand.agency.p25)}–${pc(sceneBand.agency.p90)})\n- time skipped without a bridge: ${scenes.profile.jumps.length} (${scenes.profile.jumps.map((j) => `${j.from}→${j.to}`).join(", ") || "none"}); opens on a moment: ${scenes.profile.opensOnMoment ? "yes" : "no"}; ending: ${ending?.kind ?? "?"}` : ""}`;
-    return { ok: issues.length === 0, report: issues.length ? `${header}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header}\n\nPASSES every check.` };
+    // the script referee (proven on held-back channel narrations): reported to the writer, blocking once proven
+    const verdict = dataDir ? scriptReferee(path.dirname(dataDir), text, o.pack.channelId) : null;
+    if (verdict && !verdict.pass && SCRIPT_REFEREE_BLOCKS) issues.push({ kind: "reads_unlike_channel", detail: `the script referee scores it ${verdict.score} (bar ${verdict.bar}); fix what it names, sentence by sentence, without changing the facts.` });
+    if (verdict) refereeSeen.push(verdict.score);
+    const header2 = verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header;
+    return { ok: issues.length === 0, report: issues.length ? `${header2}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header2}\n\nPASSES every check.` };
   };
 
   // ---- tools
   const filmsRead = new Set<string>();
-  const film = (id: string) => o.films.find((f) => f.id === id);
+  const refereeSeen: number[] = [];
+  // the narrations the script referee holds back are hidden from the writer's reference tools (a fair test)
+  const heldBack = dataDir ? heldBackScripts(dataDir, o.pack.channelId) : new Set<string>();
+  const studyFilms = o.films.filter((f) => !heldBack.has(f.id));
+  const film = (id: string) => studyFilms.find((f) => f.id === id);
   let accepted: z.infer<typeof Submission> | null = null;
   let noteSaved = false;
   let grace = 1; // one more turn after acceptance, for the writer's own note
@@ -207,14 +217,14 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
           }
           return out.join(" ");
         };
-        return o.films.slice(0, i.n ?? 6).map((f) => `"${f.title}"\n  OPENS: ${take(f.lines, false)}\n  CLOSES: ${take(f.lines, true)}`).join("\n\n");
+        return studyFilms.slice(0, i.n ?? 6).map((f) => `"${f.title}"\n  OPENS: ${take(f.lines, false)}\n  CLOSES: ${take(f.lines, true)}`).join("\n\n");
       }) as AgentTool["run"],
     } satisfies AgentTool,
     {
       name: "list_reference_films",
       description: "List the channel's real films you can read: id, title, length, what kind of story each is, and its own section sequence. Call this first to choose what to study.",
       schema: z.object({}),
-      run: async () => o.films.map((f) => `${f.id} | ${f.title} | ${f.minutes} min, ${f.lines.length} lines | ${f.note}\n   sections: ${f.sections.join(" → ")}`).join("\n"),
+      run: async () => studyFilms.map((f) => `${f.id} | ${f.title} | ${f.minutes} min, ${f.lines.length} lines | ${f.note}\n   sections: ${f.sections.join(" → ")}`).join("\n"),
     },
     {
       name: "read_reference_film",
@@ -236,7 +246,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
         const q = i.phrase.toLowerCase().trim();
         if (q.length < 3) throw new Error("phrase too short");
         const hits: string[] = [];
-        for (const f of o.films) {
+        for (const f of studyFilms) {
           for (let k = 0; k < f.lines.length && hits.length < 14; k++) if (f.lines[k]!.toLowerCase().includes(q)) hits.push(`${f.id} [${k}] … ${f.lines[k - 1] ?? ""} ▸ ${f.lines[k]} ▸ ${f.lines[k + 1] ?? ""}`);
           if (hits.length >= 14) break;
         }
@@ -295,7 +305,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const pass = accepted !== null;
   const report: StoryReport = { pass, rounds, remaining: pass ? [] : (lastEval?.issues ?? [{ kind: "not_submitted", detail: "the writer never submitted a script" }]), agent: { turns: run.turns, calls: run.calls, usd: Math.round(run.usd * 1e4) / 1e4, filmsRead: [...filmsRead] } };
   o.onStory?.(report);
-  log(`  writer: ${pass ? "script accepted" : "NO ACCEPTED SCRIPT"} after ${run.turns} turn(s) — read ${filmsRead.size} real film(s), measured ${run.calls.measure_draft ?? 0}×, submitted ${run.calls.submit_script ?? 0}×, $${run.usd.toFixed(2)}${pass ? "" : ` — still: ${report.remaining.map((x) => x.kind).join(", ")}`}`);
+  log(`  writer: ${pass ? "script accepted" : "NO ACCEPTED SCRIPT"} after ${run.turns} turn(s) — read ${filmsRead.size} real film(s), measured ${run.calls.measure_draft ?? 0}×, submitted ${run.calls.submit_script ?? 0}×, $${run.usd.toFixed(2)}${refereeSeen.length ? `, script referee ${refereeSeen.at(-1)} (best ${Math.max(...refereeSeen)})` : ""}${pass ? "" : ` — still: ${report.remaining.map((x) => x.kind).join(", ")}`}`);
   if (o.memoryDir) {
     await mkdir(o.memoryDir, { recursive: true });
     const p = rounds.at(-1)?.profile;
