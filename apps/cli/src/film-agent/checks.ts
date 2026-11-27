@@ -7,6 +7,8 @@
 //   period          footage under a line set before 2009 dated on its own frame (resolver periodCheck)
 //   faces           a stranger's face under a named person when real material of that person exists in the film
 //   repeats         one source, one moment or one scene's file used in two scenes
+//   closing         the closing title over footage clearly weaker than the film's strongest (the channel's move: the
+//                   title over the film's best picture — the Juicero rebuild's closing went 3.4 → 5.6 that way)
 //   dark            stretches of ≥ 2 s where almost nothing can be seen (below the channel's darkest 5 % of frames)
 //   sameness        line fit and sameness to our earlier films (tools/world/world_check.py)
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -61,6 +63,22 @@ export function numbersIn(text: string): Array<{ raw: string; value: number; uni
     out.push({ raw: m[0].trim(), value: n * (SC[s] ?? 1), unit: m[1] ?? (s === "%" || s === "percent" ? "%" : "") });
   }
   return out;
+}
+
+/** The closing title over footage clearly weaker than the film's strongest (scored by the picture referee, cached). */
+export async function closingFinding(root: string, job: string, plan: FilmPlan): Promise<Finding | null> {
+  const last = plan.scenes.at(-1);
+  if (!last || plan.scenes.length < 3) return null;
+  try {
+    const { rankFiles } = await import("./footage.js");
+    const placed = plan.scenes.map((s) => ({ id: s.id, files: sceneMedia(job, s.id).filter((m) => /^(v|img)\//.test(m) && !/_(cut|mask|depth)\./.test(m)).map((m) => path.join(job, "public", m)).filter(existsSync) }));
+    const scores = await rankFiles(root, job, placed.flatMap((x) => x.files));
+    const best = (files: string[]) => Math.max(-1, ...files.map((f) => scores.get(f) ?? -1));
+    const lastScore = best(placed.at(-1)!.files);
+    const top = placed.slice(0, -1).map((x) => ({ id: x.id, s: best(x.files), f: [...x.files].sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))[0] })).sort((a, b) => b.s - a.s)[0];
+    if (top && top.s > 0 && lastScore < top.s - 0.5 && lastScore < 4.9) return { check: "closing", scene: last.id, what: `the closing title sits on footage scoring ${lastScore < 0 ? "nothing (no footage)" : lastScore.toFixed(2)} while the film's strongest is ${top.s.toFixed(2)} (${top.id}: ${top.f ? path.relative(job, top.f) : "?"}) — the channel closes with the title over its best picture: use that footage, or another moment of it, under the title`, severity: "fix" };
+  } catch { /* the referee is not built here: not checked */ }
+  return null;
 }
 
 export async function preFinishChecks(o: { root: string; job: string; channel: string; plan?: FilmPlan; video?: string; models?: boolean; log?: (s: string) => void }): Promise<{ findings: Finding[]; text: string; usd: number }> {
@@ -155,6 +173,10 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
       r.forEach((v, k) => { const x = faceItems[k]!; if (v.face) findings.push({ check: "face", scene: x.scene, what: `${x.media} shows a face (${v.shows}) under a line naming ${named.filter((p) => p.scene === x.scene).map((p) => p.name).join(", ")} — real material of them is in the film, so a stranger may not stand in`, severity: "fix" }); });
     }
   }
+
+  // the closing title: over the film's strongest footage, as the channel closes (local referee, no model)
+  const closing = await closingFinding(o.root, o.job, plan);
+  if (closing) findings.push(closing);
 
   // stretches too dark to see (the channel's darkest 5 % of frames: data/quality-profile/<channel>-lit-band.json)
   if (existsSync(video)) {

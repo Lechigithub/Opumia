@@ -257,6 +257,22 @@ ok("signature object: the product in press footage passes", drawnObject("the Jui
   }
 }
 
+// the closing title over the film's strongest footage (local referee)
+{
+  const j3 = path.join(ROOT, "out/agent-juicero-3");
+  if (existsSync(path.join(j3, "public/v/s13_office.mp4")) && existsSync(path.join(ROOT, "data/referee/magnates-media-taste.json"))) {
+    const { closingFinding } = await import("../film-agent/checks.js");
+    const { cpSync } = await import("node:fs");
+    ok("closing: strong footage under the title passes", (await closingFinding(ROOT, j3, (await import("../film-agent/plan.js")).readPlan(j3)!)) === null);
+    const d = mkdtempSync(path.join(tmpdir(), "close-"));
+    for (const f of ["plan.json", "src", "public", "checks"]) cpSync(path.join(j3, f), path.join(d, f), { recursive: true });
+    const p = path.join(d, "src/scenes/s16.tsx");
+    writeFileSync(p, readFileSync(p, "utf8").replace(/v\/s16_pexels_13575994\.mp4/g, "v/s13_office.mp4"));
+    const c = await closingFinding(ROOT, d, (await import("../film-agent/plan.js")).readPlan(d)!);
+    ok("closing: weak footage under the title is sent back with the strongest named", c?.check === "closing" && /strongest is/.test(c.what), c?.what);
+  }
+}
+
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails
 const v7 = path.join(ROOT, "out/hand-wirecard-v7");
 if (existsSync(path.join(v7, "film_16x9.mp4"))) {
