@@ -376,7 +376,14 @@ Used: `film-length.ts:chaptersFor` (none under 5 min, else (length − 50 s) / 1
 18; was length / 120 s) and `openingS` 36 s for films ≥ 5 min (short films unchanged); the writer's long-form brief is
 `structureBrief`, and `structureIssues` refuses a long script with the wrong chapter count, chapters far shorter or
 longer than the channel's, a late thesis or a twist away from the middle. Test: `dev/structure-test.ts` (regressions
-33/33). Not yet exercised by a long script (none has been written).
+33/33).
+- **First long script** (Enron, 10 min, `out/writer-score/writer-long-enron`, $0.97): structure right (3 chapters of
+  2:28–3:52, thesis early, twist in the middle, opens on Watkins's memo); not accepted — the referee scored it 0.56
+  against the whole-film bar 0.90 (most 30 s stretches 0.8–1.0, four passages near 0, each stacking rhetorical
+  questions and "that tells you" asides), plus flat stretches and a bare number. The writer had run out of the fixed
+  6 minutes / 22 turns a 60 s script gets after 6 measurements. Fixed: the writer's time and turns grow with the
+  script (×1 to ×6 by words, `lengthFactor`); for long scripts the referee names words to cut and the craft gap per
+  weak stretch, worst first (`weakest`), since an average over many stretches washed them out.
 
 ### The researcher (second agent rebuilt)
 

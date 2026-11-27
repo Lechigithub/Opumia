@@ -92,6 +92,9 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const lp = lengthPlan(o.durationS);
   const short = lp.chapters === 0;
   const targetWords = Math.round((o.durationS * o.narrationWpm) / 60);
+  // the writer's turns and time grow with the script (a 10-minute Enron script, 1,659 words, ran out of the fixed 6 min
+  // and 22 turns that a 60-second script gets after 6 measurements; 2026-11-27): ×1 up to ~250 words, up to ×6
+  const lengthFactor = Math.max(1, Math.min(6, targetWords / 250));
   const claims = usableClaims(o.facts);
   const known = new Set(claims.map((c) => c.id));
   const st = o.facts.story;
@@ -314,7 +317,7 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
   const user = `Write the narration for this film.\n\nTOPIC: ${o.facts.topic}\nANGLE: ${o.facts.angle}\nSUMMARY: ${o.facts.summary}\n\n${dossier}\n\nFACT SHEET (the only facts you may use):\n${claims.map((c) => `[${c.id}] (${c.verdict}) ${c.text}`).join("\n")}${earlier ? `\n\nEARLIER FILMS OF OURS WERE BUILT LIKE THIS — build this one differently:\n${earlier}` : ""}${o.recentOpenings?.length ? `\n\nEARLIER FILMS OF OURS OPENED ON — open differently:\n${o.recentOpenings.map((x) => `- "${x}…"`).join("\n")}` : ""}${o.brief ? `\n\nTHE SHOWRUNNER SENT THE LAST VERSION OF THIS SCRIPT BACK. Keep what worked; change what it asks, for the reasons it gives:\n${o.brief}` : ""}\n\nStart by studying the channel's real films with your tools.`;
 
   log(`  writer: one author with tools — ${studyFilms.length} real films to study${heldBack.size ? ` (${heldBack.size} held back for the script referee)` : ""}, ${targetWords} words to write at ${o.narrationWpm} wpm (${ROLE_MODEL.writer})…`);
-  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user, tools, effort: "high", maxTurns: 22, maxSeconds: 360, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
+  const run = await agentLoop({ stage: "script.writer", finish: { message: "Your budget for this stage is used up. Call submit_script NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_script again." }, model: ROLE_MODEL.writer, system, user, tools, effort: "high", maxTurns: Math.round(22 * Math.sqrt(lengthFactor)), maxSeconds: Math.round(360 * lengthFactor), done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "You have not had a script accepted yet. Measure your current draft and submit it when it passes.", log });
   const final = (accepted ?? lastSubmission) as z.infer<typeof Submission> | null;
   const lastEval = last as { segments: z.infer<typeof Segment>[]; ok: boolean; issues: Array<{ kind: string; detail: string }>; profile: StoryProfile } | null;
   if (!final && !lastEval) throw new Error("writer: no draft was produced");

@@ -247,7 +247,14 @@ def score(arg):
     Xw = X[weak].mean(0) if weak else mu; pw = ((Xw - mu) / sd) * coef
     cut = [{"word": nm[i][10:-1], "ours": round(float(Xw[i]), 4), "channel": round(float(mu[i]), 4), "times": round(float(Xw[i] / max(mu[i], 1e-4)), 1)}
            for i in np.argsort(pw) if nm[i].startswith('the word "') and nm[i][10:-1] not in PRON | {"i", "you", "we"} and pw[i] < -0.3 and Xw[i] > mu[i] * 2 and Xw[i] >= 0.008][:6]
-    print(json.dumps({"score": round(s, 2), "bar": bar, "pass": s >= bar, "cut": cut,
+    # long scripts: the average over many weak stretches washes the words out — also name them per weak stretch, worst first
+    by_window = []
+    for i in sorted(weak, key=lambda i: p[i])[:4]:
+        pi = ((X[i] - mu) / sd) * coef
+        ws_ = [nm[k][10:-1] for k in np.argsort(pi) if nm[k].startswith('the word "') and nm[k][10:-1] not in PRON | {"i", "you", "we"} and pi[k] < -0.3 and X[i][k] > mu[k] * 2 and X[i][k] >= 0.02][:4]
+        crafts = [nm[k] for k in np.argsort(pi) if not nm[k].startswith('the word "') and pi[k] < -0.4][:2]
+        if ws_ or crafts: by_window.append({"from": i * (WIN // 2), "to": i * (WIN // 2) + WIN, "score": round(float(p[i]), 2), "cut": ws_, "craft": crafts})
+    print(json.dumps({"score": round(s, 2), "bar": bar, "pass": s >= bar, "cut": cut, "weakest": by_window,
                       "windows": [round(float(x), 2) for x in p], "weakWindows": [i for i, x in enumerate(p) if x < M["bars"]["window"]],
                       "structure": round(float(q.mean()), 2), "structureFlagged": [i for i, x in enumerate(q) if x < 0.5], "gaps": gaps}))
 
