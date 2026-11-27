@@ -34,10 +34,18 @@ export async function pool<T, R>(items: T[], n: number, f: (x: T) => Promise<R>)
   return out;
 }
 
+/** Media paths in a piece of code: staticFile("…") and any literal path into public/ (v/, img/, a/) passed as a prop
+ *  (src="v/clip.mp4"). Juicero rebuild, 2026-11-26: clips passed as props were invisible to the fair-use count. */
+export function mediaRefs(code: string): string[] {
+  const out = new Set<string>();
+  for (const m of code.matchAll(/staticFile\(\s*[`"']([^`"'$]+)[`"']/g)) out.add(m[1]!);
+  for (const m of code.matchAll(/[`"']((?:v|img|a)\/[^`"'$\s]+\.(?:mp4|mov|webm|jpe?g|png|webp|mp3|wav))[`"']/gi)) out.add(m[1]!);
+  return [...out];
+}
 /** Every staticFile the film's code draws (src/, generated entries excluded): what is actually on screen. */
 export function filmMedia(job: string): Set<string> {
   const out = new Set<string>();
-  const walk = (d: string) => { if (!existsSync(d)) return; for (const f of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) { if (f.name !== "entries") walk(p); } else if (/\.(tsx?|jsx?)$/.test(f.name)) for (const m of readFileSync(p, "utf8").matchAll(/staticFile\(\s*[`"']([^`"'$]+)[`"']/g)) out.add(m[1]!); } };
+  const walk = (d: string) => { if (!existsSync(d)) return; for (const f of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) { if (f.name !== "entries") walk(p); } else if (/\.(tsx?|jsx?)$/.test(f.name)) for (const m of mediaRefs(readFileSync(p, "utf8"))) out.add(m); } };
   walk(path.join(job, "src"));
   return out;
 }

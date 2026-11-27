@@ -638,6 +638,25 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     of it: the same untouched frames ranged 2.4–6.2, and no treatment lifts generic stock to the channel.
   - Hence `film-tools rank` (the referee on candidate footage before it is chosen), and builders are told to rank,
     then build with GlowCaption over a DarkPlate.
+- **Juicero rebuilt by hand with the platform's tools, no Claude API** (2026-11-26, `out/hand-juicero-r`, the
+  agents' Juicero narration). It proves the toolkit can reach the channel's bar on this story.
+  - **Referee by pass:** 4.39 → 4.32 → 4.56 → 4.85 → **5.05, passing** the 4.9 bar (the unbiased fold model:
+    4.81 → 5.10). The agents' Juicero scored about 4.0. The gate passes.
+  - **What moved it:**
+    - real footage of the real subject (VICE's Doug Evans, Fast Company's reporters);
+    - bright press footage played on a screen in a dark room (`RoomScreen`; 3.5 → 4.9);
+    - a real headline as a lit print over dark footage (`PressHeadline`; 3.5 → 4.9);
+    - a real photo as a print in dark footage (`PhotoPrint`);
+    - the title over the film's strongest footage (3.4 → 5.6);
+    - dark stock chosen by rank.
+  - **What did not:** darkening product shots, any global finish, generic hand-squeezing stock (all 3.8–4.6).
+  - **It does not prove the agents will do the same**; that needs a paid agent run.
+  - **Found and fixed:** clips passed to components as `src="v/…"` were invisible to the fair-use count (the gate read
+    0 clips; true share 26.6 %); `plan.ts:mediaRefs` now reads any literal media path.
+  - **Limits seen:**
+    - the referee rewards the documentary look, not fit to the line (choosing still needs the line);
+    - the 27 % real-footage cap binds a story whose proof is press footage;
+    - the production model scores material from our earlier films low.
 - **Agent reference tools:**
   - `film-tools ref similar "<line>"`: the channel's real shots under lines nearest in meaning — a word match over
     its 17,660 labelled shots, then one Haiku call — as a frame sheet, with how each was built.

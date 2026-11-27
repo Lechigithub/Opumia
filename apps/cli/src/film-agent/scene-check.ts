@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
-import { readPlan, sceneWindow, STUB, FPS } from "./plan.js";
+import { readPlan, sceneWindow, STUB, FPS, mediaRefs } from "./plan.js";
 import { builderProcess } from "./process.js";
 import type { GateCheck } from "./gate.js";
 
@@ -42,7 +42,7 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
   add("built", Boolean(code) && !code.includes(STUB), code.includes(STUB) ? "still the stub — build the scene" : `${code.split("\n").length} lines`);
   const others = [...code.matchAll(/from\s+["']\.\/(s\d{2})["']|from\s+["']\.\.\/scenes\/(s\d{2})["']/g)].map((m) => m[1] ?? m[2]).filter((x) => x !== id);
   add("own_scene", others.length === 0, others.length ? `imports another scene (${others.join(", ")}) — share through src/world.tsx or your own folder src/scenes/${id}/` : "imports no other scene");
-  const media = [...code.matchAll(/staticFile\(\s*[`"']([^`"'$]+)[`"']/g)].map((m) => m[1]!);
+  const media = mediaRefs(code);
   const missing = media.filter((m) => !existsSync(path.join(job, "public", m)));
   add("media_exist", missing.length === 0, missing.length ? `missing in public/: ${missing.join(", ")}` : `${media.length} file(s) used`);
   const credited = sceneCredits(job);

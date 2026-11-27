@@ -466,7 +466,36 @@ export const DarkPlate: React.FC<{ src: string; video?: boolean; trim?: number; 
   return <AbsoluteFill style={{ overflow: "hidden", background: "#000" }}>{p.video ? <OffthreadVideo src={src(p.src)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={style} /> : <Img src={src(p.src)} style={style} />}</AbsoluteFill>;
 };
 
+/**
+ * Bright news or product footage as the channel shows it: being watched on a screen in a dark room (Juicero rebuild,
+ * 2026-11-26: Bloomberg's squeeze test scored 3.5 full frame, 4.9 on a screen in a dark room; lab +0.4). `room` is a
+ * real dark place (a still or clip of this film's own), blurred and dimmed behind the screen.
+ */
+export const RoomScreen: React.FC<{ src: string; video?: boolean; trim?: number; room: string; roomVideo?: boolean; glow?: string; tilt?: number }> = (p) => {
+  const f = useCurrentFrame(), { fps, durationInFrames } = useVideoConfig();
+  const push = interpolate(f, [0, durationInFrames], [1, 1.06], clamp);
+  const fill: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
+  return (
+    <AbsoluteFill style={{ background: "#000", perspective: 1800 }}>
+      <AbsoluteFill style={{ filter: "brightness(0.35) blur(6px)", transform: `scale(${push})` }}>{p.roomVideo ? <OffthreadVideo src={src(p.room)} muted style={fill} /> : <Img src={src(p.room)} style={fill} />}</AbsoluteFill>
+      <div style={{ position: "absolute", left: "15%", top: "10%", width: "68%", height: "64%", transform: `rotateY(${p.tilt ?? -14}deg) rotateX(3deg) scale(${push})`, boxShadow: `0 0 90px ${p.glow ?? "rgba(255,190,120,.3)"}, 0 50px 120px rgba(0,0,0,.9)`, border: "14px solid #0b0c0e", borderRadius: 10, overflow: "hidden" }}>
+        {p.video === false ? <Img src={src(p.src)} style={{ ...fill, filter: "brightness(0.9) contrast(1.1)" }} /> : <OffthreadVideo src={src(p.src)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={{ ...fill, filter: "brightness(0.9) contrast(1.1)" }} />}
+        <AbsoluteFill style={{ background: "repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px)" }} />
+      </div>
+    </AbsoluteFill>
+  );
+};
+/** A real photo as a print laid into dark footage, not full frame (Juicero rebuild: a product photo 3.2 full frame,
+ *  higher as a print over the night office; v7's wanted poster among its highest moments). Put it over a DarkPlate. */
+export const PhotoPrint: React.FC<{ src: string; w?: number; rot?: number; y?: number; border?: string }> = (p) => {
+  const f = useCurrentFrame(), { durationInFrames } = useVideoConfig();
+  const k = interpolate(f, [0, 8], [0, 1], clamp), s = interpolate(f, [0, durationInFrames], [1, 1.07], clamp);
+  return <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}><Img src={src(p.src)} style={{ width: `${(p.w ?? 0.46) * 100}%`, border: `12px solid ${p.border ?? "#eae6dc"}`, transform: `rotate(${p.rot ?? -4}deg) scale(${s * (0.96 + 0.04 * k)})`, opacity: k, boxShadow: "0 50px 120px rgba(0,0,0,.9)", filter: "brightness(0.85) contrast(1.08) sepia(0.12)", marginTop: `${(p.y ?? -0.08) * 100}%` }} /></AbsoluteFill>;
+};
+
 export const CRAFT_TOOLS: Record<string, string> = {
+  RoomScreen: "bright news or product footage played on a screen in a dark room — the channel shows press footage as footage being watched (proven: +0.4 to +1.4 on the referee over full frame)",
+  PhotoPrint: "a real photo as a print laid into dark footage instead of full frame (proven on the referee; v7's wanted poster)",
   GlowCaption: "the channel's caption over footage: heavy condensed capitals glowing in the film's own colour, a dark shadow, settling in from a blur; a mono line under it (the referee's highest-scoring moments of our films are this over dark real footage)",
   DarkPlate: "real footage dimmed and pushing in slowly, so a caption reads and the shot feels lit — the plate under a GlowCaption",
   DepthPlate: "a real still made into a 3D surface from its own depth map (tools/depth/depth.py) and filmed by a real camera: dolly, drift and orbit with true parallax and occlusion — the channel's layered photo move",

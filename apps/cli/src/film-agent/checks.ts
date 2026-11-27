@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { readPlan, filmMedia, type FilmPlan } from "./plan.js";
+import { readPlan, filmMedia, mediaRefs, type FilmPlan } from "./plan.js";
 import { ledgers } from "./gate.js";
 
 export interface Finding { check: string; scene?: string; atS?: number; what: string; severity: "fix" | "look" }
@@ -25,7 +25,7 @@ export function sceneMedia(job: string, id: string): string[] {
   const dir = path.join(job, "src", "scenes", id);
   if (existsSync(dir)) for (const f of readdirSync(dir, { recursive: true }) as string[]) if (/\.tsx?$/.test(f)) files.push(path.join(dir, f));
   const out = new Set<string>();
-  for (const f of files) if (existsSync(f)) for (const m of readFileSync(f, "utf8").matchAll(/staticFile\(\s*[`"']([^`"'$]+)[`"']/g)) out.add(m[1]!);
+  for (const f of files) if (existsSync(f)) for (const m of mediaRefs(readFileSync(f, "utf8"))) out.add(m);
   return [...out];
 }
 
