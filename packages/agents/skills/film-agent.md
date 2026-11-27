@@ -39,6 +39,8 @@ reference and it holds up. This playbook is how the platform's best film so far 
   picture lit. A scene where most of the frame is black fails its check (`too_dark`), and so does any stretch of the
   film ≥ 2 s like that.
 - **Real receipts:** real headlines, documents and share charts marked as proof, with source and date.
+- **People acting out the line:** where there is no real material, the channel shows a person performing or reacting
+  to the line, lit low-key, under a big caption — not an object, a place or a mood. Search for that first.
 - **Scenes that grow:** an idea held 5–8 s with layers arriving on the voice; a figure carried across shots; a wall of
   screens; a glitch reveal of a face for a shock. Choose what the story calls for.
 - **Sound:** the narration at −16 LUFS; a bed about 16 dB under the voice in the cold open and 19 dB in the body,

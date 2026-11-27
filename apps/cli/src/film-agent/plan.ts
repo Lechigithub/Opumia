@@ -81,6 +81,22 @@ export function drawnObject(so: string): string | null {
   return null;
 }
 
+/**
+ * A search for a person performing or reacting to the line, the channel's most common shot (a performed actor, lit
+ * low-key, under a big caption). Search test, 2026-11-27: queries like "man counting money desk lamp" found 7 of 155
+ * candidates at the channel's level (4 fitting their line); objects and places ("sports car night garage") 1 of 157;
+ * the agents' mood searches ("dark moody single light bulb") found dark pictures that fit nothing.
+ */
+export const PERSON = /\b(man|men|woman|women|person|people|hands?|fingers|worker|workers|businessman|businessmen|businesswoman|investors?|executives?|crowd|faces?|customers?|engineers?|founder|boss|salesman|employees?|couple|family|child|kid|actors?|reporters?|audience|speaker|presenter|chef|banker|lawyer|judge|guy|girl|boy|he|she)\b/i;
+const REAL_HINT = /\b(press|news|clip|screenshot|film scene|movie)\b/i;
+/** A scene with no real material must plan at least one stock or films search for a person acting out the line. */
+export function needsPerformedSearch(s: ScenePlan): boolean {
+  const hows = (s.pictures ?? []).map((p) => p.how ?? "");
+  if (hows.some((h) => REAL_HINT.test(h))) return false;
+  const searches = hows.flatMap((h) => h.split(/\s+\/\s+|;\s*/)).map((h) => /^\s*(stock|films?)\s*:\s*(.+)$/i.exec(h)?.[2] ?? "").filter(Boolean);
+  return !searches.some((q) => PERSON.test(q));
+}
+
 /** What is wrong with a plan (empty = usable). lengthS is the film (narration + title); narrationS the voice alone. */
 export function validatePlan(plan: FilmPlan | null, lengthS: number, narrationS: number, job?: string): string[] {
   if (!plan) return ["plan.json is missing or not valid JSON"];
@@ -105,6 +121,7 @@ export function validatePlan(plan: FilmPlan | null, lengthS: number, narrationS:
     const prev = sc[i - 1];
     if (i === 0 && Math.abs(s.from) > 0.05) e.push(`${n}: the first scene starts at 0`);
     if (prev && Math.abs(prev.to - s.from) > 0.05) e.push(`${n}: starts at ${s.from} but ${prev.id} ends at ${prev.to} — scenes must touch`);
+    if (needsPerformedSearch(s)) e.push(`${n}: no real material and no search for a person acting out the line — add to pictures[].how a "stock: …" search for a person performing or reacting to it, lit low-key ("man counting money desk lamp", "man staring at machine dark room"): the channel's most common shot; objects, places and moods rarely read like it`);
   });
   const last = sc.at(-1);
   if (last && (last.to < narrationS - 0.05 || last.to > lengthS + 0.1)) e.push(`the last scene must end at ${lengthS.toFixed(2)} s (the film's length), not ${last.to}`);

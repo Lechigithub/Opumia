@@ -689,6 +689,17 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     are neither the scene's nor the narration's), `searched_enough` (footage below the channel's weakest moments
     after < 3 searches, prefetch included); `RoomScreen crop/focus`. On agent Juicero as delivered they fail s02,
     s04, s06, s14 (best footage) and s16 (footage hidden).
+  - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
+    shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
+    → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
+    darkness.
+  - **How to search** (search test, `out/search-test*`): for Juicero's weakest lines, queries for a person performing
+    or reacting to the line, lit low-key ("man counting money desk lamp", "man staring at machine dark room") found 7
+    of 155 candidates at ≥ 5.0 (4 fitting their line; the rebuild's 6.0 footage was this kind), objects and places
+    1 of 157, the agents' mood queries dark pictures fitting nothing. `ref similar` matches meaning only roughly.
+    Hence `plan.ts:needsPerformedSearch` (a scene with no real material must plan such a search; on agent Juicero
+    it flags s03, s05, s08, s16 — the gauge, timer, car and title scenes), `searched_enough` needs one such search,
+    and the planner, builder and shared playbooks say so.
 - **Agent reference tools:**
   - `film-tools ref similar "<line>"`: the channel's real shots under lines nearest in meaning — a word match over
     its 17,660 labelled shots, then one Haiku call — as a frame sheet, with how each was built.

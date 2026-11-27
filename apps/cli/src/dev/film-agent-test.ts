@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { guard, runFilmAgent, pool, session, type Ctx } from "../film-agent/run.js";
 import { filmGate, ledgers } from "../film-agent/gate.js";
-import { validatePlan, scaffold, sceneWindow, sceneBrief, drawnObject, type FilmPlan } from "../film-agent/plan.js";
+import { validatePlan, scaffold, sceneWindow, sceneBrief, drawnObject, needsPerformedSearch, type FilmPlan } from "../film-agent/plan.js";
 import { sceneCheck, litShare, darkBar } from "../film-agent/scene-check.js";
 import { searchesOf } from "../film-agent/prefetch.js";
 import { draftMix, HIT_GAP_S } from "../film-agent/sound-draft.js";
@@ -77,9 +77,9 @@ writeFileSync(path.join(pj, "timed-script.json"), JSON.stringify({ durationS: 8 
 await runFilmAgent({ root: ROOT, job: pj, channel: "magnates-media", durationS: 8, maxUsd: 9, model: "claude-sonnet-5-5", dryRun: true, log: () => {} });
 const L = 10.6;
 const plan: FilmPlan = { world: "night glass, steel blue", signatureObject: "the brass card terminal", scenes: [
-  { id: "s01", from: 0, to: 4, words: "a", idea: "the hook", seen: "the city" },
-  { id: "s02", from: 4, to: 8, lead: 0.6, words: "b", idea: "the turn", seen: "the terminal" },
-  { id: "s03", from: 8, to: L, words: "", idea: "the title", seen: "the title" }] };
+  { id: "s01", from: 0, to: 4, words: "a", idea: "the hook", seen: "the city", pictures: [{ need: "the city", how: "stock: man walking alone city night" }] },
+  { id: "s02", from: 4, to: 8, lead: 0.6, words: "b", idea: "the turn", seen: "the terminal", pictures: [{ need: "the terminal", how: "press: Wirecard card terminal" }] },
+  { id: "s03", from: 8, to: L, words: "", idea: "the title", seen: "the title", pictures: [{ need: "the title", how: "stock: businessman staring at screen dark office" }] }] };
 ok("plan: a usable plan passes", validatePlan(plan, L, 8).length === 0, validatePlan(plan, L, 8).join("; "));
 const bad: FilmPlan = { world: "", signatureObject: "", scenes: [{ id: "x1", from: 0.5, to: 3, words: "a", idea: "", seen: "s" }, { id: "s02", from: 3.4, to: 20, words: "b", idea: "i", seen: "s" }] };
 const errs = validatePlan(bad, L, 8, pj);
@@ -204,6 +204,15 @@ ok("signature object: a timer graphic is refused", drawnObject("a countdown time
 ok("signature object: a real document passes", drawnObject("the bank confirmation letter") === null);
 ok("signature object: a real gauge on film passes", drawnObject("the real pressure gauge on the press, filmed in the teardown footage") === null);
 ok("signature object: the product in press footage passes", drawnObject("the Juicero press itself, in Bloomberg's footage") === null);
+
+// where there is no real material, the plan searches for a person acting out the line (search test, 2026-11-27)
+{
+  const sc = (how: string) => ({ id: "s01", from: 0, to: 3, words: "x", idea: "x", seen: "x", pictures: [{ need: "x", how }] }) as never;
+  ok("plan: a mood search alone is refused", needsPerformedSearch(sc("stock: dark moody single light bulb")));
+  ok("plan: objects and places alone are refused", needsPerformedSearch(sc("stock: sports car night garage / commons: Tesla Model S")));
+  ok("plan: a person acting out the line passes", !needsPerformedSearch(sc("stock: man counting money desk lamp / stock: boardroom night")));
+  ok("plan: real material passes", !needsPerformedSearch(sc("press: Juicero press Bloomberg")));
+}
 
 // too dark to see: the channel's darkest 5 % of frames still show ≥ 3 % of the picture lit
 {

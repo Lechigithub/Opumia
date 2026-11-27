@@ -29,7 +29,15 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    `stock-get`, `films`, `cutout`, `depth`). LOOK at every candidate (strips, sheets, a frame of each download)
    before you use it: does it show the line? Is it the real person? Is it the right period? Sharp, no watermark,
    no one else's graphics (crop them away)? The tools refuse a moment, stock clip or photo another scene already
-   brought in — the same picture twice reads as a repeat; find another.
+   brought in — the same picture twice reads as a repeat; find another. When you search stock or films:
+   the channel's most common shot is a person performing or reacting to the line, lit low-key, under a
+   big caption — search for people doing THIS line ("man counting money desk lamp" for "$120 million from
+   backers", "man staring at machine dark room" for "what was the machine for?", "man pitching on stage dark
+   audience" for a sales claim). Measured on Juicero: such searches found 7 of 155 candidates at the channel's level,
+   objects and places ("sports car night garage", "boardroom") 1 of 157, moods ("dark moody light bulb") dark
+   pictures that fit no line. Objects and places second; moods only as backgrounds.
+   `film-tools ref similar` matches by meaning only roughly (it matched "force to lift two Teslas" to a man named
+   Frick being "a force"): take from it what KIND of shot the channel uses, not its words.
 4. **Rank your candidates with the referee** before choosing: `film-tools rank downloads/<id>/… public/v/<id>_…`.
    Footage decides most of how a scene reads (the same untouched frames ranged 2.4–6.2 in the recipe lab); among the
    pictures that show your line, take the highest — dark, dramatic, real footage of the subject reads like the channel,

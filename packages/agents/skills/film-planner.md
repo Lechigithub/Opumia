@@ -46,7 +46,15 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
    ```
    - `pictures[].how` starts the searches before any builder begins (several separated by " / "):
      `press: <a news library's words>`, `film scene: <film or TV scene>`, `stock: <what is seen>`,
-     `commons: <subject>`, `films: <public-domain film moment>`. Write them as a picture researcher would.
+     `commons: <subject>`, `films: <public-domain film moment>`. Write them as a picture researcher would:
+     the channel's most common shot is a person performing or reacting to the line, lit low-key, under a
+     big caption — search for people doing THIS line ("man counting money desk lamp" for "$120 million from
+     backers", "man staring at machine dark room" for "what was the machine for?", "man pitching on stage dark
+     audience" for a sales claim). Measured on Juicero: such searches found 7 of 155 candidates at the channel's level,
+     objects and places ("sports car night garage", "boardroom") 1 of 157, moods ("dark moody light bulb") dark
+     pictures that fit no line. Objects and places second; moods only as backgrounds.
+     A scene with no real material (press, clip, screenshot) must have at least one such person search — the plan
+     is refused without it.
    - `entities`: the real people, companies and places the scene's words name (the face check and the thumbnail
      use them). `year`: the year the line is about (footage is dated against it). `mark`: `turn` for each story turn,
      `biggest` for the film's biggest line (the sound draft puts a riser, a hit or a drop-out there).

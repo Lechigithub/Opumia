@@ -17,6 +17,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, renameS
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { toolCalls } from "./process.js";
+import { PERSON } from "./plan.js";
 
 export const FOOTAGE_GAP = 0.8; // a candidate this far above the placed footage must be used or answered
 export const TREATMENT_LOSS = 0.6; // a scene this far below its own footage is hiding it
@@ -128,8 +129,11 @@ export async function footageChecks(o: { root: string; job: string; id: string; 
   const calls = toolCalls(o.job, `build-${o.id}`);
   if (calls.length && best < o.stretchLow) {
     const prefetch = existsSync(path.join(o.job, "downloads", o.id, "PREFETCH.md")) ? (readFileSync(path.join(o.job, "downloads", o.id, "PREFETCH.md"), "utf8").match(/^## film-tools .*/gm) ?? []) : [];
-    const searches = prefetch.length + new Set(calls.filter((c) => c.name === "Bash").map((c) => String(c.input.command ?? "")).flatMap((c) => c.match(/film-tools\s+(stock|press|films|commons|screenshot|clip)\s+[^;&|\n]*/g) ?? [])).size;
-    out.push({ id: "searched_enough", pass: searches >= 3, detail: searches >= 3 ? `${searches} searches before settling on footage at ${best.toFixed(2)}` : `the footage you placed (${best.toFixed(2)}) is below the channel's weakest moments (${o.stretchLow}) after ${searches} search${searches === 1 ? "" : "es"} — search again for what the channel shows under lines like yours (film-tools ref similar "<your words>", then stock/films/press for that), at least three different searches` });
+    const own = [...new Set(calls.filter((c) => c.name === "Bash").map((c) => String(c.input.command ?? "")).flatMap((c) => c.match(/film-tools\s+(stock|press|films|commons|screenshot|clip)\s+[^;&|\n]*/g) ?? []))];
+    const searches = prefetch.length + own.length;
+    const performed = [...prefetch, ...own].some((q) => /film-tools\s+(stock|films)\b/.test(q) && PERSON.test(q.replace(/film-tools\s+\S+/, "")));
+    const ok = searches >= 3 && performed;
+    out.push({ id: "searched_enough", pass: ok, detail: ok ? `${searches} searches, one for a person acting out the line, before settling on footage at ${best.toFixed(2)}` : `the footage you placed (${best.toFixed(2)}) is below the channel's weakest moments (${o.stretchLow}) after ${searches} search${searches === 1 ? "" : "es"}${performed ? "" : ", none for a person acting out the line"} — the channel's most common shot is a person performing or reacting to the line, lit low-key: film-tools stock "man counting money desk lamp" "man staring at machine dark room" (people doing YOUR line); at least three searches` });
   }
   return out;
 }
