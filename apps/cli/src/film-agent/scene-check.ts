@@ -70,5 +70,19 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
   const allCredits = [...jread<Array<{ file: string; kind: string }>>(path.join(job, "credits.json"), []), ...(existsSync(path.join(job, "credits")) ? readdirSync(path.join(job, "credits")).filter((f) => f.endsWith(".json")).flatMap((f) => jread<Array<{ file: string; kind: string }>>(path.join(job, "credits", f), [])) : [])];
   const drawsReal = media.some((m) => allCredits.some((c) => realKinds.test(c.kind) && (c.file === m || raw(m).includes(path.basename(c.file).replace(/\.\w+$/, "")))));
   for (const c of builderProcess(job, plan, id, drawsReal)) add(c.id, c.pass, c.detail);
+  // the referee on the scene's own stills (inside a production: the builder's log exists and the stills were rendered)
+  const stills = path.join(job, "stills", id, "check");
+  if (existsSync(path.join(job, "logs", `build-${id}.tools.jsonl`)) && existsSync(stills)) {
+    try {
+      const { refereeConfig, refereeScore } = await import("../referee/score.js");
+      const root = process.env.OPUMIA_ROOT ?? process.cwd();
+      const cfg = refereeConfig(path.join(root, "data"), "magnates-media");
+      const files = readdirSync(stills).filter((f) => f.endsWith(".jpg")).map((f) => path.join(stills, f));
+      if (cfg && files.length) {
+        const v = await refereeScore({ root, data: path.join(root, "data"), reference: path.resolve(root, process.env.OPUMIA_REFERENCE_DIR ?? "Reference"), channel: "magnates-media", stills: files });
+        add("referee", v.score >= cfg.stretchLow, `${v.score} against the channel (its weakest tenth of moments: ${cfg.stretchLow}; a whole channel film ≥ ${cfg.filmBar})${v.score >= cfg.stretchLow ? "" : ` — this reads below the channel's weakest moments: film-tools ref similar "<your words>" shows how it puts a line like yours on screen`}`);
+      }
+    } catch { /* the referee is not built yet: not checked */ }
+  }
   return { pass: checks.every((c) => c.pass), checks };
 }

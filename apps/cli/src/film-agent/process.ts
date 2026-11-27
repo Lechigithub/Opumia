@@ -49,6 +49,9 @@ export function builderProcess(job: string, plan: FilmPlan, id: string, drawsRea
   const out: Array<{ id: string; pass: boolean; detail: string }> = [];
   const looked = reads(calls).filter((f) => new RegExp(`/stills/${id}/(?!check/)|/watch/[^/]*${id}|scene_${id}`).test(f)).length;
   out.push({ id: "looked", pass: looked > 0, detail: looked ? `looked at ${looked} rendered frame(s) of the scene` : `render your scene (film-tools render --stills …) and Read the stills before you finish — nothing of it was looked at` });
+  // it saw how the channel shows a line like its own before building (retrieval over the channel's labelled shots)
+  const studied = commands(calls).filter((c) => /film-tools\s+ref\s+(similar|technique)\b/.test(c)).length;
+  out.push({ id: "studied", pass: studied > 0, detail: studied ? `looked at how the channel shows lines like this (${studied} search${studied > 1 ? "es" : ""})` : `before you build, see how the channel shows a line like yours: film-tools ref similar "<your scene's words>" (and Read the sheet), or film-tools ref technique "<technique>"` });
   const scene = plan.scenes.find((s) => s.id === id);
   const subjects = (scene?.entities ?? []).filter((e) => e.type === "person" || e.type === "company");
   if (subjects.length && !drawsReal) {

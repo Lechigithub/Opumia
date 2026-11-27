@@ -184,9 +184,10 @@ ok("adapters: the world's colours are valid design tokens (a bad colour falls ba
   writeFileSync(toolLog(pj, "build-s02"), line("Bash", { command: "film-tools stock 'dark office tower'" }));
   const b1 = builderProcess(pj, sp, "s02", false);
   ok("builder: never looked at its scene, never searched for the named person — both fail", b1.find((c) => c.id === "looked")?.pass === false && b1.find((c) => c.id === "real_first")?.pass === false);
-  writeFileSync(toolLog(pj, "build-s02"), [line("Bash", { command: 'film-tools press "Markus Braun Wirecard" --person "Markus Braun"' }), line("Read", { file_path: `${pj}/stills/s02/t5.10.jpg` })].join(""));
+  ok("builder: never studied how the channel shows its line — fails", b1.find((c) => c.id === "studied")?.pass === false);
+  writeFileSync(toolLog(pj, "build-s02"), [line("Bash", { command: 'film-tools ref similar "Braun turned Wirecard into a tech champion"' }), line("Bash", { command: 'film-tools press "Markus Braun Wirecard" --person "Markus Braun"' }), line("Read", { file_path: `${pj}/stills/s02/t5.10.jpg` })].join(""));
   const b2 = builderProcess(pj, sp, "s02", false);
-  ok("builder: looked at its stills and searched first — both pass", b2.every((c) => c.pass), JSON.stringify(b2));
+  ok("builder: studied the channel, looked at its stills and searched first — all pass", b2.every((c) => c.pass), JSON.stringify(b2));
   ok("builder: a scene that shows real material needs no search check", !builderProcess(pj, sp, "s02", true).some((c) => c.id === "real_first"));
   const tells = ["Data-dashboard graphics: progress bars feel like a tech explainer", "Smooth glossy macro liquid shots with no grain or vignette texture"];
   ok("finisher: tells not in TELLS.md are open", tellsAnswered(pj, tells).length === 2);

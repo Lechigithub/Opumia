@@ -48,7 +48,70 @@ const others = <T>(kind: "credits" | "fair-use"): T[] => {
   const dir = path.join(JOB, kind);
   return existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json") && f !== `${SCENE}.json`).flatMap((f) => jread<T[]>(path.join(dir, f), []).map((x) => ({ ...x, scene: f.replace(/\.json$/, "") }))) : [];
 };
+/** The referee's held-back films (data/referee/<channel>.json): never shown to an agent, so the referee's test stays
+ *  clean. Reference folders are "YYYYMMDD - title", film ids "MM-YYYYMMDD". */
+const HELD = new Set((jread<{ holdout?: string[] }>(path.join(ROOT, "data", "referee", `${CHANNEL}.json`), {}).holdout ?? []).map((id) => id.replace(/^[A-Z]+-/, "")));
+export const refFilms = (): string[] => (existsSync(REF_DIR) ? readdirSync(REF_DIR).filter((d) => /^\d{8} - /.test(d) && !HELD.has(d.slice(0, 8))).sort() : []);
 const dur = (f: string) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f]).toString().trim() || 0);
+
+/** What the channel put on screen under lines like this one: its labelled shots, narrowed by shared words (free), then
+ *  the nearest in meaning and role (one small Haiku call); a frame of each, on one sheet, and how each was built. */
+async function refSimilar(line: string, n: number) {
+  if (!line.trim()) { console.log('film-tools ref similar "<a line of your narration>"'); return; }
+  const stop = new Set("the a an and or of to in on for with that this was were is are it its his her their they he she we you i at by from as be been but not so then than into about over after before".split(" "));
+  const toks = (s: string) => s.toLowerCase().replace(/[^a-z0-9$%€£ ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stop.has(w));
+  const q = new Set(toks(line));
+  const shots: Array<{ film: string; t0: number; t1: number; line: string; picture: string; overlay: string; motion: number; textArea: number; transitionIn: string }> = [];
+  const allowed = new Set(refFilms().map((f) => f.slice(0, 8)));
+  for (const l of readFileSync(path.join(ROOT, "data", "reference-index", "shots.jsonl"), "utf8").split("\n")) {
+    if (!l.includes(`"channel":"${CHANNEL}"`)) continue;
+    const s = JSON.parse(l) as (typeof shots)[number] & { channel: string };
+    if (allowed.has(s.film.replace(/^[A-Z]+-/, "")) && s.line && s.line.split(" ").length >= 4) shots.push(s);
+  }
+  const df = new Map<string, number>();
+  for (const s of shots) for (const w of new Set(toks(s.line))) df.set(w, (df.get(w) ?? 0) + 1);
+  const scored = shots.map((s, i) => ({ i, v: [...new Set(toks(s.line))].reduce((t, w) => t + (q.has(w) ? Math.log(shots.length / (df.get(w) ?? 1)) : 0), 0) })).sort((a, b) => b.v - a.v);
+  // the word match narrows; a spread of story roles is kept even when few words match
+  const pool = [...scored.slice(0, 45), ...scored.slice(45).filter((_, k) => k % Math.max(1, Math.floor(scored.length / 15)) === 0).slice(0, 15)].map((x) => shots[x.i]!);
+  const { nearestByMeaning } = await import("@opumia/agents");
+  const pick = await nearestByMeaning(`a documentary narration line: "${line}"`, pool.map((s) => `"${s.line}" → shown as ${s.picture}${s.overlay !== "none" ? ` + ${s.overlay}` : ""}`), Math.min(n, pool.length), "real shot").catch(() => pool.slice(0, n).map((_, k) => k));
+  const out = ensure(path.join(WS, "downloads", "ref-similar"));
+  const tag = createHashShort(line);
+  const frames: string[] = [];
+  for (const [k, idx] of pick.entries()) {
+    const s = pool[idx]!;
+    const folder = refFilms().find((f) => f.startsWith(s.film.replace(/^[A-Z]+-/, "")));
+    const mp4 = folder ? readdirSync(path.join(REF_DIR, folder)).find((f) => f.endsWith(".mp4")) : undefined;
+    const fr = path.join(out, `${tag}_${k + 1}.jpg`);
+    if (folder && mp4 && !existsSync(fr)) spawnSync("ffmpeg", ["-v", "error", "-y", "-ss", ((s.t0 + s.t1) / 2).toFixed(2), "-i", path.join(REF_DIR, folder, mp4), "-frames:v", "1", "-vf", "scale=640:-2", fr]);
+    if (existsSync(fr)) frames.push(fr);
+    console.log(`${k + 1}. ${folder ?? s.film} at ${s.t0.toFixed(1)}–${s.t1.toFixed(1)} s — "${s.line.slice(0, 140)}"\n   shown as: ${s.picture}${s.overlay !== "none" ? ` + ${s.overlay}` : ", nothing laid over it"}; motion ${Math.round(s.motion)}; words on ${Math.round(s.textArea * 100)} % of the frame; enters by ${s.transitionIn}\n   frame: ${fr}`);
+  }
+  if (frames.length > 1) {
+    const sheet = path.join(out, `${tag}_sheet.jpg`);
+    spawnSync("ffmpeg", ["-v", "error", "-y", ...frames.flatMap((f) => ["-i", f]), "-filter_complex", `${frames.map((_, k) => `[${k}:v]scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2[f${k}]`).join(";")};${frames.map((_, k) => `[f${k}]`).join("")}xstack=inputs=${frames.length}:layout=${frames.map((_, k) => `${(k % 3) * 640}_${Math.floor(k / 3) * 360}`).join("|")}`, "-frames:v", "1", sheet]);
+    if (existsSync(sheet)) console.log(`sheet (in the order above, 3 per row): ${sheet}`);
+  }
+  console.log("Read the sheet; build your scene the way the channel did it, with this film's own material. Watch a moment with film-tools ref watch.");
+}
+const createHashShort = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7).toString(36);
+
+/** Real examples of a technique from the channel's craft inventory: its definition and the stretches where it is seen. */
+function refTechnique(q: string, n: number) {
+  const dir = path.join(ROOT, "data", "technique-inventory", CHANNEL);
+  const tax = jread<Array<{ id: string; name: string; category: string; definition: string; seeIn?: string }>>(path.join(dir, "taxonomy.json"), []);
+  const rows = jread<Array<{ film: string; fromS: number; words: string; sheet: string; seen: Record<string, number> }>>(path.join(dir, "rows.json"), []);
+  if (!q.trim()) { console.log(`${tax.length} techniques:\n${tax.map((t) => `${t.id} — ${t.name} (${t.category})`).join("\n")}`); return; }
+  const qt = q.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
+  const best = tax.map((t) => ({ t, v: t.id === q ? 99 : qt.filter((w) => `${t.id} ${t.name} ${t.definition}`.toLowerCase().includes(w)).length })).sort((a, b) => b.v - a.v).filter((x) => x.v > 0).slice(0, 3);
+  if (!best.length) { console.log(`no technique matches "${q}" — film-tools ref technique (no words) lists them all`); return; }
+  const allowed = new Set(refFilms().map((f) => f.slice(0, 8)));
+  for (const { t } of best) {
+    const ex = rows.filter((r) => (r.seen[t.id] ?? 0) > 0 && allowed.has(r.film.replace(/^[A-Z]+-/, ""))).sort((a, b) => (b.seen[t.id] ?? 0) - (a.seen[t.id] ?? 0)).slice(0, n);
+    console.log(`\n${t.id} — ${t.name} (${t.category})\n  ${t.definition}${t.seeIn ? `\n  look for: ${t.seeIn}` : ""}\n  seen in ${rows.filter((r) => (r.seen[t.id] ?? 0) > 0).length} of ${rows.length} measured stretches of the channel`);
+    for (const r of ex) console.log(`  - ${refFilms().find((f) => f.startsWith(r.film.replace(/^[A-Z]+-/, ""))) ?? r.film} at ${r.fromS.toFixed(0)} s: "${r.words.slice(0, 100)}…"\n    sheet: ${r.sheet}  (watch it: film-tools ref watch "${r.film.replace(/^[A-Z]+-/, "")}" ${Math.floor(r.fromS)} ${Math.floor(r.fromS) + 10} --fps 12)`);
+  }
+}
 
 async function main() {
   switch (cmd) {
@@ -58,8 +121,10 @@ async function main() {
     }
     // ---- the reference
     case "ref": {
-      const films = readdirSync(REF_DIR).filter((d) => /^\d{8} - /.test(d)).sort();
+      const films = refFilms();
       if (args[0] === "list") { films.forEach((f) => console.log(f)); return; }
+      if (args[0] === "similar") { await refSimilar(args.slice(1).filter((a, i, xs) => !a.startsWith("--") && xs[i - 1] !== "--n").join(" "), Number(opt("--n") ?? 6)); return; }
+      if (args[0] === "technique") { refTechnique(args.slice(1).filter((a, i, xs) => !a.startsWith("--") && xs[i - 1] !== "--n").join(" "), Number(opt("--n") ?? 4)); return; }
       if (args[0] === "watch") {
         const [, q, from = "0", to = "20"] = args;
         const film = films.find((f) => f.toLowerCase().includes(String(q).toLowerCase()));
@@ -70,7 +135,7 @@ async function main() {
         console.log(`sheets: ${readdirSync(out).filter((f) => f.includes("_v_")).map((f) => path.join(out, f)).join("\n")}`);
         return;
       }
-      console.log("film-tools ref list | ref watch <name part> <fromS> <toS> [--fps 6|12]");
+      console.log("film-tools ref list | ref watch <name part> <fromS> <toS> [--fps 6|12] | ref similar \"<a line of your narration>\" [--n 6] | ref technique \"<technique name or words>\" [--n 4]");
       return;
     }
     case "watch": {
@@ -79,8 +144,7 @@ async function main() {
       const labels = [`ours=${path.resolve(JOB, file!)}`];
       const r = opt("--ref");
       if (r) {
-        const films = readdirSync(REF_DIR).filter((d) => /^\d{8} - /.test(d));
-        const film = films.find((f) => f.toLowerCase().includes(r.toLowerCase()));
+        const film = refFilms().find((f) => f.toLowerCase().includes(r.toLowerCase()));
         if (film) labels.push(`ref=${path.join(REF_DIR, film, readdirSync(path.join(REF_DIR, film)).find((f) => f.endsWith(".mp4"))!)}@${opt("--ref-from") ?? "0"}`);
       }
       tsx("apps/cli/src/dev/hand/watch.ts", [out, from, to, ...labels], { WATCH_FPS: opt("--fps") ?? "12" });
@@ -226,6 +290,27 @@ async function main() {
         return;
       }
       tsx("packages/motion-engine/src/hand/render-film.ts", [JOB, ...args]);
+      return;
+    }
+    case "referee": {
+      // the platform's own judge of whether this looks like the channel (proven on held-back channel films)
+      const { refereeScore } = await import("../referee/score.js");
+      const sc = opt("--scene") ?? SCENE;
+      const reference = path.resolve(ROOT, process.env.OPUMIA_REFERENCE_DIR ?? "Reference");
+      let v: Awaited<ReturnType<typeof refereeScore>>;
+      if (sc && !args.find((a) => a.endsWith(".mp4"))) {
+        const dir = path.join(JOB, "stills", sc);
+        const stills = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".jpg")).map((f) => path.join(dir, f)) : [];
+        if (!stills.length) { console.log(`render stills of ${sc} first: film-tools render --stills …`); process.exitCode = 1; return; }
+        v = await refereeScore({ root: ROOT, data: path.join(ROOT, "data"), reference, channel: CHANNEL, stills });
+        console.log(`${sc}: ${v.score} (every channel film averages ≥ ${v.bar}) — ${v.score >= v.bar ? "reads like the channel" : "does not read like the channel yet: film-tools ref similar shows how the channel puts a line like this on screen"}`);
+        return;
+      }
+      const file = path.resolve(JOB, args.find((a) => a.endsWith(".mp4")) ?? "film_16x9.mp4");
+      v = await refereeScore({ root: ROOT, data: path.join(ROOT, "data"), reference, channel: CHANNEL, video: file });
+      for (const s of v.stretches) console.log(`  ${s.from.toFixed(0).padStart(4)}–${s.to.toFixed(0).padEnd(4)} s  ${s.score.toFixed(2)}${s.low ? "  LOW — below the channel's weakest tenth" : ""}`);
+      console.log(`${v.pass ? "REFEREE PASSED" : "REFEREE FAILED"}: ${v.score} (the channel's films: ≥ ${v.bar}); weakest: ${v.weakest}`);
+      process.exitCode = v.pass ? 0 : 2;
       return;
     }
     case "scene-check": {

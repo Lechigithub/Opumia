@@ -328,9 +328,9 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       addPlatform(fe.usd);
       // the finisher answers what outside eyes saw even when the film passed: every judge tell and every viewer issue
       // of severity 5+ is answered in TELLS.md (what changed, or why it stays)
-      const tells = fe.judge?.tells ?? [];
+      const tells = [...(fe.judge?.tells ?? []), ...(fe.referee?.low ?? []).map((x) => `the referee's weakest moment ${x}`)];
       const issues = (fe.viewer?.issues ?? []).filter((x) => x.severity >= 5).map((x) => x.what);
-      const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.judge && !fe.judge.pass) || tells.length > 0 || issues.length > 0;
+      const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.referee && !fe.referee.pass) || tells.length > 0 || issues.length > 0;
       const finAppend = `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`;
       if (weak && ctx.spent.usd < budget - 0.5 && planner.sessionId) {
         planner = await phase("finish-fresh", () => session(ctx, { label: "finisher", prompt: `Reviewers who made none of the film watched it:\n${fe.text}\nFix what is real (edit any scene yourself — no builder round is left), render, mix, and run film-tools gate until GATE PASSED. Write TELLS.md: every tell and issue above as a heading, under it what you changed or why it stays. Then update REVIEW.md and your lessons with what they saw that you did not.`, append: finAppend, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 120, resume: planner.sessionId! }));

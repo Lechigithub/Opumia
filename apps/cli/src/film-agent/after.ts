@@ -59,7 +59,7 @@ export function designOf(plan: FilmPlan, topic: string, channel: string) {
   };
 }
 
-export interface AfterReport { viewer?: { verdict: string; summary: string; issues: Array<{ atS: number; what: string; severity: number }> }; judge?: { picked: number; fair: number; pass: boolean; tells: string[] }; packaging?: { thumbnail: string | null; title?: string }; usd: number; text: string }
+export interface AfterReport { referee?: { score: number; bar: number; pass: boolean; low: string[] }; viewer?: { verdict: string; summary: string; issues: Array<{ atS: number; what: string; severity: number }> }; judge?: { picked: number; fair: number; pass: boolean; tells: string[] }; packaging?: { thumbnail: string | null; title?: string }; usd: number; text: string }
 
 export async function freshEyes(o: { root: string; job: string; channel: string; topic: string; lengthS: number; log?: (s: string) => void; skip?: Array<"viewer" | "judge" | "package"> }): Promise<AfterReport> {
   const log = o.log ?? (() => {});
@@ -72,7 +72,9 @@ export async function freshEyes(o: { root: string; job: string; channel: string;
   const words = timed.segments.flatMap((s) => s.words ?? []);
   const findings = existsSync(path.join(o.job, "FINDINGS.md")) ? readFileSync(path.join(o.job, "FINDINGS.md"), "utf8") : "";
   const data = path.join(o.root, "data"), reference = path.resolve(o.root, process.env.OPUMIA_REFERENCE_DIR ?? "Reference"), library = path.resolve(o.root, process.env.OPUMIA_LIBRARY_DIR ?? "Library");
-  const skip = new Set(o.skip ?? []);
+  // the blind final-cut judge is off by default: on held-back channel films it called real stretches the imitation 45 %
+  // of the time and ours 32 % (referee calibration, 2026-11-26) — no better than chance, so its verdict is not used
+  const skip = new Set(o.skip ?? ["judge"]);
   const rep: AfterReport = { usd: 0, text: "" };
 
   const viewer = skip.has("viewer") ? null : (async () => {
@@ -97,10 +99,17 @@ export async function freshEyes(o: { root: string; job: string; channel: string;
     rep.packaging = { thumbnail: r.thumbnailPath, title: jread<{ title?: string }>(path.join(o.job, "publish.json"), {}).title };
   })().catch((e: Error) => log(`  packaging failed: ${e.message.slice(0, 160)}`));
 
-  await Promise.all([viewer, judge, pack]);
+  const referee = (async () => {
+    const { refereeConfig, refereeScore } = await import("../referee/score.js");
+    if (!refereeConfig(data, o.channel)) return;
+    const v = await refereeScore({ root: o.root, data, reference, channel: o.channel, video: film });
+    rep.referee = { score: v.score, bar: v.bar, pass: v.pass, low: v.stretches.filter((s) => s.low).map((s) => `${s.from.toFixed(0)}–${s.to.toFixed(0)} s (${s.score})`) };
+  })().catch((e: Error) => log(`  referee failed: ${e.message.slice(0, 160)}`));
+  await Promise.all([viewer, judge, pack, referee]);
   rep.usd = agents.usageLedger().reduce((t, r) => t + r.usd, 0) - usd0;
   const lines: string[] = [];
   if (rep.viewer) lines.push(`Viewer QA: ${rep.viewer.verdict} — ${rep.viewer.summary}`, ...rep.viewer.issues.filter((x) => x.severity >= 5).map((x) => `- ${x.atS.toFixed(1)} s (severity ${x.severity}): ${x.what}`));
+  if (rep.referee) lines.push(`Referee: ${rep.referee.score} against the channel (every held-back channel film ≥ ${rep.referee.bar}) — ${rep.referee.pass ? "reads like the channel" : "does NOT read like the channel yet"}`, ...rep.referee.low.map((x) => `- the referee's weakest moment: ${x} — below the channel's weakest tenth`));
   if (rep.judge) lines.push(`Final-cut judge: picked out as the imitation in ${Math.round(rep.judge.picked * 100)} % of stretches (a real stretch: ${Math.round(rep.judge.fair * 100)} %) — ${rep.judge.pass ? "passes" : "VETO"}${rep.judge.tells.length ? `; tells: ${rep.judge.tells.join("; ")}` : ""}`);
   if (rep.packaging) lines.push(`Package: "${rep.packaging.title ?? "?"}", thumbnail ${rep.packaging.thumbnail ? "made" : "not made"}`);
   rep.text = lines.join("\n");

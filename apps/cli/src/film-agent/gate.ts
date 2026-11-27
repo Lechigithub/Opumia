@@ -79,6 +79,14 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   const clash = kits.find((k) => k.job !== path.basename(o.job) && k.signatureObject && sameObject(so, k.signatureObject));
   const generic = GENERIC_OBJECTS.find((g) => objectWords(so).includes(g.replace(/s$/, "")));
   add("signature_object", Boolean(so) && !clash && !generic, !so ? 'name it in SCENES.md: "Signature object: …"' : clash ? `"${so}" is ${clash.job}'s — choose a thing THIS story owns` : generic ? `"${generic}" is a generic money symbol` : `"${so.slice(0, 80)}" — its own`);
+  // the referee (proven on held-back channel films it never saw): the film must read like the channel
+  try {
+    const { refereeConfig, refereeScore } = await import("../referee/score.js");
+    if (refereeConfig(path.join(o.root, "data"), o.channel)) {
+      const v = await refereeScore({ root: o.root, data: path.join(o.root, "data"), reference: path.resolve(o.root, process.env.OPUMIA_REFERENCE_DIR ?? "Reference"), channel: o.channel, video: film });
+      add("referee", v.pass, `${v.score} against the channel (every held-back channel film ≥ ${v.bar}); weakest: ${v.weakest} — film-tools referee for every stretch, film-tools ref similar for how the channel shows those lines`);
+    } else add("referee", true, "the referee has not been built (npx tsx apps/cli/src/dev/referee-build.ts) — not checked");
+  } catch (e) { add("referee", false, `the referee could not score the film: ${(e as Error).message.slice(0, 160)}`); }
   add("review", existsSync(path.join(o.job, "REVIEW.md")), existsSync(path.join(o.job, "REVIEW.md")) ? "REVIEW.md written" : "write REVIEW.md: what worked, what failed, the root cause, what you would do first next time");
 
   const pass = checks.every((c) => c.pass);

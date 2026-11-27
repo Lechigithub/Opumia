@@ -602,6 +602,35 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
   then logged); a builder's scene check fails unless it read its own rendered stills and — when its scene names a
   subject and shows none of their real material — searched for it first; the finisher answers every judge tell and
   every viewer issue of severity 5+ in `TELLS.md` (even when the film passed), with one more turn for any left open.
+- **The referee** (owner, 2026-11-26: "my eyes should not be relied on, that's why the reference exists"):
+  `apps/cli/src/referee/`, built and proven by `npx tsx apps/cli/src/dev/referee-build.ts` →
+  `data/referee/magnates-media.json` (held-back films, bars, separation, per-film scores).
+  - **Test set:** 8 of the channel's 37 films held back from every model's training and hidden from the agents'
+    reference tools (`ref list` shows 29). Against them: 15 of our films, short of the channel, and v7. Five 8 s
+    stretches each; thresholds set on the 29 training films only.
+  - **Measured (2026-11-26):**
+    - Look measurements (brightness, contrast, grain, colour…) do NOT separate: 11 % of our stretches caught.
+    - The blind side-by-side judge, logo corners masked, is no better than chance: real stretches called the
+      imitation 45 %, ours 32 %. Its pass/fail is no longer used anywhere (produce's final-cut judge is advisory;
+      the film agent's fresh eyes skip it).
+    - The taste model (SigLIP heads), retrained in folds and scored with corners masked, separates whole films:
+      held-back channel films 4.87–5.79, ours 3.26–4.87 (v7 4.49 above Juicero 4.01). Per 8 s stretch it catches
+      69 % of ours and wrongly flags 8 % of real.
+  - **In use:** the production model `data/referee/magnates-media-taste.json` (every film but the held-back ones).
+    The film bar is 4.9: the lowest held-back film rounded up, so strict that no film of ours reaches it and 7 of 8
+    held-back channel films pass it on 80 s (`dev/referee-sanity.ts`, in regressions). A stretch below 4.57 (the real
+    stretches' 10th percentile) is a LOW moment.
+    - `film-tools referee [film] | --scene <id>`;
+    - the builders' scene check fails a scene below the channel's weakest tenth;
+    - the gate refuses a film below the bar;
+    - fresh eyes hand the finisher the LOW moments to answer.
+  - **Limits:** the test set is small (8 real films, 15 of ours); the model judges stills, not motion or sound; scores
+    of films it was trained on are biased low (use the fold scores in the report for those).
+- **Agent reference tools:**
+  - `film-tools ref similar "<line>"`: the channel's real shots under lines nearest in meaning — a word match over
+    its 17,660 labelled shots, then one Haiku call — as a frame sheet, with how each was built.
+  - `film-tools ref technique "<name>"`: a technique's definition and real moments of it.
+  - Builders must study one before building (scene check `studied`).
 - **Solo** (`--solo`): one session does everything (the first design, kept for comparison).
 - **Tools:** `film-tools` (`tools.ts`, `TOOLS.md`): the reference watcher, press/film-clip search with strips and cut,
   article screenshots, Commons, stock sheets, the film library, cut-out, depth, render (whole film or one scene),

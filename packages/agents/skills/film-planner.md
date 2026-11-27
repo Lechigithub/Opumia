@@ -9,7 +9,9 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
 2. **Watch the reference** (checked in code: at least 3 stretches from 2 films, 45 s or more, and 3 sheets read —
    a plan made without it is refused) (`film-tools ref list`, `film-tools ref watch …`): two or three openings and one middle
    stretch. Note how scenes enter, move and hand over, how words sit in the picture, how long a scene holds.
-3. **Find the story's world and its metaphors.** What does THIS story look like — its places, its materials, its
+3. **For the film's key lines, see how the channel showed lines like them**: `film-tools ref similar "<line>"`
+   (and `film-tools ref technique` for a device). Plan each scene from what the channel actually puts on screen.
+   **Find the story's world and its metaphors.** What does THIS story look like — its places, its materials, its
    light? What one real thing does it own (the signature object, returning 2–3 times with its meaning changing)?
    Which idea in the script can become a picture that explains it (a visual metaphor: the money moving as a real
    thing, a wall of screens for a scandal spreading, a figure carried across shots)? Every film's world is its own:

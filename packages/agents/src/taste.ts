@@ -116,11 +116,12 @@ function seeded(seed: number) {
 }
 
 /** Our own work found in out/: thumbnail renders, or scene preview stills and frames of rendered films. */
-export function ourWork(root: string, kind: TasteKind): Array<{ file: string; t?: number; group: string }> {
+export function ourWork(root: string, kind: TasteKind, excludeJobs: string[] = []): Array<{ file: string; t?: number; group: string }> {
   const outDir = path.join(root, "out");
   if (!existsSync(outDir)) return [];
   const res: Array<{ file: string; t?: number; group: string }> = [];
   for (const job of readdirSync(outDir)) {
+    if (excludeJobs.includes(job)) continue;
     const jd = path.join(outDir, job);
     if (!statSync(jd).isDirectory()) continue;
     if (kind === "thumb") {
@@ -138,7 +139,10 @@ export function ourWork(root: string, kind: TasteKind): Array<{ file: string; t?
   return res;
 }
 
-export async function trainTaste(o: { root: string; data: string; reference: string; channel: ChannelId; kind: TasteKind; log?: (s: string) => void }): Promise<TasteModel> {
+/** `excludeFilms` (reference film ids) and `excludeJobs` (our out/ folders) are left out of training entirely, so a
+ *  referee can be tested on material the model never saw; `write: false` returns the model without saving it. */
+export async function trainTaste(o: { root: string; data: string; reference: string; channel: ChannelId; kind: TasteKind; log?: (s: string) => void; excludeFilms?: string[]; excludeJobs?: string[]; write?: boolean }): Promise<TasteModel> {
+  const exFilms = new Set(o.excludeFilms ?? []);
   const log = o.log ?? (() => {});
   const ix = await loadReferenceIndex(o.data);
   if (!ix) throw new Error("no reference index — run `pnpm opumia build-reference-index` first");
@@ -155,7 +159,7 @@ export async function trainTaste(o: { root: string; data: string; reference: str
     // A sample of real shots: up to 60 per film, all channels; degraded versions of a smaller sample.
     const byFilm = new Map<string, number[]>();
     ix.shots.forEach((s, i) => {
-      if (ix.shotOk[i]) (byFilm.get(s.film) ?? byFilm.set(s.film, []).get(s.film)!).push(i);
+      if (ix.shotOk[i] && !exFilms.has(s.film)) (byFilm.get(s.film) ?? byFilm.set(s.film, []).get(s.film)!).push(i);
     });
     const films = new Map(ix.manifest.films.map((f) => [f.id, f]));
     for (const [film, idx] of byFilm) {
@@ -171,7 +175,7 @@ export async function trainTaste(o: { root: string; data: string; reference: str
       }
     }
   }
-  const ours = ourWork(o.root, o.kind);
+  const ours = ourWork(o.root, o.kind, o.excludeJobs ?? []);
   log(`  taste ${o.kind}: ${real.length} real, ${ours.length} of ours, ${degradeItems.length} degraded — embedding what is not cached…`);
   const ov = await embedPictures({ root: o.root, data: o.data, items: ours.map((x) => ({ file: x.file, t: x.t ?? null })), log });
   const dv = await embedPictures({ root: o.root, data: o.data, items: degradeItems, log });
@@ -206,11 +210,17 @@ export async function trainTaste(o: { root: string; data: string; reference: str
     },
     trainedAt: new Date().toISOString(),
   };
+  if (o.write === false) return model;
   const file = path.join(o.data, "taste", `${o.channel}-${o.kind}.json`);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(`${file}.tmp`, JSON.stringify(model) + "\n");
   await rename(`${file}.tmp`, file);
   return model;
+}
+
+/** A model's 0–10 score for one embedding (the same formula as scoreTaste). */
+export function tasteOf(m: TasteModel, v: Float32Array): number {
+  return Math.round(100 * Math.sqrt(predict(m.pro, v) * predict(m.channelHead, v))) / 10;
 }
 
 const models = new Map<string, Promise<TasteModel | null>>();
