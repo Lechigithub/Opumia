@@ -97,7 +97,7 @@ export async function withOutside<T>(provider: string, fn: () => Promise<T>): Pr
   for (;;) {
     try {
       const out = await fn();
-      if (paused) await hooks.onResume?.(paused, waited);
+      if (paused) { if (hooks.onResume) await hooks.onResume(paused, waited); else console.error(`▶ RESUMED ${paused.provider} after ${Math.round(waited / 60)} min`); }
       return out;
     } catch (err) {
       const f = classifyOutside(provider, err);
@@ -107,7 +107,11 @@ export async function withOutside<T>(provider: string, fn: () => Promise<T>): Pr
       // short network blips and rate limits are retried quietly; anything longer is a visible pause
       if (s >= 60 || attempt >= 3 || f.kind === "usage_limit" || f.kind === "auth") {
         paused = f;
-        await hooks.onPause?.(f, new Date(Date.now() + s * 1000).toISOString());
+        const until = new Date(Date.now() + s * 1000).toISOString();
+        // a pause is always visible: without a hook (dev scripts) it goes to stderr. A 10-minute writer test sat 46 min
+        // in silent provider retries (2026-11-27) and looked hung.
+        if (hooks.onPause) await hooks.onPause(f, until);
+        else console.error(`⏸ PAUSED ${f.provider} ${f.kind}: ${f.message.slice(0, 140)} — waited ${Math.round(waited / 60)} min so far, trying again at ${until}`);
       }
       await sleeper(s * 1000);
       waited += s;
