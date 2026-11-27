@@ -438,6 +438,12 @@ longer than the channel's, a late thesis or a twist away from the middle. Test: 
   "how" questions as transitions, timeline stepping ("after", "later", "afterward", "seven years later"), sentences
   opening on a "That…" verdict, dense figures; our human-reading stretches are long explanatory sentences joined with
   "and", "of", "in fact", told in the moment.
+- **The sentences quoted back** (`voice-meter.ts:voiceOffenders`, `offendersReport`, in `check_passage` and
+  `measure_draft`): rhetorical questions, timeline stepping (after / later / "had been" / "N years later"…) and "That…"
+  verdict openers, each listed with its rate per 300 words beside the channel's heavier films (90th percentile over the
+  films the writer may study: 0.82 / 1.61 / 0.11; typical 0.28 / 0.87 / 0.03; our Enron drafts 0.55–0.73 / 1.46–2.01 /
+  0.18–0.56), only where above it. The channel's six held-back narrations are never flagged. Two figures in one
+  sentence was measured and dropped (no real difference; dates set it off).
 
 ### The researcher (second agent rebuilt)
 

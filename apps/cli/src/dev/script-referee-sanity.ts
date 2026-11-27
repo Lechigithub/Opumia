@@ -78,5 +78,17 @@ if (existsSync(qf)) {
     ok("an early script of ours is flagged for its questions", voiceOff(voiceStats(t), b).includes("questions"), voiceOff(voiceStats(t), b));
   }
 }
+// the sentences themselves: our habits are quoted back, the channel's own narration is not flagged
+{
+  const { offendersReport } = await import("@opumia/agents");
+  const heldText = films.filter((f) => M.held.includes(f.id)).map(text);
+  const flagged = heldText.filter((t) => offendersReport(t) !== "").length;
+  ok("the channel's held-back narrations are never flagged for our habits", flagged === 0, flagged);
+  const f2 = path.join(ROOT, "out", "writer-long-enron-fast2", "script.draft.json");
+  if (existsSync(f2)) {
+    const r = offendersReport((JSON.parse(readFileSync(f2, "utf8")) as { segments: Array<{ text: string }> }).segments.map((s) => s.text).join(" "));
+    ok("a 10-minute draft of ours has its timeline stepping quoted back", /stepping/.test(r) && /"[^"]{20,}/.test(r), r.slice(0, 200));
+  }
+}
 console.log(fails ? `${fails} failed` : "script referee: all passed");
 process.exitCode = fails ? 1 : 0;

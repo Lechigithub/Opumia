@@ -22,7 +22,7 @@ import { earPunctuation, normalizeFigures } from "./numeric-facts.js";
 import { labelLines, storyIssues, type ReferenceFilm, type StoryBand, type StoryProfile } from "./story-measure.js";
 import type { StylePack } from "./style-pack.js";
 import { structureProfile, structureBrief, structureIssues } from "./story-structure.js";
-import { voiceBand, voiceStats, voiceReport, voiceTargets } from "./voice-meter.js";
+import { voiceBand, voiceStats, voiceReport, voiceTargets, offendersReport } from "./voice-meter.js";
 import { scriptReferee, scriptRefereeReport, heldBackScripts, SCRIPT_REFEREE_BLOCKS, openingFormula, openingShape, openingsLedger } from "./script-referee.js";
 
 const ROLES = ["cold_open", "hook", "thesis", "context", "rise", "twist", "climax", "fall", "resolution", "cta", "chapter", "rehook"] as const;
@@ -189,7 +189,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
     // the best draft that passes everything but the script referee: kept for when no script is accepted (proof run
     // 2026-11-27, Quibi: 21 drafts, best 0.36, the last one handed in 0.29)
     if (verdict && issues.every((x) => x.kind === "reads_unlike_channel") && verdict.score > (bestDraft?.score ?? -1)) bestDraft = { segments, score: verdict.score, issues };
-    const header2 = `${verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header}${vband ? `\n${voiceReport(voiceStats(text), vband)}` : ""}`;
+    const offenders = offendersReport(text);
+    const header2 = `${verdict ? `${header}\n${scriptRefereeReport(verdict)}` : header}${vband ? `\n${voiceReport(voiceStats(text), vband)}` : ""}${offenders ? `\n${offenders}` : ""}`;
     return { ok: issues.length === 0, report: issues.length ? `${header2}\n\nNOT YET — ${issues.length} thing(s) to fix:\n${issues.map((x, i) => `${i + 1}. [${x.kind}] ${x.detail}`).join("\n")}` : `${header2}\n\nPASSES every check.` };
   };
 
@@ -312,7 +313,8 @@ export async function writeScriptAgent(o: WriterOptions): Promise<ScriptDraft> {
       schema: z.object({ text: z.string().min(20) }),
       run: (async (i: { text: string }) => {
         const v = dataDir ? scriptReferee(path.dirname(dataDir), i.text, o.pack.channelId) : null;
-        const meter = vband ? `\n${voiceReport(voiceStats(i.text), vband)}` : "";
+        const off = offendersReport(i.text);
+        const meter = `${vband ? `\n${voiceReport(voiceStats(i.text), vband)}` : ""}${off ? `\n${off}` : ""}`;
         return v ? `${scriptRefereeReport(v)}${meter}` : `the script referee is not available here${meter}`;
       }) as AgentTool["run"],
     },

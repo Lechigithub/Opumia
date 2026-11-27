@@ -76,3 +76,45 @@ export function voiceOff(s: VoiceStats, b: VoiceBand): Array<keyof VoiceStats> {
 export function voiceTargets(b: VoiceBand): string {
   return `The channel's voice, measured on its own narration (aim for the typical value): a typical sentence of ${Math.round(b.sentence.mid)} words with about ${Math.round(b.long.mid * 100)} % of sentences running 25+ words; a figure in about ${Math.round(b.figures.mid * 100)} % of sentences; questions in about ${Math.round(b.questions.mid * 100)} %; the narrator commenting in the present in about ${Math.round(b.present.mid * 100)} %; about ${b.connectors.mid.toFixed(1)} spoken connectors per 100 words; almost no "had" or "later".`;
 }
+
+// ---- the sentences themselves (2026-11-27): telling the writer "fewer questions" did not move the prose; across 133
+// stretches of our scripts the machine-reading ones shared four habits, so each offending sentence is quoted back.
+export interface Offender { kind: "question" | "stepping" | "that_verdict"; sentence: string }
+/** The channel's own heavier films (90th percentile per 300 words over the films the writer may study; the held-back
+ *  ones reach at most 0.56 / 1.50 / 0.10): it does step through time and ask the odd question, so only a rate above
+ *  this is a habit. Typical rates: questions 0.28, stepping 0.87, "That…" verdicts 0.03; ours 0.55–0.73 / 1.46–2.01 /
+ *  0.18–0.56. Two figures in one sentence was measured too and dropped (the channel 0.44, ours 0.37–0.73; dates set it
+ *  off). */
+export const CHANNEL_RATE: Record<Offender["kind"], number> = { question: 0.82, stepping: 1.61, that_verdict: 0.11 };
+const STEP_OPEN = /^(after|afterward|afterwards|later|then|years later|months later|weeks later|days later|(?:\w+ )?(?:years|months|weeks|days) later)\b/i;
+const STEP_ANY = /\b(\w+ (?:years|months|weeks|days) later|would later|had (?:been|become|\w+ed)\b)/i;
+const THAT_VERDICT = /^that(?:'s| is| was| tells| means| says| shows| doesn't| did not| didn't)\b/i;
+export function voiceOffenders(text: string): Offender[] {
+  const out: Offender[] = [];
+  for (const s of sentences(text)) {
+    if (s.endsWith("?")) out.push({ kind: "question", sentence: s });
+    else if (STEP_OPEN.test(s) || STEP_ANY.test(s)) out.push({ kind: "stepping", sentence: s });
+    else if (THAT_VERDICT.test(s)) out.push({ kind: "that_verdict", sentence: s });
+  }
+  return out;
+}
+const FIX: Record<Offender["kind"], string> = {
+  question: "a rhetorical question — the channel almost never asks; say it as a statement or let the next event answer it",
+  stepping: "stepping through the timeline (after / later / had …) — tell it forwards, in the moment",
+  that_verdict: "a \"That…\" verdict — the narrator's comment works inside a longer sentence, not as its own opener",
+};
+/** The offending sentences, quoted, grouped by habit, at most `max` in all. */
+export function offendersReport(text: string, max = 10): string {
+  const off = voiceOffenders(text);
+  if (!off.length) return "";
+  const per300 = 300 / Math.max(1, words(text));
+  const by = new Map<Offender["kind"], string[]>();
+  for (const o of off) (by.get(o.kind) ?? by.set(o.kind, []).get(o.kind)!).push(o.sentence);
+  // only a habit: clearly above the channel's own rate (and at least two such sentences in a longer passage)
+  for (const [k, ss] of [...by]) if (ss.length * per300 <= CHANNEL_RATE[k] || (ss.length < 2 && words(text) > 300)) by.delete(k);
+  if (!by.size) return "";
+  const lines: string[] = [];
+  let left = max;
+  for (const [k, ss] of by) { if (left <= 0) break; lines.push(`   · ${FIX[k]} — ${(ss.length * per300).toFixed(2)} per 300 words, the channel's heavier films ${CHANNEL_RATE[k]} (${ss.length}):`); for (const s of ss.slice(0, Math.min(3, left))) { lines.push(`      "${s.length > 150 ? `${s.slice(0, 147)}…` : s}"`); left--; } }
+  return `- sentences to rewrite (habits that read as machine-written in our scripts):\n${lines.join("\n")}`;
+}
