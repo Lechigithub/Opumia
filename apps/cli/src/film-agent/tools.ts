@@ -7,6 +7,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, append
 import path from "node:path";
 
 const ROOT = process.env.OPUMIA_ROOT ?? process.cwd();
+// the agents' shell carries no stock or voice keys: film-tools loads them into its own process (the platform's loader)
+{ const { loadKeys } = await import("../keys.js"); loadKeys(ROOT); }
 const JOB = process.env.FILM_JOB ? path.resolve(process.env.FILM_JOB) : process.cwd();
 const CHANNEL = process.env.FILM_CHANNEL ?? "magnates-media";
 // a scene builder (parallel film agent) works in scene mode: its downloads, credits and names are its own, so builders
@@ -120,7 +122,7 @@ async function main() {
       if (taken) { console.log(`${taken.scene} already uses ${id} at ${taken.inS}–${(taken.inS + taken.seconds).toFixed(1)} s — choose another moment (or another video): the same picture twice reads as a repeat`); process.exitCode = 1; return; }
       if (Number(len) > 8.5) console.log("note: clips are at most 8.5 s (the channel's practice) — cut to 8.5");
       const crop = opt("--crop") ?? "crop=iw:ih:0:0";
-      const parts = ensure(path.join(WS, "downloads", "news", "parts")), part = path.join(parts, `${name}.mp4`);
+      const parts = ensure(path.join(WS, "downloads", "news", "parts")), part = path.join(parts, `${name}_${id}_${start}_${seconds}.mp4`); // a new moment is a new download
       const s = Number(start);
       sh("yt-dlp", ["-q", "--no-warnings", "--no-playlist", "-f", "bv*[height<=1080][ext=mp4]/bv*[height<=1080]", "--download-sections", `*${s}-${s + seconds + 1}`, "-o", part, `https://www.youtube.com/watch?v=${id}`]);
       const outF = path.join(ensure(path.join(JOB, "public", "v")), `${name}.mp4`);
@@ -181,13 +183,13 @@ async function main() {
       return;
     }
     case "films": {
-      const q = args.filter((a) => !a.startsWith("--"));
+      const q = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1] === "--n"));
       sh(PY, ["-I", path.join(ROOT, "apps/cli/src/dev/hand/film-search.py"), ensure(path.join(WS, "downloads", "films")), ...q, "--n", opt("--n") ?? "12"]);
       console.log("public-domain feature films (Library/footage). Cut with ffmpeg from the Library file (read-only) into public/v/, then credit it: film-tools credit <file> film \"<film title> (public domain)\"");
       return;
     }
     case "credit": {
-      const [file, kind, source, url = ""] = args;
+      const [file, kind, source, url = ""] = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1] === "--license"));
       credit({ file: file!, kind: kind!, source: source!, url, license: opt("--license") ?? "see source" });
       console.log(`credited ${file}`);
       return;

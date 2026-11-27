@@ -3,7 +3,7 @@
 import { mkdtempSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { guard, runFilmAgent, pool } from "../film-agent/run.js";
+import { guard, runFilmAgent, pool, session, type Ctx } from "../film-agent/run.js";
 import { filmGate, ledgers } from "../film-agent/gate.js";
 import { validatePlan, scaffold, sceneWindow, sceneBrief, type FilmPlan } from "../film-agent/plan.js";
 import { sceneCheck } from "../film-agent/scene-check.js";
@@ -38,6 +38,13 @@ ok("guard: no write into Library/", (await write(path.join(ROOT, "Library/x.json
 ok("guard: no reading a secret", (await read(path.join(process.env.HOME ?? "", ".opumia_keys"))) === "deny");
 ok("guard: reading the reference", (await read(path.join(ROOT, "Reference/done.txt"))) === "allow");
 
+// review findings (2026-11-26): home paths, deleting after cd, code that reads keys, reading the key loader
+ok("guard denies deleting a home path", (await bash("rm -rf ~/Opumia")) === "deny" && (await bash("rm -rf $HOME/Opumia")) === "deny");
+ok("guard denies deleting after moving outside the workspace", (await bash(`cd ${ROOT}/Library && rm x.json`)) === "deny");
+ok("guard denies writing code that reads the environment", (await g("Write", { file_path: path.join(job, "x.py"), content: "import os\nprint(os.environ)" })).behavior === "deny" && (await g("Edit", { file_path: path.join(job, "x.ts"), old_string: "a", new_string: "console.log(process.env)" })).behavior === "deny");
+ok("guard denies reading the key loader", (await read(path.join(ROOT, "apps/cli/src/keys.ts"))) === "deny");
+ok("guard: a lower-case shell variable is fine", (await bash("for key in a b; do echo $key; done")) === "allow");
+
 // workspace set-up on a scratch job with a narration already made
 writeFileSync(path.join(job, "timed-script.json"), JSON.stringify({ durationS: 61.4 }));
 writeFileSync(path.join(job, "timing.json"), JSON.stringify({ runs: [{ filmUsd: 1.9 }] }));
@@ -56,6 +63,7 @@ ok("builder writes its own scene", (await bw("src/scenes/s02.tsx")) === "allow" 
 ok("builder cannot write another scene, the world, the plan or the film", (await bw("src/scenes/s03.tsx")) === "deny" && (await bw("src/world.tsx")) === "deny" && (await bw("plan.json")) === "deny" && (await bw("src/Film.tsx")) === "deny" && (await bw("public/v/s03_x.mp4")) === "deny");
 ok("builder's shell cannot overwrite another scene or the plan", (await bb("cp x.tsx src/scenes/s03.tsx")) === "deny" && (await bb("echo {} > plan.json")) === "deny");
 ok("builder's shell may read the plan and render", (await bb("cat plan.json src/scenes/s03.tsx")) === "allow" && (await bb("film-tools render --stills 4,5")) === "allow");
+ok("builder's shell may read with errors silenced", (await bb("cat plan.json src/scenes/s03.tsx 2>/dev/null")) === "allow");
 
 const order: number[] = [];
 let live = 0, peak = 0;
@@ -94,7 +102,7 @@ ok("scene check: a stub fails", !c3.pass && c3.checks.find((c) => c.id === "buil
 mkdirSync(path.join(pj, "credits"), { recursive: true });
 writeFileSync(path.join(pj, "credits/s02.json"), JSON.stringify([{ file: "img/s02_board.jpg", kind: "photo", source: "test", license: "test" }]));
 ok("scene check: credited in its own ledger, it passes", (await sceneCheck(pj, "s02")).pass);
-ok("gate ledgers merge every scene's credits", ledgers<{ file: string }>(pj, "credits").some((c) => c.file === "img/s02_board.jpg"));
+ok("gate ledgers merge every scene's credits, each with its scene", ledgers<{ file: string; scene?: string }>(pj, "credits").some((c) => c.file === "img/s02_board.jpg" && c.scene === "s02"));
 writeFileSync(path.join(pj, "src/scenes/s03.tsx"), "import React from \"react\";\nexport default () => <div>{undefinedThing}</div>;\n");
 const c4 = await sceneCheck(pj, "s03");
 ok("scene check: a scene that does not compile fails with the error", !c4.pass && c4.checks.find((c) => c.id === "renders")?.pass === false, c4.checks.find((c) => c.id === "renders")?.detail.slice(0, 120));
@@ -141,6 +149,14 @@ const bOk = Storyboard.safeParse(boardOf(sp, tsd, L, "magnates-media")), rOk = R
 ok("adapters: the plan is a valid storyboard for the reviewers", bOk.success, bOk.success ? "" : JSON.stringify(bOk.error.issues[0]));
 ok("adapters: the scenes' pictures are a valid resolution report", rOk.success && rOk.data.media.some((m) => m.shotId === "s02" && m.publicPath === "img/s02_board.jpg"), rOk.success ? "" : JSON.stringify(rOk.error.issues[0]));
 ok("adapters: the world's colours are valid design tokens (a bad colour falls back)", dOk.success && dOk.data.palette.primary === "#123456", dOk.success ? "" : JSON.stringify(dOk.error.issues[0]));
+
+// a session that ends in an error (here: a refused key — free, nothing is billed) is recorded, never thrown
+{
+  const ctx: Ctx = { o: { root: ROOT, job: pj, channel: "magnates-media", durationS: 8, maxUsd: 9, model: "claude-sonnet-5-5" }, env: { PATH: process.env.PATH, HOME: process.env.HOME, ANTHROPIC_API_KEY: "sk-ant-invalid-test" }, spent: { usd: 0 }, budget: 1, before: 0, log: () => {} };
+  let threw = false, res: Awaited<ReturnType<typeof session>> | null = null;
+  try { res = await session(ctx, { label: "probe", prompt: "say hi", append: "test", model: "claude-sonnet-5-5", maxUsd: 0.2, maxTurns: 1 }); } catch { threw = true; }
+  ok("a session ending in an error does not throw, and is logged", !threw && Boolean(res?.subtype.startsWith("error")) && readFileSync(path.join(pj, "logs/probe.log"), "utf8").includes("ended in an error"), res?.subtype);
+}
 
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails
 const v7 = path.join(ROOT, "out/hand-wirecard-v7");

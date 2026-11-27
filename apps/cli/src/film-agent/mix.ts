@@ -19,7 +19,10 @@ const lufs = (f: string, extra: string[] = []) => {
   const m = [...r.matchAll(/^\s+I:\s+(-?[\d.]+) LUFS/gm)].map((x) => Number(x[1]));
   return m.length ? m[m.length - 1]! : -23;
 };
-const voice = existsSync(path.join(job, "narration.mp3")) ? path.join(job, "narration.mp3") : path.join(job, "narration-shaped.mp3");
+// the narration the word times belong to: produce may reshape the cold open (narration-shaped.mp3) and rewrite the
+// times to it — timed-script.json names the file that matches them
+const timedVoice = (() => { try { return (JSON.parse(readFileSync(path.join(job, "timed-script.json"), "utf8")) as { voice?: { audioPath?: string } }).voice?.audioPath; } catch { return undefined; } })();
+const voice = timedVoice && existsSync(timedVoice) ? timedVoice : existsSync(path.join(job, "narration-shaped.mp3")) ? path.join(job, "narration-shaped.mp3") : path.join(job, "narration.mp3");
 const VOICE = -16, COLD = 15, UNDER_COLD = 15.8, UNDER_BODY = 19.1;
 const vGain = VOICE - lufs(voice);
 const ins: string[] = ["-i", voice];
@@ -57,9 +60,11 @@ const pre = path.join(job, "premix.wav");
 execFileSync("ffmpeg", ["-v", "error", "-y", ...ins, "-filter_complex", fl.join(";"), "-map", "[m]", "-c:a", "pcm_s24le", pre], { maxBuffer: 1 << 26 });
 const r = spawnSync("ffmpeg", ["-hide_banner", "-i", pre, "-af", "loudnorm=I=-12.5:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"], { encoding: "utf8" }).stderr;
 const j = JSON.parse(r.slice(r.lastIndexOf("{"), r.lastIndexOf("}") + 1)) as Record<string, string>;
-const af = `loudnorm=I=-12.5:TP=-1.5:LRA=11:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true,alimiter=limit=0.8128:level=false,aresample=48000`;
+const af = `loudnorm=I=-12.5:TP=-1.5:LRA=11:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true,alimiter=limit=0.8128:level=false,aresample=48000,apad`;
 const master = path.join(job, "master.wav");
-execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pre, "-af", af, "-c:a", "pcm_s24le", master]);
+const picLen = (() => { const p = path.join(job, opt("--picture") ?? "picture.mp4"); return existsSync(p) ? Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", p], { encoding: "utf8" }).stdout.trim() || 0) : 0; })();
+// apad is cut at the picture's length (or the premix's own when there is no picture yet)
+execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pre, "-af", picLen ? af : af.replace(/,apad$/, ""), ...(picLen ? ["-t", picLen.toFixed(3)] : []), "-c:a", "pcm_s24le", master]);
 const pic = path.join(job, opt("--picture") ?? "picture.mp4");
 const outF = path.join(job, opt("--out") ?? "film_16x9.mp4");
 if (existsSync(pic)) execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pic, "-i", master, "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-preset", "slow", "-c:a", "aac", "-b:a", "256k", "-shortest", outF]);

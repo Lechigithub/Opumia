@@ -1,14 +1,16 @@
 // The film agent's gate: the hard rules, checked in code before a film counts as done (no model calls).
-import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { sameObject, objectWords, GENERIC_OBJECTS } from "@opumia/agents";
+import { filmMedia } from "./plan.js";
 
 /** The film's ledger plus every scene builder's own (credits/<scene>.json, fair-use/<scene>.json). */
 export function ledgers<T>(job: string, kind: "credits" | "fair-use"): T[] {
   const all = [...jread<T[]>(path.join(job, `${kind}.json`), [])];
   const dir = path.join(job, kind);
-  if (existsSync(dir)) for (const f of readdirSync(dir).sort()) if (f.endsWith(".json")) all.push(...jread<T[]>(path.join(dir, f), []));
+  // each scene's ledger entries carry their scene (the repeat checks compare scenes)
+  if (existsSync(dir)) for (const f of readdirSync(dir).sort()) if (f.endsWith(".json")) all.push(...jread<T[]>(path.join(dir, f), []).map((x) => ({ ...x, scene: f.replace(/\.json$/, "") })));
   return all;
 }
 export interface GateCheck { id: string; pass: boolean; detail: string }
@@ -29,6 +31,9 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   add("film", d >= (timed.durationS ?? 0) - 0.5 && v?.width === 1920 && v?.height === 1080 && v?.r_frame_rate === "24/1", `${d.toFixed(1)} s (narration ${(timed.durationS ?? 0).toFixed(1)} s), ${v?.width}×${v?.height} at ${v?.r_frame_rate} (needs the whole narration, 1920×1080, 24 fps)`);
   const ld = spawnSync("ffmpeg", ["-hide_banner", "-i", film, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" }).stderr;
   const I = Number(/^\s+I:\s+(-?[\d.]+) LUFS/m.exec(ld)?.[1] ?? -99), P = Number(/^\s+Peak:\s+(-?[\d.]+) dBFS/m.exec(ld)?.[1] ?? 0);
+  // the mix must be of the current picture (a rebuilt scene re-renders picture.mp4; the film is only new once mixed again)
+  const pic = path.join(o.job, "picture.mp4");
+  if (existsSync(pic)) { const stale = statSync(pic).mtimeMs > statSync(film).mtimeMs + 1000; add("current_mix", !stale, stale ? "picture.mp4 is newer than film_16x9.mp4 — run film-tools mix" : "the film is the mix of the current picture"); }
   add("loudness", I >= -13.5 && I <= -11.5 && P <= -1.4, `${I} LUFS (−12.5 ± 1), peak ${P} dB (≤ −1.5) — film-tools mix sets both`);
 
   // type: words set like the channel's (boxes, one size, capitals); words on frames is advisory (signage counts)
@@ -37,10 +42,12 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   const tj = (() => { try { return JSON.parse(tc.trim().split("\n").filter((l) => l.startsWith("{")).at(-1) ?? "{}") as { verdict?: Record<string, { value: number; limit: number; pass: boolean }> }; } catch { return {}; } })();
   const tv = tj.verdict ?? {};
   const typeFails = ["smallBoxed", "sizeSpread", "caps"].filter((k) => tv[k] && !tv[k]!.pass);
-  add("type", typeFails.length === 0, Object.entries(tv).map(([k, x]) => `${k} ${x.value} (${x.pass ? "ok" : "OUTSIDE"} ${x.limit})`).join(", ") || "type check did not run");
+  add("type", Object.keys(tv).length > 0 && typeFails.length === 0, Object.entries(tv).map(([k, x]) => `${k} ${x.value} (${x.pass ? "ok" : "OUTSIDE"} ${x.limit})`).join(", ") || "type check did not run");
 
   // fair use at the channel's practice
-  const fu = ledgers<{ file: string; kind: string; video: string; channel: string; seconds: number }>(o.job, "fair-use");
+  // only the clips the film draws count (a builder may cut several and use one)
+  const onScreen = filmMedia(o.job);
+  const fu = ledgers<{ file: string; kind: string; video: string; channel: string; seconds: number }>(o.job, "fair-use").filter((x) => !onScreen.size || onScreen.has(x.file) || [...onScreen].some((m) => m.replace(/_(cut|crop\w*|depth|mask)(\.\w+)$/, "$2") === x.file));
   const long = fu.filter((x) => x.seconds > 8.5), share = fu.reduce((t, x) => t + x.seconds, 0) / Math.max(1, d);
   const lifted = fu.filter((x) => OWN.test(x.channel) || LIFT.test(x.channel));
   add("fair_use", !long.length && share <= 0.27 && !lifted.length, `${fu.length} clip(s), ${Math.round(share * 100)} % of runtime (≤ 27 %), ${long.length} over 8.5 s${lifted.length ? `, ${lifted.length} from a channel never lifted from (${lifted.map((x) => x.channel).join(", ")})` : ""}`);
@@ -78,7 +85,10 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   if (pass && o.record !== false && so) {
     const f = path.join(o.root, "data", "film-kits.json");
     const all = kits.filter((k) => k.job !== path.basename(o.job));
-    writeFileSync(`${f}.tmp`, JSON.stringify([...all, { job: path.basename(o.job), signatureObject: so, agent: "film-agent", at: new Date().toISOString() }], null, 1) + "\n");
+    // the same fields the art director reads from earlier films (typefaces, colours, concept, devices)
+    const plan = jread<{ world?: string; palette?: Record<string, string>; fonts?: { display?: string; body?: string } }>(path.join(o.job, "plan.json"), {});
+    const fonts = [plan.fonts?.display, plan.fonts?.body].filter((x): x is string => Boolean(x)).map((x) => x.split(",")[0]!.replace(/["']/g, "").trim());
+    writeFileSync(`${f}.tmp`, JSON.stringify([...all, { job: path.basename(o.job), devices: [], fonts, palette: Object.values(plan.palette ?? {}), tokens: plan.palette ?? {}, concept: (plan.world ?? "").slice(0, 300), transition: "", signatureObject: so, agent: "film-agent", at: new Date().toISOString() }], null, 1) + "\n");
     renameSync(`${f}.tmp`, f);
   }
   return { pass, checks };

@@ -3,7 +3,7 @@
 // through its own entry (src/entries/<id>.tsx), so builders work at the same time and one broken scene never breaks
 // another's render. src/Film.tsx is generated: each scene in a <Sequence> that starts `lead` seconds before its first
 // word (it enters over the outgoing scene, which keeps playing under it) — later scenes sit on top.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export const FPS = 24;
@@ -31,6 +31,14 @@ export async function pool<T, R>(items: T[], n: number, f: (x: T) => Promise<R>)
   const out: R[] = new Array(items.length);
   let next = 0;
   await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, async () => { for (let i = next++; i < items.length; i = next++) out[i] = await f(items[i]!); }));
+  return out;
+}
+
+/** Every staticFile the film's code draws (src/, generated entries excluded): what is actually on screen. */
+export function filmMedia(job: string): Set<string> {
+  const out = new Set<string>();
+  const walk = (d: string) => { if (!existsSync(d)) return; for (const f of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) { if (f.name !== "entries") walk(p); } else if (/\.(tsx?|jsx?)$/.test(f.name)) for (const m of readFileSync(p, "utf8").matchAll(/staticFile\(\s*[`"']([^`"'$]+)[`"']/g)) out.add(m[1]!); } };
+  walk(path.join(job, "src"));
   return out;
 }
 

@@ -1,11 +1,22 @@
 // A scene builder's own check (code, no model): its scene is built, compiles, is not blank at its start, middle and
 // end, uses only its own media and credits all of it.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { readPlan, sceneWindow, STUB, FPS } from "./plan.js";
 import type { GateCheck } from "./gate.js";
 
+/** A command run without blocking the event loop. */
+export function runAsync(bin: string, args: string[], cwd: string): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const p = spawn(bin, args, { cwd, env: process.env });
+    let stdout = "", stderr = "";
+    p.stdout.on("data", (d) => (stdout += d));
+    p.stderr.on("data", (d) => (stderr += d));
+    p.on("close", (status) => resolve({ status, stdout, stderr }));
+    p.on("error", (e) => resolve({ status: 1, stdout, stderr: String(e) }));
+  });
+}
 const jread = <T>(f: string, d: T): T => { try { return JSON.parse(readFileSync(f, "utf8")) as T; } catch { return d; } };
 /** Brightness spread of a still (0–255): a frame with almost no spread is blank. */
 export function lumaSpread(file: string): number {
@@ -42,7 +53,8 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
     const w = sceneWindow(plan, i, len), s = plan.scenes[i]!;
     const ts = [s.from + 0.15, (s.from + s.to) / 2, Math.min(s.to, w.startS + w.frames / FPS) - 0.15].map((t) => t.toFixed(2));
     const root = process.env.OPUMIA_ROOT ?? process.cwd();
-    const r = spawnSync("npx", ["tsx", path.join(root, "packages/motion-engine/src/hand/render-film.ts"), job, "--entry", path.join("src", "entries", `${id}.tsx`), "--offset", String(w.startS), "--stills-dir", path.join("stills", id, "check"), "--stills", ts.join(",")], { cwd: root, encoding: "utf8", maxBuffer: 1 << 26 });
+    // async: the orchestrator runs several builders' sessions at once, and a blocking render would stall them all
+    const r = await runAsync("npx", ["tsx", path.join(root, "packages/motion-engine/src/hand/render-film.ts"), job, "--entry", path.join("src", "entries", `${id}.tsx`), "--offset", String(w.startS), "--stills-dir", path.join("stills", id, "check"), "--stills", ts.join(",")], root);
     const outs = ts.map((t) => path.join(job, "stills", id, "check", `t${Number(t).toFixed(2)}.jpg`));
     const ok = r.status === 0 && outs.every((f) => existsSync(f));
     add("renders", ok, ok ? `stills at ${ts.join(", ")} s in stills/${id}/check/` : `render failed: ${(r.stderr || r.stdout).split("\n").filter((l) => /error|Error|cannot|Cannot/.test(l)).slice(0, 6).join(" | ").slice(0, 900)}`);

@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { readPlan, type FilmPlan } from "./plan.js";
+import { readPlan, filmMedia, type FilmPlan } from "./plan.js";
 import { ledgers } from "./gate.js";
 
 export interface Finding { check: string; scene?: string; atS?: number; what: string; severity: "fix" | "look" }
@@ -61,11 +61,15 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
     const { captionGroups, toSrt } = await import("@opumia/motion-engine");
     writeFileSync(path.join(o.job, "captions.srt"), toSrt(captionGroups(JSON.parse(readFileSync(path.join(o.job, "timed-script.json"), "utf8")), 7, 42)));
   } catch (e) { findings.push({ check: "captions", what: `captions.srt not written: ${(e as Error).message.slice(0, 120)}`, severity: "look" }); }
+  const onScreen = [...filmMedia(o.job)];
+  const key = (f: string) => path.basename(f).replace(/\.\w+$/, "");
+  const usedCredits = credits.filter((c) => onScreen.some((m) => m === c.file || key(m).includes(key(c.file))));
+  const usedFair = fair.filter((f) => onScreen.some((m) => m === f.file || key(m).includes(key(f.file))));
   const lic = ["# Licences and sources", "", "Every picture in the film, its source and its licence. Press and film excerpts are short, muted, transformed and under commentary (fair use); each is listed with its in-point and length.", "",
     "| File | Kind | Source | Licence | Link |", "|---|---|---|---|---|",
-    ...credits.map((c) => `| ${c.file} | ${c.kind} | ${(c.source ?? "").replace(/\|/g, "/")}${c.note ? ` — ${c.note.replace(/\|/g, "/").slice(0, 80)}` : ""} | ${c.license} | ${c.url ?? ""} |`),
+    ...usedCredits.map((c) => `| ${c.file} | ${c.kind} | ${(c.source ?? "").replace(/\|/g, "/")}${c.note ? ` — ${c.note.replace(/\|/g, "/").slice(0, 80)}` : ""} | ${c.license} | ${c.url ?? ""} |`),
     "", "## Fair-use excerpts", "", "| File | Video | Channel | In (s) | Seconds |", "|---|---|---|---|---|",
-    ...fair.map((f) => `| ${f.file} | ${f.title.replace(/\|/g, "/")} (${f.video}) | ${f.channel} | ${f.inS} | ${f.seconds} |`)];
+    ...usedFair.map((f) => `| ${f.file} | ${f.title.replace(/\|/g, "/")} (${f.video}) | ${f.channel} | ${f.inS} | ${f.seconds} |`)];
   writeFileSync(path.join(o.job, "LICENSES.md"), lic.join("\n") + "\n");
 
   // repeats: one source in two scenes, one moment twice, one scene drawing another scene's files
@@ -135,7 +139,8 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
   // sameness to our earlier films and line fit
   if (existsSync(video)) {
     const py = process.env.OPUMIA_PY ?? path.join(process.env.HOME ?? "", "lechi_tts", "venv", "bin", "python");
-    const r = spawnSync(py, ["-I", path.join(o.root, "tools/world/world_check.py"), path.basename(o.job), video, path.join(o.job, "timed-script.json"), "--no-save"], { cwd: o.root, encoding: "utf8", timeout: 300_000, maxBuffer: 1 << 24 });
+    const len = jread<{ seconds?: number }>(path.join(o.job, "src", "length.json"), {}).seconds ?? timed.durationS;
+    const r = spawnSync(py, ["-I", path.join(o.root, "tools/world/world_check.py"), path.basename(o.job), video, path.join(o.job, "timed-script.json"), "--no-save", "--len", String(Math.floor(len))], { cwd: o.root, encoding: "utf8", timeout: 300_000, maxBuffer: 1 << 24 });
     const out = `${r.stdout ?? ""}`.trim().split("\n").slice(-12).join("\n");
     if (out) findings.push({ check: "sameness", what: `world check (line fit, sameness to our earlier films):\n${out}`, severity: /FAIL|too close|OUTSIDE/i.test(out) ? "fix" : "look" });
   }

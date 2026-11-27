@@ -542,7 +542,7 @@ clone of its narrator, originality between our films.
 ## The film agent (2026-11-26, owner: "make the agents work like you"; "build the parallel version first")
 
 Agents with a workspace make the whole film the way the hand films were made, instead of a fixed pipeline of narrow
-agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--parallel 6] [--solo] [--dry-run]`
+agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--parallel 4] [--solo] [--dry-run]`
 (`apps/cli/src/film-agent/`).
 - **Before them:** the platform's own research, writer and voice agents (`produce --until narration`), cached.
 - **Parallel (default, `run.ts`):**
@@ -553,7 +553,7 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
   2. **Scaffold** (code): a stub and its own entry per scene (`src/entries/<id>.tsx`, so a broken scene never breaks
      another's render) and the generated `src/Film.tsx` (each scene mounted `lead` s before its words, entering over
      the one before).
-  3. **Scene builders** (one session per scene, `--parallel` at once, 50 % of the budget shared): each finds its
+  3. **Scene builders** (one session per scene, `--parallel` at once, 4 by default, 50 % of the budget shared): each finds its
      pictures and builds `src/scenes/<id>.tsx` until `film-tools scene-check <id>` passes (built, compiles, own
      media only, every file credited, not blank). Scene mode (`FILM_SCENE`): its own downloads, names, credits and
      fair-use ledgers (`credits/<id>.json`), so builders never write the same file; the guard lets it write only its
@@ -581,6 +581,16 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     tokens from the plan's `palette`/`fonts`); if the viewer or the judge finds something, the finisher gets one more
     turn. 15 % of the budget is held back for them.
   - The plan carries `entities`, `year`, `mark` per scene and the world's `palette` and `fonts`.
+- **Pre-run review (2026-11-26, before any paid run):** sessions share one config folder (the finisher resumes the
+  planner's transcript); a resumed session's reported cost includes its earlier turns, so only the difference is
+  counted; a session that ends in an error (the SDK throws) is logged and the film goes on; the agents' shell gets an
+  allowlisted environment with no stock or voice keys (`film-tools` loads its own keys) and the guard runs as a
+  PreToolUse hook on every tool call (it also refuses code that reads the environment, home-path and after-`cd`
+  deletes); the mix uses the narration file the word times belong to and pads the sound to the picture; renders link
+  `public/` and remove their bundle; the scene check and renders no longer block the parallel sessions; the gate fails
+  when the type check did not run or the mix is older than the picture (the orchestrator re-mixes), and counts only
+  clips the film draws; ledger entries carry their scene; builders' money is what is left after the planner, less the
+  finisher's reserve, with a STARVED warning (a Sonnet builder's first pass needs about $0.6, Haiku about $0.08).
 - **Solo** (`--solo`): one session does everything (the first design, kept for comparison).
 - **Tools:** `film-tools` (`tools.ts`, `TOOLS.md`): the reference watcher, press/film-clip search with strips and cut,
   article screenshots, Commons, stock sheets, the film library, cut-out, depth, render (whole film or one scene),

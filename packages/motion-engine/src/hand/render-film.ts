@@ -5,7 +5,8 @@
 //                                breaks another's render); --offset S: film time of the entry's frame 0 (stills and
 //                                frames are given in film seconds); --stills-dir, --out, --scale for where and how big
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 const here = path.dirname(new URL(import.meta.url).pathname);
@@ -13,7 +14,7 @@ const job = path.resolve(process.argv[2]!);
 const arg = (k: string) => (process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : undefined);
 const offset = Number(arg("--offset") ?? 0);
 const url = await bundle({
-  entryPoint: path.join(job, arg("--entry") ?? path.join("src", "index.ts")), publicDir: path.join(job, "public"), onProgress: () => {},
+  entryPoint: path.join(job, arg("--entry") ?? path.join("src", "index.ts")), publicDir: path.join(job, "public"), symlinkPublicDir: true, onProgress: () => {},
   webpackOverride: (cfg) => ({ ...cfg, resolve: { ...(cfg.resolve ?? {}), modules: [...((cfg.resolve?.modules as string[]) ?? ["node_modules"]), path.join(here, "..", "..", "node_modules"), path.join(here, "..", "..", "..", "..", "node_modules")], alias: { ...((cfg.resolve?.alias as Record<string, string>) ?? {}), "@craft": path.join(here, "..", "remotion", "craft.tsx") } } }),
 });
 const comp = await selectComposition({ serveUrl: url, id: "Film" });
@@ -34,3 +35,5 @@ if (stills) {
   await renderMedia({ composition: comp, serveUrl: url, codec: "h264", outputLocation: out, crf: 18, muted: true, concurrency: Number(arg("--concurrency") ?? 6), scale: Number(arg("--scale") ?? 1), frameRange: fr ? [Math.max(0, Math.round((fr[0] - offset) * comp.fps)), Math.min(last, Math.round((fr[1] - offset) * comp.fps) - 1)] : undefined, onProgress: ({ progress }) => { if (Math.round(progress * 100) % 20 === 0) process.stdout.write(`\r  render ${Math.round(progress * 100)}%`); } });
   console.log("\n" + out);
 }
+// the bundle links public/ (no copy of every clip per render) and is removed once rendered
+if (path.isAbsolute(url) && path.resolve(url).startsWith(path.resolve(tmpdir()))) await rm(url, { recursive: true, force: true }).catch(() => {});

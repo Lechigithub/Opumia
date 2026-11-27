@@ -11,7 +11,8 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
 - Import the world: `import { … } from "../world"` — its palette, fonts, grade, type and the signature object. Never
   restyle the film: if the world lacks something you need, build it in your folder in the world's style and say so
   in your notes.
-- Techniques: `import { … } from "@craft"`. Media: `staticFile("v/<id>_….mp4")`.
+- Techniques: `import { … } from "@craft"`. Media: `staticFile("v/<id>_….mp4")` — always the path written out in
+  quotes, never built from a variable: the credit, period and face checks read these paths.
 - Write only your own files: `src/scenes/<id>.tsx`, `src/scenes/<id>/…`, `public/v/<id>_…`, `public/img/<id>_…`,
   `downloads/<id>/…`, `stills/<id>/…`, `notes/<id>.md`, `notes/<id>.hits.json`. The tools name and file what you bring in for you
   (they prefix your scene id and record the source).
