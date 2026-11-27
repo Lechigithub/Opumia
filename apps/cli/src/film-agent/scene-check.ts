@@ -95,9 +95,18 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
       const root = process.env.OPUMIA_ROOT ?? process.cwd();
       const cfg = refereeConfig(path.join(root, "data"), "magnates-media");
       const files = readdirSync(stills).filter((f) => f.endsWith(".jpg")).map((f) => path.join(stills, f));
+      let scoreOfScene: number | undefined;
       if (cfg && files.length) {
         const v = await refereeScore({ root, data: path.join(root, "data"), reference: path.resolve(root, process.env.OPUMIA_REFERENCE_DIR ?? "Reference"), channel: "magnates-media", stills: files });
+        scoreOfScene = v.score;
         add("referee", v.score >= cfg.stretchLow, `${v.score} against the channel (its weakest tenth of moments: ${cfg.stretchLow}; a whole channel film ≥ ${cfg.filmBar})${v.score >= cfg.stretchLow ? "" : ` — this reads below the channel's weakest moments: film-tools ref similar "<your words>" shows how it puts a line like yours on screen`}`);
+      }
+      // the footage itself: the strongest of what the builder found, shown, without a broadcaster's text left in it
+      if (cfg && files.length) {
+        const { footageChecks } = await import("./footage.js");
+        const sc = plan.scenes[i]!;
+        const realClip = drawsReal && media.some((m) => /^v\//.test(m));
+        for (const c of await footageChecks({ root, job, id, media, stills: files, sceneScore: scoreOfScene, code, words: sc.words ?? "", realClip, stretchLow: cfg.stretchLow, filmBar: cfg.filmBar })) add(c.id, c.pass, c.detail);
       }
     } catch { /* the referee is not built yet: not checked */ }
   }

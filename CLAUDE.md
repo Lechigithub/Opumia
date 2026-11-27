@@ -676,6 +676,19 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     - playbooks: no drawn instruments or panels (a figure is big words or the real document); the planner no
       longer writes the signature object as a component;
     - `world-check` before a film exists says so instead of crashing.
+  - **Re-scored offline, with only the agents' own material** (`out/agent-juicero-3-fix`, no API): the fixes above
+    alone 4.59 → 4.60 (the referee does not penalise the gauge; it rewards footage); better footage from the agents'
+    own downloads 4.67 (s05 4.6 → 5.6, s07 5.0 → 6.0); framing that stops cropping into the dark 4.70. The rest of
+    the gap is footage never found (abstract lines: none of ~940 candidates fits). A Bloomberg clip put on a screen
+    uncropped showed its burned-in caption (4.6 → 3.6). The referee also rewards near-black frames whatever they show
+    (10 of its top 24 candidates are below the `too_dark` limit, some unrelated to any line).
+  - Hence `film-agent/footage.ts`, in the scene check (referee scores cached in `checks/rank-cache.json`):
+    `best_footage` (a candidate in the scene's own downloads ≥ 0.8 above what was placed, previews discounted 0.35,
+    near-black ones skipped, must be used or answered in `notes/<id>.md`; a scene at the bar passes),
+    `footage_shows` (the scene ≥ 0.6 below its own footage), `burned_in_text` (OCR words on a real clip's stills that
+    are neither the scene's nor the narration's), `searched_enough` (footage below the channel's weakest moments
+    after < 3 searches, prefetch included); `RoomScreen crop/focus`. On agent Juicero as delivered they fail s02,
+    s04, s06, s14 (best footage) and s16 (footage hidden).
 - **Agent reference tools:**
   - `film-tools ref similar "<line>"`: the channel's real shots under lines nearest in meaning — a word match over
     its 17,660 labelled shots, then one Haiku call — as a frame sheet, with how each was built.

@@ -223,6 +223,31 @@ ok("signature object: the product in press footage passes", drawnObject("the Jui
   }
 }
 
+// the footage a scene places (agent Juicero, 2026-11-27): the strongest of what the builder found, shown, clean
+{
+  const { mediaId, foreignText, footageChecks, candidatesOf } = await import("../film-agent/footage.js");
+  ok("footage: one id across preview, download and scene copy", mediaId("downloads/s05/stock-look/pexels_7458246.jpg") === "pexels_7458246" && mediaId("public/v/s05_pexels_7458246.mp4") === "pexels_7458246");
+  const j3 = path.join(ROOT, "out/agent-juicero-3");
+  if (existsSync(path.join(j3, "public/v/s01_press2.mp4")) && existsSync(path.join(ROOT, "data/.cache/ocr/ocr"))) {
+    const d = mkdtempSync(path.join(tmpdir(), "burn-")), raw = path.join(d, "raw.jpg"), crop = path.join(d, "crop.jpg");
+    spawnSync("ffmpeg", ["-v", "error", "-y", "-ss", "2", "-i", path.join(j3, "public/v/s01_press2.mp4"), "-frames:v", "1", raw]);
+    spawnSync("ffmpeg", ["-v", "error", "-y", "-ss", "2", "-i", path.join(j3, "public/v/s01_press2.mp4"), "-frames:v", "1", "-vf", "crop=iw/1.4:ih/1.4:(iw-iw/1.4)/2:0", crop]);
+    const code = readFileSync(path.join(j3, "src/scenes/s01.tsx"), "utf8"), words = "In April 2017, two Bloomberg reporters took a pack meant for a four hundred dollar juicer";
+    const rawText = foreignText(ROOT, [raw], code, words);
+    ok("burned-in text: Bloomberg's caption on the uncropped clip is found", rawText.length > 0, JSON.stringify(rawText));
+    ok("burned-in text: framed out, nothing is found", foreignText(ROOT, [crop], code, words).length === 0);
+  }
+  if (existsSync(path.join(j3, "downloads/s06")) && existsSync(path.join(j3, "public/v/s06_hands.mp4"))) {
+    ok("footage: s06's own downloads are its candidates", candidatesOf(j3, "s06").length > 10);
+    const fc = await footageChecks({ root: ROOT, job: j3, id: "s06", media: ["v/s06_hands.mp4"], stills: [], sceneScore: 4.63, code: "", words: "", realClip: false, stretchLow: 4.57, filmBar: 4.9 });
+    ok("footage: s06 left the cupped hands it had found unused — fails best_footage", fc.find((c) => c.id === "best_footage")?.pass === false, fc.find((c) => c.id === "best_footage")?.detail);
+    const at = await footageChecks({ root: ROOT, job: j3, id: "s06", media: ["v/s06_hands.mp4"], stills: [], sceneScore: 5.0, code: "", words: "", realClip: false, stretchLow: 4.57, filmBar: 4.9 });
+    ok("footage: a scene already at the channel's bar passes", at.find((c) => c.id === "best_footage")?.pass === true);
+    const hid = await footageChecks({ root: ROOT, job: j3, id: "s16", media: ["v/s16_pexels_13575994.mp4"], stills: [], sceneScore: 4.43, code: "", words: "", realClip: false, stretchLow: 4.57, filmBar: 4.9 });
+    ok("footage: s16's treatment hides its footage — fails footage_shows", hid.find((c) => c.id === "footage_shows")?.pass === false, hid.find((c) => c.id === "footage_shows")?.detail);
+  }
+}
+
 // the gate on a real rendered film (the hand-made v7): measures run, unfinished bookkeeping fails
 const v7 = path.join(ROOT, "out/hand-wirecard-v7");
 if (existsSync(path.join(v7, "film_16x9.mp4"))) {

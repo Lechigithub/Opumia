@@ -33,7 +33,14 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
 4. **Rank your candidates with the referee** before choosing: `film-tools rank downloads/<id>/… public/v/<id>_…`.
    Footage decides most of how a scene reads (the same untouched frames ranged 2.4–6.2 in the recipe lab); among the
    pictures that show your line, take the highest — dark, dramatic, real footage of the subject reads like the channel,
-   bright generic stock does not, and no caption or grade rescues it.
+   bright generic stock does not, and no caption or grade rescues it. The scene check holds you to it (agent Juicero:
+   builders placed footage a full point weaker than what they had already found):
+   - `best_footage`: a candidate in your own downloads that ranks ≥ 0.8 above what you placed must be used, or
+     answered in `notes/<id>.md` as `not used: <name> — <why it does not show the line>` (the referee rewards dark
+     cinematic pictures whatever they show — a clown mask is not your line).
+   - `searched_enough`: footage below the channel's weakest moments needs at least three different searches first.
+     For an abstract line ("what was the machine for?"), search for what the channel showed under lines like it
+     (`film-tools ref similar`), not for the words.
 5. **Build the scene**: a layered composition in the film's world. Words over footage the channel's way: `GlowCaption`
    over a `DarkPlate` (heavy condensed capitals glowing in the film's colour, footage dimmed and pushing in) — proven
    in the recipe lab above app-style type (+0.3) and flat designed cards (+0.6). Never an app panel, a dashboard, a
@@ -41,7 +48,10 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    scoreboard or progress bar): a figure is big words in the picture or the real document it comes from. Bright news or product footage — the proof — plays as footage being watched:
    `RoomScreen` (a screen in a dark room); a real photo or a headline goes in as a print over dark footage
    (`PhotoPrint`, `PressHeadline`), never full frame on black (proven in the Juicero rebuild: 3.2–3.5 full frame,
-   4.9 treated). A camera that moves on the words, the entrance the plan asks for.
+   4.9 treated). A camera that moves on the words, the entrance the plan asks for. Let the footage show: the check
+   `footage_shows` fails a scene that scores ≥ 0.6 below its own footage (a 130 % zoom into the dark, a card over
+   most of the frame, a heavy filter). A news clip with a broadcaster's caption or logo burned in must have it framed
+   out (`RoomScreen crop={1.35} focus="50% 0%"`, or a tighter crop) — `burned_in_text` reads the stills.
 6. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame, a
