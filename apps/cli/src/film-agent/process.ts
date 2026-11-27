@@ -43,7 +43,7 @@ export function plannerProcess(job: string, plan: FilmPlan, label = "planner"): 
 }
 
 /** A builder must have looked at its own rendered scene, and searched for its named subjects' real material. */
-export function builderProcess(job: string, plan: FilmPlan, id: string, drawsReal: boolean): Array<{ id: string; pass: boolean; detail: string }> {
+export function builderProcess(job: string, plan: FilmPlan, id: string, drawsReal: boolean, drawsMedia = true): Array<{ id: string; pass: boolean; detail: string }> {
   const calls = toolCalls(job, `build-${id}`);
   if (!calls.length) return [];
   const out: Array<{ id: string; pass: boolean; detail: string }> = [];
@@ -52,6 +52,11 @@ export function builderProcess(job: string, plan: FilmPlan, id: string, drawsRea
   // it saw how the channel shows a line like its own before building (retrieval over the channel's labelled shots)
   const studied = commands(calls).filter((c) => /film-tools\s+ref\s+(similar|technique)\b/.test(c)).length;
   out.push({ id: "studied", pass: studied > 0, detail: studied ? `looked at how the channel shows lines like this (${studied} search${studied > 1 ? "es" : ""})` : `before you build, see how the channel shows a line like yours: film-tools ref similar "<your scene's words>" (and Read the sheet), or film-tools ref technique "<technique>"` });
+  // footage decides most of how a scene reads: candidates are ranked by the referee before one is placed
+  if (drawsMedia) {
+    const ranked = commands(calls).filter((c) => /film-tools\s+rank\b/.test(c)).length;
+    out.push({ id: "ranked", pass: ranked > 0, detail: ranked ? "the candidate footage was ranked against the channel" : "rank your candidates against the channel before choosing: film-tools rank downloads/<id>/… public/v/<id>_… (no caption or grade rescues footage that does not read like the channel)" });
+  }
   const scene = plan.scenes.find((s) => s.id === id);
   const subjects = (scene?.entities ?? []).filter((e) => e.type === "person" || e.type === "company");
   if (subjects.length && !drawsReal) {

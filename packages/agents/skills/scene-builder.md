@@ -30,16 +30,22 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    before you use it: does it show the line? Is it the real person? Is it the right period? Sharp, no watermark,
    no one else's graphics (crop them away)? The tools refuse a moment, stock clip or photo another scene already
    brought in — the same picture twice reads as a repeat; find another.
-4. **Build the scene**: a layered composition in the film's world — footage graded into the look, words set into
-   the picture above the grade, a camera that moves on the words, the entrance the plan asks for.
-5. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
+4. **Rank your candidates with the referee** before choosing: `film-tools rank downloads/<id>/… public/v/<id>_…`.
+   Footage decides most of how a scene reads (the same untouched frames ranged 2.4–6.2 in the recipe lab); among the
+   pictures that show your line, take the highest — dark, dramatic, real footage of the subject reads like the channel,
+   bright generic stock does not, and no caption or grade rescues it.
+5. **Build the scene**: a layered composition in the film's world. Words over footage the channel's way: `GlowCaption`
+   over a `DarkPlate` (heavy condensed capitals glowing in the film's colour, footage dimmed and pushing in) — proven
+   in the recipe lab above app-style type (+0.3) and flat designed cards (+0.6). Never an app panel, a dashboard, a
+   sticker or a card on an empty stage. A camera that moves on the words, the entrance the plan asks for.
+6. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame.
-6. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`. It also checks what you did: that you
+7. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`. It also checks what you did: that you
    read your scene's rendered stills, and — when your scene names a person or company and shows none of their real
    material — that you searched for it (press, screenshot, commons) before using stock.
-7. **Write your hit points** in `notes/<id>.hits.json`: `[ { "t": 12.4, "what": "the stamp lands", "family": "thud" } ]`
+8. **Write your hit points** in `notes/<id>.hits.json`: `[ { "t": 12.4, "what": "the stamp lands", "family": "thud" } ]`
    (film seconds; families thud, sub_boom, impact, whoosh) — the moments a sound should land on what is seen. Code
    builds the film's first sound plan from them.
-8. **Write `notes/<id>.md`**: what is on screen, the pictures and why, where the words land, what the finisher should
+9. **Write `notes/<id>.md`**: what is on screen, the pictures and why, where the words land, what the finisher should
    know (a hit point, a seam with the next scene, anything you could not find). Stop.

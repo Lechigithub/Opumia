@@ -626,6 +626,18 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     - fresh eyes hand the finisher the LOW moments to answer.
   - **Limits:** the test set is small (8 real films, 15 of ours); the model judges stills, not motion or sound; scores
     of films it was trained on are biased low (use the fold scores in the report for those).
+- **Finishing and recipes, tested with the referee (2026-11-26, offline):**
+  - No global finish helps. Film grain, vignette, bloom, real dust and scratches, a contrast grade and all together
+    each LOWER both our frames and the channel's own (all together: channel −1.21, ours −0.60;
+    `dev/finish-experiment.ts`). The channel uses texture selectively, so no global finishing layer is built.
+  - The gap is in what is on screen (`dev/frame-scores.ts`):
+    - v7's highest moments: dark real footage with a heavy condensed caption glowing in the picture;
+    - Juicero's lowest: flat designed cards, app-style type, UI dots, plain daylight stock.
+  - Recipe lab (`dev/recipe-lab.ts`): on 12 real frames, the channel-style `GlowCaption` over a `DarkPlate` (new in
+    `@craft`) scores 4.00–4.07, against 3.68 for app-style type and 3.48 for a flat card. But the footage decides most
+    of it: the same untouched frames ranged 2.4–6.2, and no treatment lifts generic stock to the channel.
+  - Hence `film-tools rank` (the referee on candidate footage before it is chosen), and builders are told to rank,
+    then build with GlowCaption over a DarkPlate.
 - **Agent reference tools:**
   - `film-tools ref similar "<line>"`: the channel's real shots under lines nearest in meaning — a word match over
     its 17,660 labelled shots, then one Haiku call — as a frame sheet, with how each was built.

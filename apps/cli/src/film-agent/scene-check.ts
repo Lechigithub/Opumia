@@ -69,7 +69,7 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
   const realKinds = /press|film clip|screenshot|photo/i;
   const allCredits = [...jread<Array<{ file: string; kind: string }>>(path.join(job, "credits.json"), []), ...(existsSync(path.join(job, "credits")) ? readdirSync(path.join(job, "credits")).filter((f) => f.endsWith(".json")).flatMap((f) => jread<Array<{ file: string; kind: string }>>(path.join(job, "credits", f), [])) : [])];
   const drawsReal = media.some((m) => allCredits.some((c) => realKinds.test(c.kind) && (c.file === m || raw(m).includes(path.basename(c.file).replace(/\.\w+$/, "")))));
-  for (const c of builderProcess(job, plan, id, drawsReal)) add(c.id, c.pass, c.detail);
+  for (const c of builderProcess(job, plan, id, drawsReal, media.some((m) => /^(v|img)\//.test(m)))) add(c.id, c.pass, c.detail);
   // the referee on the scene's own stills (inside a production: the builder's log exists and the stills were rendered)
   const stills = path.join(job, "stills", id, "check");
   if (existsSync(path.join(job, "logs", `build-${id}.tools.jsonl`)) && existsSync(stills)) {

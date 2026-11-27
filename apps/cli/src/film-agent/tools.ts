@@ -313,6 +313,25 @@ async function main() {
       process.exitCode = v.pass ? 0 : 2;
       return;
     }
+    case "rank": {
+      // the referee on candidate footage before it is chosen (recipe lab, 2026-11-26: the same untouched frames ranged
+      // 2.4–6.2; no caption or grade rescues footage that does not read like the channel)
+      const files = args.filter((a) => !a.startsWith("--")).flatMap((a) => { const p = path.resolve(JOB, a); return existsSync(p) && statSync(p).isDirectory() ? readdirSync(p).filter((f) => /\.(mp4|mov|webm|jpg|jpeg|png)$/i.test(f)).map((f) => path.join(p, f)) : [p]; }).filter((p) => existsSync(p));
+      if (!files.length) { console.log("film-tools rank <clip or photo or folder> … — scores each against the channel"); return; }
+      const { refereeModel, refereeConfig } = await import("../referee/score.js");
+      const reference = path.resolve(ROOT, process.env.OPUMIA_REFERENCE_DIR ?? "Reference");
+      const m = await refereeModel({ root: ROOT, data: path.join(ROOT, "data"), reference, channel: CHANNEL });
+      const cfg = refereeConfig(path.join(ROOT, "data"), CHANNEL)!;
+      const { embedPictures, tasteOf } = await import("@opumia/agents");
+      const items = files.flatMap((f) => (/\.(mp4|mov|webm)$/i.test(f) ? [0.25, 0.5, 0.75].map((k) => ({ file: f, t: Math.max(0.2, dur(f) * k), degrade: "corners" })) : [{ file: f, degrade: "corners" }]));
+      const vs = await embedPictures({ root: ROOT, data: path.join(ROOT, "data"), items });
+      const by = new Map<string, number[]>();
+      items.forEach((it, i) => { if (vs[i]) (by.get(it.file) ?? by.set(it.file, []).get(it.file)!).push(tasteOf(m, vs[i]!)); });
+      const rows = [...by].map(([f, xs]) => ({ f, s: xs.reduce((a, b) => a + b, 0) / xs.length })).sort((a, b) => b.s - a.s);
+      for (const r of rows) console.log(`${r.s.toFixed(2)} ${r.s >= cfg.filmBar ? "reads like the channel" : r.s >= cfg.stretchLow ? "inside the channel's range" : "below the channel's weakest moments"} | ${path.relative(JOB, r.f)}`);
+      console.log(`Choose among the pictures that show the line from the top of this list; a caption or grade does not rescue footage below ${cfg.stretchLow}.`);
+      return;
+    }
     case "scene-check": {
       const sc = args[0] ?? SCENE;
       const { sceneCheck } = await import("./scene-check.js");

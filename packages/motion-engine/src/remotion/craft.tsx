@@ -436,7 +436,39 @@ export const ScreenWall: React.FC<{ cells?: number; before: string[]; after: str
 };
 
 export { DepthPlate } from "./depth";
+/**
+ * The channel's caption over footage (proven by the referee, 2026-11-26: v7's highest-scoring moments were dark real
+ * footage with a heavy condensed caption glowing in the picture; Juicero's lowest were app-style type and flat cards).
+ * Font, colour and glow are the film's own (its world), never a fixed look. Times in seconds from the Sequence start.
+ */
+export const GlowCaption: React.FC<{ text: string; at?: number; until?: number; x?: number; y?: number; size?: number; font: string; weight?: number; color?: string; glow?: string; sub?: string; subFont?: string; subAt?: number; align?: "center" | "left" }> = (p) => {
+  const f = useCurrentFrame(), { fps } = useVideoConfig();
+  const t = f / fps, at = p.at ?? 0;
+  const k = interpolate(t, [at, at + 0.45], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
+  const g = p.until !== undefined ? interpolate(t, [p.until - 0.25, p.until], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1;
+  if (k <= 0) return null;
+  const size = p.size ?? 180, glow = p.glow ?? "rgba(120,170,255,.7)";
+  const ks = p.subAt !== undefined ? interpolate(t, [p.subAt, p.subAt + 0.35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : k;
+  return (
+    <div style={{ position: "absolute", left: `${(p.x ?? 0.5) * 100}%`, top: `${(p.y ?? 0.5) * 100}%`, transform: `translate(${p.align === "left" ? "0" : "-50%"}, -50%) translateY(${(1 - k) * 18 - (t - at) * 3}px)`, textAlign: p.align ?? "center", opacity: g, whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: p.font, fontWeight: p.weight ?? 900, fontSize: size, lineHeight: 0.9, color: p.color ?? "#ffffff", letterSpacing: `${(1 - k) * 0.35 + 0.01}em`, filter: `blur(${(1 - k) * 14}px)`, opacity: k, textShadow: `0 0 ${size * 0.3}px ${glow}, 0 0 ${size * 0.07}px ${glow}, 0 6px 30px rgba(0,0,0,.6)`, textTransform: "uppercase" }}>{p.text}</div>
+      {p.sub ? <div style={{ fontFamily: p.subFont ?? p.font, fontWeight: 600, fontSize: size * 0.16, letterSpacing: "0.32em", color: p.color ?? "#ffffff", marginTop: size * 0.12, opacity: ks * 0.85, textTransform: "uppercase", textShadow: "0 2px 14px rgba(0,0,0,.95)" }}>{p.sub}</div> : null}
+    </div>
+  );
+};
+/** Footage dimmed so words read and the shot feels lit, pushing in slowly (the plate under a GlowCaption). */
+export const DarkPlate: React.FC<{ src: string; video?: boolean; trim?: number; dim?: number; contrast?: number; push?: [number, number]; len?: number; pos?: string }> = (p) => {
+  const f = useCurrentFrame(), { fps, durationInFrames } = useVideoConfig();
+  const len = (p.len ?? durationInFrames / fps) * fps;
+  const [s0, s1] = p.push ?? [1.04, 1.12];
+  const sc = interpolate(f, [0, len], [s0, s1], { extrapolateRight: "clamp", easing: Easing.inOut(Easing.sin) });
+  const style: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: p.pos ?? "50% 50%", transform: `scale(${sc})`, filter: `brightness(${p.dim ?? 0.55}) contrast(${p.contrast ?? 1.12}) saturate(0.9)` };
+  return <AbsoluteFill style={{ overflow: "hidden", background: "#000" }}>{p.video ? <OffthreadVideo src={src(p.src)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={style} /> : <Img src={src(p.src)} style={style} />}</AbsoluteFill>;
+};
+
 export const CRAFT_TOOLS: Record<string, string> = {
+  GlowCaption: "the channel's caption over footage: heavy condensed capitals glowing in the film's own colour, a dark shadow, settling in from a blur; a mono line under it (the referee's highest-scoring moments of our films are this over dark real footage)",
+  DarkPlate: "real footage dimmed and pushing in slowly, so a caption reads and the shot feels lit — the plate under a GlowCaption",
   DepthPlate: "a real still made into a 3D surface from its own depth map (tools/depth/depth.py) and filmed by a real camera: dolly, drift and orbit with true parallax and occlusion — the channel's layered photo move",
   CameraPath: "a camera move through keyframes (scale, x, y, rotation at times), eased; wraps anything; depth scales how far a layer travels",
   Parallax: "a real still made to move like a filmed shot: its background softened and its subject cut out where it stood (box from the cut-out tool), each plane on the same camera path at its own depth",

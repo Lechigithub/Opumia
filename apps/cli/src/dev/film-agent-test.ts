@@ -185,7 +185,8 @@ ok("adapters: the world's colours are valid design tokens (a bad colour falls ba
   const b1 = builderProcess(pj, sp, "s02", false);
   ok("builder: never looked at its scene, never searched for the named person — both fail", b1.find((c) => c.id === "looked")?.pass === false && b1.find((c) => c.id === "real_first")?.pass === false);
   ok("builder: never studied how the channel shows its line — fails", b1.find((c) => c.id === "studied")?.pass === false);
-  writeFileSync(toolLog(pj, "build-s02"), [line("Bash", { command: 'film-tools ref similar "Braun turned Wirecard into a tech champion"' }), line("Bash", { command: 'film-tools press "Markus Braun Wirecard" --person "Markus Braun"' }), line("Read", { file_path: `${pj}/stills/s02/t5.10.jpg` })].join(""));
+  ok("builder: placed footage without ranking it against the channel — fails", b1.find((c) => c.id === "ranked")?.pass === false);
+  writeFileSync(toolLog(pj, "build-s02"), [line("Bash", { command: 'film-tools ref similar "Braun turned Wirecard into a tech champion"' }), line("Bash", { command: 'film-tools press "Markus Braun Wirecard" --person "Markus Braun"' }), line("Bash", { command: "film-tools rank downloads/s02 public/v/s02_hq.mp4" }), line("Read", { file_path: `${pj}/stills/s02/t5.10.jpg` })].join(""));
   const b2 = builderProcess(pj, sp, "s02", false);
   ok("builder: studied the channel, looked at its stills and searched first — all pass", b2.every((c) => c.pass), JSON.stringify(b2));
   ok("builder: a scene that shows real material needs no search check", !builderProcess(pj, sp, "s02", true).some((c) => c.id === "real_first"));

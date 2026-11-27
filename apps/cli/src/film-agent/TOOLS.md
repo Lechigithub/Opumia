@@ -29,6 +29,9 @@ Eight of the channel's films are held back for the referee and never shown here.
 - `film-tools referee [film.mp4]` — the platform's judge of whether the film reads like the channel (proven on held-back
   channel films it never saw): a score per 8 s stretch, the weakest moments, and the film's score against the bar
   every channel film reaches. `film-tools referee --scene <id>` scores a scene's stills.
+- `film-tools rank <clips/photos/folder> …` — the referee on candidate footage BEFORE you choose: each scored against
+  the channel. Footage decides most of a scene's score (the same untouched frames ranged 2.4–6.2); choose among the
+  pictures that show your line from the top of this list.
 - `film-tools gate` — the hard rules. Must print GATE PASSED.
 
 ## Pictures
