@@ -884,6 +884,11 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     our music too quiet), the bed present 95 % of the time (ours 75 %), about 20 drop-outs a minute (ours 32). The
     old rule "music ducked ~8 dB" is the opposite of the channels. **Motion still does not** (26 % of real windows
     flagged; ours push in more, 0.43 vs 0.28, pull and whip less). Neither is a gate yet.
+  - **The mix fixed to the channels' measure** (`film-agent/mix.ts`): the bed is no longer sidechain-ducked under the
+    voice, and sits 17.3 dB (cold open) / 20.6 dB (body) under it by loudness meter. Agent Juicero remixed from its own
+    stems (`out/agent-juicero-3-mix`): sound referee 0.11 → 0.74 (held-back real 0.35–0.99), ducking 12.8 → 3.0 dB,
+    voice over bed 29.0 → 20.5 dB (the channels 21.5), bed present 90 → 100 %; master −12.6 LUFS, peak −1.7 dB.
+    Not changed: the older `produce` pipeline's mix (`motion-engine/audio.ts`) still ducks the music ~8 dB.
   - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
     shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
     → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
@@ -1166,7 +1171,7 @@ Editorial rules enforced in code (keep them):
 - **Reenactment first:** staged stock reenactment with anonymous actors is allowed and preferred for power/secrecy/engineers/boardroom/consumer beats; only recognisable celebrities/politicians shown as someone else are rejected. `resolver:mismatch` rejects title slates/credits, devices that post-date the beat (touchscreens before 2007 etc.) and a rival brand the line doesn't name.
 - **Chapter cards** (long-form) are drawn by the kit's chapter role for 2.4 s; burned-in captions are hidden under them.
 - **Voice:** see **Voice: directed narration** (Christopher, eleven v4, natural pace); broadcast voice chain in `audio.ts` (warmth, presence, de-ess, two-stage compression). Master −12.5 LUFS, music ducked ~8 dB.
-- **Sound:** music bed evolves every ~45 s within a mood span; breathing drop-outs (1.2–1.6 s) about once a minute, a sub drop only after rehook/twist; hits ≈ 3/min, mostly low thuds/booms (no whooshes); riser + boom on chapter pivots.
+- **Sound:** music bed evolves every ~45 s within a mood span; breathing drop-outs (1.2–1.6 s) about once a minute, a sub drop only after rehook/twist; hits ≈ 3/min, mostly low thuds/booms (no whooshes); riser + boom on chapter pivots. (2026-11-27: measured with Demucs, the channels barely duck the bed under the voice — the film agent's mixer no longer ducks; this pipeline's ~8 dB ducking is still to change.)
 - Only the reranker's accepted pick is ever used. A rejected shot gets another picture through the picture tools or is designed around a real picture on the kit's stage. Lines that name a person never show a stand-in face.
 - Footage more than 15 years older than the story's era is out (5 years in repairs). Assets with `bugSpots` are excluded.
 - The licence gate (`agents/library-menu.ts:isUsable`): licence required; `moments/`, `bank/` and `thumb_cache/` are never used in output; generated assets are allowed only for audio.

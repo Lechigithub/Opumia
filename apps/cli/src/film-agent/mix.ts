@@ -3,7 +3,10 @@
 // mix.json: { "beds": [{ "file": "Library/music/…mp3", "from": 0, "to": 30, "inS": 12, "gainDb"?: 0 }],
 //             "cues": [{ "t": 4.1, "file": "Library/sfx/…mp3", "db": -8 }], "drops": [{ "from": 63.9, "to": 64.6 }] }
 // Levels (build list 6, 37 MagnatesMedia films): the narration enters at −16 LUFS; a bed sits ≈ 15.8 dB under the
-// voice in the cold open (first 15 s) and ≈ 19.1 dB in the body, ducked under the voice; master −12.5 LUFS, limiter
+// voice in the cold open (first 15 s) and ≈ 19.1 dB in the body, NOT ducked under the voice — measured with Demucs on
+// the channels' own films (2026-11-27, tools/referee/motion_sound2.py): they duck the bed 0.2 dB and keep it present 95 %
+// of the time; ours, sidechain-ducked, measured 8.9 dB of ducking, the voice 28 dB over the bed (the channels ≈ 21.5)
+// and the bed present 75 %; master −12.5 LUFS, limiter
 // at −1.8 dBFS so peaks stay ≤ −1.5 dB.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -23,10 +26,13 @@ const lufs = (f: string, extra: string[] = []) => {
 // times to it — timed-script.json names the file that matches them
 const timedVoice = (() => { try { return (JSON.parse(readFileSync(path.join(job, "timed-script.json"), "utf8")) as { voice?: { audioPath?: string } }).voice?.audioPath; } catch { return undefined; } })();
 const voice = timedVoice && existsSync(timedVoice) ? timedVoice : existsSync(path.join(job, "narration-shaped.mp3")) ? path.join(job, "narration-shaped.mp3") : path.join(job, "narration.mp3");
-const VOICE = -16, COLD = 15, UNDER_COLD = 15.8, UNDER_BODY = 19.1;
+// Bed levels by loudness meter: 15.8 / 19.1 dB under the voice measured as LUFS on the channels' mixes; once not ducked,
+// Demucs separation (the referee's measure) read our voice 18.2 dB over the bed against the channels' 21.5. Tried on
+// agent Juicero (2026-11-27): 1.5 dB lower → 20.5 dB, sound referee 0.74 (0 dB: 0.79 but 3 dB too loud; 3 dB: 0.64).
+const VOICE = -16, COLD = 15, UNDER_COLD = 17.3, UNDER_BODY = 20.6;
 const vGain = VOICE - lufs(voice);
 const ins: string[] = ["-i", voice];
-const fl: string[] = [`[0:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${vGain.toFixed(2)}dB,asplit=2[v][vkey]`];
+const fl: string[] = [`[0:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${vGain.toFixed(2)}dB[v]`];
 const beds: string[] = [];
 for (const [i, b] of (spec.beds ?? []).entries()) {
   const f = abs(b.file);
@@ -44,9 +50,8 @@ if (beds.length) {
   fl.push(`${beds.join("")}amix=inputs=${beds.length}:normalize=0:duration=longest[bedraw]`);
   const drop = (spec.drops ?? []).map((d) => `between(t,${d.from},${d.to})`).join("+");
   fl.push(`[bedraw]volume='if(${drop || "0"},0.06,1)':eval=frame[beddrop]`);
-  fl.push(`[beddrop][vkey]sidechaincompress=threshold=0.04:ratio=4:attack=25:release=350[bed]`);
-  bedOut = "[bed]";
-} else fl.push(`[vkey]anullsink`);
+  bedOut = "[beddrop]";
+}
 const cues: string[] = [];
 const base = 1 + (spec.beds?.length ?? 0);
 for (const [i, c] of (spec.cues ?? []).entries()) {

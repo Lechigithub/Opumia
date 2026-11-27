@@ -1,7 +1,7 @@
 // The draft sound plan (owner, 2026-11-26): code writes the first mix.json from what the film already knows — the
 // planner's turns and biggest line, the cut points, the hit points each builder listed (notes/<id>.hits.json), the
 // beds ranked by how like the channel they sound — at the channel's measured density; the finisher then adjusts it.
-// The levels themselves (voice −16 LUFS, beds 15.8 / 19.1 dB under it, ducking, master) are mix.ts's, in code.
+// The levels themselves (voice −16 LUFS, beds 15.8 / 19.1 dB under it and not ducked, master) are mix.ts's, in code.
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import path from "node:path";
 import { readPlan, type FilmPlan } from "./plan.js";
