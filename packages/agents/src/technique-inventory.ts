@@ -20,9 +20,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { ChannelId } from "@opumia/contracts";
 import { run } from "@opumia/senses";
 import * as z from "zod/v4";
-import { filmVideo } from "./clip-judge.js";
 import { MODELS, ROLE_MODEL, plain, structured } from "./llm.js";
-import { loadReferenceIndex } from "./reference-index.js";
+import { filmVideo, loadReferenceIndex } from "./reference-index.js";
 
 export const TECH_CATEGORIES = ["picture", "motion", "type", "data", "edit", "sound", "structure"] as const;
 export interface Technique { id: string; name: string; category: (typeof TECH_CATEGORIES)[number]; definition: string; seeIn: string }

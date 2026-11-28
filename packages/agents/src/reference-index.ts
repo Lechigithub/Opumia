@@ -116,3 +116,14 @@ export async function embedPictures(o: { root: string; data: string; items: Embe
   }
   return out;
 }
+
+/** A reference film's video file (its folder from the reference index's thumbnails). */
+export async function filmVideo(reference: string, data: string, filmId: string): Promise<string | null> {
+  const ix = await loadReferenceIndex(data);
+  const th = ix?.thumbs.find((t) => t.film === filmId);
+  if (!th) return null;
+  const dir = path.join(reference, path.dirname(th.file));
+  const { existsSync, readdirSync } = await import("node:fs");
+  const mp4 = existsSync(dir) ? readdirSync(dir).find((f) => f.endsWith(".mp4")) : undefined;
+  return mp4 ? path.join(dir, mp4) : null;
+}

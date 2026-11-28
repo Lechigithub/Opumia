@@ -333,7 +333,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       const g = await filmGate({ root: o.root, job, channel: o.channel, record: false });
       note = `nothing; the gate still fails: ${g.checks.filter((c) => !c.pass).map((c) => `${c.id}: ${c.detail}`).join(" | ")}`;
     }
-    // 5. fresh eyes on the finished film: the platform's viewer QA, final-cut judge and packaging, at the same time
+    // 5. fresh eyes on the finished film: the platform's viewer QA, the referee and packaging, at the same time
     remixIfStale();
     if (existsSync(filmPath(job))) {
       const ag = await import("@opumia/agents");
@@ -342,7 +342,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       addPlatform(fe.usd);
       // the finisher answers what outside eyes saw even when the film passed: every judge tell and every viewer issue
       // of severity 5+ is answered in TELLS.md (what changed, or why it stays)
-      const tells = [...(fe.judge?.tells ?? []), ...(fe.referee?.low ?? []).map((x) => `the referee's weakest moment ${x}`)];
+      const tells = [...(fe.referee?.low ?? []).map((x) => `the referee's weakest moment ${x}`)];
       const issues = (fe.viewer?.issues ?? []).filter((x) => x.severity >= 5).map((x) => x.what);
       const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.referee && !fe.referee.pass) || tells.length > 0 || issues.length > 0;
       const finAppend = `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`;
