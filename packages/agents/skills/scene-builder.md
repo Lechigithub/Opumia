@@ -30,8 +30,8 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    before you use it: does it show the line? Is it the real person? Is it the right period? Sharp, no watermark,
    no one else's graphics (crop them away)? The tools refuse a moment, stock clip or photo another scene already
    brought in — the same picture twice reads as a repeat; find another. When you search stock or films:
-   the channel's most common shot is a person performing or reacting to the line, lit low-key, under a
-   big caption — search for people doing THIS line ("man counting money desk lamp" for "$120 million from
+   the channel's most common shot where nothing real exists is a person performing or reacting to the line —
+   search for people doing THIS line ("man counting money desk lamp" for "$120 million from
    backers", "man staring at machine dark room" for "what was the machine for?", "man pitching on stage dark
    audience" for a sales claim). Measured on Juicero: such searches found 7 of 155 candidates at the channel's level,
    objects and places ("sports car night garage", "boardroom") 1 of 157, moods ("dark moody light bulb") dark
@@ -40,8 +40,9 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    Frick being "a force"): take from it what KIND of shot the channel uses, not its words.
 4. **Rank your candidates with the referee** before choosing: `film-tools rank downloads/<id>/… public/v/<id>_…`.
    Footage decides most of how a scene reads (the same untouched frames ranged 2.4–6.2 in the recipe lab); among the
-   pictures that show your line, take the highest — dark, dramatic, real footage of the subject reads like the channel,
-   bright generic stock does not, and no caption or grade rescues it. The scene check holds you to it (agent Juicero:
+   pictures that show your line, take the highest — real footage of the subject reads like the channel, generic stock
+   does not, and no caption or grade rescues it. The referee is a floor, not the goal: it also rewards dark cinematic
+   pictures that show nothing of your line. The scene check holds you to it (agent Juicero:
    builders placed footage a full point weaker than what they had already found):
    - `best_footage`: a candidate in your own downloads that ranks ≥ 0.8 above what you placed must be used, or
      answered in `notes/<id>.md` as `not used: <name> — <why it does not show the line>` (the referee rewards dark
@@ -49,21 +50,24 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    - `searched_enough`: footage below the channel's weakest moments needs at least three different searches first.
      For an abstract line ("what was the machine for?"), search for what the channel showed under lines like it
      (`film-tools ref similar`), not for the words.
-5. **Build the scene**: a layered composition in the film's world. Words over footage the channel's way: `GlowCaption`
-   over a `DarkPlate` (heavy condensed capitals glowing in the film's colour, footage dimmed and pushing in) — proven
-   in the recipe lab above app-style type (+0.3) and flat designed cards (+0.6). Never an app panel, a dashboard, a
-   sticker or a card on an empty stage, and never a drawn instrument (a gauge, dial, timer, counter, meter,
-   scoreboard or progress bar): a figure is big words in the picture or the real document it comes from. Bright news or product footage — the proof — plays as footage being watched:
-   `RoomScreen` (a screen in a dark room); a real photo or a headline goes in as a print over dark footage
-   (`PhotoPrint`, `PressHeadline`), never full frame on black (proven in the Juicero rebuild: 3.2–3.5 full frame,
-   4.9 treated). A camera that moves on the words, the entrance the plan asks for. Let the footage show: the check
+5. **Build the scene the way the channel built lines like yours** — not the way an earlier film of ours did. The
+   sheet from `film-tools ref similar` shows what the channel put on screen under such lines: whether it played the
+   footage clean (about 40 % of its shots), set words into the picture, showed proof as a document, a headline or news
+   on a screen, or built a designed place. Do what it did there, in this film's world: the words in the world's type
+   and colours (`src/world.tsx`), at the size, case and position the channel used for that kind of line. `@craft`
+   tools are techniques with no look of their own — give each one the world's type, colours and grade and the camera
+   move your scene needs; never leave a tool's defaults to decide how the film looks, and never reach for the same tool
+   in every scene. Never an app panel, a dashboard, a sticker or a card on an empty stage, and never a drawn instrument
+   (a gauge, dial, timer, counter, meter, scoreboard or progress bar): a figure is words in the picture or the real
+   document it comes from. A real photo or headline is never full frame on black. Let the footage show: the check
    `footage_shows` fails a scene that scores ≥ 0.6 below its own footage (a 130 % zoom into the dark, a card over
    most of the frame, a heavy filter). A news clip with a broadcaster's caption or logo burned in must have it framed
-   out (`RoomScreen crop={1.35} focus="50% 0%"`, or a tighter crop) — `burned_in_text` reads the stills.
+   out (a tighter crop, or `RoomScreen crop` / `focus`) — `burned_in_text` reads the stills.
    **Move the camera the channel's way** (measured on real films, 2026-11-27): it pulls out as often as it pushes in
    (about a quarter of the time each), alternates the direction from shot to shot, pans faster and whips about 20
    times a minute. Ours pushed in 42–49 % of the time and pulled out 6–16 %. If the scene before yours pushes in,
-   pull out (`DarkPlate push={[1.12, 1.02]}`), drift sideways, or whip in; never the same slow push-in every scene.
+   pull out, drift sideways or whip in; always set the move yourself (every `@craft` plate takes its scale range),
+   never the same slow push-in every scene.
 6. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame, a

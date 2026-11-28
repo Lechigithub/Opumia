@@ -38,8 +38,8 @@ const One: React.FC<{ img: string; words: string; v: string }> = ({ img, words, 
   if (v === "raw") return <AbsoluteFill><Img src={staticFile(img)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></AbsoluteFill>;
   if (v === "app") return <AbsoluteFill><Img src={staticFile(img)} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.6) brightness(0.85)" }} /><div style={{ position: "absolute", left: 120, top: 90, fontFamily: SANS, fontWeight: 700, fontSize: 110, color: "#D4204F", letterSpacing: "-0.01em" }}>{words}</div></AbsoluteFill>;
   if (v === "card") return <AbsoluteFill style={{ background: "linear-gradient(180deg,#1b2128,#0e1216)" }}><div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", padding: "50px 80px", borderRadius: 28, background: "linear-gradient(180deg,#e8455f,#b3163a)", boxShadow: "0 30px 80px rgba(0,0,0,.6)", fontFamily: SANS, fontWeight: 700, fontSize: 96, color: "#fff" }}>{words}</div><div style={{ position: "absolute", left: "50%", top: "28%", transform: "translateX(-50%)", fontFamily: SANS, fontSize: 26, letterSpacing: "0.3em", color: "#9aa4ae" }}>JUICERO · PRESSED</div></AbsoluteFill>;
-  if (v === "dark") return <DarkPlate src={img} dim={0.55} />;
-  return <AbsoluteFill><DarkPlate src={img} dim={v === "recipe" ? 0.55 : 0.75} /><GlowCaption text={words} font={BIG} y={0.5} size={words.length > 14 ? 150 : 210} glow="rgba(255,90,110,.65)" sub="JUICERO · 2017" subFont={MONO} /></AbsoluteFill>;
+  if (v === "dark") return <DarkPlate src={img} dim={0.55} push={[1.04, 1.12]} />;
+  return <AbsoluteFill><DarkPlate src={img} dim={v === "recipe" ? 0.55 : 0.75} push={[1.04, 1.12]} /><GlowCaption text={words} font={BIG} y={0.5} size={words.length > 14 ? 150 : 210} glow="rgba(255,90,110,.65)" upper sub="JUICERO · 2017" subFont={MONO} /></AbsoluteFill>;
 };
 export const Lab: React.FC = () => <AbsoluteFill>{items.flatMap((it, i) => V.map((v, j) => <Sequence key={i + v} from={(i * V.length + j) * 24} durationInFrames={24}><One img={it.img} words={it.words} v={v} /></Sequence>))}</AbsoluteFill>;
 `);

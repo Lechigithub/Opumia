@@ -19,12 +19,12 @@
      then CHECK each downloaded clip by eye — ids and positions have been wrong before), public-domain films
      (`film-tools films "…"`), film and TV scenes as metaphor (`film-tools press "… movie scene" --film`).
    - 1080p or better; nothing soft, watermarked, or with someone else's graphics burned in (crop them away).
-4. **Build the scenes in `src/Film.tsx`.** Each scene a layered composition in the film's world: real footage graded
-   into one look; words set INTO the picture (huge for figures and turns, small mono lines for places and names);
-   a camera that moves on the words; hand-overs by moving (push through, whip, flash, fade, a match), few hard cuts.
-   Use `@craft` (CameraPath, Parallax, DepthPlate, BuildWords, GlitchIn, PressHeadline, SignatureObject,
-   TravellingFigure, ScreenWall, LedBoard, PinnedPrint, LightSweep, PlaceLine, GradedPlate, ZoomThrough, FlashCut,
-   Whip…) with THIS film's colours and type. Keep words above the grade.
+4. **Build the scenes in `src/Film.tsx`.** Each scene the way the channel built lines like it (`film-tools ref
+   similar`), in this film's world: real footage graded into one look; words, where the channel puts words, set into
+   the picture in the film's own type; a camera that moves on the words, alternating push and pull; hand-overs by
+   moving (push through, whip, flash, fade, a match), few hard cuts. `@craft` tools are techniques with no look of
+   their own (TOOLS list in the craft file): give each this film's colours, type and camera move, and never copy the
+   code or treatment of an earlier film of ours. Keep words above the grade.
 5. **Look at every scene before the film.** `film-tools render --stills t1,t2,…` and read the images. Fix what is
    wrong: wrong footage, a face that is not the person, unreadable words, words covering the subject, dead frames.
 6. **Render, then watch it beside the reference.** `film-tools render`, `film-tools mix`, then

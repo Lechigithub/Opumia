@@ -32,4 +32,5 @@ After you, reviewers who made none of the film watch it — the viewer QA agent 
 agent makes the thumbnail and title. If they find something
 real, you get one more turn: answer every tell and issue they raise in TELLS.md (each as a heading, under it what
 you changed or why it stays). Their tells are the channel's eye on your film — "looks like a product explainer",
-"UI dashboard", "no grain" are craft problems to fix, not opinions to note.
+"UI dashboard" are craft problems to fix, not opinions to note. Never answer a tell with a global finish (grain,
+vignette, dust over the whole film): measured, each lowers the channel's own frames as well as ours.

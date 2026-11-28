@@ -301,7 +301,7 @@ export const LedBoard: React.FC<{ rows: Array<{ name: string; value?: string; to
   const sw = p.swapAt !== undefined ? interpolate(t, [p.swapAt, p.swapAt + 0.35], [0, 1], clamp) : 0;
   const flick = sw > 0 && sw < 1 ? (Math.floor(t * 30) % 2 ? 0.2 : 1) : 1;
   return <AbsoluteFill style={{ background: "#04060a" }}>
-    <AbsoluteFill style={{ transform: `perspective(1600px) rotateY(${p.tilt ?? -14}deg)`, transformOrigin: "30% 40%" }}>
+    <AbsoluteFill style={{ transform: `perspective(1600px) rotateY(${p.tilt}deg)`, transformOrigin: "30% 40%" }}>
       <div style={{ position: "absolute", left: "8%", top: "6%", width: "84%", height: "90%", background: "#0a0c10", border: "6px solid #15181f", padding: "28px 40px", columnCount: p.columns ?? 2, columnGap: 80 }}>
         {p.rows.map((r, i) => {
           const swapped = r.to !== undefined && sw >= 0.5;
@@ -437,48 +437,49 @@ export const ScreenWall: React.FC<{ cells?: number; before: string[]; after: str
 
 export { DepthPlate } from "./depth";
 /**
- * The channel's caption over footage (proven by the referee, 2026-11-26: v7's highest-scoring moments were dark real
- * footage with a heavy condensed caption glowing in the picture; Juicero's lowest were app-style type and flat cards).
- * Font, colour and glow are the film's own (its world), never a fixed look. Times in seconds from the Sequence start.
+ * Words set into footage with a light glow, settling in from a blur — one of the ways the channel puts words in the
+ * picture, not the only one. It has no look of its own: font, size, case, colour and glow are required and come from
+ * the film's world, set the way the channel set that kind of line. Times in seconds from the Sequence start.
  */
-export const GlowCaption: React.FC<{ text: string; at?: number; until?: number; x?: number; y?: number; size?: number; font: string; weight?: number; color?: string; glow?: string; sub?: string; subFont?: string; subAt?: number; align?: "center" | "left" }> = (p) => {
+export const GlowCaption: React.FC<{ text: string; at?: number; until?: number; x?: number; y?: number; size: number; font: string; weight?: number; color?: string; glow: string; upper: boolean; sub?: string; subFont?: string; subAt?: number; align?: "center" | "left" }> = (p) => {
   const f = useCurrentFrame(), { fps } = useVideoConfig();
   const t = f / fps, at = p.at ?? 0;
   const k = interpolate(t, [at, at + 0.45], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
   const g = p.until !== undefined ? interpolate(t, [p.until - 0.25, p.until], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1;
   if (k <= 0) return null;
-  const size = p.size ?? 180, glow = p.glow ?? "rgba(120,170,255,.7)";
+  const size = p.size, glow = p.glow;
   const ks = p.subAt !== undefined ? interpolate(t, [p.subAt, p.subAt + 0.35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : k;
   return (
     <div style={{ position: "absolute", left: `${(p.x ?? 0.5) * 100}%`, top: `${(p.y ?? 0.5) * 100}%`, transform: `translate(${p.align === "left" ? "0" : "-50%"}, -50%) translateY(${(1 - k) * 18 - (t - at) * 3}px)`, textAlign: p.align ?? "center", opacity: g, whiteSpace: "nowrap" }}>
-      <div style={{ fontFamily: p.font, fontWeight: p.weight ?? 900, fontSize: size, lineHeight: 0.9, color: p.color ?? "#ffffff", letterSpacing: `${(1 - k) * 0.35 + 0.01}em`, filter: `blur(${(1 - k) * 14}px)`, opacity: k, textShadow: `0 0 ${size * 0.3}px ${glow}, 0 0 ${size * 0.07}px ${glow}, 0 6px 30px rgba(0,0,0,.6)`, textTransform: "uppercase" }}>{p.text}</div>
-      {p.sub ? <div style={{ fontFamily: p.subFont ?? p.font, fontWeight: 600, fontSize: size * 0.16, letterSpacing: "0.32em", color: p.color ?? "#ffffff", marginTop: size * 0.12, opacity: ks * 0.85, textTransform: "uppercase", textShadow: "0 2px 14px rgba(0,0,0,.95)" }}>{p.sub}</div> : null}
+      <div style={{ fontFamily: p.font, fontWeight: p.weight ?? 900, fontSize: size, lineHeight: 0.9, color: p.color ?? "#ffffff", letterSpacing: `${(1 - k) * 0.35 + 0.01}em`, filter: `blur(${(1 - k) * 14}px)`, opacity: k, textShadow: `0 0 ${size * 0.3}px ${glow}, 0 0 ${size * 0.07}px ${glow}, 0 6px 30px rgba(0,0,0,.6)`, textTransform: p.upper ? "uppercase" : "none" }}>{p.text}</div>
+      {p.sub ? <div style={{ fontFamily: p.subFont ?? p.font, fontWeight: 600, fontSize: size * 0.16, letterSpacing: "0.32em", color: p.color ?? "#ffffff", marginTop: size * 0.12, opacity: ks * 0.85, textTransform: p.upper ? "uppercase" : "none", textShadow: "0 2px 14px rgba(0,0,0,.95)" }}>{p.sub}</div> : null}
     </div>
   );
 };
-/** Footage dimmed so words read and the shot feels lit, pushing in slowly (the plate under a GlowCaption). */
-export const DarkPlate: React.FC<{ src: string; video?: boolean; trim?: number; dim?: number; contrast?: number; push?: [number, number]; len?: number; pos?: string }> = (p) => {
+/** Footage dimmed so words over it read. `push` is the camera's scale range and is required: [1.12, 1.02] pulls out,
+ *  [1.02, 1.12] pushes in — alternate it as the channel does. */
+export const DarkPlate: React.FC<{ src: string; video?: boolean; trim?: number; dim?: number; contrast?: number; push: [number, number]; len?: number; pos?: string }> = (p) => {
   const f = useCurrentFrame(), { fps, durationInFrames } = useVideoConfig();
   const len = (p.len ?? durationInFrames / fps) * fps;
-  const [s0, s1] = p.push ?? [1.04, 1.12];
+  const [s0, s1] = p.push;
   const sc = interpolate(f, [0, len], [s0, s1], { extrapolateRight: "clamp", easing: Easing.inOut(Easing.sin) });
   const style: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: p.pos ?? "50% 50%", transform: `scale(${sc})`, filter: `brightness(${p.dim ?? 0.55}) contrast(${p.contrast ?? 1.12}) saturate(0.9)` };
   return <AbsoluteFill style={{ overflow: "hidden", background: "#000" }}>{p.video ? <OffthreadVideo src={src(p.src)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={style} /> : <Img src={src(p.src)} style={style} />}</AbsoluteFill>;
 };
 
 /**
- * Bright news or product footage as the channel shows it: being watched on a screen in a dark room (Juicero rebuild,
- * 2026-11-26: Bloomberg's squeeze test scored 3.5 full frame, 4.9 on a screen in a dark room; lab +0.4). `room` is a
- * real dark place (a still or clip of this film's own), blurred and dimmed behind the screen.
+ * Footage played on a screen in a room — one way the channel shows news or product footage being watched, when it does.
+ * `room` is a real place of this film's own, blurred and dimmed behind the screen. Glow, tilt and the camera's scale
+ * range are required: the film decides them.
  */
-export const RoomScreen: React.FC<{ src: string; video?: boolean; trim?: number; room: string; roomVideo?: boolean; glow?: string; tilt?: number; crop?: number; focus?: string }> = (p) => {
+export const RoomScreen: React.FC<{ src: string; video?: boolean; trim?: number; room: string; roomVideo?: boolean; glow: string; tilt: number; push: [number, number]; crop?: number; focus?: string }> = (p) => {
   const f = useCurrentFrame(), { fps, durationInFrames } = useVideoConfig();
-  const push = interpolate(f, [0, durationInFrames], [1, 1.06], clamp);
+  const push = interpolate(f, [0, durationInFrames], p.push, clamp);
   const fill: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
   return (
     <AbsoluteFill style={{ background: "#000", perspective: 1800 }}>
       <AbsoluteFill style={{ filter: "brightness(0.35) blur(6px)", transform: `scale(${push})` }}>{p.roomVideo ? <OffthreadVideo src={src(p.room)} muted style={fill} /> : <Img src={src(p.room)} style={fill} />}</AbsoluteFill>
-      <div style={{ position: "absolute", left: "15%", top: "10%", width: "68%", height: "64%", transform: `rotateY(${p.tilt ?? -14}deg) rotateX(3deg) scale(${push})`, boxShadow: `0 0 90px ${p.glow ?? "rgba(255,190,120,.3)"}, 0 50px 120px rgba(0,0,0,.9)`, border: "14px solid #0b0c0e", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ position: "absolute", left: "15%", top: "10%", width: "68%", height: "64%", transform: `rotateY(${p.tilt}deg) rotateX(3deg) scale(${push})`, boxShadow: `0 0 90px ${p.glow}, 0 50px 120px rgba(0,0,0,.9)`, border: "14px solid #0b0c0e", borderRadius: 10, overflow: "hidden" }}>
         {/* crop: zoom inside the screen (e.g. 1.35, focus "50% 0%") to frame out a broadcaster's burned-in caption or logo */}
         {p.video === false ? <Img src={src(p.src)} style={{ ...fill, filter: "brightness(0.9) contrast(1.1)", transform: `scale(${p.crop ?? 1})`, transformOrigin: p.focus ?? "50% 50%" }} /> : <OffthreadVideo src={src(p.src)} muted startFrom={Math.round((p.trim ?? 0) * fps)} style={{ ...fill, filter: "brightness(0.9) contrast(1.1)", transform: `scale(${p.crop ?? 1})`, transformOrigin: p.focus ?? "50% 50%" }} />}
         <AbsoluteFill style={{ background: "repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px)" }} />
@@ -486,19 +487,19 @@ export const RoomScreen: React.FC<{ src: string; video?: boolean; trim?: number;
     </AbsoluteFill>
   );
 };
-/** A real photo as a print laid into dark footage, not full frame (Juicero rebuild: a product photo 3.2 full frame,
- *  higher as a print over the night office; v7's wanted poster among its highest moments). Put it over a DarkPlate. */
-export const PhotoPrint: React.FC<{ src: string; w?: number; rot?: number; y?: number; border?: string }> = (p) => {
+/** A real photo as a print laid into footage rather than full frame on black. Border, angle and the camera's scale
+ *  range are required: the film decides them. */
+export const PhotoPrint: React.FC<{ src: string; w?: number; rot: number; y?: number; border: string; push: [number, number] }> = (p) => {
   const f = useCurrentFrame(), { durationInFrames } = useVideoConfig();
-  const k = interpolate(f, [0, 8], [0, 1], clamp), s = interpolate(f, [0, durationInFrames], [1, 1.07], clamp);
-  return <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}><Img src={src(p.src)} style={{ width: `${(p.w ?? 0.46) * 100}%`, border: `12px solid ${p.border ?? "#eae6dc"}`, transform: `rotate(${p.rot ?? -4}deg) scale(${s * (0.96 + 0.04 * k)})`, opacity: k, boxShadow: "0 50px 120px rgba(0,0,0,.9)", filter: "brightness(0.85) contrast(1.08) sepia(0.12)", marginTop: `${(p.y ?? -0.08) * 100}%` }} /></AbsoluteFill>;
+  const k = interpolate(f, [0, 8], [0, 1], clamp), s = interpolate(f, [0, durationInFrames], p.push, clamp);
+  return <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}><Img src={src(p.src)} style={{ width: `${(p.w ?? 0.46) * 100}%`, border: `12px solid ${p.border}`, transform: `rotate(${p.rot}deg) scale(${s * (0.96 + 0.04 * k)})`, opacity: k, boxShadow: "0 50px 120px rgba(0,0,0,.9)", filter: "brightness(0.85) contrast(1.08) sepia(0.12)", marginTop: `${(p.y ?? -0.08) * 100}%` }} /></AbsoluteFill>;
 };
 
 export const CRAFT_TOOLS: Record<string, string> = {
-  RoomScreen: "bright news or product footage played on a screen in a dark room — the channel shows press footage as footage being watched (proven: +0.4 to +1.4 on the referee over full frame); crop/focus frame out a broadcaster's burned-in caption or logo (left in, it cost a scene a full point)",
-  PhotoPrint: "a real photo as a print laid into dark footage instead of full frame (proven on the referee; v7's wanted poster)",
-  GlowCaption: "the channel's caption over footage: heavy condensed capitals glowing in the film's own colour, a dark shadow, settling in from a blur; a mono line under it (the referee's highest-scoring moments of our films are this over dark real footage)",
-  DarkPlate: "real footage dimmed and pushing in slowly, so a caption reads and the shot feels lit — the plate under a GlowCaption",
+  RoomScreen: "footage played on a screen in a room (glow, tilt, camera range required); crop/focus frame out a broadcaster's burned-in caption or logo",
+  PhotoPrint: "a real photo as a print laid into footage instead of full frame on black (border, angle, camera range required)",
+  GlowCaption: "words set into footage with a glow, settling in from a blur, an optional second line under them; font, size, case, colour and glow required — one of several ways to put words in the picture",
+  DarkPlate: "footage dimmed so words over it read; camera scale range required (alternate push and pull)",
   DepthPlate: "a real still made into a 3D surface from its own depth map (tools/depth/depth.py) and filmed by a real camera: dolly, drift and orbit with true parallax and occlusion — the channel's layered photo move",
   CameraPath: "a camera move through keyframes (scale, x, y, rotation at times), eased; wraps anything; depth scales how far a layer travels",
   Parallax: "a real still made to move like a filmed shot: its background softened and its subject cut out where it stood (box from the cut-out tool), each plane on the same camera path at its own depth",
@@ -522,12 +523,12 @@ export const CRAFT_TOOLS: Record<string, string> = {
   LightWash: "the frame's own light: a soft-light wash in your colour, a hot centre, edges burned down",
   LightLayer: "sparks, embers or dust filmed on black, screened over the picture",
   PlaceLine: "a place or a name as the documentary marks it: a thin rule drawing out and mono caps beside it, on the footage (never a box or a label); a second smaller line under it",
-  LedBoard: "a lit information board in a dark room (a stock index, departures, a scoreboard) at an angle, glowing rows on a dot-pitch screen; one row flickers and changes on cue (a company replacing another)",
+  LedBoard: "a lit information board in a dark room (a stock index, departures) at an angle, glowing rows on a dot-pitch screen; one row flickers and changes on cue (a company replacing another)",
   PinnedPrint: "a real photo of a person printed and pinned into footage of a place (an evidence board, a wall) on cue, with a thread drawn to it — who is being looked at",
   LightSweep: "a beam sweeping across a print or document on a dark wall, so a still plays",
   GlitchIn: "a subject arriving out of a broken signal (RGB split, tear lines) — for a shock or a person's first appearance; never every film's opening",
   PressHeadline: "a real article screenshot laid into the shot as a lit print, a marker sweeping the words that prove the line, source and date under it",
-  SignatureObject: "THIS film's one recurring object, cut out from a real photo and lit, whose screen or surface says what the story says at that moment (e.g. a terminal: APPROVED, then DECLINED); chosen from the film's own story, never reused by another film",
+  SignatureObject: "THIS film's one recurring object, cut out from a real photo and lit, whose state changes with the story (whole, then broken, then gone); chosen from the film's own story, never reused by another film",
   TravellingFigure: "one figure on its own layer carried across several shots (arrives, rides along, falls apart at the turn) — the idea that links a sequence",
   ScreenWall: "a wall of screens whose cells turn to one person or one name from the centre out while the camera pulls back — how big someone became, or how everyone reported it",
   ZoomThrough: "wrap a built shot: it arrives out of a blurred enlarged frame and leaves into one — a picture change by moving, not a cut",

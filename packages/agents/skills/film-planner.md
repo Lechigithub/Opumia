@@ -16,8 +16,9 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
    be a thing the camera saw — name it and where its picture comes from ("the Juicero press in Bloomberg's
    teardown footage"); a drawn dial, gauge, meter, timer, counter, icon or component is refused in code.
    Which idea in the script can become a picture that explains it (a visual metaphor: the money moving as a real
-   thing, a wall of screens for a scandal spreading, a figure carried across shots)? Every film's world is its own:
-   our earlier films' worlds are in `data/film-kits.json` — do not repeat their objects or looks.
+   thing, a wall of screens for a scandal spreading, a figure carried across shots)? Take the world from how the
+   channel styled its films on stories like this one. Our earlier films (`data/film-kits.json`) are never your model:
+   differ from them as the channel's own films differ from each other, and never repeat their signature object.
 4. **Check that the pictures exist** (checked in code: every person and company your plan names must have been
    searched for — `film-tools press`, `film-tools screenshot` of the source articles, `film-tools commons`) before you plan on them: a few quick `film-tools press …` and
    `film-tools stock …` searches for the scenes that depend on real material (the people, the company, the places).
@@ -27,7 +28,7 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
    (write it on its own line as `Signature object: …`), the visual metaphors and which scenes carry them.
 6. **Write `src/world.tsx`:** the world as code every scene imports — palette constants, the loaded fonts
    (`@remotion/google-fonts/<Font>`), the grade as a component (`<Grade>` wrapping footage, words stay above it), the
-   film's type components (a headline that builds word by word, a place line, a figure), the treatment of the signature object's real
+   type components this film's scenes need, each set the way the channel set that kind of line, the treatment of the signature object's real
    picture (a print, a screen, a cut-out — never a drawn stand-in for it), the film's hand-over (e.g. `<Enter kind="push" lead={lead}>`). Use `@craft` techniques
    inside them. Keep it small and reliable: every builder depends on it compiling (the orchestrator compiles it
    after you and sends any error back to you).
@@ -47,8 +48,8 @@ film must be in your plan and in `src/world.tsx`. Then you return as the finishe
    - `pictures[].how` starts the searches before any builder begins (several separated by " / "):
      `press: <a news library's words>`, `film scene: <film or TV scene>`, `stock: <what is seen>`,
      `commons: <subject>`, `films: <public-domain film moment>`. Write them as a picture researcher would:
-     the channel's most common shot is a person performing or reacting to the line, lit low-key, under a
-     big caption — search for people doing THIS line ("man counting money desk lamp" for "$120 million from
+     where nothing real exists, the channel's most common shot is a person performing or reacting to the
+     line — search for people doing THIS line ("man counting money desk lamp" for "$120 million from
      backers", "man staring at machine dark room" for "what was the machine for?", "man pitching on stage dark
      audience" for a sales claim). Measured on Juicero: such searches found 7 of 155 candidates at the channel's level,
      objects and places ("sports car night garage", "boardroom") 1 of 157, moods ("dark moody light bulb") dark

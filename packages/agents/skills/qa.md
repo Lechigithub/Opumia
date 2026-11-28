@@ -7,7 +7,8 @@ viewer of the reference channel would, and say what they would notice.
 ## What a viewer notices
 
 1. **A picture that contradicts its line** — film strips under "no film at all", a stranger's face under a named
-   person, a modern office under a 1975 line, a logo of the wrong company.
+   person when the film has that person's real footage or photo elsewhere (a performed reenactment where nothing real
+   exists is the channel's practice, not a fault), a modern office under a 1975 line, a logo of the wrong company.
 2. **Breaks in the picture** — a black or frozen moment, a jump, a glitch, a cut that lands mid-word in a way that
    jars, an element that pops in or out without motion, a shot that lingers on nothing.
 3. **Text** — cut off, overlapping, too small to read on a phone, misspelled, a figure that differs from the voice.
