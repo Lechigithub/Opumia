@@ -17,6 +17,7 @@
  *  safety   the kit may import only react, remotion, @craft and @remotion/google-fonts/<Font>; no network, no file system,
  *           no eval; pictures only through the shot's slots. Checked before it is written.
  */
+import { GENERIC_OBJECTS, objectWords, sameObject } from "./signature-object.js";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -104,21 +105,6 @@ export function checkKitCode(code: string, fonts: Set<string>, o: { composite?: 
 /** The finished-look effects a kit imports from the shared craft library (build list 6). Plain building blocks —
  *  camera paths, depth planes, easing, randomness — carry no look and are free to share. */
 export const PLAIN_BLOCKS = new Set(["CameraPath", "Parallax", "camAt", "rnd", "clamp", "EASE", "EASE_OUT", "EASE_IN", "EASE_IN_OUT", "ramp", "shake", "shardsOf", "CRAFT_TOOLS"]);
-/** The film's signature object (Wirecard v7.2: the card terminal, APPROVED then DECLINED) — one real thing from THIS story
- *  that returns two or three times. Never one an earlier film used, never a generic money symbol. */
-const OBJ_STOP = new Set(["the", "a", "an", "of", "its", "his", "her", "their", "with", "and", "that", "this", "from", "real", "one", "which", "who", "whose", "returns", "return", "times", "twice", "three", "two", "then", "when", "film", "story", "company", "object"]);
-export const GENERIC_OBJECTS = ["coin", "coins", "banknote", "banknotes", "money", "cash", "dollar", "dollars", "briefcase", "gavel", "handcuffs", "safe", "vault", "magnifying", "question mark", "chess", "hourglass", "crown", "trophy", "padlock"];
-export function objectWords(s: string): string[] {
-  const head = s.toLowerCase().split(/[—–:;,.(]/)[0] ?? "";
-  return [...new Set(head.split(/[^a-zà-ÿ0-9]+/).filter((w) => w.length >= 3 && !OBJ_STOP.has(w)).map((w) => w.replace(/(ies)$/, "y").replace(/([^s])s$/, "$1")))];
-}
-/** True when two signature objects name the same thing (half or more of the shorter one's words shared). */
-export function sameObject(a: string, b: string): boolean {
-  const A = objectWords(a), B = new Set(objectWords(b));
-  if (!A.length || !B.size) return false;
-  const shared = A.filter((w) => B.has(w)).length;
-  return shared / Math.min(A.length, B.size) >= 0.5;
-}
 /** The kit's transition name, read from `export const FILM = { … transition: "name" … }` — not a CSS transition inside
  *  a component (proof film 1, 2026-11-26: "none" was read from a span's style and recorded as the film's transition). */
 export function kitTransition(code: string | null): string | null {

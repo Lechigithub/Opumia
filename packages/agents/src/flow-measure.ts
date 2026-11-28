@@ -24,7 +24,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { ocrBinary } from "./design-measure.js";
+import { ocrBinary } from "@opumia/senses";
 
 const pexec = promisify(execFile);
 type Q = { p10: number; med: number; p90: number };

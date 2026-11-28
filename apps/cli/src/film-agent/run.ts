@@ -94,17 +94,19 @@ export function guard(job: string, root: string, scene?: string) {
 }
 
 /** Prepare the workspace: narration (the platform's research, writer and voice), the Remotion project, the tools. */
-export function prepareWorkspace(o: FilmAgentOptions): { before: number; durationS: number; lengthS: number } {
+export async function prepareWorkspace(o: FilmAgentOptions): Promise<{ before: number; durationS: number; lengthS: number }> {
   const log = o.log ?? console.log;
   const job = o.job;
   mkdirSync(job, { recursive: true });
   if (!existsSync(path.join(job, "timed-script.json"))) {
     if (o.dryRun || !o.topic) throw new Error("no narration in the workspace (run without --dry-run and with --topic to make it)");
     log("[A] research, script and narration (the platform's own agents)…");
-    // the CLI directly, not through pnpm: pnpm hands a script's arguments to a shell, which ate "$400" in a topic
-    const r = spawnSync("npx", ["tsx", path.join(o.root, "apps/cli/src/index.ts"), "produce", "--topic", o.topic, "--channel", o.channel, "--aspect", "16:9", "--duration", String(o.durationS), "--job", path.basename(job), "--until", "narration"], { cwd: o.root, stdio: "inherit", env: { ...process.env, OPUMIA_ROOT: o.root, OPUMIA_MAX_USD: String(o.maxUsd) } });
-    if (r.status !== 0 || !existsSync(path.join(job, "timed-script.json"))) throw new Error(`narration did not finish (exit ${r.status ?? "none"}${r.signal ? `, signal ${r.signal}` : ""}) — see the log above`);
+    const { makeStory } = await import("./story.js");
+    const dir = (k: string, d: string) => path.resolve(o.root, process.env[k] ?? d);
+    await makeStory({ root: o.root, library: dir("OPUMIA_LIBRARY_DIR", "Library"), reference: dir("OPUMIA_REFERENCE_DIR", "Reference"), data: dir("OPUMIA_DATA_DIR", "data"), topic: o.topic, channel: o.channel, aspect: "16:9", durationS: o.durationS, job, maxUsd: o.maxUsd, log });
   }
+  // on-device OCR (type checks, figures on screen, burned-in text) is built once if this machine lacks it
+  if (!(await (await import("@opumia/senses")).ocrBinary(o.root))) log("  ! on-device OCR could not be built (swiftc) — the type and figure checks will not run");
   const timing = (() => { try { return JSON.parse(readFileSync(path.join(job, "timing.json"), "utf8")) as { runs: Array<{ filmUsd?: number; usd?: number }> }; } catch { return { runs: [] }; } })();
   const before = timing.runs.reduce((m, r) => Math.max(m, r.filmUsd ?? r.usd ?? 0), 0);
   const durationS = (JSON.parse(readFileSync(path.join(job, "timed-script.json"), "utf8")) as { durationS: number }).durationS;
@@ -196,7 +198,7 @@ const errorsOf = (r: { stdout?: string; stderr?: string }) => `${r.stderr ?? ""}
 export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean; usd: number; seconds: number }> {
   const log = o.log ?? console.log;
   const t0 = Date.now();
-  const { before, durationS, lengthS } = prepareWorkspace(o);
+  const { before, durationS, lengthS } = await prepareWorkspace(o);
   const budget = Math.max(0, o.maxUsd - before);
   const job = o.job;
   const here = `## This film\n- Workspace: ${job} (your cwd). The repository is at ${o.root} (read-only for you except your memory).\n- Narration: ${durationS.toFixed(1)} s (timed-script.json); the film is ${lengthS.toFixed(2)} s with its closing title.\n- Facts: facts.json; script: script.draft.json; every word's time: timed-script.json.\n- The shared techniques: ${path.join(o.root, "packages/motion-engine/src/remotion/craft.tsx")} (the CRAFT_TOOLS list at the end).\n- Commands: film-tools (TOOLS.md). Memory: MEMORY.md. Owner notes: OWNER.md.`;

@@ -19,6 +19,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { SceneSpec } from "@opumia/contracts";
 import * as z from "zod/v4";
 import { lengthPlan } from "./film-length.js";
+import { ocrBinary } from "@opumia/senses";
 import { MODELS, plain, structured } from "./llm.js";
 import { loadReferenceIndex, row } from "./reference-index.js";
 
@@ -85,15 +86,6 @@ export async function labelDesign(files: string[], o: { data?: string } = {}): P
 }
 
 // ---- text area: OCR boxes (macOS Vision, tools/ocr/ocr.swift, compiled once into data/.cache/ocr/)
-
-export async function ocrBinary(root: string, data: string): Promise<string | null> {
-  const bin = path.join(data, ".cache", "ocr", "ocr");
-  if (existsSync(bin)) return bin;
-  const src = path.join(root, "tools", "ocr", "ocr.swift");
-  if (!existsSync(src)) return null;
-  await mkdir(path.dirname(bin), { recursive: true });
-  return pexec("swiftc", ["-O", src, "-o", bin], { timeout: 180_000 }).then(() => bin, () => null);
-}
 
 /** Share of each frame its words cover (sum of OCR box areas, 0..1); null where OCR is not available. */
 export async function textAreas(files: string[], o: { root: string; data: string }): Promise<Array<number | null>> {

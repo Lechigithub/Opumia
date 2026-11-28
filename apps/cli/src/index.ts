@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 import { availableParallelism } from "node:os";
 import path from "node:path";
-import { analyzeStyles, buildReferenceIndex, indexLibrary, writeReferenceStatus } from "@opumia/ingest";
 import { KEYCHAIN_SERVICE, loadKeys } from "./keys.js";
-import { cmdEval } from "./eval.js";
-import { buildExemplars } from "./exemplars.js";
-import { produce, STAGES } from "./produce.js";
 
 const ROOT = path.resolve(process.env.OPUMIA_ROOT ?? process.cwd());
 const KEY_SOURCES = loadKeys(ROOT);
@@ -35,33 +31,19 @@ const HELP = `opumia <command>
   all                  index-library + inspect-reference + analyze-styles
   escalations          Recurring escalations (a check that needed a stronger fix in 2+ films): platform fixes to make
       --fixed 'stage|check'  mark one fixed (after its platform fix and regression case are in)
-  resume <job>         Continue a paused or stopped job from its cached stages (same topic, channel, aspect, duration)
   keys                 Show which API keys are available and from where (names only, never values)
-  produce             Topic → researched, narrated, rendered, QA'd film (stage outputs cached in out/<job>/)
-      --topic "…"        required
-      --channel ID       magnates-media | logically-answered | big-company | modern-mba | how-money-works | moon
-      --aspect 9:16|16:9 (default 9:16)
-      --duration S       target seconds (default 60)
-      --job NAME         job folder name under out/
-      --redo a,b         re-run stages: ${STAGES.join(",")}
-      --until STAGE      stop after a stage
-      --repair 'sh001=why;sh015=why'  editor override: re-pick those shots' pictures, then re-render + QA
   profile-audio        Measure every usable sound effect and music bed → data/audio-profile.json (incremental)
   build-exemplars      Reference exemplar library the agents look at → data/exemplars/<channel>/
   build-channel-profile  Unified, versioned channel profile from the reference index → data/channel-profile/<channel>.json
   build-reference-index  Every reference shot + thumbnail with labels and SigLIP 2 embeddings → data/reference-index/ (--no-embed)
       --channel ID       frames of labelled shots, thumbnails, per-film looks, narrator voice profile, technique clips
-  eval                 Blind reference test of the platform → data/eval/
-      calibrate --channel ID   check the judge on degraded reference windows (cached per judge version)
-      score out/<job> …        score finished films against the real channel
-      run --set core           produce every film in eval/sets/<set>.json, then score and report
-          --only a,b  --concurrency N  --no-produce
 
 Library/ and Reference/ are never written to.`;
 
 async function cmdIndex() {
   const t0 = Date.now();
   log(`Indexing ${rel(LIBRARY)}/ (read-only)…`);
+  const { indexLibrary } = await import("@opumia/ingest");
   const { index, outPath, write, run } = await indexLibrary({
     libraryRoot: LIBRARY,
     dataDir: DATA,
@@ -80,6 +62,7 @@ async function cmdIndex() {
 }
 
 async function cmdInspect() {
+  const { writeReferenceStatus } = await import("@opumia/ingest");
   const { status, outPath, write } = await writeReferenceStatus(REFERENCE, DATA);
   log(`Reference corpus → ${rel(outPath)} (${write})`);
   log(`  ${"channel".padEnd(20)} ${"done-file".padEnd(30)} listed  disk  both  missing  undone  foreign  complete`);
@@ -93,6 +76,7 @@ async function cmdInspect() {
 
 async function cmdAnalyze() {
   log(`Analyzing reference styles…`);
+  const { analyzeStyles } = await import("@opumia/ingest");
   const { results } = await analyzeStyles({ referenceRoot: REFERENCE, libraryRoot: LIBRARY, dataDir: DATA, log });
   log(`${results.length} draft profiles → ${rel(path.join(DATA, "style-profiles"))}/`);
 }
@@ -105,36 +89,6 @@ async function main() {
       return cmdInspect();
     case "analyze-styles":
       return cmdAnalyze();
-    case "produce": {
-      const topic = opt("topic");
-      if (!topic) throw new Error("--topic is required");
-      const until = opt("until");
-      const { report } = await produce({
-        root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic,
-        channel: opt("channel") ?? "magnates-media",
-        aspect: (opt("aspect") ?? "9:16") as "9:16" | "16:9",
-        durationS: Number(opt("duration") ?? 60),
-        ...(opt("job") ? { job: opt("job")! } : {}),
-        redo: (opt("redo") ?? "").split(",").filter((x): x is (typeof STAGES)[number] => (STAGES as readonly string[]).includes(x)),
-        ...(until && (STAGES as readonly string[]).includes(until) ? { until: until as (typeof STAGES)[number] } : {}),
-        ...(opt("repair") ? { repair: new Map(opt("repair")!.split(";").map((kv) => kv.split("=")).filter((kv) => kv[0]).map(([k, ...v]) => [k!.trim(), v.join("=").trim() || "editor rejected this picture"] as [string, string])) } : {}),
-        log,
-      });
-      if (report && report.verdict === "fail") process.exitCode = 2;
-      return;
-    }
-    case "resume": {
-      // build list 3, part D: continue a paused (or stopped) job from its cached stages, with the options it was started with
-      const job = (rest[0] && !rest[0].startsWith("--") ? rest[0] : undefined) ?? opt("job");
-      if (!job) throw new Error("usage: opumia resume <job>");
-      const { readFile } = await import("node:fs/promises");
-      const j = JSON.parse(await readFile(path.join(ROOT, "out", job, "job.json"), "utf8")) as { topic: string; channel: string; aspect: "9:16" | "16:9"; durationS: number };
-      const p = await readFile(path.join(ROOT, "out", job, "paused.json"), "utf8").then((t) => JSON.parse(t) as { stage?: string; provider?: string; kind?: string }, () => null);
-      log(`Resuming ${job}${p ? ` (paused at ${p.stage ?? "?"}: ${p.provider} ${p.kind})` : ""}`);
-      const { report } = await produce({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, topic: j.topic, channel: j.channel, aspect: j.aspect, durationS: j.durationS, job, redo: [], log });
-      if (report && report.verdict === "fail") process.exitCode = 2;
-      return;
-    }
     case "film-agent": {
       // one agent with a workspace makes the whole film (apps/cli/src/film-agent/): a paid run — start only with the owner's approval
       const { runFilmAgent } = await import("./film-agent/run.js");
@@ -171,6 +125,7 @@ async function main() {
       return;
     }
     case "build-reference-index": {
+      const { buildReferenceIndex } = await import("@opumia/ingest");
       const m = await buildReferenceIndex({ root: ROOT, reference: REFERENCE, data: DATA, embed: !flag("no-embed"), log });
       log(`${m.films.length} films · ${m.shots} shots (${m.embedded.shots} embedded) · ${m.thumbs} thumbnails (${m.embedded.thumbs} embedded) → ${rel(path.join(DATA, "reference-index"))}/`);
       return;
@@ -180,11 +135,11 @@ async function main() {
       await buildChannelProfile({ data: DATA, channel: (opt("channel") ?? "magnates-media") as never, log });
       return;
     }
-    case "build-exemplars":
+    case "build-exemplars": {
+      const { buildExemplars } = await import("./exemplars.js");
       await buildExemplars({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, log }, opt("channel") ?? "magnates-media", Number(opt("films") ?? 99));
       return;
-    case "eval":
-      return cmdEval({ root: ROOT, library: LIBRARY, reference: REFERENCE, data: DATA, log }, rest);
+    }
     case "all":
       await cmdIndex();
       await cmdInspect();

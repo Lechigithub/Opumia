@@ -14,6 +14,7 @@
 //                   it pushes in, alternates, whips and pans faster; ours mostly pushes in, one way
 //   dark            stretches of ≥ 2 s where almost nothing can be seen (below the channel's darkest 5 % of frames)
 //   sameness        line fit and sameness to our earlier films (tools/world/world_check.py)
+import { ocrBinary } from "@opumia/senses";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -122,8 +123,8 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
   for (const s of plan.scenes) for (const m of sceneMedia(o.job, s.id)) { const owner = /^(?:v|img|a)\/(s\d{2})_/.exec(m)?.[1]; if (owner && owner !== s.id) findings.push({ check: "repeat", scene: s.id, what: `${s.id} draws ${m}, which ${owner} brought in — the same picture twice`, severity: "fix" }); }
 
   // numbers on screen against the narration and the fact sheet
-  const ocrBin = path.join(o.root, "data", ".cache", "ocr", "ocr");
-  if (existsSync(video) && existsSync(ocrBin)) {
+  const ocrBin = (await ocrBinary(o.root)) ?? "";
+  if (existsSync(video) && ocrBin) {
     const dir = path.join(o.job, "checks", "ocr");
     mkdirSync(dir, { recursive: true });
     spawnSync("ffmpeg", ["-v", "error", "-y", "-i", video, "-vf", "fps=2,scale=1280:-2", path.join(dir, "f%04d.jpg")]);

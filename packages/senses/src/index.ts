@@ -13,3 +13,4 @@ export * from "./outside.js";
 export * from "./watermark.js";
 export * from "./synth.js";
 export * from "./track.js";
+export * from "./ocr.js";

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, statS
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { sameObject, objectWords, GENERIC_OBJECTS } from "@opumia/agents";
+import { ocrBinary } from "@opumia/senses";
 import { filmMedia, drawnObject } from "./plan.js";
 
 /** The film's ledger plus every scene builder's own (credits/<scene>.json, fair-use/<scene>.json). */
@@ -38,6 +39,7 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
 
   // type: words set like the channel's (boxes, one size, capitals); words on frames is advisory (signage counts)
   const py = process.env.OPUMIA_PY ?? path.join(process.env.HOME ?? "", "lechi_tts", "venv", "bin", "python");
+  await ocrBinary(o.root); // type_check.py reads words with the on-device OCR binary
   const tc = spawnSync(py, ["-I", path.join(o.root, "tools/world/type_check.py"), film, "--json", "--channel", o.channel], { cwd: o.root, encoding: "utf8", maxBuffer: 1 << 24 }).stdout;
   const tj = (() => { try { return JSON.parse(tc.trim().split("\n").filter((l) => l.startsWith("{")).at(-1) ?? "{}") as { verdict?: Record<string, { value: number; limit: number; pass: boolean }> }; } catch { return {}; } })();
   const tv = tj.verdict ?? {};
