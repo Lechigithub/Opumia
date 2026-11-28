@@ -21,6 +21,8 @@ retired the old pipeline is `docs/PLATFORM-AUDIT.md`. History is never instructi
 - **Voice:** the owner's only voice rule — every voice speaks at its own natural pace (speed 1.0, never stretched or
   pushed toward the reference narrator). Everything else about the voice is engineering judgement against the
   reference. MagnatesMedia's voice: Christopher on Eleven v4.
+- **Covers:** a 9:16 film's cover is its first frame (baked in, so the shorts/reels feed shows it with no upload); a
+  16:9 film has a separate thumbnail. Both are made the way the channel makes its thumbnails, at its measured level.
 - **Speed and cost are priorities:** targets ≈ $3 and 30 min for a 90 s film, $2 per minute of film.
 - **One production path: the film agent.** Retired code is deleted, superseded instructions are removed.
 - **The reference is the judge**, never the owner's eye. **Every paid run needs the owner's approval.**
@@ -116,7 +118,7 @@ look for every film or name an earlier film of ours as the model.
 | Plan (`plan.ts`, `process.ts`) | scene count and lengths, scenes touch end to end, signature object is a real thing (no drawn instrument), a person-performing search where nothing real exists, each chapter opened by a `chapter` scene; the planner watched ≥ 3 reference stretches from ≥ 2 films and searched for every named subject |
 | Scene (`scene-check.ts`, `footage.ts`) | built, own media only, every file credited, renders, not blank, not too dark (channel's darkest 5 %), fair-use share so far ≤ 27 %, the builder looked at its stills and studied the reference, real material searched first, picture referee ≥ the channel's weakest tenth (4.57), best footage used, footage shows through, no burned-in text, searched enough |
 | Before the finisher (`checks.ts`, FIX or look) | captions.srt, LICENSES.md, figures on screen vs narration and facts, period of footage vs the line's year, a stranger's face where the real person's material exists, repeats, dark stretches, closing title over the strongest footage, **type look** vs our earlier films, motion (advisory), world check (advisory) |
-| Gate (`gate.ts`) | whole narration at the film's frame and 24 fps; −12.5 ± 1 LUFS, peak ≤ −1.4 dB; the mix is of the current picture; type checks; fair use (≤ 8.5 s clips, ≤ 27 %, never a documentary or reference channel); every picture credited; no AI; nothing of the channel's own; signature object not reused or generic; **type look**; voice pace ±12 % of natural, word error ≤ 1 %, ≤ 1 unresolved line; every bed and effect licensed; every FIX answered; picture referee ≥ 4.9; REVIEW.md |
+| Gate (`gate.ts`) | whole narration at the film's frame and 24 fps; a 9:16 film opens on its cover (`cover_9x16.jpg`, made frame one by `mix.ts`); −12.5 ± 1 LUFS, peak ≤ −1.4 dB; the mix is of the current picture; type checks; fair use (≤ 8.5 s clips, ≤ 27 %, never a documentary or reference channel); every picture credited; no AI; nothing of the channel's own; signature object not reused or generic; **type look**; voice pace ±12 % of natural, word error ≤ 1 %, ≤ 1 unresolved line; every bed and effect licensed; every FIX answered; picture referee ≥ 4.9; REVIEW.md |
 
 ### The mix (`mix.ts`)
 Voice through the broadcast chain at −16 LUFS; room tone 27 dB under it; beds **not ducked** (the channels duck

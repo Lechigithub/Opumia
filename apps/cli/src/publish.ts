@@ -124,14 +124,16 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
     references: ex.packaging ?? [],
     // The agent only hands back pictures from this same list.
     pictures: { ...tools, brief: (p) => tools.brief(p as ThumbPicture) },
+    cover: o.board.aspect === "9:16",
     render: async (r) => {
       // Rendered at twice the size and brought down with a sharp filter (crisper edges and type), then a light
       // unsharp mask and film grain on the real pixels — the channel's thumbnails are sharp and textured.
       const big = r.out.replace(/\.jpg$/, ".2x.png");
-      await renderThumbnailScene({ publicDir: tools.pubDir, spec: r.spec, slots: r.slots, design: r.design, finish: r.finish, fresh: r.fresh, width: 2560, height: 1440, out: big, log: () => {} });
+      const w = r.w ?? 1280, h = r.h ?? 720;
+      await renderThumbnailScene({ publicDir: tools.pubDir, spec: r.spec, slots: r.slots, design: r.design, finish: r.finish, fresh: r.fresh, width: w * 2, height: h * 2, out: big, log: () => {} });
       const amt = (0.4 + r.sharpen * 0.9).toFixed(2);
       const grain = Math.round(r.grain * 14);
-      await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", big, "-vf", `scale=1280:720:flags=lanczos,unsharp=5:5:${amt}:5:5:0${grain ? `,noise=alls=${grain}:allf=t` : ""}`, "-q:v", "2", "-frames:v", "1", "-update", "1", r.out]);
+      await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", big, "-vf", `scale=${w}:${h}:flags=lanczos,unsharp=5:5:${amt}:5:5:0${grain ? `,noise=alls=${grain}:allf=t` : ""}`, "-q:v", "2", "-frames:v", "1", "-update", "1", r.out]);
       await rm(big, { force: true });
     },
     avoidConcepts: concepts.filter((c) => c.job !== o.job).slice(-8).map((c) => c.concept),
@@ -162,6 +164,10 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
   let usd = (await import("@opumia/agents").then((m) => m.usageLedger().reduce((t, r) => t + r.usd, 0))) - before;
   const th = report.thumbnail;
   const thumbnailPath = path.join(o.jobDir, "thumbnail.jpg");
+  // a 9:16 film's cover: mix.ts makes it the film's first frame, the gate checks it is there
+  const cv = report.cover ?? null;
+  if (cv) await writeFile(path.join(o.jobDir, "cover_9x16.jpg"), await readFile(cv.file));
+  else if (o.board.aspect === "9:16") log("  ! packaging: no 9:16 cover was made — the gate will refuse the film until cover_9x16.jpg exists");
   if (th) {
     await writeFile(thumbnailPath, await readFile(th.file));
     await atomic(path.join(o.data, "thumbnail-concepts.json"), JSON.stringify([...concepts.filter((c) => c.job !== o.job), { job: o.job, concept: th.concept, words: th.words ?? 0 }].slice(-40), null, 1) + "\n");
@@ -197,7 +203,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
       if (!chk.ok) log(`  ! package check still: ${chk.issues.slice(0, 3).join("; ")}`);
     }
   }
-  const thumbCredits = th ? th.slots.map((k) => tools.pics[k]?.credit).filter((c): c is ThumbCredit => Boolean(c)) : [];
+  const thumbCredits = [...new Set([...(th?.slots ?? []), ...(cv?.slots ?? [])])].map((k) => tools.pics[k]?.credit).filter((c): c is ThumbCredit => Boolean(c));
   await writeFiles(o, text, thumbCredits);
   await atomic(
     path.join(o.jobDir, "publish.json"),
@@ -213,6 +219,7 @@ async function agentPackage(o: PublishOptions, ex: ExemplarIndex, exDir: string)
         // build list 5, item 4: packaging's craft measures (words on the thumbnail, what the title promises, realness)
         craft: report.craft ?? null,
         thumbnail: th ? { concept: th.concept, render: th.id, words: th.words ?? null, ...(th.noWordsBecause ? { noWordsBecause: th.noWordsBecause } : {}), renders: report.renders, passedImposterTest: th.imposter ? !th.imposter.spotted : null, spottedConfidence: th.imposter?.confidence ?? null, tells: th.imposter?.tells ?? [], outsideBand: th.issues, colourfulness: Math.round(th.colourfulness), pictures: th.slots.map((k) => ({ slot: k, depicts: tools.pics[k]?.depicts, ...tools.pics[k]?.credit })), generatedImagery: false } : null,
+        cover: cv ? { concept: cv.concept, render: cv.id, words: cv.words ?? null, outsideBand: cv.issues, colourfulness: Math.round(cv.colourfulness), pictures: cv.slots.map((k) => ({ slot: k, depicts: tools.pics[k]?.depicts, ...tools.pics[k]?.credit })), generatedImagery: false } : null,
         agent: { accepted: report.pass, ...report.agent, seconds: Math.round((Date.now() - t0) / 1000), usd: Math.round(usd * 1000) / 1000 },
         checks: [...text.checks, ...(chk.ok ? ["package matches the film"] : chk.issues.map((i) => `ISSUE: ${i}`))],
       },

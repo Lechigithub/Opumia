@@ -47,6 +47,21 @@ to save it handed it to a rival; the memo that predicted the fire lit it. The co
 how well its one image tells that turn; one that tells only the topic is not built. Every frame is filled edge to edge:
 piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a dim, blurred, empty backdrop.
 
+## A vertical film's cover (9:16 films)
+
+A 9:16 film opens on its cover: it is baked in as the film's first frame, and the shorts/reels feed shows that frame.
+There is no separate upload. You make it with `render_cover` (1080×1920), after the 16:9 thumbnail works. It carries
+the **same concept and the same pictures**, re-laid for a tall frame, not squeezed:
+
+- **The hero stays big.** Let it run off the sides of the frame rather than shrink it to fit the width. A wide hero
+  (a plane, a truck, a building) is cropped by the frame, the way the channel crops its heroes.
+- **Words go in the top third**, larger relative to the width than on the thumbnail. Nothing that matters sits in the
+  bottom fifth (the feed lays the title and caption over it) or the right tenth (the like/comment buttons).
+- **Fill the height.** Carry the pile, pattern or scene up the frame, and put an out-of-focus prop in the foreground.
+  A tall frame is twice as easy to leave empty.
+- The same loud colour and brightness band as the thumbnail. Look at it at feed size (180 px wide): the idea must
+  still read.
+
 ## How to work
 
 1. **Study the ideas.** `study_reference_ideas` takes real thumbnails apart (idea, fusion, layers, edges, lettering,
@@ -76,7 +91,7 @@ piles, patterns of the subject's own marks, fire, a sharp scene. Nothing is a di
 6. **Compare and fix** (`critique_thumbnail`): it is set next to the three real thumbnails whose ideas are nearest;
    apply its fixes, most important first.
 7. **Test it blind** (`imposter_test`, three runs). Fix what gave it away.
-8. **Submit** the title and the thumbnail that work together — at the level the critic gives the channel's own thumbnails or better (measured: about 4.5/10 — the critic is hard on everything).
+8. **Submit** the title and the thumbnail that work together (and, for a 9:16 film, its cover: `coverId`) — at the level the critic gives the channel's own thumbnails or better (measured: about 4.5/10 — the critic is hard on everything).
 
 ## Compositing a scene from real pictures
 

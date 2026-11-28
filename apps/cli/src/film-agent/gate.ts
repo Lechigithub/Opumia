@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { sameObject, objectWords, GENERIC_OBJECTS } from "@opumia/agents";
 import { ocrBinary } from "@opumia/senses";
-import { filmMedia, drawnObject, frameOf, filmPath } from "./plan.js";
+import { filmMedia, drawnObject, frameOf, filmPath, coverPath } from "./plan.js";
 
 /** The film's ledger plus every scene builder's own (credits/<scene>.json, fair-use/<scene>.json). */
 export function ledgers<T>(job: string, kind: "credits" | "fair-use"): T[] {
@@ -35,6 +35,8 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
   // the mix must be of the current picture (a rebuilt scene re-renders picture.mp4; the film is only new once mixed again)
   const pic = path.join(o.job, "picture.mp4");
   if (existsSync(pic)) { const stale = statSync(pic).mtimeMs > statSync(film).mtimeMs + 1000; add("current_mix", !stale, stale ? `picture.mp4 is newer than ${fr.film} — run film-tools mix` : "the film is the mix of the current picture"); }
+  // a 9:16 film opens on its cover, so the shorts/reels feed shows it (owner, 2026-11-28); the 16:9 thumbnail stays separate
+  for (const c of coverCheck(o.job)) add(c.id, c.pass, c.detail);
   add("loudness", I >= -13.5 && I <= -11.5 && P <= -1.4, `${I} LUFS (−12.5 ± 1), peak ${P} dB (≤ −1.5) — film-tools mix sets both`);
 
   // type: words set like the channel's (boxes, one size, capitals); words on frames is advisory (signage counts)
@@ -137,4 +139,18 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
     await (await import("./register.js")).registerFilm({ root: o.root, job: o.job });
   }
   return { pass, checks };
+}
+
+/** A 9:16 film's frame one must be its cover (cover_9x16.jpg, made frame one by mix.ts); a 16:9 film needs nothing. */
+export function coverCheck(job: string): Array<{ id: string; pass: boolean; detail: string }> {
+  const fr = frameOf(job), film = filmPath(job);
+  if (fr.aspect !== "9:16") return [];
+  const cover = coverPath(job);
+  if (!cover) return [{ id: "cover_first_frame", pass: false, detail: "no cover_9x16.jpg — the packaging makes the 9:16 cover; film-tools mix makes it frame one" }];
+  if (!existsSync(film)) return [{ id: "cover_first_frame", pass: false, detail: `no ${fr.film} yet — film-tools mix` }];
+  const err = spawnSync("ffmpeg", ["-hide_banner", "-i", film, "-i", cover, "-lavfi", "[0:v]trim=end_frame=1[a];[1:v][a]scale2ref[b][a2];[a2][b]ssim", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  const ssim = Number(/All:([\d.]+)/.exec(err)?.[1] ?? 0);
+  const out = [{ id: "cover_first_frame", pass: ssim >= 0.9, detail: ssim >= 0.9 ? `frame one is the cover (SSIM ${ssim.toFixed(3)})` : `frame one is not the cover (SSIM ${ssim.toFixed(3)}) — run film-tools mix` }];
+  if (statSync(cover).mtimeMs > statSync(film).mtimeMs + 1000) out.push({ id: "current_mix", pass: false, detail: `cover_9x16 is newer than ${fr.film} — run film-tools mix` });
+  return out;
 }

@@ -15,6 +15,8 @@ export function frameOf(job: string): { w: number; h: number; aspect: "16:9" | "
 }
 /** The finished film's path in a workspace. */
 export const filmPath = (job: string) => path.join(job, frameOf(job).film);
+/** A 9:16 film's cover (packaging writes it; mix.ts makes it frame one; the gate checks it is there). */
+export const coverPath = (job: string): string | null => ["cover_9x16.jpg", "cover_9x16.png"].map((f) => path.join(job, f)).find((f) => existsSync(f)) ?? null;
 export interface ScenePlan {
   id: string; from: number; to: number; lead?: number;
   words: string; idea: string; seen: string;

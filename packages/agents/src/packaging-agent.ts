@@ -74,6 +74,8 @@ export interface PackagingReport {
   title: string;
   titles: Array<{ title: string; risk: number; ok: boolean; why: string; promise?: TitlePromise }>;
   thumbnail: ThumbRender | null;
+  /** A 9:16 film's cover (1080×1920): the same idea laid out vertically; the mix makes it the film's first frame. */
+  cover?: ThumbRender | null;
   renders: number;
   /** Build list 5, item 4: packaging's craft measures (packagingCraftMeasures), the same numbers as the channel's. */
   craft?: Record<string, number>;
@@ -92,8 +94,10 @@ export interface PackagingAgentOptions {
   quality?: QualityBand | null;
   references: Array<{ title: string; views: number | null }>;
   pictures: PackagingPictureTools;
-  /** Renders a thumbnail spec + finish with the film's scene engine into `out` (1280×720 jpg). */
-  render: (i: { spec: unknown; finish: unknown; design: FilmDesignSystem; slots: Record<string, string>; fresh: boolean; out: string; grain: number; sharpen: number }) => Promise<void>;
+  /** Renders a thumbnail spec + finish with the film's scene engine into `out` (w×h jpg; 1280×720 unless given). */
+  render: (i: { spec: unknown; finish: unknown; design: FilmDesignSystem; slots: Record<string, string>; fresh: boolean; out: string; grain: number; sharpen: number; w?: number; h?: number }) => Promise<void>;
+  /** A 9:16 film: the package also carries a 1080×1920 cover (owner, 2026-11-28: the cover is the film's first frame). */
+  cover?: boolean;
   avoidConcepts?: string[];
   /** Build list 5, item 29: how many of our recent films' thumbnails carried no words (a wordless one is allowed only
    *  while our share stays within the channel's measured share of wordless thumbnails). */
@@ -214,7 +218,7 @@ const STOP = new Set("the a an of and to in on for by with is was are be it this
 const content = (t: string) => t.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w));
 
 /** Turn a draft into the renderer's spec, finish and design; report what had to be dropped. */
-function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: PackagingPicture[]) {
+function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: PackagingPicture[], frame: { w: number; h: number } = { w: 1280, h: 720 }) {
   const dropped: string[] = [];
   const pic = (n?: number) => (n === undefined ? undefined : pics[n]);
   const els: Array<Record<string, unknown>> = [];
@@ -283,7 +287,7 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
   const texts = els.filter((e) => e.type === "text");
   const boxes = texts.map((t) => {
     const size = Number(t.size ?? 0.16), w = Number(t.w ?? 0.5);
-    const lines = Math.max(1, Math.ceil((String(t.text ?? "").length * size * 0.55 * (9 / 16)) / Math.max(0.05, w)));
+    const lines = Math.max(1, Math.ceil((String(t.text ?? "").length * size * 0.55 * (frame.h / frame.w)) / Math.max(0.05, w)));
     return { type: "component", name: "text", props: {}, x: Number(t.x), y: Number(t.y), w, h: Math.min(1, size * 1.15 * lines), rot: 0, z: 0.5, at: 0, enter: "fade" } as SceneElement;
   });
   const orig = [...boxes];
@@ -327,10 +331,18 @@ function build(d: z.infer<typeof Draft>, base: FilmDesignSystem, pics: Packaging
   // A picture blown up well past its own pixels looks soft next to the channel's crisp composites.
   const soft = els
     .filter((e) => (e.type === "cutout" || e.type === "photo" || e.type === "card3d") && typeof e.slot === "number")
-    .map((e) => ({ p: pics[e.slot as number], shown: (e.w as number) * 1280 }))
+    .map((e) => ({ p: pics[e.slot as number], shown: (e.w as number) * frame.w }))
     .filter((x): x is { p: PackagingPicture; shown: number } => Boolean(x.p?.width && x.p.kind !== "logo" && x.p.kind !== "icon" && x.shown / x.p.width! > 1.7))
     .map((x) => `picture ${x.p.slot} is ${x.p.width} px wide but shown ${Math.round(x.shown)} px wide (${(x.shown / x.p.width!).toFixed(1)}×)`);
-  return { spec, finish, design, used: [...used], dropped, soft, texts: texts.map((t) => (t as { text: string }).text) };
+  const textBoxes = texts.map((t, k) => ({ text: String((t as { text?: string }).text ?? ""), x: Number(t.x), y: Number(t.y), w: Number(t.w), h: Number((orig[k] as { h?: number }).h ?? 0.1), gone: Boolean(t.dropped) })).filter((t) => !t.gone);
+  return { spec, finish, design, used: [...used], dropped, soft, texts: texts.map((t) => (t as { text: string }).text), textBoxes };
+}
+
+/** Where a vertical cover must keep its words: the shorts/reels feed covers the bottom fifth (title, caption) and the
+ *  right edge (buttons). Text boxes are frame fractions (x, y = top-left). */
+export function coverSafeZone(boxes: Array<{ text: string; x: number; y: number; w: number; h: number }>): ThumbIssue[] {
+  const bad = boxes.filter((b) => b.y + b.h > 0.8 || b.x + b.w > 0.9 || b.x < 0.03 || b.y < 0.04);
+  return bad.length ? [{ kind: "cover_unsafe", detail: `${bad.map((b) => `"${b.text}"`).join(", ")} sit where the shorts feed covers the frame (keep words above the bottom fifth, clear of the right tenth and the very edges)` }] : [];
 }
 
 export async function packagingAgent(o: PackagingAgentOptions): Promise<PackagingReport> {
@@ -354,8 +366,9 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
 
   const titles: PackagingReport["titles"] = [];
   const renders: ThumbRender[] = [];
+  const covers: ThumbRender[] = [];
   const seenRefs = new Set<string>();
-  let accepted: { title: string; render: ThumbRender } | null = null;
+  let accepted: { title: string; render: ThumbRender; cover?: ThumbRender } | null = null;
   let noteSaved = false;
   let imposterRound = 0;
   const concepts = new Map<string, ThumbConcept & { score?: ConceptScore }>();
@@ -660,6 +673,38 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
         return [{ type: "text", text: head }, await img(file), { type: "text", text: "At phone size (home feed 360 px, suggested 168 px):" }, await img(phone)];
       },
     },
+    ...(o.cover ? [{
+      name: "render_cover",
+      description: "This film is vertical (9:16): render its COVER (1080×1920) — the same idea and the same pictures as your thumbnail, laid out for a vertical frame. It becomes the film's first frame, so the shorts/reels feed shows it. Same element fields as render_thumbnail (x, y, w, h and text size are fractions of THIS frame: size is a share of 1920 px). Returns it full size, at feed size (180 and 360 px wide), and what is outside the channel's band or where the feed covers it.",
+      schema: Draft,
+      run: async (d: z.infer<typeof Draft>) => {
+        if (covers.length >= 6) return "NOT RENDERED: six covers is the limit. Submit the best one with submit_package.";
+        if (craft && !concepts.has(d.conceptId)) return `NOT RENDERED: conceptId "${d.conceptId}" is not a critiqued concept. The cover carries the same idea as the thumbnail.`;
+        const frame = { w: 1080, h: 1920 };
+        const built = build(d, o.design, o.pictures.pics, frame);
+        const id = `c${covers.length + 1}`;
+        const file = path.join(outDir, `${id}.jpg`);
+        await o.render({ spec: built.spec, finish: built.finish, design: built.design, slots: o.pictures.slotMap(), fresh: o.pictures.takeDirty() || covers.length === 0, out: file, grain: clamp(d.finish?.grain, 0, 1, 0.5), sharpen: clamp(d.finish?.sharpen, 0, 1, 0.5), ...frame });
+        const phone = path.join(outDir, `${id}.phone.jpg`);
+        await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", file, "-filter_complex", "[0]scale=360:-2[a];[0]scale=180:-2,pad=180:640:0:0:0x202020[b];[a][b]hstack=inputs=2", "-frames:v", "1", "-update", "1", phone]);
+        const look = await measureLook(file, { fps: 1 });
+        const empty = await emptyShare(file).catch(() => 0);
+        const emptyLimit = craft ? Math.max(0.08, craft.emptyShare.p90) : 0.3;
+        const issues: ThumbIssue[] = [
+          ...coverSafeZone(built.textBoxes),
+          ...textChecks(built.texts, built.used),
+          ...(built.soft.length ? [{ kind: "soft_subject", detail: `${built.soft.join("; ")} — it will look soft on a phone held upright. Use a larger source or show it smaller.` }] : []),
+          ...(look.colourfulness < b.colourfulness.p25 ? [{ kind: "dull", detail: `colourfulness ${Math.round(look.colourfulness)} — the channel's thumbnails sit at ${Math.round(b.colourfulness.p25)}–${Math.round(b.colourfulness.p90)}` }] : []),
+          ...(look.luma < b.luma.p10 || look.luma > b.luma.p90 ? [{ kind: look.luma < b.luma.p10 ? "too_dark" : "too_bright", detail: `brightness ${look.luma.toFixed(2)} — the channel's thumbnails sit at ${b.luma.p10.toFixed(2)}–${b.luma.p90.toFixed(2)}` }] : []),
+          ...(empty > emptyLimit ? [{ kind: "empty_frame", detail: `${pc(empty)} of the cover is flat, dim or blurred (the channel stays at or under ${pc(emptyLimit)}). A tall frame needs filling: the hero bigger and cropped by the frame, the pile or pattern carried up the frame.` }] : []),
+        ];
+        const r: ThumbRender = { id, file, phone, concept: d.concept, conceptId: d.conceptId, empty, spec: built.spec, finish: built.finish, design: built.design, slots: built.used, issues, colourfulness: look.colourfulness, words: built.texts.join(" ").split(/\s+/).filter(Boolean).length };
+        covers.push(r);
+        log(`    ${id} (cover): "${d.concept.slice(0, 60)}" — ${issues.length ? issues.map((x) => x.kind).join(", ") : "inside the band"}`);
+        const head = `${id} (cover 1080×1920): colourfulness ${Math.round(look.colourfulness)}, brightness ${look.luma.toFixed(2)}, empty ${pc(empty)}.${built.dropped.length ? `\nDropped: ${built.dropped.join("; ")}.` : ""}\n${issues.length ? `TO FIX:\n${issues.map((x) => `- [${x.kind}] ${x.detail}`).join("\n")}` : "Inside the channel's band and clear of the feed's buttons. Submit it with the thumbnail (submit_package coverId)."}`;
+        return [{ type: "text", text: head }, await img(file), { type: "text", text: "In the feed (360 and 180 px wide):" }, await img(phone)];
+      },
+    } as AgentTool] : []),
     {
       name: "imposter_test",
       description: "Hide a render among four real thumbnails of the channel, three times with different real ones; a judge who knows the channel picks the imitation each time and says what gave it away. One lucky pass does not count: the result is how often it was picked out.",
@@ -714,9 +759,9 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
     },
     {
       name: "submit_package",
-      description: "Submit the title and the thumbnail render that go together. Refused until the title was tested and the render was tested blind and carries no blocking issue.",
-      schema: z.object({ title: z.string(), id: z.string(), why: z.string() }),
-      run: async (i: { title: string; id: string; why: string }) => {
+      description: `Submit the title and the thumbnail render that go together${o.cover ? ", and the cover (coverId) — this film is 9:16 and opens on its cover" : ""}. Refused until the title was tested and the render was tested blind and carries no blocking issue.`,
+      schema: z.object({ title: z.string(), id: z.string(), why: z.string(), coverId: z.string().optional().describe("9:16 films: the cover render (render_cover) of the same concept") }),
+      run: async (i: { title: string; id: string; why: string; coverId?: string }) => {
         const t = titles.find((x) => x.title === i.title.trim());
         const r = renders.find((x) => x.id === i.id);
         const refuse: string[] = [];
@@ -742,8 +787,17 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
           const weak = (r.critique && (r.critique.score < bar || r.critique.fused === "collage")) || r.imposter?.spotted || soft.length;
           if (weak && renders.length < 12 && (renders.length < 7 || ideas < 2)) refuse.push(`not yet at the channel's level (${[...(r.critique ? [`critique ${r.critique.score}/10, ${r.critique.fused}`] : []), ...(r.imposter?.spotted ? [`picked out ${r.imposter.spottedRuns}/3`] : [])].join(", ")}). Apply the critique's fixes or build another of the best concepts — ${renders.length} render(s), ${ideas} concept(s) tested so far.`);
         }
+        const cv = o.cover ? covers.find((x) => x.id === i.coverId) : undefined;
+        if (o.cover) {
+          if (!cv) refuse.push(i.coverId ? `no cover ${i.coverId}` : "this film is 9:16: render its cover (render_cover) and pass coverId");
+          else {
+            if (r && cv.conceptId !== r.conceptId) refuse.push(`the cover ${cv.id} builds a different concept than the thumbnail ${r.id}: the two carry the same idea`);
+            const cb = cv.issues.filter((x) => BLOCKERS.has(x.kind) || x.kind === "cover_unsafe");
+            if (cb.length) refuse.push(`cover blocking: ${cb.map((x) => x.detail).join(" | ")}`);
+          }
+        }
         if (refuse.length) return `NOT ACCEPTED:\n${refuse.map((x) => `- ${x}`).join("\n")}`;
-        accepted = { title: i.title.trim(), render: r! };
+        accepted = { title: i.title.trim(), render: r!, ...(cv ? { cover: cv } : {}) };
         log(`    submitted "${accepted.title}" + ${r!.id} — ${i.why.slice(0, 100)}`);
         return "ACCEPTED. If this package taught you something, call note_lesson once; then stop.";
       },
@@ -763,17 +817,23 @@ export async function packagingAgent(o: PackagingAgentOptions): Promise<Packagin
   ];
 
   const people = (o.facts.story?.characters ?? []).map((c) => `${c.name} (${c.role})`).join("; ");
-  const user = `Package this film.${o.brief ? `\n\nTHE LAST PACKAGE WAS NOT GOOD ENOUGH — ${o.brief}` : ""}\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nTHE TURN (what the thumbnail and title must tell — not the topic): ${turn}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\nStart by looking at real thumbnails of the channel.`;
+  const user = `Package this film.${o.brief ? `\n\nTHE LAST PACKAGE WAS NOT GOOD ENOUGH — ${o.brief}` : ""}\n\nWORKING TITLE: ${o.script.title}\nSTORY: ${o.facts.summary}\nPEOPLE: ${people || "—"}\nTHE TURN (what the thumbnail and title must tell — not the topic): ${turn}\nFILM COLOURS: primary ${o.design.palette.primary}, accent ${o.design.palette.accent} (the thumbnail may take its own palette)\n\nNARRATION:\n${narration}\n\nPICTURES YOU START WITH:\n${o.pictures.pics.map((p) => o.pictures.brief(p)).join("\n") || "none yet"}\n\n${o.cover ? "\n\nTHIS FILM IS VERTICAL (9:16): besides the 16:9 thumbnail, make its COVER with render_cover — the same idea and pictures laid out for a 1080×1920 frame. It is baked in as the film's first frame, so the shorts/reels feed shows it. Submit both together (submit_package coverId)." : ""}\n\nStart by looking at real thumbnails of the channel.`;
   let grace = 1;
-  const runRes = await agentLoop({ stage: "publish.agent", fixed: 0.9, finish: { message: "Your budget for this stage is used up. Call submit_package NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_package again." }, model: ROLE_MODEL.packaging, system, user, tools, effort: "medium", maxTurns: 30, maxSeconds: 480, maxUsd: 0.7, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: "The package is not submitted yet. Render, test blind and submit the title and thumbnail.", log });
+  const runRes = await agentLoop({ stage: "publish.agent", fixed: 0.9, finish: { message: "Your budget for this stage is used up. Call submit_package NOW with the work you have — change nothing else first. If it is refused, fix only what the refusal names and call submit_package again." }, model: ROLE_MODEL.packaging, system, user, tools, effort: "medium", maxTurns: 30, maxSeconds: 480, maxUsd: 0.7, maxTokens: 24000, done: () => accepted !== null && (noteSaved || grace-- <= 0), nudge: `The package is not submitted yet. Render, test blind and submit the title and thumbnail${o.cover ? " with its 9:16 cover (render_cover, coverId)" : ""}.`, log });
 
   // Not submitted: the best render that carries no blocking issue (least confidently picked out), with the best title.
   const fallback = (): ThumbRender | null => {
     const ok = renders.filter((r) => !r.issues.some((x) => BLOCKERS.has(x.kind)));
     return [...ok].sort((x, y) => (y.critique?.score ?? 0) - (x.critique?.score ?? 0) || (x.imposter?.confidence ?? 0.9) - (y.imposter?.confidence ?? 0.9) || x.issues.length - y.issues.length)[0] ?? null;
   };
-  const final = accepted as { title: string; render: ThumbRender } | null;
-  const report: PackagingReport = { pass: final !== null, title: final?.title ?? bestTitle() ?? o.script.title, titles, thumbnail: final?.render ?? fallback(), renders: renders.length, agent: { turns: runRes.turns, calls: runRes.calls, usd: runRes.usd } };
+  const final = accepted as { title: string; render: ThumbRender; cover?: ThumbRender } | null;
+  // not submitted: the cover of the kept thumbnail's concept with no blocking issue, else any clean cover
+  const coverFallback = (th: ThumbRender | null): ThumbRender | null => {
+    const ok = covers.filter((c) => !c.issues.some((x) => BLOCKERS.has(x.kind) || x.kind === "cover_unsafe"));
+    return ok.filter((c) => c.conceptId === th?.conceptId).at(-1) ?? ok.at(-1) ?? null;
+  };
+  const kept = final?.render ?? fallback();
+  const report: PackagingReport = { pass: final !== null, title: final?.title ?? bestTitle() ?? o.script.title, titles, thumbnail: kept, ...(o.cover ? { cover: final?.cover ?? coverFallback(kept) } : {}), renders: renders.length + covers.length, agent: { turns: runRes.turns, calls: runRes.calls, usd: runRes.usd } };
   {
     const th = report.thumbnail;
     const t = titles.find((x) => x.title === report.title);

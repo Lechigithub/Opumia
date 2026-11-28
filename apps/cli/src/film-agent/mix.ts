@@ -11,6 +11,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { coverPath } from "./plan.js";
 
 const ROOT = process.env.OPUMIA_ROOT ?? process.cwd();
 const job = path.resolve(process.argv[2]!);
@@ -83,7 +84,11 @@ execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pre, "-af", picLen ? af : af.
 const pic = path.join(job, opt("--picture") ?? "picture.mp4");
 const aspect = (() => { try { return (JSON.parse(readFileSync(path.join(job, "job.json"), "utf8")) as { aspect?: string }).aspect; } catch { return undefined; } })();
 const outF = path.join(job, opt("--out") ?? (aspect === "9:16" ? "film_9x16.mp4" : "film_16x9.mp4"));
-if (existsSync(pic)) execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pic, "-i", master, "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-preset", "slow", "-c:a", "aac", "-b:a", "256k", "-shortest", outF]);
+// a 9:16 film carries its cover as frame one, so the shorts/reels feed shows it with no separate upload (owner, 2026-11-28);
+// a 16:9 film's thumbnail stays a separate file. The packaging writes cover_9x16.jpg; every mix puts it back in.
+const cover = aspect === "9:16" ? coverPath(job) : null;
+const vMap = cover ? ["-loop", "1", "-i", cover, "-filter_complex", "[2:v][0:v]scale2ref[c][b];[c]setsar=1[c1];[b][c1]overlay=0:0:enable='eq(n,0)':shortest=1[vo]", "-map", "[vo]"] : ["-map", "0:v"];
+if (existsSync(pic)) execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pic, "-i", master, ...vMap, "-map", "1:a", "-c:v", "libx264", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-preset", "slow", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-shortest", outF]);
 const fin = spawnSync("ffmpeg", ["-hide_banner", "-i", existsSync(outF) ? outF : master, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" }).stderr;
 const I = /^\s+I:\s+(-?[\d.]+) LUFS/m.exec(fin)?.[1], P = /^\s+Peak:\s+(-?[\d.]+) dBFS/m.exec(fin)?.[1];
-console.log(`mixed: voice chain + ${vGain >= 0 ? "+" : ""}${vGain.toFixed(1)} dB → −16 LUFS, room tone ${TONE_UNDER} dB under, ${spec.beds?.length ?? 0} bed(s), ${spec.cues?.length ?? 0} cue(s), ${spec.drops?.length ?? 0} drop-out(s); master ${I} LUFS, peak ${P} dB → ${existsSync(pic) ? path.basename(outF) : "master.wav (no picture.mp4 yet)"}`);
+console.log(`mixed${cover ? " (cover as frame one)" : ""}: voice chain + ${vGain >= 0 ? "+" : ""}${vGain.toFixed(1)} dB → −16 LUFS, room tone ${TONE_UNDER} dB under, ${spec.beds?.length ?? 0} bed(s), ${spec.cues?.length ?? 0} cue(s), ${spec.drops?.length ?? 0} drop-out(s); master ${I} LUFS, peak ${P} dB → ${existsSync(pic) ? path.basename(outF) : "master.wav (no picture.mp4 yet)"}`);

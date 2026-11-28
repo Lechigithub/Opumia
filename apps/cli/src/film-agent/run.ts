@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, cpSync, chmodSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { filmGate } from "./gate.js";
-import { readPlan, validatePlan, scaffold, sceneBrief, pool, frameOf, filmPath, type FilmPlan } from "./plan.js";
+import { readPlan, validatePlan, scaffold, sceneBrief, pool, frameOf, filmPath, coverPath, type FilmPlan } from "./plan.js";
 import { sceneCheck, runAsync } from "./scene-check.js";
 import { prefetch } from "./prefetch.js";
 import { writeDraftMix } from "./sound-draft.js";
@@ -296,8 +296,9 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
     let note = unbuilt.length ? `\nScenes that did not pass their own check: ${unbuilt.map((b) => `${b.id} (${b.failed.join("; ")})`).join(" | ")}.` : "";
     // a rebuilt scene re-renders picture.mp4: the film is mixed again from mix.json before anyone judges it
     const remixIfStale = () => {
-      const pic = path.join(job, "picture.mp4"), film = filmPath(job);
-      if (existsSync(pic) && existsSync(path.join(job, "mix.json")) && (!existsSync(film) || statSync(pic).mtimeMs > statSync(film).mtimeMs + 1000)) {
+      const pic = path.join(job, "picture.mp4"), film = filmPath(job), cover = coverPath(job);
+      const newer = (f: string | null) => Boolean(f && existsSync(film) && statSync(f).mtimeMs > statSync(film).mtimeMs + 1000);
+      if (existsSync(pic) && existsSync(path.join(job, "mix.json")) && (!existsSync(film) || newer(pic) || newer(cover))) {
         const r = spawnSync("npx", ["tsx", path.join(o.root, "apps/cli/src/film-agent/mix.ts"), job], { cwd: o.root, encoding: "utf8", env: { ...process.env, OPUMIA_ROOT: o.root } });
         log(`  re-mixed the current picture: ${(r.stdout ?? "").trim().split("\n").at(-1) ?? ""}`);
       }
@@ -344,6 +345,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       ag.setBudget(Math.max(0.5, budget - ctx.spent.usd)); ag.setFinishing(true);
       const fe = await phase("fresh-eyes", () => freshEyes({ root: o.root, job, channel: o.channel, topic: o.topic ?? plan.title ?? path.basename(job), lengthS, log }));
       addPlatform(fe.usd);
+      remixIfStale(); // a 9:16 film takes the cover the packaging just made as its frame one
       // the finisher answers what outside eyes saw even when the film passed: every judge tell and every viewer issue
       // of severity 5+ is answered in TELLS.md (what changed, or why it stays)
       const tells = [...(fe.referee?.low ?? []).map((x) => `the referee's weakest moment ${x}`)];
