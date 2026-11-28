@@ -5,6 +5,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, appendFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { frameOf } from "./plan.js";
 
 const ROOT = process.env.OPUMIA_ROOT ?? process.cwd();
 // the agents' shell carries no stock or voice keys: film-tools loads them into its own process (the platform's loader)
@@ -15,6 +16,7 @@ const CHANNEL = process.env.FILM_CHANNEL ?? "magnates-media";
 // running at the same time never write the same file
 const SCENE = process.env.FILM_SCENE && /^s\d{2}$/.test(process.env.FILM_SCENE) ? process.env.FILM_SCENE : undefined;
 const WS = SCENE ? path.join(JOB, "downloads", SCENE) : JOB;
+const FR = frameOf(JOB);
 const nm = (name: string) => (SCENE && !name.startsWith(`${SCENE}_`) ? `${SCENE}_${name}` : name);
 const ledger = (kind: "credits" | "fair-use") => (SCENE ? path.join(JOB, kind, `${SCENE}.json`) : path.join(JOB, `${kind}.json`));
 const REF_DIR = path.join(ROOT, "Reference", "MagnatesMedia");
@@ -187,17 +189,19 @@ async function main() {
       // the same moment of one video may not appear in two scenes (another moment of it may)
       const taken = others<{ video: string; inS: number; seconds: number; scene: string }>("fair-use").find((x) => x.video.includes(String(id)) && Number(start) < x.inS + x.seconds && x.inS < Number(start) + seconds);
       if (taken) { console.log(`${taken.scene} already uses ${id} at ${taken.inS}–${(taken.inS + taken.seconds).toFixed(1)} s — choose another moment (or another video): the same picture twice reads as a repeat`); process.exitCode = 1; return; }
+      // a moment a recent film of ours showed is on cooldown (another moment of the same video is not)
+      { const { recentPictures, pressMomentUsed } = await import("./register.js"); const hit = pressMomentUsed(recentPictures(ROOT, JOB), String(id), Number(start)); if (hit) { console.log(`a recent film of ours showed this moment (${hit}) — choose another moment or another video`); process.exitCode = 1; return; } }
       if (Number(len) > 8.5) console.log("note: clips are at most 8.5 s (the channel's practice) — cut to 8.5");
       const crop = opt("--crop") ?? "crop=iw:ih:0:0";
       const parts = ensure(path.join(WS, "downloads", "news", "parts")), part = path.join(parts, `${name}_${id}_${start}_${seconds}.mp4`); // a new moment is a new download
       const s = Number(start);
       sh("yt-dlp", ["-q", "--no-warnings", "--no-playlist", "-f", "bv*[height<=1080][ext=mp4]/bv*[height<=1080]", "--download-sections", `*${s}-${s + seconds + 1}`, "-o", part, `https://www.youtube.com/watch?v=${id}`]);
       const outF = path.join(ensure(path.join(JOB, "public", "v")), `${name}.mp4`);
-      sh("ffmpeg", ["-v", "error", "-y", "-i", part, "-t", String(seconds), "-an", "-vf", `${crop},scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=24,format=yuv420p`, "-c:v", "libx264", "-crf", "16", outF]);
+      sh("ffmpeg", ["-v", "error", "-y", "-i", part, "-t", String(seconds), "-an", "-vf", `${crop},scale=${FR.w}:${FR.h}:force_original_aspect_ratio=increase,crop=${FR.w}:${FR.h},fps=24,format=yuv420p`, "-c:v", "libx264", "-crf", "16", outF]);
       const meta = spawnSync("yt-dlp", ["--no-warnings", "--print", "%(title)s|%(channel)s", `https://www.youtube.com/watch?v=${id}`], { encoding: "utf8" }).stdout.trim().split("|");
       fairUse({ file: `v/${name}.mp4`, kind: flag("--film") ? "film" : "press", video: `https://www.youtube.com/watch?v=${id}`, title: meta[0] ?? "", channel: meta[1] ?? "", inS: s, seconds });
       credit({ file: `v/${name}.mp4`, kind: flag("--film") ? "film clip" : "press clip", source: meta[1] ?? "YouTube", url: `https://www.youtube.com/watch?v=${id}&t=${s}s`, license: "Fair use (short muted excerpt under commentary)" });
-      console.log(existsSync(outF) ? `public/v/${name}.mp4 (${seconds} s, muted, 1080p 24 fps) — logged in fair-use.json; look at it before you use it` : "clip failed");
+      console.log(existsSync(outF) ? `public/v/${name}.mp4 (${seconds} s, muted, ${FR.w}×${FR.h} 24 fps) — logged in fair-use.json; look at it before you use it` : "clip failed");
       return;
     }
     case "screenshot": {
@@ -217,6 +221,7 @@ async function main() {
       const UA = { "User-Agent": "OpumiaFilm/1.0 (documentary research)" };
       const s = await (await fetch(`https://commons.wikimedia.org/w/api.php?action=query&list=search&srnamespace=6&srlimit=8&format=json&srsearch=${encodeURIComponent(q)}`, { headers: UA })).json() as { query: { search: Array<{ title: string }> } };
       const out = ensure(path.join(JOB, "public", "img"));
+      const recent = (await import("./register.js")).recentPictures(ROOT, JOB);
       for (const hit of s.query.search.slice(0, Number(opt("--n") ?? 5))) {
         await new Promise((r) => setTimeout(r, 1500));
         const d = await (await fetch(`https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1920&format=json&titles=${encodeURIComponent(hit.title)}`, { headers: UA })).json() as { query: { pages: Record<string, { imageinfo?: Array<{ thumburl?: string; url: string; descriptionurl: string; extmetadata?: Record<string, { value: string }> }> }> } };
@@ -224,6 +229,7 @@ async function main() {
         if (!ii) continue;
         const by = others<{ url?: string; scene: string }>("credits").find((c) => c.url === ii.descriptionurl);
         if (by) { console.log(`(skipped: ${hit.title} is already in ${by.scene})`); continue; }
+        if (recent.has(ii.descriptionurl.replace(/[?#].*$/, ""))) { console.log(`(skipped: ${hit.title} — a recent film of ours used it)`); continue; }
         const name = nm(`commons_${hit.title.slice(5).replace(/[^A-Za-z0-9]+/g, "_").slice(0, 50)}${/\.png/i.test(ii.thumburl ?? ii.url) ? ".png" : ".jpg"}`);
         const f = path.join(out, name);
         if (!existsSync(f)) writeFileSync(f, Buffer.from(await (await fetch(ii.thumburl ?? ii.url, { headers: UA })).arrayBuffer()));
@@ -243,6 +249,13 @@ async function main() {
       const used = new Map(others<{ file: string; scene: string }>("credits").map((c) => [path.basename(c.file), c.scene]));
       const clash = args.filter((k) => used.has(k));
       if (clash.length) { console.log(`already used by another scene: ${clash.map((k) => `${k} (${used.get(k)})`).join(", ")} — choose other candidates`); process.exitCode = 1; return; }
+      {
+        // stock a recent film of ours used is on cooldown
+        const recent = (await import("./register.js")).recentPictures(ROOT, JOB);
+        const before = jread<Record<string, { pageUrl: string }>>(path.join(WS, "downloads", "stock-look", "candidates.json"), {});
+        const cool = args.filter((k) => before[k] && recent.has(before[k]!.pageUrl.replace(/[?#].*$/, "")));
+        if (cool.length) { console.log(`a recent film of ours used ${cool.join(", ")} — choose other candidates`); process.exitCode = 1; return; }
+      }
       tsx("apps/cli/src/dev/hand/stock-get.ts", [ensure(WS), ...args]);
       const cat = jread<Record<string, { provider: string; pageUrl: string; license: string; attributionText?: string }>>(path.join(WS, "downloads", "stock-look", "candidates.json"), {});
       for (const k of args) { const c = cat[k]; if (c) credit({ file: `${path.relative(JOB, path.join(WS, "downloads", "stock"))}/${k}`, kind: "stock", source: c.provider, url: c.pageUrl, license: c.license, note: c.attributionText }); }
@@ -306,7 +319,7 @@ async function main() {
         console.log(`${sc}: ${v.score} (every channel film averages ≥ ${v.bar}) — ${v.score >= v.bar ? "reads like the channel" : "does not read like the channel yet: film-tools ref similar shows how the channel puts a line like this on screen"}`);
         return;
       }
-      const file = path.resolve(JOB, args.find((a) => a.endsWith(".mp4")) ?? "film_16x9.mp4");
+      const file = path.resolve(JOB, args.find((a) => a.endsWith(".mp4")) ?? FR.film);
       v = await refereeScore({ root: ROOT, data: path.join(ROOT, "data"), reference, channel: CHANNEL, video: file });
       for (const s of v.stretches) console.log(`  ${s.from.toFixed(0).padStart(4)}–${s.to.toFixed(0).padEnd(4)} s  ${s.score.toFixed(2)}${s.low ? "  LOW — below the channel's weakest tenth" : ""}`);
       console.log(`${v.pass ? "REFEREE PASSED" : "REFEREE FAILED"}: ${v.score} (the channel's films: ≥ ${v.bar}); weakest: ${v.weakest}`);
@@ -344,10 +357,11 @@ async function main() {
     case "beds": {
       // ranked by the bed head (how like the channel's own beds a bed sounds, voice-blind; build list 6, G3)
       const taste = jread<{ beds?: Array<{ file: string; score: number }> }>(path.join(ROOT, "data", "audio-profile-bed-taste.json"), {});
-      const { recentlyUsed, libraryIds } = await import("./sound-draft.js");
-      const used = recentlyUsed(ROOT).music, ids = libraryIds(ROOT);
-      const rows = (taste.beds ?? []).slice(0, Number(opt("--n") ?? 20));
-      for (const r of rows) console.log(`${r.score.toFixed(3)} | ${r.file}${used.has(ids.get(r.file.replace(/^Library\//, "")) ?? "") ? " (used by a recent film — choose another)" : ""}`);
+      const { recentlyUsed, libraryIds, usableAudio } = await import("./sound-draft.js");
+      const used = recentlyUsed(ROOT).music, ids = libraryIds(ROOT), usable = usableAudio(ROOT);
+      // only beds with a recorded licence, and none a recent film used
+      const rows = (taste.beds ?? []).filter((r) => { const rel = r.file.replace(/^Library\//, ""); return usable.has(rel) && !used.has(ids.get(rel) ?? ""); }).slice(0, Number(opt("--n") ?? 20));
+      for (const r of rows) console.log(`${r.score.toFixed(3)} | ${r.file} | ${usable.get(r.file.replace(/^Library\//, ""))!.license}`);
       if (!rows.length) console.log("no ranked beds: list Library/music and listen-measure with film-tools sound <file>");
       return;
     }
@@ -356,7 +370,10 @@ async function main() {
       const idx = jread<{ assets?: Array<{ id: string; relPath: string }> }>(path.join(ROOT, "data", "library-index.json"), {});
       const byId = new Map((idx.assets ?? []).map((r) => [r.id.slice(0, 16), r.relPath]));
       const fam = args[0];
-      for (const [id, v] of Object.entries(prof.sfx)) if ((!fam || v.family === fam) && v.seconds < 8 && byId.get(id)) console.log(`${v.family} | attack ${v.attackS.toFixed(2)} s | Library/${byId.get(id)}`);
+      const { recentlyUsed, usableAudio } = await import("./sound-draft.js");
+      const usable = usableAudio(ROOT), used = recentlyUsed(ROOT).sfx;
+      // only effects with a recorded licence, and none a recent film used
+      for (const [id, v] of Object.entries(prof.sfx)) if ((!fam || v.family === fam) && v.seconds < 8 && byId.get(id) && usable.has(byId.get(id)!) && !used.has(id)) console.log(`${v.family} | attack ${v.attackS.toFixed(2)} s | Library/${byId.get(id)}`);
       return;
     }
     case "mix": {
@@ -365,11 +382,11 @@ async function main() {
     }
     // ---- measures and the gate
     case "type-check": {
-      sh(PY, ["-I", path.join(ROOT, "tools/world/type_check.py"), path.join(JOB, args[0] ?? "film_16x9.mp4"), "--channel", CHANNEL]);
+      sh(PY, ["-I", path.join(ROOT, "tools/world/type_check.py"), path.join(JOB, args[0] ?? FR.film), "--channel", CHANNEL]);
       return;
     }
     case "world-check": {
-      sh(PY, ["-I", path.join(ROOT, "tools/world/world_check.py"), path.basename(JOB), path.join(JOB, args[0] ?? "film_16x9.mp4"), path.join(JOB, "timed-script.json"), "--no-save"]);
+      sh(PY, ["-I", path.join(ROOT, "tools/world/world_check.py"), path.basename(JOB), path.join(JOB, args[0] ?? FR.film), path.join(JOB, "timed-script.json"), "--no-save"]);
       return;
     }
     case "gate": {

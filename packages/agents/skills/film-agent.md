@@ -51,6 +51,14 @@ reference and it holds up. This playbook is a method, not a look: how a moment l
 - **Fair use as the channel practises it:** clips ≤ 8.5 s, real/film footage ≤ 27 % of the runtime, muted, graded,
   under commentary, every clip logged (`film-tools clip` logs it). Several clips from one source are allowed.
 
+## Formats and lengths (the platform makes both, at any length)
+- **16:9** (1920×1080) and **9:16** (1080×1920, `job.json` says which; `src/length.json` carries the frame). In 9:16
+  the subject sits in the centre column, words stay inside the vertical safe area (clear of the top 12 % and bottom
+  20 %), and the spoken words are burned in as captions — a vertical short is watched without sound.
+- **Long films:** the script carries chapters; each chapter opens on a scene marked `"chapter"` (the channel's
+  chapter card, about every 3 minutes), checked in code. Length never changes the craft: the same rules hold for a
+  60 s film and a 30 min one.
+
 ## Hard rules (enforced in code; the gate refuses a film that breaks them)
 - No AI-generated pixels anywhere. Every picture is real footage, a real photo, a real screenshot, licensed stock,
   public-domain film, or designed by your code.
@@ -59,6 +67,12 @@ reference and it holds up. This playbook is a method, not a look: how a moment l
 - Never read, print or copy a secret, never dump the environment.
 - Every source used is listed in `credits.json` (the tools write it); the signature object is not one an earlier film
   of ours used (the gate checks it).
+- Words are not set like an earlier film of ours: the type look (size, position, letter width, capitals, colour, glow,
+  the lines under them) is measured against our films with the channel's own film-to-film spread as the bar.
+- Pictures, music and effects a recent film of ours used are on cooldown (the tools refuse them); every bed and effect
+  has a recorded licence (`film-tools beds` / `sfx` list only those).
+- The narration stays at the voice's natural pace (±12 %), word error ≤ 1 %.
+- Never `Library/moments`, `bank`, `thumb_cache`, and never a cut or copy from `Reference/` (the channel's material).
 
 ## How you work (never get stuck)
 - Read errors in full and fix the cause, not the symptom. If a tool is missing, write a small script in your

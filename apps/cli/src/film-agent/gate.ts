@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { sameObject, objectWords, GENERIC_OBJECTS } from "@opumia/agents";
 import { ocrBinary } from "@opumia/senses";
-import { filmMedia, drawnObject } from "./plan.js";
+import { filmMedia, drawnObject, frameOf, filmPath } from "./plan.js";
 
 /** The film's ledger plus every scene builder's own (credits/<scene>.json, fair-use/<scene>.json). */
 export function ledgers<T>(job: string, kind: "credits" | "fair-use"): T[] {
@@ -23,18 +23,18 @@ const LIFT = /\b(how money works|logically answered|modern mba|moon|big company|
 export async function filmGate(o: { root: string; job: string; channel: string; record?: boolean }): Promise<{ pass: boolean; checks: GateCheck[] }> {
   const checks: GateCheck[] = [];
   const add = (id: string, pass: boolean, detail: string) => checks.push({ id, pass, detail });
-  const film = path.join(o.job, "film_16x9.mp4");
+  const fr = frameOf(o.job), film = filmPath(o.job);
   const timed = jread<{ durationS?: number }>(path.join(o.job, "timed-script.json"), {});
-  if (!existsSync(film)) { add("film", false, "no film_16x9.mp4 — render (film-tools render) and mix (film-tools mix)"); return { pass: false, checks }; }
+  if (!existsSync(film)) { add("film", false, `no ${fr.film} — render (film-tools render) and mix (film-tools mix)`); return { pass: false, checks }; }
   const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=width,height,r_frame_rate", "-of", "json", film], { encoding: "utf8" }).stdout;
   const pj = JSON.parse(probe) as { format: { duration: string }; streams: Array<{ width?: number; height?: number; r_frame_rate?: string }> };
   const d = Number(pj.format.duration), v = pj.streams.find((s) => s.width);
-  add("film", d >= (timed.durationS ?? 0) - 0.5 && v?.width === 1920 && v?.height === 1080 && v?.r_frame_rate === "24/1", `${d.toFixed(1)} s (narration ${(timed.durationS ?? 0).toFixed(1)} s), ${v?.width}×${v?.height} at ${v?.r_frame_rate} (needs the whole narration, 1920×1080, 24 fps)`);
+  add("film", d >= (timed.durationS ?? 0) - 0.5 && v?.width === fr.w && v?.height === fr.h && v?.r_frame_rate === "24/1", `${d.toFixed(1)} s (narration ${(timed.durationS ?? 0).toFixed(1)} s), ${v?.width}×${v?.height} at ${v?.r_frame_rate} (needs the whole narration, ${fr.w}×${fr.h}, 24 fps)`);
   const ld = spawnSync("ffmpeg", ["-hide_banner", "-i", film, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" }).stderr;
   const I = Number(/^\s+I:\s+(-?[\d.]+) LUFS/m.exec(ld)?.[1] ?? -99), P = Number(/^\s+Peak:\s+(-?[\d.]+) dBFS/m.exec(ld)?.[1] ?? 0);
   // the mix must be of the current picture (a rebuilt scene re-renders picture.mp4; the film is only new once mixed again)
   const pic = path.join(o.job, "picture.mp4");
-  if (existsSync(pic)) { const stale = statSync(pic).mtimeMs > statSync(film).mtimeMs + 1000; add("current_mix", !stale, stale ? "picture.mp4 is newer than film_16x9.mp4 — run film-tools mix" : "the film is the mix of the current picture"); }
+  if (existsSync(pic)) { const stale = statSync(pic).mtimeMs > statSync(film).mtimeMs + 1000; add("current_mix", !stale, stale ? `picture.mp4 is newer than ${fr.film} — run film-tools mix` : "the film is the mix of the current picture"); }
   add("loudness", I >= -13.5 && I <= -11.5 && P <= -1.4, `${I} LUFS (−12.5 ± 1), peak ${P} dB (≤ −1.5) — film-tools mix sets both`);
 
   // type: words set like the channel's (boxes, one size, capitals); words on frames is advisory (signage counts)
@@ -90,6 +90,38 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
       add("referee", v.pass, `${v.score} against the channel (every held-back channel film ≥ ${v.bar}); weakest: ${v.weakest} — film-tools referee for every stretch, film-tools ref similar for how the channel shows those lines`);
     } else add("referee", true, "the referee has not been built (npx tsx apps/cli/src/dev/referee-build.ts) — not checked");
   } catch (e) { add("referee", false, `the referee could not score the film: ${(e as Error).message.slice(0, 160)}`); }
+  // how the words are set, against our earlier films (the channel's own film-to-film spread is the bar)
+  {
+    const { typeLook } = await import("./checks.js");
+    const tl = typeLook(o.root, path.basename(o.job), film);
+    add("type_look", tl ? tl.pass : false, tl ? (tl.pass ? `words set unlike our earlier films (nearest farther than the channel's own films sit: ≥ ${tl.bar})` : `words set like ${tl.tooClose.map((x) => `${x.film} (${x.distance})`).join(", ")} — closer than the channel's own films are to each other (≥ ${tl.bar}); set each kind of line the way the channel does, in this film's own world`) : "the type look could not be measured (tools/world/type_look.py; build its band once with `build`)");
+  }
+  // the narration: the voice at its own natural pace (owner: never pushed or dragged; ±12 % of its measured pace), the
+  // words said as written (word error ≤ 1 %), at most one line the listen-back could not resolve after its retakes
+  {
+    const rep = jread<{ wer?: number; unresolved?: string[] }>(path.join(o.job, "narration.report.json"), {});
+    const ts = jread<{ voice?: { voiceId?: string; modelId?: string }; segments?: Array<{ startS: number; endS: number; words: unknown[] }> }>(path.join(o.job, "timed-script.json"), {});
+    const words = (ts.segments ?? []).reduce((n, sg) => n + sg.words.length, 0);
+    const span = (ts.segments?.at(-1)?.endS ?? 0) - (ts.segments?.[0]?.startS ?? 0);
+    const wpm = span > 5 ? (words / span) * 60 : 0;
+    const { storedVoiceMeasure } = await import("@opumia/narration");
+    const nat = ts.voice?.voiceId && ts.voice.modelId ? await storedVoiceMeasure(path.join(o.root, "data"), ts.voice.voiceId, ts.voice.modelId).catch(() => null) : null;
+    if (nat && wpm) add("voice_pace", wpm >= nat.wpm * 0.88 && wpm <= nat.wpm * 1.12, `${wpm.toFixed(0)} wpm against this voice's natural ${nat.wpm.toFixed(0)} (±12 %) — the voice is never pushed or dragged`);
+    if (typeof rep.wer === "number") add("voice_words", rep.wer <= 0.01 && (rep.unresolved?.length ?? 0) <= 1, `word error ${(rep.wer * 100).toFixed(1)} % (≤ 1 %), ${(rep.unresolved ?? []).length} line(s) unresolved after retakes (≤ 1)${rep.unresolved?.length ? `: ${rep.unresolved.slice(0, 2).join("; ")}` : ""}`);
+  }
+  // every bed and effect in the mix has a recorded licence (the library's licences.csv / catalogue)
+  {
+    const { soundLicences } = await import("./register.js");
+    const sl = soundLicences(o.root, o.job);
+    add("sound_licensed", sl.unlicensed.length === 0, sl.unlicensed.length ? `no licence recorded for ${sl.unlicensed.join(", ")} — choose from film-tools beds / film-tools sfx (licensed only)` : `${sl.rows.length} bed(s) and effect(s), all licensed`);
+  }
+  // every FIX the checks before the finisher found is answered (FIXES.md: the check and scene as a heading, what changed)
+  {
+    const fixes = jread<Array<{ check: string; scene?: string; severity: string }>>(path.join(o.job, "findings.json"), []).filter((f) => f.severity === "fix");
+    const answered = existsSync(path.join(o.job, "FIXES.md")) ? readFileSync(path.join(o.job, "FIXES.md"), "utf8") : "";
+    const open = fixes.filter((f) => !answered.includes(`${f.check}${f.scene ? ` ${f.scene}` : ""}`));
+    add("findings_answered", open.length === 0, open.length ? `${open.length} FIX finding(s) not answered in FIXES.md: ${open.slice(0, 6).map((f) => `${f.check}${f.scene ? ` ${f.scene}` : ""}`).join(", ")} — fix each, then write it as a heading in FIXES.md with what you changed` : `${fixes.length} FIX finding(s), all answered`);
+  }
   add("review", existsSync(path.join(o.job, "REVIEW.md")), existsSync(path.join(o.job, "REVIEW.md")) ? "REVIEW.md written" : "write REVIEW.md: what worked, what failed, the root cause, what you would do first next time");
 
   const pass = checks.every((c) => c.pass);
@@ -101,6 +133,8 @@ export async function filmGate(o: { root: string; job: string; channel: string; 
     const fonts = [plan.fonts?.display, plan.fonts?.body].filter((x): x is string => Boolean(x)).map((x) => x.split(",")[0]!.replace(/["']/g, "").trim());
     writeFileSync(`${f}.tmp`, JSON.stringify([...all, { job: path.basename(o.job), devices: [], fonts, palette: Object.values(plan.palette ?? {}), tokens: plan.palette ?? {}, concept: (plan.world ?? "").slice(0, 300), transition: "", signatureObject: so, agent: "film-agent", at: new Date().toISOString() }], null, 1) + "\n");
     renameSync(`${f}.tmp`, f);
+    // the film joins the memory of our films: produced, cooldowns, its type and picture look
+    await (await import("./register.js")).registerFilm({ root: o.root, job: o.job });
   }
   return { pass, checks };
 }

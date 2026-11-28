@@ -7,6 +7,14 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from "node:path";
 
 export const FPS = 24;
+/** The film's frame (job.json aspect: 16:9 → 1920×1080, 9:16 → 1080×1920) and its file name. */
+export function frameOf(job: string): { w: number; h: number; aspect: "16:9" | "9:16"; film: string } {
+  let aspect: "16:9" | "9:16" = "16:9";
+  try { aspect = (JSON.parse(readFileSync(path.join(job, "job.json"), "utf8")) as { aspect?: string }).aspect === "9:16" ? "9:16" : "16:9"; } catch { /* default */ }
+  return aspect === "9:16" ? { w: 1080, h: 1920, aspect, film: "film_9x16.mp4" } : { w: 1920, h: 1080, aspect, film: "film_16x9.mp4" };
+}
+/** The finished film's path in a workspace. */
+export const filmPath = (job: string) => path.join(job, frameOf(job).film);
 export interface ScenePlan {
   id: string; from: number; to: number; lead?: number;
   words: string; idea: string; seen: string;
@@ -17,7 +25,7 @@ export interface ScenePlan {
   /** the year the line is about (the period check dates footage against it) */
   year?: number;
   /** a story turn, or the film's biggest line (the sound draft puts a riser, hit or drop-out there) */
-  mark?: "turn" | "biggest";
+  mark?: "turn" | "biggest" | "chapter";
 }
 export interface FilmPlan {
   title?: string; world: string; signatureObject: string; scenes: ScenePlan[];
@@ -121,10 +129,20 @@ export function validatePlan(plan: FilmPlan | null, lengthS: number, narrationS:
     const prev = sc[i - 1];
     if (i === 0 && Math.abs(s.from) > 0.05) e.push(`${n}: the first scene starts at 0`);
     if (prev && Math.abs(prev.to - s.from) > 0.05) e.push(`${n}: starts at ${s.from} but ${prev.id} ends at ${prev.to} — scenes must touch`);
-    if (needsPerformedSearch(s)) e.push(`${n}: no real material and no search for a person acting out the line — add to pictures[].how a "stock: …" search for a person performing or reacting to it, lit low-key ("man counting money desk lamp", "man staring at machine dark room"): the channel's most common shot; objects, places and moods rarely read like it`);
+    if (needsPerformedSearch(s)) e.push(`${n}: no real material and no search for a person acting out the line — add to pictures[].how a "stock: …" search for a person performing or reacting to it ("man counting money desk lamp", "man staring at machine dark room"): the channel's most common shot; objects, places and moods rarely read like it`);
   });
   const last = sc.at(-1);
   if (last && (last.to < narrationS - 0.05 || last.to > lengthS + 0.1)) e.push(`the last scene must end at ${lengthS.toFixed(2)} s (the film's length), not ${last.to}`);
+  // a long film's chapters (the script's segments carry them): each chapter opens on a scene marked "chapter" (the
+  // channel's chapter card, measured ≈ every 3 min), starting within 1 s of the chapter's first word
+  if (job) {
+    const ts = (() => { try { return JSON.parse(readFileSync(path.join(job, "timed-script.json"), "utf8")) as { segments?: Array<{ startS: number; chapter?: string }> }; } catch { return {}; } })();
+    let prevCh: string | undefined;
+    for (const sg of ts.segments ?? []) {
+      if (sg.chapter && sg.chapter !== prevCh && prevCh !== undefined && !sc.some((s) => s.mark === "chapter" && Math.abs(s.from - sg.startS) <= 1)) e.push(`chapter "${sg.chapter}" starts at ${sg.startS.toFixed(1)} s: open it on a scene marked "chapter" (from within 1 s of it) — the channel's chapter card`);
+      if (sg.chapter) prevCh = sg.chapter;
+    }
+  }
   if (job && !existsSync(path.join(job, "src", "world.tsx"))) e.push("src/world.tsx is missing: the film's world as code (colours, type, the grade, the signature object) that every scene imports");
   return e;
 }
@@ -132,15 +150,15 @@ export function validatePlan(plan: FilmPlan | null, lengthS: number, narrationS:
 const write = (f: string, s: string) => { mkdirSync(path.dirname(f), { recursive: true }); writeFileSync(f, s); };
 /** Write the stubs, the per-scene entries, the world check entry and the generated Film.tsx. Never touches a built scene. */
 export function scaffold(job: string, plan: FilmPlan, lengthS: number): void {
-  const src = path.join(job, "src");
+  const src = path.join(job, "src"), fr = frameOf(job);
   for (const [i, s] of plan.scenes.entries()) {
     const f = path.join(src, "scenes", `${s.id}.tsx`);
     if (!existsSync(f)) write(f, `${STUB}\nimport React from "react";\nimport { AbsoluteFill } from "remotion";\nexport type SceneProps = { start: number; lead: number; length: number };\nconst Scene: React.FC<SceneProps> = () => <AbsoluteFill style={{ background: "#050505" }} />;\nexport default Scene;\n`);
     const w = sceneWindow(plan, i, lengthS);
     const props = `{ start: ${s.from}, lead: ${(s.from - w.startS).toFixed(3)}, length: ${(s.to - s.from).toFixed(3)} }`;
-    write(path.join(src, "entries", `${s.id}.tsx`), `// generated: scene ${s.id} alone (film time ${w.startS.toFixed(2)}–${(w.startS + w.frames / FPS).toFixed(2)} s)\nimport React from "react";\nimport { Composition, registerRoot } from "remotion";\nimport Scene from "../scenes/${s.id}";\nconst Root: React.FC = () => <Composition id="Film" component={() => <Scene {...${props}} />} width={1920} height={1080} fps={${FPS}} durationInFrames={${w.frames}} />;\nregisterRoot(Root);\n`);
+    write(path.join(src, "entries", `${s.id}.tsx`), `// generated: scene ${s.id} alone (film time ${w.startS.toFixed(2)}–${(w.startS + w.frames / FPS).toFixed(2)} s)\nimport React from "react";\nimport { Composition, registerRoot } from "remotion";\nimport Scene from "../scenes/${s.id}";\nconst Root: React.FC = () => <Composition id="Film" component={() => <Scene {...${props}} />} width={${fr.w}} height={${fr.h}} fps={${FPS}} durationInFrames={${w.frames}} />;\nregisterRoot(Root);\n`);
   }
-  write(path.join(src, "entries", "_world.tsx"), `// generated: checks that src/world.tsx compiles\nimport React from "react";\nimport { AbsoluteFill, Composition, registerRoot } from "remotion";\nimport * as World from "../world";\nconst Root: React.FC = () => <Composition id="Film" component={() => <AbsoluteFill style={{ background: "#000" }} data-world={Object.keys(World).length} />} width={1920} height={1080} fps={${FPS}} durationInFrames={1} />;\nregisterRoot(Root);\n`);
+  write(path.join(src, "entries", "_world.tsx"), `// generated: checks that src/world.tsx compiles\nimport React from "react";\nimport { AbsoluteFill, Composition, registerRoot } from "remotion";\nimport * as World from "../world";\nconst Root: React.FC = () => <Composition id="Film" component={() => <AbsoluteFill style={{ background: "#000" }} data-world={Object.keys(World).length} />} width={${fr.w}} height={${fr.h}} fps={${FPS}} durationInFrames={1} />;\nregisterRoot(Root);\n`);
   const imports = plan.scenes.map((s) => `import ${s.id.toUpperCase()} from "./scenes/${s.id}";`).join("\n");
   const seqs = plan.scenes.map((s, i) => {
     const w = sceneWindow(plan, i, lengthS);

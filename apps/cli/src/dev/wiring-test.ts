@@ -1,0 +1,36 @@
+// The platform audit's wiring (2026-11-28), offline: the guard keeps the channel's material out, picture identities and
+// press-moment cooldown, the 9:16 frame, the chapter rule on plans, licensed sound only. No API, no network.
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { guard } from "../film-agent/run.js";
+import { pictureRef, pressMomentUsed } from "../film-agent/register.js";
+import { frameOf, validatePlan, type FilmPlan } from "../film-agent/plan.js";
+import { usableAudio } from "../film-agent/sound-draft.js";
+const ROOT = process.env.OPUMIA_ROOT ?? process.cwd();
+let fail = 0, ran = 0;
+const ok = (c: boolean, m: string) => { ran++; if (!c) fail++; console.log(`${c ? "ok  " : "FAIL"} ${m}`); };
+const job = mkdtempSync(path.join(tmpdir(), "wiring-"));
+const g = guard(job, ROOT);
+const bash = async (command: string) => (await g("Bash", { command })).behavior;
+ok((await bash(`cp ${ROOT}/Library/moments/x.mp4 public/v/a.mp4`)) === "deny", "guard: Library/moments never goes into a film");
+ok((await bash(`ffmpeg -i "${ROOT}/Reference/MagnatesMedia/x/y.mp4" -t 3 public/v/a.mp4`)) === "deny", "guard: no cut from Reference/ into a film");
+ok((await bash(`ls ${ROOT}/Reference/MagnatesMedia`)) === "allow", "guard: looking at Reference/ is allowed");
+ok(pictureRef({ url: "https://www.youtube.com/watch?v=X1oHp-VvhDE&t=56s" }) === "youtube:X1oHp-VvhDE@56", "picture identity: a press video and its second");
+ok(pictureRef({ url: "https://www.pexels.com/video/abc-123/?utm=x" }) === "https://www.pexels.com/video/abc-123/", "picture identity: a stock page without its query");
+const used = new Set(["youtube:X1oHp-VvhDE@56"]);
+ok(pressMomentUsed(used, "X1oHp-VvhDE", 60) !== null && pressMomentUsed(used, "X1oHp-VvhDE", 80) === null, "cooldown: the same moment is refused, another moment of the video is not");
+ok(frameOf(job).w === 1920, "frame: 16:9 by default");
+writeFileSync(path.join(job, "job.json"), JSON.stringify({ aspect: "9:16" }));
+ok(frameOf(job).w === 1080 && frameOf(job).h === 1920 && frameOf(job).film === "film_9x16.mp4", "frame: 9:16 is 1080×1920, film_9x16.mp4");
+mkdirSync(path.join(job, "src"), { recursive: true }); writeFileSync(path.join(job, "src", "world.tsx"), "export {}");
+writeFileSync(path.join(job, "timed-script.json"), JSON.stringify({ segments: [{ startS: 0, chapter: "Intro" }, { startS: 30, chapter: "The rise" }] }));
+const sc = (id: string, from: number, to: number, mark?: "chapter") => ({ id, from, to, lead: 0, words: "x", idea: "x", seen: "x", pictures: [{ need: "x", how: "press: x" }], ...(mark ? { mark } : {}) });
+const base: FilmPlan = { title: "t", world: "w", signatureObject: "the original prototype photographed in the lab", scenes: [sc("s01", 0, 6), sc("s02", 6, 12), sc("s03", 12, 18), sc("s04", 18, 24), sc("s05", 24, 30), sc("s06", 30, 36), sc("s07", 36, 42), sc("s08", 42, 48)] } as unknown as FilmPlan;
+ok(validatePlan(base, 48, 45, job).some((x) => x.includes("chapter")), "plan: a chapter without a chapter scene is refused");
+const withCh = { ...base, scenes: base.scenes.map((s) => (s.id === "s06" ? { ...s, mark: "chapter" as const } : s)) } as FilmPlan;
+ok(!validatePlan(withCh, 48, 45, job).some((x) => x.includes("chapter")), "plan: a chapter opened by a chapter scene passes");
+const u = usableAudio(ROOT);
+ok(u.has("music/free_buckley_nightfall.mp3") && !u.has("music/edison_014_b.mp3"), "sound: a licensed bed is usable, one with no recorded licence is not");
+console.log(fail ? `wiring: ${fail}/${ran} FAILED` : `wiring: ${ran} checks pass`);
+process.exitCode = fail ? 1 : 0;

@@ -5,7 +5,7 @@
 // The adapter turns the film agent's plan and ledgers into the shapes those agents read (shots, pictures, tokens).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { readPlan, type FilmPlan } from "./plan.js";
+import { readPlan, frameOf, filmPath, type FilmPlan } from "./plan.js";
 import { ledgers } from "./gate.js";
 import { sceneMedia } from "./checks.js";
 
@@ -16,10 +16,10 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 const mixHex = (a: string, b: string, t: number) => "#" + [0, 2, 4].map((i) => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - t) + parseInt(b.slice(1 + i, 3 + i), 16) * t).toString(16).padStart(2, "0")).join("");
 
 /** The planner's shots as a storyboard (one shot per scene, its named subjects). */
-export function boardOf(plan: FilmPlan, timed: { segments: Array<{ id: string; startS: number; endS: number }> }, lengthS: number, channel: string) {
+export function boardOf(plan: FilmPlan, timed: { segments: Array<{ id: string; startS: number; endS: number }> }, lengthS: number, channel: string, aspect: "16:9" | "9:16" = "16:9") {
   const segAt = (t: number) => timed.segments.find((s) => t >= s.startS && t < s.endS)?.id ?? timed.segments.at(-1)?.id ?? "seg";
   return {
-    schemaVersion: 1 as const, id: "film-agent", scriptId: "film-agent", styleProfileId: channel, aspect: "16:9", durationS: lengthS,
+    schemaVersion: 1 as const, id: "film-agent", scriptId: "film-agent", styleProfileId: channel, aspect, durationS: lengthS,
     shots: plan.scenes.map((s, i) => ({ schemaVersion: 2 as const, id: s.id, scriptSegmentId: segAt(s.from), index: i, startS: s.from, endS: s.to, intent: s.idea, lineLink: "literal" as const, source: { kind: "query" as const, query: (s.seen || s.idea).slice(0, 200), mustBe: "any" as const }, camera: { type: "static" }, overlays: [], sfx: [], transitionIn: "cut" as const, ...(s.entities?.length ? { entities: s.entities.map((e) => ({ ...e, ...(s.year ? { year: s.year } : {}) })) } : {}) })),
     music: [], generatedAt: new Date().toISOString(),
   };
@@ -64,8 +64,8 @@ export interface AfterReport { referee?: { score: number; bar: number; pass: boo
 export async function freshEyes(o: { root: string; job: string; channel: string; topic: string; lengthS: number; log?: (s: string) => void; skip?: Array<"viewer" | "judge" | "package"> }): Promise<AfterReport> {
   const log = o.log ?? (() => {});
   const plan = readPlan(o.job)!;
-  const film = path.join(o.job, "film_16x9.mp4");
-  if (!existsSync(film)) return { usd: 0, text: "no film_16x9.mp4 — fresh eyes skipped" };
+  const film = filmPath(o.job);
+  if (!existsSync(film)) return { usd: 0, text: `no ${path.basename(film)} — fresh eyes skipped` };
   const agents = await import("@opumia/agents");
   const usd0 = agents.usageLedger().reduce((t, r) => t + r.usd, 0);
   const timed = jread<{ title?: string; durationS: number; segments: Array<{ id: string; startS: number; endS: number; text: string; words: Array<{ word: string; startS: number }> }> }>(path.join(o.job, "timed-script.json"), { durationS: 0, segments: [] });
@@ -95,7 +95,7 @@ export async function freshEyes(o: { root: string; job: string; channel: string;
 
   const pack = skip.has("package") ? null : (async () => {
     const { buildPublishingPackage } = await import("../publish.js");
-    const r = await buildPublishingPackage({ jobDir: o.job, data, library, channel: o.channel, job: path.basename(o.job), facts: jread(path.join(o.job, "facts.json"), {}) as never, script: timed as never, design: designOf(plan, o.topic, o.channel) as never, resolution: resolutionOf(o.job, plan) as never, board: boardOf(plan, timed, o.lengthS, o.channel) as never, index: jread(path.join(data, "library-index.json"), {}) as never, publicDir: path.join(o.job, "public"), log: () => {} });
+    const r = await buildPublishingPackage({ jobDir: o.job, data, library, channel: o.channel, job: path.basename(o.job), facts: jread(path.join(o.job, "facts.json"), {}) as never, script: timed as never, design: designOf(plan, o.topic, o.channel) as never, resolution: resolutionOf(o.job, plan) as never, board: boardOf(plan, timed, o.lengthS, o.channel, frameOf(o.job).aspect) as never, index: jread(path.join(data, "library-index.json"), {}) as never, publicDir: path.join(o.job, "public"), log: () => {} });
     rep.packaging = { thumbnail: r.thumbnailPath, title: jread<{ title?: string }>(path.join(o.job, "publish.json"), {}).title };
   })().catch((e: Error) => log(`  packaging failed: ${e.message.slice(0, 160)}`));
 

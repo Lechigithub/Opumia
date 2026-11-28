@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, cpSync, chmodSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { filmGate } from "./gate.js";
-import { readPlan, validatePlan, scaffold, sceneBrief, pool, type FilmPlan } from "./plan.js";
+import { readPlan, validatePlan, scaffold, sceneBrief, pool, frameOf, filmPath, type FilmPlan } from "./plan.js";
 import { sceneCheck, runAsync } from "./scene-check.js";
 import { prefetch } from "./prefetch.js";
 import { writeDraftMix } from "./sound-draft.js";
@@ -22,6 +22,8 @@ import { plannerProcess, tellsAnswered, toolLog } from "./process.js";
 
 export interface FilmAgentOptions {
   root: string; topic?: string; job: string; channel: string; durationS: number; maxUsd: number; model: string;
+  /** 16:9 (default) or 9:16 — the platform makes both, at any length */
+  aspect?: "16:9" | "9:16";
   builderModel?: string; parallel?: number; solo?: boolean; dryRun?: boolean; log?: (s: string) => void;
 }
 
@@ -45,6 +47,9 @@ export function guard(job: string, root: string, scene?: string) {
     [/\bsudo\b|\bchmod\s+-R\s+\/|\bmkfs\b|\bdd\s+if=/, "not allowed"],
     [/(>|>>|\btee\b|\bmv\b|\bcp\b|\brm\b|\bsed\s+-i\b|\btouch\b|\bmkdir\b|\bln\b|\bunlink\b|\brsync\b)[^;&|\n]*\b(Library|Reference)\//, "Library/ and Reference/ are read-only"],
     [/\bcurl\b[^;&|\n]*\s-(X\s*(POST|PUT|DELETE|PATCH)|d\s|-data)/i, "no sending data to outside services"],
+    // the reference channel's own clips and files never go into a film (looking is fine: film-tools ref watches them)
+    [/\bLibrary\/(moments|bank|thumb_cache)\b/, "Library/moments, bank and thumb_cache are the reference's material or a remote catalogue — never in a film"],
+    [/\b(ffmpeg|cp|rsync|ln|ditto|convert|magick|sips)\b[^;&|\n]*\bReference\//, "never cut or copy from Reference/ into a film — the channel's own material is never used (study it with film-tools ref)"],
   ];
   // a film is made from the reference and its own material, never from our other films (a test would be spoiled)
   const outDir = path.join(root, "out"), mine = path.basename(job);
@@ -103,7 +108,7 @@ export async function prepareWorkspace(o: FilmAgentOptions): Promise<{ before: n
     log("[A] research, script and narration (the platform's own agents)…");
     const { makeStory } = await import("./story.js");
     const dir = (k: string, d: string) => path.resolve(o.root, process.env[k] ?? d);
-    await makeStory({ root: o.root, library: dir("OPUMIA_LIBRARY_DIR", "Library"), reference: dir("OPUMIA_REFERENCE_DIR", "Reference"), data: dir("OPUMIA_DATA_DIR", "data"), topic: o.topic, channel: o.channel, aspect: "16:9", durationS: o.durationS, job, maxUsd: o.maxUsd, log });
+    await makeStory({ root: o.root, library: dir("OPUMIA_LIBRARY_DIR", "Library"), reference: dir("OPUMIA_REFERENCE_DIR", "Reference"), data: dir("OPUMIA_DATA_DIR", "data"), topic: o.topic, channel: o.channel, aspect: o.aspect ?? "16:9", durationS: o.durationS, job, maxUsd: o.maxUsd, log });
   }
   // on-device OCR (type checks, figures on screen, burned-in text) is built once if this machine lacks it
   if (!(await (await import("@opumia/senses")).ocrBinary(o.root))) log("  ! on-device OCR could not be built (swiftc) — the type and figure checks will not run");
@@ -113,7 +118,9 @@ export async function prepareWorkspace(o: FilmAgentOptions): Promise<{ before: n
   const lengthS = Math.round((durationS + 2.6) * 100) / 100;
   const src = path.join(job, "src");
   if (!existsSync(path.join(src, "index.ts"))) cpSync(path.join(o.root, "apps/cli/src/film-agent/template/src"), src, { recursive: true });
-  writeFileSync(path.join(src, "length.json"), JSON.stringify({ seconds: lengthS }));
+  if (!existsSync(path.join(job, "job.json"))) writeFileSync(path.join(job, "job.json"), JSON.stringify({ topic: o.topic ?? "", channel: o.channel, aspect: o.aspect ?? "16:9", durationS: o.durationS }, null, 2) + "\n");
+  const fr = frameOf(job);
+  writeFileSync(path.join(src, "length.json"), JSON.stringify({ seconds: lengthS, width: fr.w, height: fr.h }));
   for (const d of ["public/v", "public/img", "downloads", "watch", "notes", "credits", "fair-use"]) mkdirSync(path.join(job, d), { recursive: true });
   const bin = path.join(job, ".bin");
   mkdirSync(bin, { recursive: true });
@@ -286,7 +293,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
     let note = unbuilt.length ? `\nScenes that did not pass their own check: ${unbuilt.map((b) => `${b.id} (${b.failed.join("; ")})`).join(" | ")}.` : "";
     // a rebuilt scene re-renders picture.mp4: the film is mixed again from mix.json before anyone judges it
     const remixIfStale = () => {
-      const pic = path.join(job, "picture.mp4"), film = path.join(job, "film_16x9.mp4");
+      const pic = path.join(job, "picture.mp4"), film = filmPath(job);
       if (existsSync(pic) && existsSync(path.join(job, "mix.json")) && (!existsSync(film) || statSync(pic).mtimeMs > statSync(film).mtimeMs + 1000)) {
         const r = spawnSync("npx", ["tsx", path.join(o.root, "apps/cli/src/film-agent/mix.ts"), job], { cwd: o.root, encoding: "utf8", env: { ...process.env, OPUMIA_ROOT: o.root } });
         log(`  re-mixed the current picture: ${(r.stdout ?? "").trim().split("\n").at(-1) ?? ""}`);
@@ -328,7 +335,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
     }
     // 5. fresh eyes on the finished film: the platform's viewer QA, final-cut judge and packaging, at the same time
     remixIfStale();
-    if (existsSync(path.join(job, "film_16x9.mp4"))) {
+    if (existsSync(filmPath(job))) {
       const ag = await import("@opumia/agents");
       ag.setBudget(Math.max(0.5, budget - ctx.spent.usd)); ag.setFinishing(true);
       const fe = await phase("fresh-eyes", () => freshEyes({ root: o.root, job, channel: o.channel, topic: o.topic ?? plan.title ?? path.basename(job), lengthS, log }));

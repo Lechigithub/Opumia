@@ -62,6 +62,17 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
   const raw = (m: string) => path.basename(m).replace(/\.\w+$/, "").replace(/_(cut|crop\w*|depth|mask)$/, "");
   const uncredited = media.filter((m) => !credited.has(raw(m)) && ![...credited].some((c) => raw(m).includes(c) || c.includes(raw(m))));
   add("credited", uncredited.length === 0, uncredited.length ? `no source recorded for: ${uncredited.join(", ")} — film-tools credit <file> <kind> "<source>" "<url>"` : "every file it uses has a source");
+  // fair use at the channel's practice, counted as the film is built (not only on the finished film): real press and
+  // film footage drawn by every scene built so far ≤ 27 % of the runtime
+  {
+    const len = jread<{ seconds: number }>(path.join(job, "src", "length.json"), { seconds: 0 }).seconds;
+    const fu = [...jread<Array<{ file: string; seconds: number }>>(path.join(job, "fair-use.json"), []), ...(existsSync(path.join(job, "fair-use")) ? readdirSync(path.join(job, "fair-use")).filter((f) => f.endsWith(".json")).flatMap((f) => jread<Array<{ file: string; seconds: number }>>(path.join(job, "fair-use", f), [])) : [])];
+    const scenesDir = path.join(job, "src", "scenes");
+    const drawn = new Set(existsSync(scenesDir) ? readdirSync(scenesDir).filter((f) => /^s\d{2}\.tsx$/.test(f)).flatMap((f) => mediaRefs(readFileSync(path.join(scenesDir, f), "utf8"))) : []);
+    const used = fu.filter((x) => drawn.has(x.file)), mine = fu.filter((x) => media.includes(x.file));
+    const share = len ? used.reduce((t, x) => t + x.seconds, 0) / len : 0;
+    if (mine.length) add("fair_use_share", share <= 0.27, `real press/film footage drawn so far: ${(share * 100).toFixed(0)} % of the film (≤ 27 %)${share > 0.27 ? ` — over the channel's practice: use fewer seconds of it here (${mine.map((x) => x.file).join(", ")}), or performed stock` : ""}`);
+  }
   if (o.render !== false && code && !code.includes(STUB)) {
     const len = jread<{ seconds: number }>(path.join(job, "src", "length.json"), { seconds: 0 }).seconds;
     const w = sceneWindow(plan, i, len), s = plan.scenes[i]!;

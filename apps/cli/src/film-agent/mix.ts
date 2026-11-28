@@ -29,10 +29,20 @@ const voice = timedVoice && existsSync(timedVoice) ? timedVoice : existsSync(pat
 // Bed levels by loudness meter: 15.8 / 19.1 dB under the voice measured as LUFS on the channels' mixes; once not ducked,
 // Demucs separation (the referee's measure) read our voice 18.2 dB over the bed against the channels' 21.5. Tried on
 // agent Juicero (2026-11-27): 1.5 dB lower → 20.5 dB, sound referee 0.74 (0 dB: 0.79 but 3 dB too loud; 3 dB: 0.64).
-const VOICE = -16, COLD = 15, UNDER_COLD = 17.3, UNDER_BODY = 20.6;
-const vGain = VOICE - lufs(voice);
-const ins: string[] = ["-i", voice];
-const fl: string[] = [`[0:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${vGain.toFixed(2)}dB[v]`];
+const VOICE = -16, COLD = 15, UNDER_COLD = 17.3, UNDER_BODY = 20.6, TONE_UNDER = 27;
+// the broadcast voice chain (warmth, presence, de-ess, two-stage compression, short reflections — the same chain the
+// platform's narration was always mastered with), rendered once, then levelled to −16 LUFS
+const chained = path.join(job, "voice-chain.wav");
+execFileSync("ffmpeg", ["-v", "error", "-y", "-i", voice, "-af", "aresample=48000,aformat=channel_layouts=stereo,highpass=f=70,equalizer=f=160:t=q:w=1.0:g=2,equalizer=f=380:t=q:w=1.4:g=-2,equalizer=f=3200:t=q:w=1.2:g=1.5,deesser=i=0.35:m=0.5:f=0.5,acompressor=threshold=-24dB:ratio=2.2:attack=20:release=250:makeup=2,acompressor=threshold=-12dB:ratio=4:attack=3:release=60:makeup=1,highshelf=f=11000:g=1,aecho=1:1:31|53:0.14|0.09,aecho=1:1:23|41:0.12|0.08", "-c:a", "pcm_s24le", chained]);
+const vGain = VOICE - lufs(chained);
+// room tone: measured on five MagnatesMedia films, the quietest 1 % of the sound sits 21–33 dB under the speech; a dry
+// voice on digital silence reads as synthetic — filtered brown noise ≈ 27 dB under the voice across the whole film
+const voiceLen = Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", chained], { encoding: "utf8" }).stdout.trim() || 60);
+const tone = path.join(job, "room-tone.wav");
+execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", `anoisesrc=color=brown:amplitude=1:sample_rate=48000:duration=${(voiceLen + 8).toFixed(2)}:seed=7`, "-af", "highpass=f=80,lowpass=f=1800,aformat=channel_layouts=stereo", "-c:a", "pcm_s24le", tone]);
+const tGain = VOICE - TONE_UNDER - lufs(tone);
+const ins: string[] = ["-i", chained, "-i", tone];
+const fl: string[] = [`[0:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${vGain.toFixed(2)}dB[v]`, `[1:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${tGain.toFixed(2)}dB,afade=t=in:d=0.4[tone]`];
 const beds: string[] = [];
 for (const [i, b] of (spec.beds ?? []).entries()) {
   const f = abs(b.file);
@@ -42,7 +52,7 @@ for (const [i, b] of (spec.beds ?? []).entries()) {
   const g = target - bl + (b.gainDb ?? 0);
   ins.push("-ss", String(b.inS ?? 0), "-t", String(len), "-i", f);
   const ms = Math.round(b.from * 1000);
-  fl.push(`[${i + 1}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${g.toFixed(2)}dB,afade=t=in:d=0.8,afade=t=out:st=${Math.max(0, len - 1.2).toFixed(2)}:d=1.2,adelay=${ms}|${ms}[b${i}]`);
+  fl.push(`[${i + 2}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${g.toFixed(2)}dB,afade=t=in:d=0.8,afade=t=out:st=${Math.max(0, len - 1.2).toFixed(2)}:d=1.2,adelay=${ms}|${ms}[b${i}]`);
   beds.push(`[b${i}]`);
 }
 let bedOut = "";
@@ -53,14 +63,14 @@ if (beds.length) {
   bedOut = "[beddrop]";
 }
 const cues: string[] = [];
-const base = 1 + (spec.beds?.length ?? 0);
+const base = 2 + (spec.beds?.length ?? 0);
 for (const [i, c] of (spec.cues ?? []).entries()) {
   ins.push("-i", abs(c.file));
   const ms = Math.round(c.t * 1000);
   fl.push(`[${base + i}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${c.db ?? -10}dB,adelay=${ms}|${ms}[s${i}]`);
   cues.push(`[s${i}]`);
 }
-fl.push(`[v]${bedOut}${cues.join("")}amix=inputs=${1 + (bedOut ? 1 : 0) + cues.length}:normalize=0:duration=longest[m]`);
+fl.push(`[v][tone]${bedOut}${cues.join("")}amix=inputs=${2 + (bedOut ? 1 : 0) + cues.length}:normalize=0:duration=longest[m]`);
 const pre = path.join(job, "premix.wav");
 execFileSync("ffmpeg", ["-v", "error", "-y", ...ins, "-filter_complex", fl.join(";"), "-map", "[m]", "-c:a", "pcm_s24le", pre], { maxBuffer: 1 << 26 });
 const r = spawnSync("ffmpeg", ["-hide_banner", "-i", pre, "-af", "loudnorm=I=-12.5:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"], { encoding: "utf8" }).stderr;
@@ -71,8 +81,9 @@ const picLen = (() => { const p = path.join(job, opt("--picture") ?? "picture.mp
 // apad is cut at the picture's length (or the premix's own when there is no picture yet)
 execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pre, "-af", picLen ? af : af.replace(/,apad$/, ""), ...(picLen ? ["-t", picLen.toFixed(3)] : []), "-c:a", "pcm_s24le", master]);
 const pic = path.join(job, opt("--picture") ?? "picture.mp4");
-const outF = path.join(job, opt("--out") ?? "film_16x9.mp4");
+const aspect = (() => { try { return (JSON.parse(readFileSync(path.join(job, "job.json"), "utf8")) as { aspect?: string }).aspect; } catch { return undefined; } })();
+const outF = path.join(job, opt("--out") ?? (aspect === "9:16" ? "film_9x16.mp4" : "film_16x9.mp4"));
 if (existsSync(pic)) execFileSync("ffmpeg", ["-v", "error", "-y", "-i", pic, "-i", master, "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-preset", "slow", "-c:a", "aac", "-b:a", "256k", "-shortest", outF]);
 const fin = spawnSync("ffmpeg", ["-hide_banner", "-i", existsSync(outF) ? outF : master, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" }).stderr;
 const I = /^\s+I:\s+(-?[\d.]+) LUFS/m.exec(fin)?.[1], P = /^\s+Peak:\s+(-?[\d.]+) dBFS/m.exec(fin)?.[1];
-console.log(`mixed: voice ${vGain >= 0 ? "+" : ""}${vGain.toFixed(1)} dB → −16 LUFS, ${spec.beds?.length ?? 0} bed(s), ${spec.cues?.length ?? 0} cue(s), ${spec.drops?.length ?? 0} drop-out(s); master ${I} LUFS, peak ${P} dB → ${existsSync(pic) ? path.basename(outF) : "master.wav (no picture.mp4 yet)"}`);
+console.log(`mixed: voice chain + ${vGain >= 0 ? "+" : ""}${vGain.toFixed(1)} dB → −16 LUFS, room tone ${TONE_UNDER} dB under, ${spec.beds?.length ?? 0} bed(s), ${spec.cues?.length ?? 0} cue(s), ${spec.drops?.length ?? 0} drop-out(s); master ${I} LUFS, peak ${P} dB → ${existsSync(pic) ? path.basename(outF) : "master.wav (no picture.mp4 yet)"}`);

@@ -6,8 +6,10 @@ are its editor and supervisor: you watch it whole, judge it against the referenc
 ## Your method
 1. Read every `notes/<id>.md` and `FINDINGS.md` — checks code and cheap models ran on the assembled film: figures on
    screen the narration never says, footage too modern for its line, a stranger under a named person whose real
-   material exists, the same picture in two scenes, sameness to our earlier films. FIX items must be fixed (by you or
-   the scene's builder); "look" items need your eye.
+   material exists, the same picture in two scenes, words set like one of our earlier films (`type_look`), sameness to
+   our earlier films. FIX items must be fixed (by you or the scene's builder) and each answered in `FIXES.md` — the
+   check and scene as a heading (e.g. `## period s04`), under it what you changed; the gate refuses an unanswered FIX.
+   "look" items need your eye.
 2. **Watch it whole**: `film-tools watch picture.mp4 0 20 --ref "<film>" --ref-from <s>` across the film (and at
    12 fps where it matters). Ask, scene by scene and at every seam: does it look and feel like the channel here? Is it
    one film — one world, one type, hand-overs that flow? Does each picture show its line?

@@ -207,10 +207,25 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
     if (out) findings.push({ check: "sameness", what: `world check (line fit, sameness to our earlier films):\n${out}`, severity: /FAIL|too close|OUTSIDE/i.test(out) ? "fix" : "look" });
   }
 
+  // type look: how the film sets its words against our earlier films, measured the same way on the channel's own films
+  // (tools/world/type_look.py) — MoviePass copied the Juicero rebuild's caption treatment and nothing else caught it
+  if (existsSync(video)) {
+    const tl = typeLook(o.root, path.basename(o.job), video);
+    if (tl && !tl.pass) findings.push({ check: "type_look", what: `the words on screen are set like ${tl.tooClose.map((x) => `${x.film} (${x.distance})`).join(", ")} — closer than the channel's own films are to each other (≥ ${tl.bar}; median ${tl.channelMedian}). Take how each kind of line is set from the channel (film-tools ref similar), in this film's own world: type, size, colour, glow, position and the lines under it`, severity: "fix" });
+  }
+
   const usd = usageLedger().reduce((t, r) => t + r.usd, 0) - usd0;
   const text = findings.length ? findings.map((f) => `- [${f.severity === "fix" ? "FIX" : "look"}] ${f.check}${f.scene ? ` ${f.scene}` : ""}: ${f.what}`).join("\n") : "- nothing found";
   writeFileSync(path.join(o.job, "FINDINGS.md"), `# Checks before the finisher\n\n${text}\n`);
   writeFileSync(path.join(o.job, "findings.json"), JSON.stringify(findings, null, 1));
   log(`  checks: ${findings.filter((f) => f.severity === "fix").length} to fix, ${findings.filter((f) => f.severity === "look").length} to look at ($${usd.toFixed(2)})`);
   return { findings, text, usd };
+}
+
+/** tools/world/type_look.py check on a film; null when it cannot run (no band, no OCR). */
+export function typeLook(root: string, name: string, video: string): { pass: boolean; bar: number; channelMedian: number; tooClose: Array<{ film: string; distance: number }> } | null {
+  const py = process.env.OPUMIA_PY ?? path.join(process.env.HOME ?? "", "lechi_tts", "venv", "bin", "python");
+  if (!existsSync(path.join(root, "data", "world-profile", "magnates-media", "type-look.json"))) return null;
+  const r = spawnSync(py, ["-I", path.join(root, "tools/world/type_look.py"), "check", name, video, "--json"], { cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 1 << 24 });
+  try { return JSON.parse((r.stdout ?? "").trim().split("\n").at(-1) ?? ""); } catch { return null; }
 }

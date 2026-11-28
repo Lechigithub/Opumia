@@ -13,11 +13,27 @@ export interface MixSpec { beds: Array<{ file: string; from: number; to: number;
 /** MagnatesMedia (build list 6): ≈ 3.06 strong hits a minute, ≥ 2.4 s apart, booms ≤ 30 % of them. */
 export const HITS_PER_MIN = 3.06, HIT_GAP_S = 2.4, BOOM_SHARE = 0.3;
 
-/** What our recent films used (sound and music), from data/asset-usage.json. */
+/** What our recent films used (sound and music), from data/asset-usage.json: only jobs that became films
+ *  (data/produced.json), entries as library asset ids (older films recorded ids, film-agent films record paths). */
 export function recentlyUsed(root: string, n = 12): { sfx: Set<string>; music: Set<string> } {
-  const u = jread<Array<{ sfx?: string[]; music?: string[] }>>(path.join(root, "data", "asset-usage.json"), []);
-  const last = Array.isArray(u) ? u.slice(-n) : [];
-  return { sfx: new Set(last.flatMap((x) => x.sfx ?? [])), music: new Set(last.flatMap((x) => x.music ?? [])) };
+  const u = jread<Array<{ job: string; sfx?: string[]; music?: string[] }>>(path.join(root, "data", "asset-usage.json"), []);
+  const made = new Set(jread<Array<{ job: string }>>(path.join(root, "data", "produced.json"), []).map((x) => x.job));
+  const ids = libraryIds(root);
+  const id = (x: string) => (x.includes("/") ? ids.get(x.replace(/^Library\//, "")) ?? x : x);
+  const last = Array.isArray(u) ? u.filter((x) => made.has(x.job)).slice(-n) : [];
+  return { sfx: new Set(last.flatMap((x) => (x.sfx ?? []).map(id))), music: new Set(last.flatMap((x) => (x.music ?? []).map(id))) };
+}
+/** Library sound a film may use: a recorded licence (the library's licences.csv / catalogue), never the reference
+ *  material folders. Keyed by relPath ("music/…mp3"). */
+export function usableAudio(root: string): Map<string, { id: string; license: string; attribution?: string; author?: string; page?: string; generated: boolean }> {
+  const idx = jread<{ assets?: Array<{ id: string; relPath: string; category?: string; provenance?: { license?: string; attributionText?: string; author?: string; sourcePageUrl?: string; generated?: boolean } }> }>(path.join(root, "data", "library-index.json"), {});
+  const out = new Map<string, { id: string; license: string; attribution?: string; author?: string; page?: string; generated: boolean }>();
+  for (const a of idx.assets ?? []) {
+    const pv = a.provenance;
+    if (!/^(music|sfx)\//.test(a.relPath) || !pv?.license) continue;
+    out.set(a.relPath, { id: a.id.slice(0, 16), license: pv.license, ...(pv.attributionText ? { attribution: pv.attributionText } : {}), ...(pv.author ? { author: pv.author } : {}), ...(pv.sourcePageUrl ? { page: pv.sourcePageUrl } : {}), generated: Boolean(pv.generated) });
+  }
+  return out;
 }
 /** Library relPath → asset id (16 hex, as the audio profile keys them). */
 export function libraryIds(root: string): Map<string, string> {
@@ -49,7 +65,8 @@ export function draftMix(o: { root: string; job: string; plan?: FilmPlan; length
 
   // beds: the cold open, then the body (a change at the first turn after 12 s), from the ranked list, not used lately
   const taste = jread<{ beds?: Array<{ file: string; score: number }> }>(path.join(o.root, "data", "audio-profile-bed-taste.json"), {}).beds ?? [];
-  const fresh = taste.filter((b) => { const id = ids.get(b.file.replace(/^Library\//, "")); return !id || !used.music.has(id); });
+  const usable = usableAudio(o.root);
+  const fresh = taste.filter((b) => { const rel = b.file.replace(/^Library\//, ""), id = ids.get(rel); return usable.has(rel) && (!id || !used.music.has(id)); });
   const pickFrom = shuffle(fresh.slice(0, 8));
   const turnAt = plan.scenes.find((s) => s.mark && s.from >= 12)?.from ?? plan.scenes.find((s) => s.from >= Math.min(20, o.lengthS / 3))?.from ?? o.lengthS;
   const spans = turnAt < o.lengthS - 8 ? [[0, turnAt], [turnAt, o.lengthS]] : [[0, o.lengthS]];
@@ -61,7 +78,7 @@ export function draftMix(o: { root: string; job: string; plan?: FilmPlan; length
   }).filter((x): x is MixSpec["beds"][number] => Boolean(x));
 
   // hits: builders' hit points first, then turns and cuts, at the channel's density and spacing
-  const fam = (f: string) => shuffle(Object.entries(prof.sfx).filter(([id, v]) => v.family === f && v.seconds < 8 && byId.get(id) && !used.sfx.has(id)).map(([id, v]) => ({ file: `Library/${byId.get(id)}`, attackS: v.attackS, seconds: v.seconds })));
+  const fam = (f: string) => shuffle(Object.entries(prof.sfx).filter(([id, v]) => v.family === f && v.seconds < 8 && byId.get(id) && usable.has(byId.get(id)!) && !used.sfx.has(id)).map(([id, v]) => ({ file: `Library/${byId.get(id)}`, attackS: v.attackS, seconds: v.seconds })));
   const pools: Record<string, Array<{ file: string; attackS: number; seconds: number }>> = Object.fromEntries(["thud", "impact", "sub_boom", "riser", "whoosh", "texture", "shimmer"].map((f) => [f, fam(f)]));
   const taken = new Set<string>();
   const take = (f: string) => { const list = [...(pools[f] ?? []), ...(f === "thud" ? pools.impact ?? [] : []), ...(f === "impact" ? pools.thud ?? [] : [])]; const x = list.find((y) => !taken.has(y.file)); if (x) taken.add(x.file); return x; };
