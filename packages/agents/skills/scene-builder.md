@@ -60,6 +60,10 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    `footage_shows` fails a scene that scores ≥ 0.6 below its own footage (a 130 % zoom into the dark, a card over
    most of the frame, a heavy filter). A news clip with a broadcaster's caption or logo burned in must have it framed
    out (`RoomScreen crop={1.35} focus="50% 0%"`, or a tighter crop) — `burned_in_text` reads the stills.
+   **Move the camera the channel's way** (measured on real films, 2026-11-27): it pulls out as often as it pushes in
+   (about a quarter of the time each), alternates the direction from shot to shot, pans faster and whips about 20
+   times a minute. Ours pushed in 42–49 % of the time and pulled out 6–16 %. If the scene before yours pushes in,
+   pull out (`DarkPlate push={[1.12, 1.02]}`), drift sideways, or whip in; never the same slow push-in every scene.
 6. **Look at it**: `film-tools render --stills t1,t2,t3` (film seconds; your stills land in `stills/<id>/`) and read
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame, a

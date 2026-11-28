@@ -9,6 +9,9 @@
 //   repeats         one source, one moment or one scene's file used in two scenes
 //   closing         the closing title over footage clearly weaker than the film's strongest (the channel's move: the
 //                   title over the film's best picture — the Juicero rebuild's closing went 3.4 → 5.6 that way)
+//   motion          how the camera moves against the real channels (tools/referee/motion3.py: whole-frame pan and
+//                   zoom; held-back real films 0.51–0.89, ours 0.12–0.62) — advisory: the channel pulls out as often as
+//                   it pushes in, alternates, whips and pans faster; ours mostly pushes in, one way
 //   dark            stretches of ≥ 2 s where almost nothing can be seen (below the channel's darkest 5 % of frames)
 //   sameness        line fit and sameness to our earlier films (tools/world/world_check.py)
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -177,6 +180,16 @@ export async function preFinishChecks(o: { root: string; job: string; channel: s
   // the closing title: over the film's strongest footage, as the channel closes (local referee, no model)
   const closing = await closingFinding(o.root, o.job, plan);
   if (closing) findings.push(closing);
+
+  // how the camera moves (advisory: windows are noisy, whole films separate)
+  if (existsSync(video) && existsSync(path.join(o.root, "data", "referee", "magnates-media-motion3.json"))) {
+    const py = process.env.OPUMIA_PY ?? path.join(process.env.HOME ?? "", "lechi_tts", "venv", "bin", "python");
+    const r = spawnSync(py, ["-I", path.join(o.root, "tools/referee/motion3.py"), "score", video], { encoding: "utf8", timeout: 600_000 });
+    try {
+      const v = JSON.parse((r.stdout ?? "").trim().split("\n").at(-1) ?? "{}") as { score?: number; bar?: number; pass?: boolean; gaps?: Array<{ what: string; film: number; magnates: number; more: boolean }> };
+      if (v.score !== undefined && !v.pass) findings.push({ check: "motion", what: `the camera moves unlike the real channels (${v.score}, the weakest real film ${v.bar}): ${(v.gaps ?? []).map((g) => `${g.what} ${g.more ? "too much" : "too little"} (${g.film} against MagnatesMedia's ${g.magnates})`).join("; ")} — pull out as often as you push in, alternate the direction from scene to scene, pan and whip between ideas`, severity: "look" });
+    } catch { /* not measured */ }
+  }
 
   // stretches too dark to see (the channel's darkest 5 % of frames: data/quality-profile/<channel>-lit-band.json)
   if (existsSync(video)) {

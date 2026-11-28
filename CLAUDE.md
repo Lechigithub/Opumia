@@ -889,6 +889,18 @@ agents: `pnpm opumia film-agent --topic "…" [--duration 70] [--max-usd 9] [--p
     stems (`out/agent-juicero-3-mix`): sound referee 0.11 → 0.74 (held-back real 0.35–0.99), ducking 12.8 → 3.0 dB,
     voice over bed 29.0 → 20.5 dB (the channels 21.5), bed present 90 → 100 %; master −12.6 LUFS, peak −1.7 dB.
     Not changed: the older `produce` pipeline's mix (`motion-engine/audio.ts`) still ducks the music ~8 dB.
+  - **Motion, third attempt** (`tools/referee/motion3.py`, `data/referee/magnates-media-motion3.json`): whole-frame
+    camera movement — pan by phase correlation of the Hann-windowed frame (exact on a synthetic 3 px pan), zoom by a
+    golden-section search of the scale that best matches the next frame (+1 % a frame read as 0.75–1.25 %; a
+    Fourier–Mellin attempt missed slow pushes). Whole films separate: held-back real 0.51–0.89, ours 0.12–0.62 (bar
+    0.5); 21 % of real 20 s windows still flagged, and MagnatesMedia against the other channels overlaps — so it is
+    advisory (`checks.ts` finding `motion`), not a gate. What it found: the channel pulls out as often as it pushes
+    in (24 % / 25 % of the time), alternates the direction (one-way 0.35), whips ~20 a minute and pans faster; ours
+    pushed in 42 % and pulled out 11 % (one-way 0.57, 13 whips). Every film of ours fails it, the hand-made ones too
+    (agent Juicero 0.14, hand Juicero 0.43, Wirecard v7 0.34) — a toolkit habit (the default slow push-in);
+    `scene-builder.md` now says to pull out as often as push in and alternate.
+  - **Closing title** (`checks.ts:closingFinding`): a closing title on footage clearly weaker than the film's
+    strongest is sent back, naming the strongest clip (the channel's move; the Juicero rebuild's closing 3.4 → 5.6).
   - **The referee is not gamed by darkness** (2026-11-27, `dark` test): darkening frames to 75/55/40/25 % or crushing
     shadows and mid-tones lowers every film's score, the 8 held-back channel films' and ours alike (channel 4.88–5.43
     → 3.61–4.43 at 25 %). The dark candidates it ranked high were real low-key scenes; its limit is meaning, not
