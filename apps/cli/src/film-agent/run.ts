@@ -138,7 +138,7 @@ export async function prepareWorkspace(o: FilmAgentOptions): Promise<{ before: n
 }
 
 // ---- sessions
-interface SessionResult { sessionId?: string; usd: number; subtype: string; seconds: number }
+interface SessionResult { sessionId?: string; usd: number; subtype: string; seconds: number; turns?: number; usage?: unknown }
 export interface Ctx { o: FilmAgentOptions; env: Record<string, string | undefined>; spent: { usd: number }; budget: number; before: number; log: (s: string) => void; totals?: Map<string, number> }
 const skill = (root: string, name: string) => readFileSync(path.join(root, "packages/agents/skills", `${name}.md`), "utf8");
 
@@ -180,7 +180,7 @@ export async function session(ctx: Ctx, a: { label: string; prompt: string; appe
       const total = Number(m.total_cost_usd ?? 0), prev = totals.get(sid) ?? (a.resume ? totals.get(a.resume) ?? 0 : 0);
       const usd = Math.max(0, total - prev);
       totals.set(sid, Math.max(total, prev));
-      r = { sessionId: sid, usd: r.usd + usd, subtype: String(m.subtype), seconds: 0 };
+      r = { sessionId: sid, usd: r.usd + usd, subtype: String(m.subtype), seconds: 0, turns: Number(m.num_turns ?? 0), usage: m.usage };
       ctx.spent.usd += usd;
       seenResult = true;
       writeFileSync(path.join(ctx.o.job, "spend.json"), JSON.stringify({ before: ctx.before, limit: ctx.o.maxUsd, agentSoFar: Math.round(ctx.spent.usd * 100) / 100 }));
@@ -193,6 +193,9 @@ export async function session(ctx: Ctx, a: { label: string; prompt: string; appe
     r.subtype = /budget/i.test(msg) ? "error_max_budget_usd" : /max.?turns/i.test(msg) ? "error_max_turns" : `error: ${msg.slice(0, 80)}`;
   }
   r.seconds = Math.round((Date.now() - t0) / 1000);
+  // where the money goes, per session (cost and speed work: the next film shows which sessions to cut)
+  const calls = existsSync(toolLog(ctx.o.job, a.label)) ? readFileSync(toolLog(ctx.o.job, a.label), "utf8").split("\n").filter(Boolean).length : 0;
+  appendFileSync(path.join(ctx.o.job, "logs", "sessions.jsonl"), JSON.stringify({ at: new Date().toISOString(), label: a.label, model: a.model, resumed: Boolean(a.resume), usd: Math.round(r.usd * 1e4) / 1e4, seconds: r.seconds, turns: r.turns ?? null, toolCallsSoFar: calls, usage: r.usage ?? null, end: r.subtype }) + "\n");
   ctx.log(`  ${a.label}: ${r.subtype}, $${r.usd.toFixed(2)}, ${r.seconds} s (film agent so far $${ctx.spent.usd.toFixed(2)} of $${ctx.budget.toFixed(2)})`);
   return r;
 }
@@ -276,11 +279,11 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       const i = plan.scenes.findIndex((s) => s.id === id);
       const brief = sceneBrief(plan, i, lengthS);
       const first = why ? `The finisher sent your scene back:\n${why}\n\nFix it, then run film-tools scene-check ${id} until it passes, and update notes/${id}.md.` : `Build scene ${id} of the film.\n\n${brief}\n\nRead WORLD.md, plan.json, src/world.tsx and downloads/${id}/PREFETCH.md (searches already run for you — look at them, then search again if none shows the line) first; build only src/scenes/${id}.tsx (and src/scenes/${id}/…). Finish when film-tools scene-check ${id} prints SCENE ${id} PASSED, with notes/${id}.md written and your hit points in notes/${id}.hits.json.`;
-      let r = await session(ctx, { label: `build-${id}`, prompt: first, append: buildAppend, model: builderModel, maxUsd: why ? perScene * 0.6 : perScene, maxTurns: 120, scene: id, ...(builders.get(id) ? { resume: builders.get(id)! } : {}) });
+      let r = await session(ctx, { label: `build-${id}`, prompt: first, append: buildAppend, model: builderModel, maxUsd: why ? perScene * 0.6 : perScene, maxTurns: why ? 40 : 60, scene: id, ...(builders.get(id) ? { resume: builders.get(id)! } : {}) });
       builders.set(id, r.sessionId);
       let chk = await sceneCheck(job, id);
       if (!chk.pass && ctx.spent.usd < budget * 0.85) {
-        r = await session(ctx, { label: `build-${id}`, prompt: `film-tools scene-check ${id} fails:\n${chk.checks.filter((c) => !c.pass).map((c) => `- ${c.id}: ${c.detail}`).join("\n")}\nFix it.`, append: buildAppend, model: builderModel, maxUsd: perScene * 0.4, maxTurns: 60, scene: id, ...(r.sessionId ? { resume: r.sessionId } : {}) });
+        r = await session(ctx, { label: `build-${id}`, prompt: `film-tools scene-check ${id} fails:\n${chk.checks.filter((c) => !c.pass).map((c) => `- ${c.id}: ${c.detail}`).join("\n")}\nFix it.`, append: buildAppend, model: builderModel, maxUsd: perScene * 0.4, maxTurns: 30, scene: id, ...(r.sessionId ? { resume: r.sessionId } : {}) });
         chk = await sceneCheck(job, id);
       }
       return { id, pass: chk.pass, failed: chk.checks.filter((c) => !c.pass).map((c) => `${c.id}: ${c.detail}`) };
@@ -315,13 +318,14 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
         note += `\n\nChecks on the assembled film (FINDINGS.md) — FIX items are yours or a builder's, "look" items are for your eye:\n${c.text}`;
       }
       const prompt = round === 0
-        ? `Every scene is built and the film is rendered: picture.mp4 (silent).${rendered ? "" : `\nThe render failed:\n${errorsOf(r)}`}${note}\nNow finish it, following the finisher's part of your playbook: watch it whole and beside the reference, send back scenes that need their builder (REBUILD.json) or fix seams yourself, adjust the draft mix.json (code wrote it from your marks, the cuts and the builders' hit points) and mix, run film-tools gate, write REVIEW.md and save lessons. If you write REBUILD.json, stop there: the builders will run and you will see the film again.`
-        : `The builders reworked ${note}. The film is rendered again${rendered ? "" : ` — but the render failed:\n${errorsOf(r)}`}. Watch the changed scenes, then continue: mix, gate (until GATE PASSED), REVIEW.md, lessons. Write REBUILD.json again only if a scene is still wrong.`;
+        ? `Every scene is built and the film is rendered: picture.mp4 (silent).${rendered ? "" : `\nThe render failed:\n${errorsOf(r)}`}${note}\nNow finish it, following the finisher's part of your playbook: watch it whole and beside the reference, send back scenes that need their builder (REBUILD.json) or fix seams yourself, adjust the draft mix.json (code wrote it from your marks, the cuts and the builders' hit points) and mix, run film-tools gate, write REVIEW.md and save lessons. If you write REBUILD.json, stop there: the builders will run once (there is one rebuild round), and you will see the film again.`
+        : `The builders reworked ${note}. The film is rendered again${rendered ? "" : ` — but the render failed:\n${errorsOf(r)}`}. Watch the changed scenes, then continue: mix, gate (until GATE PASSED), REVIEW.md, lessons. No builder round is left: fix anything still wrong yourself.`;
       const rebuildF = path.join(job, "REBUILD.json");
       if (existsSync(rebuildF)) writeFileSync(rebuildF, "[]");
-      planner = await phase(`finish-${round + 1}`, () => session(ctx, { label: "finisher", prompt, append: `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`, model: o.model, maxUsd: finisherMax(), maxTurns: 200, ...(planner.sessionId ? { resume: planner.sessionId } : {}) }));
+      planner = await phase(`finish-${round + 1}`, () => session(ctx, { label: "finisher", prompt, append: `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`, model: o.model, maxUsd: finisherMax(), maxTurns: 90, ...(planner.sessionId ? { resume: planner.sessionId } : {}) }));
       const back = (() => { try { return (JSON.parse(readFileSync(rebuildF, "utf8")) as Array<{ id: string; why: string }>).filter((x) => plan.scenes.some((s) => s.id === x.id)); } catch { return []; } })();
-      if (back.length && round < 2 && ctx.spent.usd < budget - 1) {
+      // one rebuild round (agent Juicero: two rounds cost $4.67 of $14.43; most of what they fixed the scene check now catches)
+      if (back.length && round < 1 && ctx.spent.usd < budget - 1) {
         log(`  sent back: ${back.map((b) => b.id).join(", ")}`);
         const again = await phase(`rebuild-${round + 1}`, () => pool(back, o.parallel ?? 4, (b) => build(b.id, b.why)));
         note = `${back.map((b) => b.id).join(", ")}${again.some((a) => !a.pass) ? ` (not passing their check: ${again.filter((a) => !a.pass).map((a) => a.id).join(", ")})` : ""}.`;
@@ -347,7 +351,7 @@ export async function runFilmAgent(o: FilmAgentOptions): Promise<{ pass: boolean
       const weak = (fe.viewer && fe.viewer.verdict !== "pass") || (fe.referee && !fe.referee.pass) || tells.length > 0 || issues.length > 0;
       const finAppend = `${common}\n\n${skill(o.root, "film-planner")}\n\n${skill(o.root, "film-finisher")}\n\n${here}`;
       if (weak && ctx.spent.usd < budget - 0.5 && planner.sessionId) {
-        planner = await phase("finish-fresh", () => session(ctx, { label: "finisher", prompt: `Reviewers who made none of the film watched it:\n${fe.text}\nFix what is real (edit any scene yourself — no builder round is left), render, mix, and run film-tools gate until GATE PASSED. Write TELLS.md: every tell and issue above as a heading, under it what you changed or why it stays. Then update REVIEW.md and your lessons with what they saw that you did not.`, append: finAppend, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 120, resume: planner.sessionId! }));
+        planner = await phase("finish-fresh", () => session(ctx, { label: "finisher", prompt: `Reviewers who made none of the film watched it:\n${fe.text}\nFix what is real (edit any scene yourself — no builder round is left), render, mix, and run film-tools gate until GATE PASSED. Write TELLS.md: every tell and issue above as a heading, under it what you changed or why it stays. Then update REVIEW.md and your lessons with what they saw that you did not.`, append: finAppend, model: o.model, maxUsd: budget - ctx.spent.usd, maxTurns: 60, resume: planner.sessionId! }));
         const open = tellsAnswered(job, [...tells, ...issues]);
         if (open.length && ctx.spent.usd < budget - 0.4 && planner.sessionId) {
           log(`  ${open.length} tell(s) not answered in TELLS.md — one more turn`);

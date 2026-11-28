@@ -1,6 +1,6 @@
 // A scene builder's own check (code, no model): its scene is built, compiles, is not blank at its start, middle and
 // end, uses only its own media and credits all of it.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { readPlan, sceneWindow, STUB, FPS, mediaRefs } from "./plan.js";
@@ -56,6 +56,10 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
   const others = [...code.matchAll(/from\s+["']\.\/(s\d{2})["']|from\s+["']\.\.\/scenes\/(s\d{2})["']/g)].map((m) => m[1] ?? m[2]).filter((x) => x !== id);
   add("own_scene", others.length === 0, others.length ? `imports another scene (${others.join(", ")}) — share through src/world.tsx or your own folder src/scenes/${id}/` : "imports no other scene");
   const media = mediaRefs(code);
+  // a scene draws only what it brought in (v/<id>_…, img/<id>_…): another scene's file is the same picture twice — the
+  // finisher's first rebuild round on agent Juicero was mostly this (one clip drawn in four scenes)
+  const foreign = media.filter((m) => { const o = /^(?:v|img|a)\/(s\d{2})_/.exec(m)?.[1]; return o !== undefined && o !== id; });
+  add("own_media", foreign.length === 0, foreign.length ? `${foreign.join(", ")} belong to other scenes — the same picture twice reads as a repeat: bring in your own (another moment, another clip)` : "only its own media");
   const missing = media.filter((m) => !existsSync(path.join(job, "public", m)));
   add("media_exist", missing.length === 0, missing.length ? `missing in public/: ${missing.join(", ")}` : `${media.length} file(s) used`);
   const credited = sceneCredits(job);
@@ -120,6 +124,20 @@ export async function sceneCheck(job: string, id: string, o: { render?: boolean 
         for (const c of await footageChecks({ root, job, id, media, stills: files, sceneScore: scoreOfScene, code, words: sc.words ?? "", realClip, stretchLow: cfg.stretchLow, filmBar: cfg.filmBar })) add(c.id, c.pass, c.detail);
       }
     } catch { /* the referee is not built yet: not checked */ }
+  }
+  // score loops (agent Juicero: 80 scene checks, 46 s each, most of them a builder nudging brightness and contrast to
+  // lift the referee): when the footage itself scores under the bar, say so — a grade will not lift it; and after four
+  // failing checks where only the score-based checks fail, the scene goes on and the finisher sees its score
+  const SCORE = new Set(["referee", "best_footage", "footage_shows", "searched_enough"]);
+  const ref = checks.find((c) => c.id === "referee" && !c.pass);
+  const placed = Number(/placed footage ([\d.]+)/.exec(checks.find((c) => c.id === "best_footage")?.detail ?? "")?.[1] ?? NaN);
+  if (ref && Number.isFinite(placed) && placed < 4.57) ref.detail += ` — the footage itself scores ${placed.toFixed(2)}: no grade, crop or caption lifts it; choose other footage that shows the line (film-tools rank on your candidates, or a new search)`;
+  const failing = checks.filter((c) => !c.pass);
+  if (existsSync(path.join(job, "logs", `build-${id}.tools.jsonl`)) && failing.length) {
+    const f = path.join(job, "checks", `attempts-${id}.json`);
+    const n = jread<{ n: number }>(f, { n: 0 }).n + 1;
+    try { mkdirSync(path.dirname(f), { recursive: true }); writeFileSync(f, JSON.stringify({ n })); } catch { /* not counted */ }
+    if (n >= 4 && failing.every((c) => SCORE.has(c.id))) for (const c of failing) { c.pass = true; c.detail = `ACCEPTED after ${n} checks (the score did not move): ${c.detail} — the finisher sees this scene's score; stop tuning it`; }
   }
   return { pass: checks.every((c) => c.pass), checks };
 }

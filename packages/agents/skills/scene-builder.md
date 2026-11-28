@@ -72,7 +72,11 @@ code). You build one scene, to the plan, in the film's world, as well as the cha
    the images. For motion: `film-tools render` writes `scene_<id>.mp4`; `film-tools watch scene_<id>.mp4 …`.
    Fix what is wrong: wrong footage, a stranger for a named person, unreadable or crowded words, a dead frame, a
    frame too dark to see anything in (`too_dark` — dim the plate less or pick footage with a lit subject).
-7. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED`. It also checks what you did: that you
+7. **Check**: `film-tools scene-check <id>` must print `SCENE <id> PASSED` (each check takes about 45 s — fix
+   everything it names before running it again). The referee's score is decided by the footage: when it fails, change
+   the footage, never nudge brightness, contrast or zoom to lift it (agent Juicero: dozens of checks spent that way,
+   the score did not move). After four failing checks on the score alone it is ACCEPTED and the finisher sees it —
+   then stop. Use only your own media (`v/<id>_…`, `img/<id>_…`); another scene's file fails `own_media`. It also checks what you did: that you
    read your scene's rendered stills, and — when your scene names a person or company and shows none of their real
    material — that you searched for it (press, screenshot, commons) before using stock.
 8. **Write your hit points** in `notes/<id>.hits.json`: `[ { "t": 12.4, "what": "the stamp lands", "family": "thud" } ]`

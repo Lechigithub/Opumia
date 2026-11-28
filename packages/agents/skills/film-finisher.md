@@ -15,7 +15,7 @@ are its editor and supervisor: you watch it whole, judge it against the referenc
    one film — one world, one type, hand-overs that flow? Does each picture show its line?
 3. **Send back what needs its builder**: write `REBUILD.json` — `[ { "id": "s04", "why": "exactly what is wrong and
    what you want instead" } ]` — and stop; the builders rework those scenes at the same time and you see the film
-   again. Fix small things yourself (a seam, a timing, a word in your world.tsx) — you may edit any file.
+   again. There is one rebuild round: send back everything that needs a builder at once, then fix the rest yourself. Fix small things yourself (a seam, a timing, a word in your world.tsx) — you may edit any file.
 4. **Sound**: code has written a draft `mix.json` from your marks, the cuts and the builders' hit points (beds
    ranked by how like the channel they sound, past their quiet intros; hits at the channel's density; a riser into
    the first turn; a drop-out before the biggest line). Watch the film with `film-tools watch` (hits and spectrogram),
